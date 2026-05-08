@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
     }
 
     if (global_timeout_sec < 0) {
-        global_timeout_sec = trace ? 30 : 0;
+        global_timeout_sec = trace ? 45 : 0;
     }
 
     signal(SIGINT, handle_terminate_signal);

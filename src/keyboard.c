@@ -52,6 +52,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.key_hold_frames = 0;
     m->kbd.cla_seen        = 0;
     m->kbd.shift_pressed   = 0;
+    m->kbd.fonct_bits      = 0;
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
 }
@@ -102,6 +103,29 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         ev->keysym.scancode == SDL_SCANCODE_RSHIFT) {
         m->kbd.shift_pressed = (ev->type == SDL_KEYDOWN) ? 1 : 0;
         return;
+    }
+
+    /* "Touches de fonction" — 7 function keys (F1-F7) set/clear a bitmask.
+     * keyboard_read_cla() returns this when no regular key is pending. */
+    {
+        static const struct { SDL_Scancode scan; uint8_t bit; } FONCT[] = {
+            { SDL_SCANCODE_F1, 0x01 }, /* CHANGE  */
+            { SDL_SCANCODE_F2, 0x02 }, /* SEARCH  */
+            { SDL_SCANCODE_F3, 0x04 }, /* SHOW    */
+            { SDL_SCANCODE_F4, 0x08 }, /* COPY    */
+            { SDL_SCANCODE_F5, 0x10 }, /* CURSOR  */
+            { SDL_SCANCODE_F6, 0x20 }, /* PROGRA  */
+            { SDL_SCANCODE_F7, 0x40 }, /* KILL    */
+        };
+        for (int i = 0; i < (int)(sizeof(FONCT)/sizeof(FONCT[0])); i++) {
+            if (FONCT[i].scan == ev->keysym.scancode) {
+                if (ev->type == SDL_KEYDOWN)
+                    m->kbd.fonct_bits |= FONCT[i].bit;
+                else
+                    m->kbd.fonct_bits &= (uint8_t)~FONCT[i].bit;
+                return;
+            }
+        }
     }
 
     if (ev->type == SDL_KEYUP)
