@@ -83,13 +83,13 @@ void keyboard_frame_tick(struct Smaky6 *m)
     if (!m->cpu.iff1) return;  /* monitor mode: leave FIFO for CLA path */
     if (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-        if (wr == 0x4596u) {
+        if (m->bus[wr] != 0x80u) {   /* 0x80 = guard sentinel, buffer full */
             uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
             m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-            m->bus[0x4596u] = code & 0x7Fu;
-            wr = 0x4597u;
-            m->bus[0x457Cu] = 0x97u;
-            m->bus[0x457Du] = 0x45u;
+            m->bus[wr] = code & 0x7Fu;
+            wr++;
+            m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
+            m->bus[0x457Du] = (uint8_t)(wr >> 8);
         }
     }
 }
