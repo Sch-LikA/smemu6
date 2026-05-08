@@ -193,6 +193,8 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         m->kbd.found = 0;  /* consume the 'new event' latch */
         return m->kbd.key_code & 0x7Fu;   /* bit 7 = 0 → key present */
     }
+    if (m->kbd.fonct_bits)
+        return m->kbd.fonct_bits;  /* function key held: bitmask, bit 7=0 */
     return 0x80u;  /* bit 7 = 1 → no key */
 }
 
