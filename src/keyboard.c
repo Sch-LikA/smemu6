@@ -33,6 +33,9 @@ static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     /* SDL_SCANCODE_ESCAPE omitted: 0x1B is the Smaky 6 ä display code, not ESC.
      * The BREAK key generates NMI (PAUSE / F11 in main.c). */
     { SDL_SCANCODE_BACKSPACE, 0x08 },
+    { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
+    { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
+    { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
     { SDL_SCANCODE_PERIOD, 0x2E }, { SDL_SCANCODE_COMMA,  0x2C },
     { SDL_SCANCODE_MINUS,  0x2D }, { SDL_SCANCODE_EQUALS, 0x3D },
     { SDL_SCANCODE_SLASH,  0x2F }, { SDL_SCANCODE_SEMICOLON, 0x3A },
