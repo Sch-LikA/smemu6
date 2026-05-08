@@ -1,0 +1,532 @@
+# SYS.SY — Smaky 6 System File Analysis
+
+Reverse-engineered from `floppies/decoded/1 System 1H complet avec appli inconnue.img`
+and extracted to `/tmp/SYS.SY` via `tools/smaky6_samos.py`.
+
+Analysis date: 2026-05 (Phase 1J / Phase 1K / Phase 1S of emulator project).
+
+Runtime update: 2026-05-07 (Phase 1Q / Phase 1R) — full boot to CLI directory listing confirmed.
+
+Error-code update: 2026-05-07.
+
+---
+
+## Error Code Decode (ER.SY)
+
+The extracted image [floppies/extracted/1 Systeme_1HComplet](floppies/extracted/1%20Systeme_1HComplet) includes
+`ER.SY`, which stores the human-readable error table.
+
+### Encoding format
+
+Each message entry starts with one byte `0x80 | code`, followed by a zero-terminated
+French text string.
+
+Examples from `ER.SY`:
+- `0x9B` (`0x80 | 0x1B`) -> `erreur de lecture`
+- `0x8A` (`0x80 | 0x0A`) -> `fichier inexistant`
+
+### Confirmed runtime mapping
+
+- `ERROR 033` (octal) = `0x1B` -> **read error** (`erreur de lecture`)
+- `ERROR 012` (octal) = `0x0A` -> **file not found** (`fichier inexistant`)
+
+This confirms that `ERROR 033` is not cosmetic; it is a real I/O failure class,
+consistent with the post-relocation floppy read path analysis.
+
+### Drive naming reminder (Smaky conventions)
+
+- `DX0` = first floppy drive (boot drive)
+- `DX1` = second floppy drive
+
+This mapping is important when interpreting monitor/CLI commands such as `DX0:/S`
+and `DX1:/D`, and when correlating emulator drive-select bits with boot behavior.
+
+---
+
+## Overview
+
+`SYS.SY` is the primary system file on every bootable Smaky 6 floppy disk. It is
+located in the on-disk directory as a "SY"-type entry (special loader type). The
+Phantom ROM bootloader reads it from sectors 3–38 of track 0 and distributes its
+content into two separate RAM regions.
+
+| Property          | Value                                              |
+|-------------------|----------------------------------------------------|
+| File size         | 8960 bytes (0x2300)                                |
+| Sectors occupied  | 35 sectors × 256 bytes = 8960 bytes                |
+| Disk start        | Track 0, sector 3 (after 3 directory sectors)      |
+| Directory `load`  | 0x60C0 — sector/track encoding for SY-type files,  |
+|                   | **NOT** a RAM load address                         |
+| Directory `entry` | 0x5700 — likely the OS-loader stub entry, not the  |
+|                   | OS binary load address (see below)                 |
+
+---
+
+## Binary Layout
+
+```
+Offset 0x0000–0x07FF  (2048 bytes)  SYSMON monitor
+Offset 0x0800–0x22FF  (7168 bytes)  SAMOS OS proper
+```
+
+### Part 1 — SYSMON (0x0000–0x07FF)
+
+SYSMON is the Smaky 6 monitor / debugger. It has the same RST-table structure as
+the Phantom ROM but with different targets.
+
+After the Phantom ROM is bank-switched out (via `OUT(0x01),A=0`), the CPU
+can write to RAM at 0x0000–0x07FF. The OS-loader stub LDIRs the SYSMON section
+of SYS.SY to RAM 0x0000, installing it in place of the now-hidden Phantom ROM.
+
+**SYSMON RST table** (from SYS.SY bytes 0x0000–0x003F, confirmed from raw binary):
+
+| RST    | Raw bytes (6–7)              | Decoded                                          | Via pointer  |
+|--------|------------------------------|--------------------------------------------------|--------------|
+| RST 00 | `F3 31 30 45 C3 05 01`       | `DI; LD SP,0x4530; JP 0x0105`                   | —            |
+| RST 08 | `E5 2A 62 45 E3 C9`          | `PUSH HL; LD HL,(0x4562); EX (SP),HL; RET`      | `(0x4562)`   |
+| RST 10 | `E5 2A 64 45 E3 C9`          | `PUSH HL; LD HL,(0x4564); EX (SP),HL; RET`      | `(0x4564)`   |
+| RST 18 | `E5 2A 4C 45 E3 C9`          | `PUSH HL; LD HL,(0x454C); EX (SP),HL; RET`      | `(0x454C)`   |
+| RST 20 | `E5 2A 5C 45 E3 C9`          | `PUSH HL; LD HL,(0x455C); EX (SP),HL; RET`      | **`(0x455C)`** — **SAMOS syscall dispatcher** |
+| RST 28 | `E5 2A 68 45 E3 C9`          | `PUSH HL; LD HL,(0x4568); EX (SP),HL; RET`      | `(0x4568)`   |
+| RST 30 | `E5 2A 6A 45 E3 C9`          | `PUSH HL; LD HL,(0x456A); EX (SP),HL; RET`      | `(0x456A)`   |
+| RST 38 | `E5 2A 66 45 E3 C9`          | `PUSH HL; LD HL,(0x4566); EX (SP),HL; RET`      | `(0x4566)`   |
+
+**RST 20h = SAMOS syscall:** `(0x455C)` is initialized to `0x012D` (the syscall
+dispatcher) by SYSMON startup at `0x00D3`: `LD HL,0x012D; LD (0x455C),HL`.
+The dispatcher reads an **inline byte** immediately following the `E7` opcode from
+the caller's return address on the stack, uses it as a word-table index into the
+default table at `0x0F30`, and jumps to the handler. The inline byte is the syscall
+code. See `docs/CLI_SY_analysis.md` for a full annotated disassembly.
+
+SYSMON vectors at 0x0000–0x003F are all indirect calls through RAM pointers in the
+0x4530–0x456F workspace. This makes SYSMON dynamically reconfigurable.
+
+**SYSMON I/O ports used** (from SYS.SY bytes 0x0000–0x01FF):
+
+| Offset | Addr  | Instruction       | Notes                                           |
+|--------|-------|-------------------|-------------------------------------------------|
+| 0x0048 | 0x0048| `OUT (0x01),A`    | Phantom ROM bank-switch                         |
+| 0x00E3 | 0x00E3| `OUT (0x00),A`    | **Video mode init** (value 0x01 = alpha-only enable) |
+| 0x02BC | 0x02BC| `OUT (0x00),A`    | **Video mode set** (syscall tail — all mode changes) |
+| 0x0158 | 0x0158| `OUT (0x19),A`    | Floppy control                                  |
+
+#### SYSMON 1-H monitor strings and command decoder
+
+The extracted `SYS.SY` used by the current boot floppy is a **1-H** monitor build,
+not the earlier `1-0` variant.
+
+**Verified embedded strings in the SYSMON / early OS image:**
+
+| SYS.SY offset | String | Notes |
+|---------------|--------|-------|
+| 0x07EC | `MON 1-H` | Monitor version string inside the 0x0000–0x07FF SYSMON portion |
+| 0x07F4 | `HEXA` | Numeric-display mode label |
+| 0x0C1A | `LOAD` | Loader/serial input path string |
+| 0x0D72 | `OCTAL` | Alternate numeric-display mode label |
+| 0x0ACC | `SZ-H-VNC  A   B   C   D   E    DE     HL   IX ^SP IY ^(SP) I PC` | Register dump header |
+| 0x1094 | `SAMOS 1-H` | Matching OS-family banner |
+
+**Strings not present in this image:**
+- `MONITEUR 1-0`
+- `adresse de début`
+
+This strongly suggests the current floppy belongs to a later `1-H` system set and
+that the older French monitor prompts come from a different system revision.
+
+**Verified monitor entry/dispatch points** (from relocated disassembly `roms/syssy_ram_0000_22ff.asm`):
+
+| RAM addr | Role |
+|----------|------|
+| 0x0941 | Main monitor command-loop setup |
+| 0x0976 | Compare first command byte with `'O'` |
+| 0x097B | Compare first command byte with `'S'` |
+| 0x0991 | Compare with `'='` |
+| 0x0996 | Compare with `'P'` |
+| 0x099B | Compare with `'M'` |
+
+**Command behavior we can support from data flow:**
+- `'O'` toggles the numeric display base at `0x0BBA` by flipping bit 6 of workspace byte `0x454A`;
+  the monitor then prints either `OCTAL` (`0x0D72`) or `HEXA` (`0x07F4`).
+- Separate monitor documentation states that **`0x5600`** and **`0x4100`** are common starting
+  addresses for monitor work. `0x4100` is the screen-visible choice because it lies in the alpha
+  display RAM range (`0x4000–0x44FF`). This is consistent with the current `1-H` image, whose
+  `M` path contains a literal `LD DE,0x4100` at `0x0BAA`.
+- `'S'` jumps to `0x0A49`, loads `A=E`, then executes `CPIR` with `BC=0x0000`.
+  On success it stores the found address back to workspace `0x4544` and returns to the update path.
+  Strong evidence: **search memory for a byte value**.
+- `'P'` jumps to `0x0C90`, a formatted print/dump path that uses helper `0x0C71` and emits output
+  through the common `RST 20` character path.
+- `'M'` jumps to `0x0B9A`, rearranges parsed arguments, and performs `LDIR`.
+  Strong evidence: **move/copy a memory block**.
+- `LOAD` is associated with the routine at `0x0C28`, which consumes a byte stream via helpers
+  `0x0BDA`/`0x0BD3` and echoes bytes through port `0x03`, consistent with a serial or paper-tape
+  loader entry exposed by the monitor.
+
+The long register-label string at `0x0ACC` matches the register display path around
+`0x0AAD–0x0B44`, so SYSMON clearly retains a monitor/debugger role in this `1-H` image.
+
+### Part 2 — SAMOS OS (0x0800–0x22FF)
+
+The OS section loads at **RAM 0x0800** (not 0x5700). This was confirmed by
+analysing the JP targets in the first 128 bytes of the OS section: all absolute
+addresses land either in SYSMON range (0x0000–0x07FF) or OS range (0x0800–0x22FF),
+never in the gap between 0x2300 and 0x5700.
+
+**OS jump table** (at RAM 0x0800, SYS.SY file offset 0x0800):
+
+| RAM addr | JP target | Classification |
+|----------|-----------|----------------|
+| 0x0800   | 0x0941    | OS internal    |
+| 0x0803   | 0x094D    | OS internal    |
+| 0x0806   | 0x0A5F    | OS internal    |
+| 0x0809   | 0x011D    | SYSMON call    |
+| 0x080C   | 0x0941    | OS internal    |
+| 0x0818   | 0x0BDA    | OS internal    |
+| 0x081B   | 0x0095    | SYSMON call    |
+| 0x081E   | 0x0965    | OS internal    |
+| 0x0821   | 0x0BD3    | OS internal    |
+
+The OS makes direct CALL/JP into SYSMON (0x011D, 0x0095, etc.), so SYSMON must
+be present in RAM 0x0000–0x07FF before any OS code executes.
+
+---
+
+## I/O Ports Found in SYS.SY
+
+### SYSMON section (0x0000–0x07FF)
+
+| Port  | Dir | Address       | Description                                              |
+|-------|-----|---------------|----------------------------------------------------------|
+| 0x00  | W   | 0x00E3        | **Video mode control** — init write (alpha-only, value 0x01) |
+| 0x00  | W   | 0x02BC        | **Video mode control** — all runtime mode-switch writes  |
+| 0x01  | W   | 0x0048        | Phantom ROM bank-switch (write 0)                        |
+| 0x19  | W   | 0x0158        | Floppy control register                                  |
+
+### OS section (0x0800–0x22FF)
+
+| Port  | Dir | RAM addr | Description                                                           |
+|-------|-----|----------|-----------------------------------------------------------------------|
+| 0x00  | R   | 0x0960   | **Keyboard CLA** — reads current latched key code (bit 7=0 → key present) |
+| 0x00  | R   | 0x0983   | **Keyboard CLA** — second read in ISR debounce path (feeds circular buffer) |
+| 0x01  | R   | 0x097E   | **Keyboard status** — bit 2 = FOUND (re-checked after debounce wait)  |
+| 0x00  | W   | 0x09D8   | **Video mode control** — restore saved mode from workspace `(0x4549)` |
+| 0x00  | W   | 0x11D6   | **Video mode control** — restore shadow `(0x457F)` after ISR          |
+| 0x00  | W   | 0x192B   | **Video mode control** — hard reset / init, writes alpha (0x01)       |
+| 0x00  | W   | 0x1FD9   | **Video mode control** — display off, writes 0x00 (`XOR A`)           |
+
+> **Note:** port `0x00` READS (IN A,(0x00) / `keyboard_read_cla`) are the
+> keyboard CLA path and have nothing to do with video.  The keyboard FOUND
+> latch is set when a key is pressed and cleared when the key is **released**
+> (the encoder resets).  Reading port 0x00 does **not** clear FOUND — the CPU
+> can read CLA multiple times while the key is held and FOUND stays 1.
+> Port 0x00 writes are unrelated to FOUND; they are video-mode control only.
+| 0x03  | W   | 0x5B0F          | Buzzer/beep                                      |
+| 0x08  | R/W | 0x5D58–0x5DCA  | **SPI-style bit-serial** (see detail below)       |
+| 0x0B  | W   | 0x5ADB–0x5B37  | **Bit-serial shift clock** (see detail below)     |
+| 0x18  | W   | 0x7010–0x703F  | Floppy-related byte stream (bit7 ready; `IN F,(C)` poll) |
+| 0x19  | R/W | multiple        | Floppy control (same as ROM)                     |
+| 0x1A  | W   | 0x70A2          | Floppy CONT                                      |
+| 0x1C  | W   | 0x63C0, 0x6583, 0x6594 | Unknown — disk DMA or acknowledge         |
+| 0x2B  | W   | 0x6B8E, 0x6DAB  | Winchester reset/select                          |
+
+#### Port 0x08 — SPI-style bit-serial interface
+
+Protocol (disassembled from OS ~0x5D53–0x5D9A):
+
+```
+PUSH DE, PUSH BC, PUSH AF
+EX DE,HL
+XOR A
+OUT (0x08),A          ; reset (clock/data = 0)
+
+LD B, 4               ; transmit 4 bits
+LD C, 0x0F            ; C = mask for data nibble
+transmit_loop:
+  SET 2, A            ; bit 2 = MOSI (data out)
+  CB CF               ; SET 1, A  [clock bit setup]
+  RRA                 ; shift data bit from C into A via carry
+  CB 19               ; RR C      [advance source bit]
+  RLA                 ; shift into position
+  OUT (0x08), A       ; clock low, data valid
+  EX (SP),HL          ; delay (~19 cycles)
+  EX (SP),HL
+  CB DF               ; SET 3, A  ; bit 3 = CLK high
+  OUT (0x08), A       ; clock high (latch data)
+  EX (SP),HL          ; delay
+  EX (SP),HL
+  CB 9F               ; RES 3, A  ; clock low
+  DJNZ transmit_loop
+
+LD C, 7               ; 7 bytes of receive
+LD B, 8               ; 8 bits per byte
+receive_loop:
+  OUT (0x08), A
+  EX (SP),HL
+  EX (SP),HL
+  PUSH AF
+  IN A, (0x08)         ; read MISO on bit 0
+  RRA
+  CB 1E                ; RR (HL)  ; shift bit into memory
+  POP AF
+  CB DF                ; SET 3,A  ; clock high
+  OUT (0x08), A
+  EX (SP),HL
+  EX (SP),HL
+  CB 9F                ; RES 3,A  ; clock low
+  DJNZ receive_loop
+  INC HL
+  DEC C
+  JR NZ receive_loop
+XOR A
+OUT (0x08), A          ; deselect
+```
+
+**Bit assignments for port 0x08:**
+
+| Bit | Direction | Function       |
+|-----|-----------|----------------|
+| 0   | Input     | MISO (data in) |
+| 2   | Output    | MOSI (data out)|
+| 3   | Output    | SPI CLK        |
+
+Target peripheral is unknown; candidates: RTC chip, hardware configuration
+register, second keyboard controller, or display-mode latch.
+
+#### Port 0x0B — Bit-serial shift clock
+
+Protocol (disassembled from OS ~0x5ADA–0x5B10):
+
+```
+wait_loop:
+  CALL 0x0BD3         ; = RST 20h (E7), then bytes 0x14, 0x47, 0x83, 0x5F, 0x78 = LD B,A
+  OUT (0x0B), A       ; strobe: output one bit
+  LD A, B
+  CP 0x00
+  JR Z, wait_loop     ; loop until count reaches 0
+  DEC A
+  JR NZ, wait_loop
+```
+
+Used to transfer multi-byte values bit-serially. The subroutine at 0x0BD3 wraps
+each byte transmission; 8–12 consecutive calls per multi-byte message.
+Target peripheral: unknown serial device.
+
+#### Port 0x18 — Floppy-related byte stream
+
+Protocol (disassembled from OS ~0x7008–0x7040):
+
+```
+LD A, 0x28
+LD B, 0x28            ; 40 bytes to transfer
+LD C, 0x18            ; port number in C
+byte_ready:
+  IN F,(C)            ; test bit 7 of port 0x18 (sign flag)
+  JP P, byte_ready    ; loop while bit7 = 0 (not ready)
+  OUT (0x18), A       ; send data byte
+  DJNZ byte_ready     ; next byte
+```
+
+Identical ready-polling pattern to the Phantom ROM's `IN F,(C)` with C=0x1A.
+Almost certainly a second floppy data channel or a Winchester DMA port.
+
+---
+
+## Boot Flow After Phantom ROM
+
+### Normal boot path
+
+```
+Phantom ROM (0x0000–0x07FF, ROM)
+  │
+  ├─ boot_main (0x003B): keyboard probe → drive-control byte stored at (0x4500)
+  ├─ floppy_seek_sys (0x016E): OUT(0x19) seek; poll bit6 until settled → NC
+  ├─ boot_menu_setup (0x0090):
+  │    ├─ LDIR 12 bytes from ROM[0x0137] → RAM 0x57C0  (the handoff stub)
+  │    └─ call block_copy (RST 20h / 0x01EE)
+  └─ block_copy (0x01EE):
+       ├─ setup_sector (0x021D): OUT(0x19) motor-on; poll bit5 until track-0 found
+       ├─ Patch (0x450B) ← 0x0210  (motor-stop stub)
+       ├─ Patch (0x450F) ← 0x025A  (floppy_stream_read)
+       ├─ OUT(0x19, ctrl+0x0C) → motor on, sector-INT enable
+       ├─ EI; JR $-2  ← spin; each sector-hole asserts maskable INT
+       │    INT → Z80 IM 0 → bus value 0xCF → RST 08h (0x0007)
+       │    RST 08h → indirect via (0x450F) → floppy_stream_read (0x025A)
+       │    floppy_stream_read reads one sector (sync+ID+256 bytes+checksum)
+       │    Loads: directory (track 0, holes 0–2) then SYS.SY (holes 3–37)
+       │           then CLI.SY and other files as needed
+       └─ When all sectors done: (0x450F) ← 0x0300 (motor-off + return)
+            next INT → 0x0300 → OUT(0x19,0); RET → block_copy returns
+
+floppy_boot (0x00FA):
+  └─ Scan directory for "SYS     SY"; push entry address (IX+19/20); RET
+       → jumps into SYS.SY entry point in RAM
+
+SYS.SY entry (in RAM ~0x5700 area):
+  └─ RST 30h → JP (0x57C0) → 12-byte handoff stub at RAM 0x57C0:
+       ├─ DI
+       ├─ XOR A; OUT(0x01),A  → bank-switch Phantom ROM OUT
+       │    (RAM 0x0000–0x07FF is now writable)
+       ├─ LD DE,0x0000; LDIR  → copy SYS.SY[0x0000–0x07FF] to RAM 0x0000
+       │    (installs SYSMON, permanently replacing the hidden Phantom ROM)
+       └─ JP 0x0000  → SYSMON now running from RAM
+
+SYSMON (RAM 0x0000–0x07FF) + SAMOS OS (RAM 0x0800–0x22FF):
+  ├─ SYSMON RST 00 at 0x0000 → DI; LD SP,0x4530; JP 0x0105
+  └─ OS jump table at 0x0800 → dispatch to 0x0941, 0x094D, ...
+```
+
+### NMI / user BREAK path (NOT part of normal boot)
+
+```
+nmi_handler (0x0066)  — triggered by BREAK key only:
+  ├─ OR A; CALL 0x0210 → stop motor
+  ├─ CALL kbd_wait (0x00FD) → wait for keypress
+  ├─ JP Z, 0x046D → if key=0 (Enter): PDP-11 paper-tape loader via USART
+  └─ key≠0: LDIR 0xB300 bytes from ROM[0x04C2] → RAM 0x5500; JP 0x5500
+       The stub at 0x5500 is an INFINITE DIAGNOSTIC POST LOOP:
+         set SP; beep; clear screen; draw logo; RAM test × 4 banks; JR 0x5500
+       It does NOT load SYS.SY and NEVER returns.
+```
+
+---
+
+## Video Mode (Phase 1S — confirmed)
+
+**I/O port `0x00` is the Smaky 6 video mode control register.** This was
+confirmed by tracing the `MODE` CLI command through SAMOS OS syscalls 0x11/0x12/0x13
+back to `OUT (0x00),A` at RAM `0x02BC`.
+
+### Shadow register
+
+`(0x457F)` is a RAM shadow of port 0x00. Every write to the hardware is
+immediately mirrored there. All mode-state queries should read `(0x457F)`.
+
+### SYSMON initialization
+
+```asm
+00e1  LD A,0x01
+00e3  OUT (0x00),A        ; alpha-only, display enabled
+00e5  LD (0x457F),A       ; update shadow
+```
+
+### Port 0x00 bit encoding
+
+| Bit | Mask | Meaning                                    |
+|-----|------|--------------------------------------------|
+|  0  | 0x01 | Display enable (always 1 during operation) |
+|  1  | 0x02 | Small-points mode ('P' flag)               |
+|  2  | 0x04 | Graphics layer active                      |
+|  3  | 0x08 | Graphics-only (suppress alpha layer)       |
+
+### MODE command → syscall → port value
+
+| CLI command | SAMOS syscall | Handler  | Port 0x00 value |
+|-------------|---------------|----------|------------------|
+| `MODE A`    | `RST 20h/0x11`| `0x02DE` | `0x01` — alpha only |
+| `MODE G`    | `RST 20h/0x12`| `0x02E6` | `0x0D` — graphics only (0x01\|0x04\|0x08) |
+| `MODE G P`  | `RST 20h/0x12`| `0x02E6` | `0x0F` — graphics + small points |
+| `MODE 2`    | `RST 20h/0x13`| `0x02EE` | `0x05` — both layers (0x01\|0x04) |
+| `MODE 2 P`  | `RST 20h/0x13`| `0x02EE` | `0x07` — both + small points |
+
+The carry flag into the syscall encodes the 'P' sub-argument (set by CLI.SY
+if the user typed `G P` or `2 P`).
+
+### Common syscall tail (all three mode syscalls)
+
+```asm
+02b9  LD (0x457F),A       ; update shadow
+02bc  OUT (0x00),A        ; write to video mode hardware
+02be  POP AF
+02bf  RET
+```
+
+### Correction: OUT(0x06) false positives
+
+An earlier naive byte scan of SYS.SY reported `OUT (0x06),A` at RAM
+`0x0613` and `0x065B`. These were **false positives**: the byte `0xD3` (the `OUT`
+opcode) appeared as the low byte of the targets in `JP 0x06D3` and
+`CALL 0x06D3` instructions. Port 0x06 is **not** a video mode register.
+
+See `docs/CLI_SY_analysis.md` for the full MODE handler disassembly and
+RST 20h dispatcher annotated listing.
+
+---
+
+## Open Questions
+
+1. What chip does port 0x08 communicate with? Candidates: RTC (MSM5832?),
+   display controller init register, or external latch.
+2. What does port 0x0B address? A second serial port? Keyboard controller?
+3. What is port 0x1C? (3 uses in OS near 0x63C0, 0x6583, 0x6594 — possible
+   disk DMA acknowledge or printer strobe.)
+4. What is `entry=0x5700` in the SYS.SY directory entry? The OS-loader stub
+   occupies 0x5500 and extends to ~0x583E. 0x5700 is mid-stub. This may be
+   the jump target written into a vector table by the stub.
+5. ~~Does SYSMON install itself at 0x0000 during the normal boot?~~ **Resolved:**
+   SYSMON installs at 0x0000 during the normal boot path. The 12-byte handoff stub
+   at RAM 0x57C0 (LDIR'd from ROM 0x0137 by boot_menu_setup) does `OUT(0x01),0`
+   then `LDIR` from SYS.SY into RAM 0x0000 before `JP 0x0000`. This happens
+   unconditionally on every normal boot, before any OS code executes.
+6. ~~What does RST 20h dispatch to, and which vector pointer does it use?~~ **Resolved (Phase 1S):**
+   RST 20h uses `(0x455C)` (initialized to `0x012D`, the syscall dispatcher). The
+   dispatcher reads an inline byte from the caller's instruction stream (the byte
+   immediately after the `E7` opcode), uses it as a word-table index into the table
+   at `0x0F30`, and dispatches to the handler. See `docs/CLI_SY_analysis.md`.
+7. ~~What I/O port controls the video display mode?~~ **Resolved (Phase 1S):**
+   **Port `0x00`** — written by the common tail of SAMOS mode-switch syscalls
+   (0x11/0x12/0x13) at `OUT (0x00),A` (RAM `0x02BC`). Bit encoding: bit 0 =
+   display enable, bit 1 = small-points, bit 2 = graphics layer, bit 3 =
+   graphics-only. RAM `(0x457F)` is the shadow. See `docs/CLI_SY_analysis.md`.
+
+---
+
+## Current Runtime Status (Phase 1Q / Phase 1R — 2026-05-07)
+
+### Full boot confirmed
+
+The emulator boots completely from `floppies/1 Systeme_1HComplet.dsk` to the CLI
+directory listing. All files visible: SYS.SY, CLI.SY, ER.SY, FLO.ST, SMILE.SM,
+CCOPY.SM, etc.
+
+Minimal reproducible boot command:
+```
+SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
+  ./build/smaky6emu -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot -timeout 35
+```
+
+### Root cause of former ERROR 033 — two FDC bugs fixed in `src/floppy.c`
+
+**Bug 1 — `floppy_read_data` byte_pos=1 (sector ID byte)**
+
+The Micropolis sector header byte stream is: sync (0x00) → **track number** → 256
+data bytes → checksum. The OS at PC `0x20C2` executes `CP (HL)` comparing the
+byte_pos=1 header byte against the expected-track variable at `(0x2B8B)`. The old
+emulator returned the sector index here instead of the physical track number, so
+the comparison always failed on any track > 0 (CLI.SY on tracks 2–3), causing the
+retry counter to exhaust and raising error `0x1B` (`erreur de lecture`).
+
+Fix: `floppy_read_data` post-ROM path at byte_pos=1 now returns `m->fdc.track[0]`.
+
+**Bug 2 — `floppy_write_cont` post-ROM stepping protocol**
+
+The Phantom ROM step protocol (bit 2 edge-triggered on port 0x19 write) was being
+applied to post-ROM code. SYS.SY sub `0x2187` writes port `0x1A` once per step;
+the old code never moved the head. The step direction was also derived from the
+write value's bit 4 (drive-select bit in the ROM protocol, not in SYS.SY), which
+picked the wrong drive during stepping.
+
+Fix: post-ROM path steps once per `floppy_write_cont` call; head direction is
+derived by comparing `m->fdc.track[0]` against the target stored in workspace
+variable `(0x2B8B)` (single-sided) or `(0x2B8C)` (double-sided, bit 6 of
+`(0x2B88)` selects which). Drive is always 0 (floppy A).
+
+### Key workspace addresses (SYS.SY FDC protocol)
+
+| Address | Role |
+|---------|------|
+| `0x2B88` | Drive control base value; bit 6 selects track variable (`0x2B8B` or `0x2B8C`) |
+| `0x2B8B` | Expected/current track for drive A, head 0 |
+| `0x2B8C` | Expected/current track for drive A, head 1 (double-sided) |
+| `0x2B92` | Target track for next seek |
+| `0x2BA3` | Sector table base — 16 entries × 2 bytes, entry[hole] = RAM destination |
+| `0x4554` | Current error code |

@@ -1,0 +1,9 @@
+build/
+tmp/
+*.o
+*.d
+floppies/decoded/
+floppies/extracted/
+__pycache__/
+.venv/
+*.pyc

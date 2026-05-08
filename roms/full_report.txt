@@ -1,0 +1,57 @@
+=== Smaky 6 ROM Extraction Report ===
+Source : /tmp/smaky6.txt
+Range  : 000000–063513  (0x0000–0x674B)
+Size   : 26444 bytes (25 KB)
+Covered: 48/26444 bytes (0.2%)
+Output : full.rom
+
+Parse  : Parsed: 7 strict, 29 OCR-corrected, 35085 skipped lines
+
+Gaps (32 regions):
+  000002–000014  (0x0002–0x000C, 11 bytes)
+  000017–000116  (0x000F–0x004E, 64 bytes)
+  000120–000504  (0x0050–0x0144, 245 bytes)
+  000507–001001  (0x0147–0x0201, 187 bytes)
+  001003–001101  (0x0203–0x0241, 63 bytes)
+  001103–001104  (0x0243–0x0244, 2 bytes)
+  001107–001207  (0x0247–0x0287, 65 bytes)
+  001211–001251  (0x0289–0x02A9, 33 bytes)
+  001253–001504  (0x02AB–0x0344, 154 bytes)
+  001507–001517  (0x0347–0x034F, 9 bytes)
+  001523–001547  (0x0353–0x0367, 21 bytes)
+  001552–002217  (0x036A–0x048F, 294 bytes)
+  002221–003366  (0x0491–0x06F6, 614 bytes)
+  003370–003467  (0x06F8–0x0737, 64 bytes)
+  003471–004114  (0x0739–0x084C, 276 bytes)
+  004116–004267  (0x084E–0x08B7, 106 bytes)
+  004271–005011  (0x08B9–0x0A09, 337 bytes)
+  005013–005047  (0x0A0B–0x0A27, 29 bytes)
+  005051–005054  (0x0A29–0x0A2C, 4 bytes)
+  005056–005070  (0x0A2E–0x0A38, 11 bytes)
+  005074–005104  (0x0A3C–0x0A44, 9 bytes)
+  005110–005117  (0x0A48–0x0A4F, 8 bytes)
+  005121–005123  (0x0A51–0x0A53, 3 bytes)
+  005126–005477  (0x0A56–0x0B3F, 234 bytes)
+  005501–005504  (0x0B41–0x0B44, 4 bytes)
+  005510–005547  (0x0B48–0x0B67, 32 bytes)
+  005551–007212  (0x0B69–0x0E8A, 802 bytes)
+  007214–007305  (0x0E8C–0x0EC5, 58 bytes)
+  007307–021177  (0x0EC7–0x227F, 5049 bytes)
+  021201–040205  (0x2281–0x4085, 7685 bytes)
+  040207–052776  (0x4087–0x55FE, 5496 bytes)
+  053000–063512  (0x5600–0x674A, 4427 bytes)
+
+Backwards address jumps (OCR address corruption): 12
+  Line  15310: Address went backwards: 052777 -> 000505
+  Line  16194: Address went backwards: 021200 -> 001520
+  Line  16290: Address went backwards: 001551 -> 001505
+  Line  16578: Address went backwards: 001506 -> 000015
+  Line  16857: Address went backwards: 000016 -> 000000
+  Line  17624: Address went backwards: 005550 -> 003367
+  Line  17745: Address went backwards: 063513 -> 005012
+  Line  18154: Address went backwards: 005125 -> 005124
+  Line  18188: Address went backwards: 005124 -> 005105
+  Line  18193: Address went backwards: 005107 -> 004115
+  Line  19978: Address went backwards: 007306 -> 007213
+  Line  48868: Address went backwards: 040206 -> 000117
+

@@ -1,0 +1,26 @@
+=== Smaky 6 ROM Extraction Report ===
+Source : /tmp/smaky6.txt
+Range  : 010000–017777  (0x1000–0x1FFF)
+Size   : 4096 bytes (4 KB)
+Covered: 0/4096 bytes (0.0%)
+Output : samos.rom
+
+Parse  : Parsed: 7 strict, 29 OCR-corrected, 35085 skipped lines
+
+Gaps (1 regions):
+  010000–017777  (0x1000–0x1FFF, 4096 bytes)
+
+Backwards address jumps (OCR address corruption): 12
+  Line  15310: Address went backwards: 052777 -> 000505
+  Line  16194: Address went backwards: 021200 -> 001520
+  Line  16290: Address went backwards: 001551 -> 001505
+  Line  16578: Address went backwards: 001506 -> 000015
+  Line  16857: Address went backwards: 000016 -> 000000
+  Line  17624: Address went backwards: 005550 -> 003367
+  Line  17745: Address went backwards: 063513 -> 005012
+  Line  18154: Address went backwards: 005125 -> 005124
+  Line  18188: Address went backwards: 005124 -> 005105
+  Line  18193: Address went backwards: 005107 -> 004115
+  Line  19978: Address went backwards: 007306 -> 007213
+  Line  48868: Address went backwards: 040206 -> 000117
+

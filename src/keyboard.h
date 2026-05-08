@@ -1,0 +1,37 @@
+/* keyboard.h – Smaky 6 keyboard controller */
+#ifndef KEYBOARD_H
+#define KEYBOARD_H
+
+#include <stdint.h>
+#include <SDL2/SDL.h>
+
+struct Smaky6;
+
+void keyboard_init(struct Smaky6 *m);
+void keyboard_fini(struct Smaky6 *m);
+
+/* Feed an SDL key event (keydown / keyup) into the keyboard model */
+void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
+
+/* Call once per 50 Hz frame: decrements the post-KEYUP hold countdown */
+void keyboard_frame_tick(struct Smaky6 *m);
+
+/*
+ * Port 0x00 (CLA) read:
+ *   bits[6:0] = keyboard code  (0 if no key pressed)
+ *   bit 7     = NOT-FOUND      (1 = no key / function key)
+ *   Reading clears the FOUND flip-flop.
+ */
+uint8_t keyboard_read_cla(struct Smaky6 *m);
+
+/* Query the raw FOUND state (for INT polling if needed) */
+int keyboard_found(struct Smaky6 *m);
+
+/*
+ * Detect if SHIFT + BREAK (Escape) is being pressed.
+ * Returns 1 if SHIFT + ESCAPE is active, 0 otherwise.
+ * Used for special boot path: SHIFT+BREAK → monitor mode.
+ */
+int keyboard_shift_break_pressed(struct Smaky6 *m);
+
+#endif /* KEYBOARD_H */

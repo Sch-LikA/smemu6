@@ -1,0 +1,383 @@
+# Smaky 6 Emulator — TODO / Known Gaps
+
+Items are grouped by subsystem.  Entries marked **[confirmed]** have been verified
+against disassembly or hardware documentation.
+
+---
+
+## UI / Display
+
+### Period-correct green-phosphor look
+
+The real Smaky 6 used a green-phosphor monochrome CRT.  The SDL renderer currently
+draws white-on-black pixels.  Apply a green tint (e.g. map lit pixels to `#33FF33`
+or a warm P31 phosphor colour) and dim the background slightly for an authentic look.
+
+### Correct pixel aspect ratio
+
+The real CRT had non-square pixels.  The graphic plane is 512 × 240 logical pixels
+but each scan line is approximately 4× taller than a pixel is wide on the original
+display.  The emulator should output with the correct aspect ratio rather than
+square pixels.  Target: scale to 512 × 960 (4× vertical) or a proportional window
+size, with a scanline option for CRT feel.
+
+### Integer scaling option
+
+Provide a command-line flag (e.g. `-scale N`) and/or a runtime toggle to force
+integer scaling so pixels are never fractionally sized.  At 1×, 2×, 3× etc. the
+image should be centred with black borders rather than stretched.
+
+### Live floppy track/sector visualisation
+
+Show a small heads-up overlay (or side panel) indicating, for each mounted drive:
+- Current track number
+- Current sector within the track
+- Motor on/off state
+- Read/write activity indicator (flashes on each sector transfer)
+
+The data is already available from `m->fdc` fields.  This helps diagnose disk-access
+behaviour and is faithful to the LED indicators on the real Micropolis drive.
+
+---
+
+## Keyboard
+
+### Auto-repeat (SAMOS ≥ 1.3)  [confirmed]
+
+SAMOS ISR Stage 4 (`0x01DF–0x0206`) implements hardware-accurate key auto-repeat.
+
+The two RAM locations controlling it:
+
+| Address  | Octal    | Role |
+|----------|----------|------|
+| `0x4558` | `042530` | Initial-delay countdown. Set to `0x23` (35 frames = **700 ms**) on first keypress; decremented each frame; when it hits zero, reloaded to `3` (3 frames = **60 ms**) for the fast-repeat rate. |
+| `0x4577` | `042567` | Repeat key code register. Stores the last key written to the circular buffer; re-injected each time the countdown fires. |
+
+**Current status:** Physical keyboard uses a FIFO→circular-buffer path that bypasses
+the SAMOS ISR entirely (because ISR Stage 2 is permanently blocked by the `0x4582=0x80`
+sentinel once SAMOS is running).  SDL key-repeat events are filtered out
+(`if (ev->repeat) return`), so **holding a key produces exactly one character**.
+
+**To implement:** In `keyboard_frame_tick()`, after draining one key from the FIFO into
+the circular buffer, also set `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`.
+The SAMOS ISR will then handle the actual repeat injection autonomously on subsequent
+frames, using the same timing as the real hardware.
+
+Alternatively: track the held key and countdown in `struct kbd` and inject repeats
+directly from `keyboard_frame_tick()`, bypassing the ISR.  The first approach is
+cleaner because it lets SAMOS control the rate.
+
+See [docs/dev/keyboard_analysis.md](docs/dev/keyboard_analysis.md) for the full Stage 4 disassembly.
+
+### Special / function keys  [codes confirmed from doc p.213]
+
+The Smaky 6 keyboard has two categories of extra keys beyond the ASCII set.
+
+**Category 1 — 7 "touches de fonction" (bitmask, read via GETFON)**
+
+These 7 keys are NOT sent through the key FIFO.  When no regular key is pressed
+(FOUND=0), the CLA port returns a 7-bit bitmask where each bit represents one
+function key held down.  The SAMOS `?GETFON` / `GETFON` system calls read this
+bitmask.  Codes confirmed from doc section 10.4, page 213 (octal):
+
+| Key     | Octal  | Hex    | Bit |
+|---------|--------|--------|-----|
+| CHANGE  | `001`  | `0x01` | 0   |
+| SEARCH  | `002`  | `0x02` | 1   |
+| SHOW    | `004`  | `0x04` | 2   |
+| COPY    | `010`  | `0x08` | 3   |
+| CURSOR  | `020`  | `0x10` | 4   |
+| PROGRA  | `040`  | `0x20` | 5   |
+| KILL    | `100`  | `0x40` | 6   |
+
+To implement: add a `uint8_t fonct_bits` field to `struct kbd`; set/clear the
+appropriate bit on SDL key down/up; return `fonct_bits` (with bit 7 clear = FOUND=0)
+from `keyboard_read_cla()` when no regular key is pending.  The existing `0x80`
+no-key sentinel already occupies the FOUND=1 / no-key case — the FOUND=0 path just
+needs to return `fonct_bits` instead of `0x80`.
+
+Suggested SDL mapping (F-keys not otherwise used):
+
+| Key     | SDL scancode        |
+|---------|---------------------|
+| CHANGE  | `SDL_SCANCODE_F1`   |
+| SEARCH  | `SDL_SCANCODE_F2`   |
+| SHOW    | `SDL_SCANCODE_F3`   |
+| COPY    | `SDL_SCANCODE_F4`   |
+| CURSOR  | `SDL_SCANCODE_F5`   |
+| PROGRA  | `SDL_SCANCODE_F6`   |
+| KILL    | `SDL_SCANCODE_F7`   |
+
+**Category 2 — regular FIFO keys with special codes**
+
+These keys send a code through the normal FIFO path (same as letters/digits).
+Codes confirmed from doc section 10.4, page 213 (octal):
+
+| Key      | Octal  | Hex    | Glyph | Note                        |
+|----------|--------|--------|-------|-----------------------------|
+| MACRO    | `036`  | `0x1E` | `«`   | French opening guillemet    |
+| DEF(INE) | `037`  | `0x1F` | `»`   | French closing guillemet    |
+
+To implement: add these two entries to `KEY_TABLE[]` in `keyboard.c`:
+```c
+{ SDL_SCANCODE_F8,  0x1E },   /* MACRO  → «  */
+{ SDL_SCANCODE_F9,  0x1F },   /* DEFINE → »  */
+```
+
+**REP / FNCT** shows code `0` in the doc — this is the hardware repeat / function
+modifier key.  It generates no independent code; skip for now.
+
+### Swiss-French accented characters and "Mise en page" codes  [confirmed from doc p.214/p.215]
+
+**"Mise en page" (formatting) control codes** — doc section 10.4, page 215:
+
+These codes are in the standard ASCII C0 range and behave as formatting / color-select
+controls for the display and printer.  `0x0E` and `0x0F` are dual-purpose: they act
+as color-switch codes in a formatting context, but the chargen ROM also maps `0x0F`
+to the ü glyph when used as a display character (see table below).
+
+| Oct | Hex    | Name  | Meaning                          |
+|-----|--------|-------|----------------------------------|
+| 000 | `0x00` | NUL   | null (also listed under "Special") |
+| 007 | `0x07` | BEL   | bell — triggers the speaker (also "Special") |
+| 011 | `0x09` | TAB   | horizontal tab                   |
+| 012 | `0x0A` | LF    | line feed                        |
+| 013 | `0x0B` | VT    | vertical tab                     |
+| 014 | `0x0C` | FF    | form feed                        |
+| 015 | `0x0D` | CR    | carriage return                  |
+| 016 | `0x0E` | Red   | switch to red ink/color          |
+| 017 | `0x0F` | Black | switch to black ink / also ü glyph |
+| 033 | `0x1B` | ESC   | escape (printer/serial control prefix — also "Special"; chargen *displays* this as ä) |
+
+**"Communication Requests"** — serial/data-link control codes (doc p.215).
+Left column listed in hex, right column in octal.
+Glyph shapes read directly from `roms/chargen.rom` (stride 16 bytes/char, 8 rows used):
+
+| Oct | Hex    | Name | Standard meaning       | Chargen glyph (from ROM)          |
+|-----|--------|------|------------------------|-----------------------------------|
+| 001 | `0x01` | SOH  | Start of heading       | empty rectangle (box outline)     |
+| 002 | `0x02` | STX  | Start of text          | box with small mark above it      |
+| 003 | `0x03` | ETX  | End of text            | decorative cross / diamond        |
+| 004 | `0x04` | EOT  | End of transmission    | `<` left-pointing chevron         |
+| 005 | `0x05` | ENQ  | Enquiry                | `>` right-pointing chevron        |
+| 006 | `0x06` | ACK  | Acknowledge            | letter `A` shape                  |
+| 025 | `0x15` | NAK  | Negative acknowledge   | ê                                 |
+| 026 | `0x16` | SYN  | Synchronous idle       | ï                                 |
+| 027 | `0x17` | ETB  | End transmission block | î                                 |
+| 030 | `0x18` | CAN  | Cancel                 | ô                                 |
+| 031 | `0x19` | EM   | End of medium          | ù                                 |
+| 032 | `0x1A` | SUB  | Substitute             | û                                 |
+
+Also confirmed from ROM:
+
+| Oct  | Hex    | Chargen glyph                                              |
+|------|--------|------------------------------------------------------------|
+| 0136 | `0x5E` | `^` circumflex accent (top 3 rows of A, no bar/legs)       |
+| 0177 | `0x7F` | solid filled block ▓ (7 rows of `0x7E`)                    |
+
+
+
+| Oct | Hex    | Name | Chargen glyph (same byte, display context) |
+|-----|--------|------|--------------------------------------------|
+| 034 | `0x1C` | FS   | ö                                          |
+| 035 | `0x1D` | GS   | ç                                          |
+| 036 | `0x1E` | RS   | « (= MACRO key code)                       |
+| 037 | `0x1F` | US   | » (= DEFINE key code)                      |
+
+**"DC" paper-tape reader/punch controls** — doc p.215, codes in **octal**:
+
+| Oct | Hex    | Name | Meaning              | Chargen glyph |
+|-----|--------|------|----------------------|---------------|
+| 021 | `0x11` | DC1  | Reader on            | â             |
+| 022 | `0x12` | DC2  | Aux on               | é             |
+| 023 | `0x13` | DC3  | Reader off           | è             |
+| 024 | `0x14` | DC4  | Aux off              | ë             |
+
+**Summary of dual-use principle:** the entire range `0x0F–0x1F` (and a few others such
+as `0x00`, `0x07`, `0x08`, `0x09–0x0D`) carries two meanings depending on context:
+as a **control/format code** when interpreted by the OS, printer driver, or serial
+handler; and as a **Swiss-French display glyph** when rendered by the chargen ROM.
+The emulator must honour both: pass the raw byte to the chargen for display, and
+let the OS/SAMOS handle the control semantics.
+
+**"Correction" codes** — doc section 10.4, page 215:
+
+| Oct | Hex    | Name | Meaning                                              |
+|-----|--------|------|------------------------------------------------------|
+| 010 | `0x08` | BS   | backspace — already mapped (`SDL_SCANCODE_BACKSPACE`) |
+| 177 | `0x7F` | DEL  | delete-forward — not yet mapped; also the filled-block glyph in chargen |
+
+To implement: add `{ SDL_SCANCODE_DELETE, 0x7F }` to `KEY_TABLE[]`.
+
+Note on `0x1B` dual use: when written to the display it renders the ä glyph (Prom
+2716 chargen mapping); when sent to the printer or serial port it acts as an escape
+sequence prefix.  This is why `SDL_SCANCODE_ESCAPE` must **not** be mapped to `0x1B`
+— the keyboard has no ESC key; the UNDO key generates NMI instead.
+
+**Chargen glyph block `0x0F–0x1F`** — the keyboard EPROM (Prom 2716) maps this range
+to Swiss-French glyphs instead of the standard ASCII C0 control codes.  The full
+mapping (octal → hex → character), confirmed from doc section 10.4, page 214:
+
+| Oct | Hex    | Char | | Oct | Hex    | Char |
+|-----|--------|------|-|-----|--------|------|
+| 017 | `0x0F` | ü    | | 030 | `0x18` | ô    |
+| 020 | `0x10` | à    | | 031 | `0x19` | ù    |
+| 021 | `0x11` | â    | | 032 | `0x1A` | û    |
+| 022 | `0x12` | é    | | 033 | `0x1B` | ä ← (not ESC!) |
+| 023 | `0x13` | è    | | 034 | `0x1C` | ö    |
+| 024 | `0x14` | ë    | | 035 | `0x1D` | ç    |
+| 025 | `0x15` | ê    | | 036 | `0x1E` | «    |
+| 026 | `0x16` | ï    | | 037 | `0x1F` | »    |
+| 027 | `0x17` | î    | | | | |
+
+Additional remaps outside the standard ASCII printable range (same page):
+
+| Oct | Hex    | Char | Note                        |
+|-----|--------|------|-----------------------------|
+| 043 | `0x23` | `#`  | same as ASCII               |
+| 133 | `0x5B` | `[`  | same as ASCII               |
+| 134 | `0x5C` | `\`  | same as ASCII               |
+| 135 | `0x5D` | `]`  | same as ASCII               |
+| 136 | `0x5E` | `^`  | circumflex accent (confirmed from ROM)    |
+| 137 | `0x5F` | `_`  | underscore (shown as `–`)   |
+| 140 | `0x60` | `` ` `` | backtick                |
+| 173 | `0x7B` | `{`  | same as ASCII               |
+| 174 | `0x7C` | `\|` | same as ASCII               |
+| 175 | `0x7D` | `}`  | same as ASCII               |
+| 176 | `0x7E` | `~`  | same as ASCII               |
+| 177 | `0x7F` | ▓   | solid filled block (confirmed from ROM)  |
+
+**Note on character generator variants (doc p.214):** The table on that page compares
+four ROM variants: Prom 2716, Versatec, Motorola 6571, and 74S262.  The Versatec
+mapping is very close to the Prom 2716 (only minor differences in the upper range).
+The Motorola 6571 and 74S262 are substantially different — do not use them as a
+reference for the emulator.  The `roms/chargen.rom` image should correspond to the
+Prom 2716 layout documented above.
+
+**SDL mapping for accented keys:** On a standard PC keyboard, the host OS delivers
+these as UTF-8 `SDL_TEXTINPUT` events rather than scancodes.  The cleanest approach
+is to add a `SDL_TEXTINPUT` handler in `keyboard_event()` alongside the existing
+`SDL_KEYDOWN` handler: scan the Unicode codepoint against a lookup table and push
+the corresponding Smaky code to the FIFO.  This avoids layout-specific scancode
+assumptions and works for any OS input method.
+
+---
+
+## Display / Video
+
+### Lowercase character support
+
+The chargen ROM (`roms/chargen.rom`) contains a full lowercase set, but
+`video.c` currently renders lowercase as identical to uppercase (stub comment at
+line 71).  Lowercase codes should be passed through to the chargen lookup unchanged.
+
+### Display-off mode
+
+Writing `0x00` to port `0x00` sets display-off (bit 0 = display enable = 0).
+`video_set_mode()` ignores this; the screen stays visible.  Low priority.
+
+---
+
+## Floppy
+
+### Write support
+
+The floppy controller is **read-only**.  `floppy_read_data()` streams sector bytes
+from the `.dsk` image; `floppy_write_cont()` only handles head-seek stepping.
+There is no path that writes sector data back to the image file — port `0x1B` writes
+(which the OS uses to send data bytes to the controller) are silently ignored.
+
+**Preferred approach — copy-on-write RAM buffer (non-destructive mode):**
+
+1. At image load time, `malloc` a shadow buffer equal to the full image size and
+   `fread` the entire `.dsk` into it.  All `floppy_read_data()` calls serve bytes
+   from the shadow buffer instead of directly from the file.
+2. Add a write-phase state machine in `floppy_write_cont()` / a new
+   `floppy_write_data()` handler (port `0x1B` OUT) that collects 256 bytes +
+   checksum and patches the correct offset **in the shadow buffer only** —
+   the on-disk image is never touched during the session.
+3. Track a `dirty` flag in the FDC state (`fdc.dirty`); set it on the first write.
+4. On emulator exit, if `dirty` is set, present a save prompt via SDL message box
+   (`SDL_ShowMessageBox`) or a CLI `y/N` question so the user can choose to
+   flush the shadow buffer to disk (overwrite the original image), discard
+   changes, or save to a new file (keeping the original intact).
+
+An optional `-write-through` flag could bypass the buffer and write directly to
+the image file (the simpler `r+b` / `fseek` / `fwrite` path), for users who
+prefer permanent writes.
+
+### Second floppy drive (DX1)
+
+The emulator currently supports only one floppy drive (DX0, mounted via `-disk`).
+The real Smaky 6 supported a second drive (DX1), selectable from the CLI with
+`DX1:/D` as the destination drive for copy operations.  The port `0x19` drive-select
+bits already encode the drive number; a `-disk2` flag and a second `FDC` image slot
+are needed in `machine_internal.h` / `floppy.c`.
+
+---
+
+## Winchester / Hard Disk
+
+The WD-style register set at ports `0x21–0x27` is minimally stubbed.
+Only `SM6WIN0.DSK` and `SM6WIN1.DSK` image loading exists.  No actual
+sector read/write pipeline is implemented.
+
+---
+
+## USART / Serial
+
+`usart.c` is a bare stub.  The 8251 devices on ports `0x04/0x05` (permanent I/O)
+and `0x06/0x07` (cassette) return fixed ready-bits only.  No actual byte transfer.
+
+The paper-tape bootstrap path (ROM `0x046D–0x04C1`) is therefore also non-functional
+from the USART side, though it is unreachable under normal boot anyway.
+
+---
+
+## RTC (Real-Time Clock)
+
+The Smaky 6 contains a battery-backed RTC chip.  No hardware documentation is
+currently available, so the I/O port mapping and register layout are unknown.
+
+**Reverse-engineering approach — analyse CLI.SY tools:**
+
+Three CLI utilities in `CLI.SY` access the RTC and can be disassembled to recover
+the port/register protocol:
+
+| Tool    | Prompt shown to user            | Input format                          |
+|---------|---------------------------------|---------------------------------------|
+| `SDATE` | `dd mm yy`                      | `<day> <month> <year>` then ENTER     |
+| `SDAY`  | `(1=Mon ... 7=Sun)wd:`          | single digit 1–7 then ENTER           |
+| `STIME` | `hh mm ss`                      | `<hour> <minute> <second>` then ENTER |
+
+Disassemble each tool (e.g. via the existing disassembler / `objdump`-style pass
+on the extracted `.SY` binary) and trace the OUT instructions that follow the
+input parsing to identify the RTC port and the byte sequence written for each
+field.  From that, reconstruct the full register map.
+
+**Implementation plan (once port map is known):**
+
+1. On emulator start, seed the emulated RTC registers from the host `time()`/
+   `localtime()` — the guest sees the correct wall-clock time without any user
+   action.
+2. Expose a thin `rtc.c` module (`rtc_read(port)` / `rtc_write(port, val)`)
+   wired into the machine I/O dispatch.
+3. Advance the RTC once per emulated frame (20 ms) or via a sub-frame counter
+   so seconds tick in real time.
+4. No persistence is required for a first pass (RTC resets to host time on each
+   emulator launch, matching the battery-backed behaviour after a power cycle).
+
+---
+
+## Sound / Beeper
+
+Port `0x03` bit-bang beeper is read and written by the ROM but the emulator
+produces no audio output.  SDL2 audio is available; a simple 1-bit buzzer
+callback could be wired in.
+
+---
+
+## MAME / FPGA
+
+- **Phase 2**: MAME driver integration (not started)
+- **Phase 3**: MiSTer FPGA RTL implementation (not started)
