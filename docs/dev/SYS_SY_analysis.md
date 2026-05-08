@@ -208,7 +208,7 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 |-------|-----|----------|-----------------------------------------------------------------------|
 | 0x00  | R   | 0x0960   | **Keyboard CLA** — reads current latched key code (bit 7=0 → key present) |
 | 0x00  | R   | 0x0983   | **Keyboard CLA** — second read in ISR debounce path (feeds circular buffer) |
-| 0x01  | R   | 0x097E   | **Keyboard status** — bit 2 = FOUND (re-checked after debounce wait)  |
+| 0x01  | R   | 0x097E   | **Keyboard status** — bit 2 = FOUND (re-checked after debounce wait). Per §10.4 CLAVIER: "not necessary" since bit 7 of CLA already encodes FOUND. |
 | 0x00  | W   | 0x09D8   | **Video mode control** — restore saved mode from workspace `(0x4549)` |
 | 0x00  | W   | 0x11D6   | **Video mode control** — restore shadow `(0x457F)` after ISR          |
 | 0x00  | W   | 0x192B   | **Video mode control** — hard reset / init, writes alpha (0x01)       |
