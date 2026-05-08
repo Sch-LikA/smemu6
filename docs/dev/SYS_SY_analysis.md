@@ -215,11 +215,18 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 | 0x00  | W   | 0x1FD9   | **Video mode control** — display off, writes 0x00 (`XOR A`)           |
 
 > **Note:** port `0x00` READS (IN A,(0x00) / `keyboard_read_cla`) are the
-> keyboard CLA path and have nothing to do with video.  The keyboard FOUND
-> latch is set when a key is pressed and cleared when the key is **released**
-> (the encoder resets).  Reading port 0x00 does **not** clear FOUND — the CPU
-> can read CLA multiple times while the key is held and FOUND stays 1.
-> Port 0x00 writes are unrelated to FOUND; they are video-mode control only.
+> keyboard CLA path and have nothing to do with video.
+> Port 0x00 writes are unrelated to keyboard; they are video-mode control only.
+>
+> **Post-OS keyboard path:** After SAMOS loads, the ISR Stage 2 path that writes
+> to the circular buffer is **permanently blocked** by `(0x4582) == 0x80` (set at OS
+> init and never changed).  Physical keypresses therefore bypass the ISR entirely:
+> `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` writes
+> directly to the circular buffer at the current write pointer (`(0x457C)`), advancing
+> it on each write and stopping only when the `0x80` guard sentinel is hit.  The CLA
+> path is only used during the pre-OS boot phase (ROM `kbd_wait` at `0x00FD`) and by
+> the emulator's autoboot injection (`machine_inject_key()`).
+> See `docs/dev/keyboard_analysis.md` for the full pipeline description.
 | 0x03  | W   | 0x5B0F          | Buzzer/beep                                      |
 | 0x08  | R/W | 0x5D58–0x5DCA  | **SPI-style bit-serial** (see detail below)       |
 | 0x0B  | W   | 0x5ADB–0x5B37  | **Bit-serial shift clock** (see detail below)     |

@@ -188,29 +188,34 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 ```
 
 `keyboard_frame_tick()` is called **once per 50 Hz frame, BEFORE `machine_run_frame()`**.
-It drains one key from the FIFO into the SAMOS circular buffer when the buffer write
-pointer equals the base address `0x4596` (buffer empty):
+It drains one key from the FIFO into the SAMOS circular buffer on every frame that
+the buffer has space (guard sentinel not reached):
 
 ```c
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    if (m->kbd.fifo_head == m->kbd.fifo_tail) return;   /* FIFO empty */
-    uint16_t wr = (uint16_t)m->bus[0x457C] | ((uint16_t)m->bus[0x457D] << 8);
-    if (wr != 0x4596u) return;   /* SAMOS buffer not empty yet */
+    if (!m->cpu.iff1) return;   /* monitor mode: leave FIFO for CLA path */
+    if (m->kbd.fifo_head == m->kbd.fifo_tail) return;  /* FIFO empty */
+    uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+    if (m->bus[wr] == 0x80u) return;  /* 0x80 = guard sentinel, buffer full */
     uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
     m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-    m->bus[0x4596u] = code & 0x7Fu;
-    m->bus[0x457Cu] = 0x97u;     /* ptr = 0x4597 */
-    m->bus[0x457Du] = 0x45u;
+    m->bus[wr] = code & 0x7Fu;
+    wr++;
+    m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
+    m->bus[0x457Du] = (uint8_t)(wr >> 8);
 }
 ```
 
-**Why `wr == 0x4596` (not `wr == 0x4596 && [0x4596]==0x00`)?**
+**Why guard-sentinel check (not `wr == 0x4596`)?**
 
-After SAMOS consume with a single key in the buffer, LDIR runs with BC=0 (no bytes
-to copy), leaving `[0x4596]` with the consumed character value.  The `[0x4596]==0x00`
-condition therefore never fires after the first consume.  Emptiness is indicated
-solely by the write pointer equalling the base address.
+An earlier version checked `wr == 0x4596` (buffer at base = empty) and hardcoded the
+write address to `0x4596`.  This silently dropped keys whenever the OS left the write
+pointer advanced — for example, while an unconsumed character was still in the buffer,
+or if SAMOS delayed resetting the pointer.  Keys typed at normal interactive speed
+would be lost.  The correct check mirrors `machine_inject_to_circ_buf()`: write at
+`[wr]` (wherever the pointer currently is) and advance, stopping only when the `0x80`
+guard sentinel is hit (buffer region full, ~32 chars capacity).
 
 ### Autoboot / inject: CLA-based delivery
 
@@ -287,7 +292,7 @@ INC HL               ; HL = 0x4597
 LDIR (BC = ptr-base = 0)  ; copies 0 bytes
 ```
 After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR did nothing).
-`keyboard_frame_tick()` checks only `ptr == 0x4596`, not `[0x4596] == 0x00`.
+`keyboard_frame_tick()` uses the **guard-sentinel check** (`[wr] != 0x80`), not `ptr == 0x4596`.
 
 ---
 
@@ -312,7 +317,7 @@ Autoboot stage3 keys are held for 5 frames so Stage 2 can see them (pre-OS boot 
 | `0x4580` | Stage 2 key code staging register |
 | `0x4581` | Secondary staging byte |
 | `0x4582` | Inter-frame key sentinel (0x80 = none pending) |
-| `0x457C` | Circular buffer read pointer (init: 0x4596) |
+| `0x457C` | Circular buffer **write** pointer (init: 0x4596) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
 
@@ -338,11 +343,12 @@ Codes confirmed from doc section 10.4, page 213 (octal):
 | PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F6`         |
 | KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F7`         |
 
-To implement: add a `uint8_t fonct_bits` field to `struct kbd`; set/clear the bit on
-SDL key-down/up; return `fonct_bits` (bit 7 clear = FOUND=0) from
-`keyboard_read_cla()` when no regular key is pending.  The existing `0x80` no-key
-sentinel occupies the FOUND=1 / no-key case — the FOUND=0 path just needs to return
-`fonct_bits` instead of `0x80`.
+**Implemented** (git commits step1–step3): `uint8_t fonct_bits` added to `struct kbd`
+in `src/machine_internal.h`; `keyboard_event()` sets/clears the bit on SDL key-down/up;
+`keyboard_read_cla()` returns `fonct_bits` instead of `0x80` when no regular key is
+pending and `iff1=1` (OS running, interrupts enabled). Guard: only returns `fonct_bits`
+when `fonct_bits != 0`, so the no-key sentinel `0x80` is still returned when no
+function key is held.
 
 ### Category 2 — Special keys in the normal FIFO (codes confirmed from doc p.213)
 
@@ -354,7 +360,7 @@ sentinel occupies the FOUND=1 / no-key case — the FOUND=0 path just needs to r
 `REP / FNCT` (code `0` in the doc) is the hardware repeat/function modifier; it
 generates no independent code and can be ignored for now.
 
-To implement: add these two entries to `KEY_TABLE[]` in `src/keyboard.c`:
+**Implemented** (git step1): added to `KEY_TABLE[]` in `src/keyboard.c`:
 ```c
 { SDL_SCANCODE_F8,  0x1E },   /* MACRO  → «  */
 { SDL_SCANCODE_F9,  0x1F },   /* DEFINE → »  */
@@ -365,9 +371,7 @@ To implement: add these two entries to `KEY_TABLE[]` in `src/keyboard.c`:
 | Oct | Hex    | Name | SDL scancode               | Note                        |
 |-----|--------|------|----------------------------|-----------------------------|
 | 010 | `0x08` | BS   | `SDL_SCANCODE_BACKSPACE`   | already in `KEY_TABLE[]`    |
-| 177 | `0x7F` | DEL  | `SDL_SCANCODE_DELETE`      | not yet mapped              |
-
-To implement: add `{ SDL_SCANCODE_DELETE, 0x7F }` to `KEY_TABLE[]`.
+| 177 | `0x7F` | DEL  | `SDL_SCANCODE_DELETE`      | implemented (git step1)     |
 
 Note: `0x7F` also renders as the solid-filled block glyph ▓ in the chargen ROM
 (confirmed by direct ROM inspection — see [Chargen glyph reference](#chargen-glyph-reference) below).
