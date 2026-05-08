@@ -157,45 +157,59 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 uint8_t keyboard_read_cla(struct Smaky6 *m)
 {
     /*
-     * Hardware model for the two-stage SAMOS ISR keyboard pipeline:
+     * Hardware model (§10.4 CLAVIER):
+     *   CLA read (IN A,(0x00)) generates STROBE which simultaneously returns
+     *   the key code AND clears both FOUND and FULCLA latches.
+     *   If the key is still held, the scanner reasserts FOUND within 200µs.
+     *   Bit 7 of the return value encodes FOUND state:
+     *     bit7=0 → FOUND was 1; regular key in bits 0-6
+     *     bit7=1 → FOUND was 0; function key bitmask in bits 0-6 (0 if none)
      *
-     * Stage 1 (at 0x0160): First CLA read in the ISR cycle.  If 'found'=1
-     *   (new key event), we return the key code and clear 'found'.  Stage 1
-     *   stores it in 0x457E (syscall 0x0E path) and returns early.
-     *   We set cla_seen=1 so Stage 2 knows a CLA read has already occurred.
+     * Stage 1 (ISR at 0x0160): first CLA read; if bit7=0, stores to 0x457E
+     *   (syscall 0x0E path), sets cla_seen=1, returns early.
+     * Stage 2 (ISR at 0x0183): second CLA read; only reached when Stage 1
+     *   returned bit7=1.  If key still held (physically_held || cla_seen),
+     *   returns key code → circular buffer → syscall 0x0D / CLI.
+     * ISR ACK (OUT 0x01, data≠0) resets cla_seen=0 for the next frame.
      *
-     * Stage 2 (at 0x0183): Second CLA read, reached only when Stage 1 returned
-     *   0x80.  If key_held=1 AND cla_seen=1 (i.e. the ISR ACK already cleared
-     *   'found' and Stage 1 confirmed no new event), we return the key code.
-     *   This feeds the circular buffer that syscall 0x0D / the CLI polls.
-     *
-     * The ISR ACK (OUT port 0x01 with non-zero data) resets cla_seen=0 so the
-     * cycle starts fresh every 50 Hz frame.
-     *
-     * Monitor mode (iff1=0): interrupts are disabled, the ISR never fires.
-     * The SYSMON monitor polls CLA directly in a spin loop.  Physical keyboard
-     * keys are held in the FIFO (keyboard_frame_tick() skips circ-buf drain
-     * when iff1=0), so drain from FIFO here instead.
+     * iff1=0 (Phantom ROM / monitor): ISR never fires; kbd_wait polls CLA
+     *   directly.  CLA fields serve machine_inject_key(); FIFO serves physical
+     *   keys typed in monitor mode.
      */
     if (!m->cpu.iff1) {
-        /* Monitor / NMI context: serve physical keys directly from FIFO. */
+        /* Phantom ROM / monitor context (kbd_wait, iff1=0):
+         * Serve machine_inject_key() CLA fields first, so injected keys (autoboot
+         * Enter at stage1) are visible to the Phantom ROM kbd_wait polling loop.
+         * Fall through to FIFO for physical keys (monitor mode, post-handoff).
+         * Hardware: CLA read itself clears FOUND; if key still held, reasserts
+         * within 200µs.  We mirror that by clearing found=0 here. */
+        {
+            int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
+            int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
+            m->kbd.cla_seen = 1;
+            if (have_key) {
+                m->kbd.found = 0;
+                return m->kbd.key_code & 0x7Fu;  /* bit 7 = 0 → key present */
+            }
+        }
+        /* No injected key: serve physical keys from FIFO. */
         if (m->kbd.fifo_head != m->kbd.fifo_tail) {
             uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
             m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
             return code & 0x7Fu;  /* bit 7 = 0 → key present */
         }
-        return 0x80u;  /* no key */
+        return 0x80u | m->kbd.fonct_bits;  /* no key; function bits in 0-6 (may be 0) */
     }
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
     m->kbd.cla_seen = 1;   /* mark that a CLA read has occurred this ISR cycle */
     if (have_key) {
-        m->kbd.found = 0;  /* consume the 'new event' latch */
+        m->kbd.found = 0;  /* consume the 'new event' latch — mirrors HW: CLA read clears FOUND */
         return m->kbd.key_code & 0x7Fu;   /* bit 7 = 0 → key present */
     }
-    if (m->kbd.fonct_bits)
-        return m->kbd.fonct_bits;  /* function key held: bitmask, bit 7=0 */
-    return 0x80u;  /* bit 7 = 1 → no key */
+    /* No regular key: bit 7 = 1; bits 0-6 carry function key bitmask (may be 0).
+     * Per §10.4 CLAVIER: "lorsque FOUND=0, la valeur lue correspond aux touches FONCTION". */
+    return 0x80u | m->kbd.fonct_bits;
 }
 
 int keyboard_found(struct Smaky6 *m)
