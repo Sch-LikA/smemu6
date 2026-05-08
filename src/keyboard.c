@@ -72,25 +72,27 @@ void keyboard_frame_tick(struct Smaky6 *m)
         }
     }
 
-    /* Feed one key from the FIFO into the SAMOS circular buffer.
+    /* Feed pending keys from the FIFO into the SAMOS circular buffer.
      * Skip when iff1=0 (monitor mode): the monitor polls CLA directly via
      * keyboard_read_cla(), so keys must stay in the FIFO for that path.
-     * Only write when the buffer is at base (ptr == 0x4596).
-     * After consume, ptr returns to 0x4596 — that is the "empty" signal
-     * (peek returns Z when SBC HL,DE == 0).  The value at [0x4596] may
-     * retain the previously-consumed character (LDIR with BC=0 when only
-     * one item was in the buffer), so do NOT check [0x4596]==0x00. */
+     *
+     * Drain the entire FIFO each frame (not just one entry per frame).
+     * The guard sentinel at ~0x45B6 prevents overflow.  Draining all pending
+     * keys matches how machine_inject_to_circ_buf() works for autoboot.
+     * Writing one-per-frame would require SAMOS to read and consume a key
+     * within a single 20ms frame before the next key can enter — which is
+     * fine at human typing speed but creates an unnecessary 20ms floor
+     * between each character. */
     if (!m->cpu.iff1) return;  /* monitor mode: leave FIFO for CLA path */
-    if (m->kbd.fifo_head != m->kbd.fifo_tail) {
+    while (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-        if (m->bus[wr] != 0x80u) {   /* 0x80 = guard sentinel, buffer full */
-            uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
-            m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-            m->bus[wr] = code & 0x7Fu;
-            wr++;
-            m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
-            m->bus[0x457Du] = (uint8_t)(wr >> 8);
-        }
+        if (m->bus[wr] == 0x80u) break;  /* guard sentinel hit — buffer full, stop */
+        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
+        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
+        m->bus[wr] = code & 0x7Fu;
+        wr++;
+        m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
+        m->bus[0x457Du] = (uint8_t)(wr >> 8);
     }
 }
 
