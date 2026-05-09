@@ -286,6 +286,11 @@ void floppy_tick(struct Smaky6 *m)
         if (m->fdc.disk_active[d] > 0)
             m->fdc.disk_active[d]--;
 
+    /* Decay Winchester activity LEDs one step per frame */
+    for (int d = 0; d < 2; d++)
+        if (m->win.disk_active[d] > 0)
+            m->win.disk_active[d]--;
+
     /* NOTE (Phase 1N): floppy loading uses maskable INT in IM 0, NOT NMI.
      * The Micropolis floppy controller places 0xCF (RST 08h) on the data bus
      * during the INT acknowledge cycle.  machine.c::z80_int_fetch returns 0xCF

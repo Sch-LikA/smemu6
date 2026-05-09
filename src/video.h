@@ -54,7 +54,7 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
 #define VIDEO_ASPECT_H     480                  /* 2× vertical: 240×2=480; every scan line → 2 output lines, every char row → 24 lines */
-#define VIDEO_LED_H        12                  /* status-bar height (4px pad + 8px chargen glyph) */
+#define VIDEO_LED_H        26                  /* status-bar height: 2 rows × 12px + 2px gap */
 #define VIDEO_WIN_W        VIDEO_PX_W
 #define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)
 

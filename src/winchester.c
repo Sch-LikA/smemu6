@@ -169,7 +169,8 @@ void winchester_write_sdh   (WinState *w, uint8_t v) { w->sdh    = v; }
  */
 void winchester_write_cmd(WinState *w, uint8_t cmd)
 {
-    uint8_t op = cmd & 0xF0u;
+    uint8_t op  = cmd & 0xF0u;
+    int     drv = selected_drive(w);
 
     switch (op) {
     case 0x10u:  /* RESTORE */
@@ -177,8 +178,12 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
         w->cyl_hi  = 0;
         w->phase   = WD_IDLE;
         w->data_idx = 0;
+        /* Update per-drive status */
+        w->last_cyl[drv]  = 0;
+        w->last_head[drv] = w->sdh & 0x07u;
+        w->disk_active[drv] = 6;
         if (w->trace)
-            fprintf(stderr, "[win] CMD RESTORE drv=%d\n", selected_drive(w));
+            fprintf(stderr, "[win] CMD RESTORE drv=%d\n", drv);
         break;
 
     case 0x20u:  /* READ SECTOR */
@@ -187,12 +192,20 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
             read_sector(w, lba);
             w->data_idx = 0;
             w->phase    = WD_DRQ;
+            /* Update per-drive status */
+            w->last_cyl[drv]  = ((uint16_t)w->cyl_hi << 8) | w->cyl_lo;
+            w->last_head[drv] = w->sdh & 0x07u;
+            w->disk_active[drv] = 6;
         }
         break;
 
     case 0x30u:  /* WRITE SECTOR (stub — data discarded) */
         w->data_idx = 0;
         w->phase    = WD_WRITING;
+        /* Update per-drive status */
+        w->last_cyl[drv]  = ((uint16_t)w->cyl_hi << 8) | w->cyl_lo;
+        w->last_head[drv] = w->sdh & 0x07u;
+        w->disk_active[drv] = 6;
         if (w->trace) {
             uint32_t lba = chs_to_lba(w);
             fprintf(stderr, "[win] CMD WRITE lba=%u (stub — discarded)\n",

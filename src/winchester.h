@@ -1,6 +1,6 @@
 /* winchester.h – Smaky 6 Winchester hard-disk controller emulation
  *
- * Hardware: WD1010-compatible register set, base I/O address 0x20.
+ * Hardware: WD1000/WD1001/WD1002-compatible register set, base I/O address 0x20.
  *
  * I/O port map (port & 0x3F):
  *   0x20  R    Data register — read sector data (INIR reads 256 bytes)
@@ -70,6 +70,11 @@ typedef struct {
     uint8_t  cyl_lo;            /* port 0x24                               */
     uint8_t  cyl_hi;            /* port 0x25 (always 0 in Phantom ROM)     */
     uint8_t  sdh;               /* port 0x26 — bits[2:0]=head, bit[3]=drv  */
+
+    /* Per-drive status (updated on each command; used by video status bar) */
+    int      disk_active[2];    /* down-counter: non-zero = LED lit         */
+    uint16_t last_cyl[2];       /* last cylinder accessed per drive         */
+    uint8_t  last_head[2];      /* last head accessed per drive             */
 
     int      trace;             /* non-zero: log transactions to stderr    */
 } WinState;
