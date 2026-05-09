@@ -38,21 +38,20 @@ void video_render(struct Smaky6 *m);
  *                   Bit 0 of each byte = leftmost pixel (LSB-first).
  *
  * Pixel aspect ratio:
- *   The real Smaky 6 CRT had non-square pixels — each scan line was ~2×
- *   taller than a pixel was wide (real hardware ~4×, but 2× is the practical
- *   default for comfortable desktop use).  VIDEO_ASPECT_H is the rendered
- *   machine-content height in logical pixels; VIDEO_PX_H remains the internal
- *   pixel buffer height.  SDL_RenderCopy stretches the texture vertically.
- *   The integer scale factor (default 2) is applied by SDL_RenderSetLogicalSize;
- *   the physical window = VIDEO_WIN_W*scale × VIDEO_WIN_H*scale.
+ *   The real Smaky 6 CRT was ~4:3.  The pixel buffer is 512×240, so to fill
+ *   a 4:3 frame the rendered height must be 512*(3/4) = 384 logical px.
+ *   VIDEO_ASPECT_H = 384 gives a 1.6× vertical stretch applied by
+ *   SDL_RenderCopy; the integer display_scale (default 2) is applied by the
+ *   physical window size so the render code is scale-independent.
+ *   At scale=2: physical window = 1024 × (384+12)*2 = 1024 × 792 px.
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
 #define VIDEO_SCAN_LINES   240
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
-#define VIDEO_ASPECT_H     VIDEO_PX_H          /* 1:1 mapping; scale applied by SDL window size */
-#define VIDEO_LED_H        20                  /* status-bar height (track/sector info) */
+#define VIDEO_ASPECT_H     384                  /* 4:3 equivalent: 512*(3/4)=384; 1.6× vertical stretch */
+#define VIDEO_LED_H        12                  /* status-bar height (4px pad + 8px chargen glyph) */
 #define VIDEO_WIN_W        VIDEO_PX_W
 #define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)
 

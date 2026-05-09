@@ -295,20 +295,19 @@ void video_render(struct Smaky6 *m)
     SDL_RenderDrawLine(ren, 0, VIDEO_ASPECT_H, VIDEO_WIN_W - 1, VIDEO_ASPECT_H);
 
     /* Two drive slots: LED + label + track number.
-     * Each chargen glyph bit is rendered as a ps×ps filled rect so glyphs
-     * look crisp at any display_scale without needing a separate font. */
+     * Glyphs are rendered 1:1 from chargen (8×8 logical px); the display_scale
+     * factor applied to the SDL window makes them crisp at any scale value.
+     * Slot width = 256 logical px (two equal halves of 512-wide window). */
     static const char *drive_label[2] = { "A", "B" };
-    const int ps  = 2;   /* logical pixels per chargen bit */
-    const int gw  = 8 * ps;  /* glyph cell width  = 16 logical px */
-    const int gh  = 8 * ps;  /* glyph cell height = 16 logical px */
+    const int gh  = 8;   /* chargen glyph height in logical pixels */
+    const int ly  = VIDEO_ASPECT_H + (VIDEO_LED_H - gh) / 2;  /* vertically centred */
     for (int d = 0; d < 2; d++) {
         int mounted = m->fdc.image[d] != NULL;
         int active  = m->fdc.disk_active[d] > 0;
-        int lx = 6 + d * 140;                      /* LED left edge */
-        int ly = VIDEO_ASPECT_H + (VIDEO_LED_H - gh) / 2;  /* vertically centred */
+        int lx = 4 + d * 256;   /* slot left edge; two 256-px halves */
 
-        /* LED body: 10×gh rect */
-        SDL_Rect led = { lx, ly, 10, gh };
+        /* LED body: 8×8 square */
+        SDL_Rect led = { lx, ly, 8, 8 };
         if (active) {
             SDL_SetRenderDrawColor(ren, 255, 140, 0, 255);  /* amber (active) */
         } else if (mounted) {
@@ -320,18 +319,15 @@ void video_render(struct Smaky6 *m)
         SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
         SDL_RenderDrawRect(ren, &led);
 
-        /* Drive letter glyph */
+        /* Drive letter glyph (1px per bit) */
         uint8_t code = (uint8_t)drive_label[d][0];
-        int tx = lx + 14;
-        int ty = ly;
+        int tx = lx + 12;
         SDL_SetRenderDrawColor(ren, 0, 200, 0, 255);
         for (int sl = 0; sl < 8; sl++) {
             uint8_t bits = m->vid.chargen[code * 16 + sl];
             for (int b = 0; b < 8; b++) {
-                if (bits & (1u << b)) {
-                    SDL_Rect dot = { tx + b * ps, ty + sl * ps, ps, ps };
-                    SDL_RenderFillRect(ren, &dot);
-                }
+                if (bits & (1u << b))
+                    SDL_RenderDrawPoint(ren, tx + b, ly + sl);
             }
         }
 
@@ -339,21 +335,17 @@ void video_render(struct Smaky6 *m)
         if (mounted) {
             char info[12];
             int trk = m->fdc.track[d];
-            int sec = (d == 0) ? m->fdc.sector : 0;
+            int sec = m->fdc.phased_sector;
             snprintf(info, sizeof(info), "T:%02d S:%02d", trk, sec);
-            int ix = tx + gw + 4;
-            int iy = ty;
+            int ix = tx + 10;   /* after drive letter + 2px gap */
             SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);
             for (int ci = 0; info[ci]; ci++) {
                 uint8_t gc = (uint8_t)info[ci];
                 for (int sl = 0; sl < 8; sl++) {
                     uint8_t bits = m->vid.chargen[gc * 16 + sl];
                     for (int b = 0; b < 8; b++) {
-                        if (bits & (1u << b)) {
-                            SDL_Rect dot = { ix + ci * (gw + 2) + b * ps,
-                                             iy + sl * ps, ps, ps };
-                            SDL_RenderFillRect(ren, &dot);
-                        }
+                        if (bits & (1u << b))
+                            SDL_RenderDrawPoint(ren, ix + ci * 9 + b, ly + sl);
                     }
                 }
             }
