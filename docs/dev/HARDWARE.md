@@ -185,6 +185,11 @@ Refresh driven by the Z80 `RFSH` / `REFRESH` signal from the mainboard bus.
 
 **RTC — E405/08 (IC5)**: 3-wire synchronous serial interface.
 
+The E405 is a **custom RTC ASIC manufactured by Micro Electronic Marin (MEM)**,
+a Swiss company based in Le Locle/Marin-Epagnier.  It was one of the earliest
+real-time clock chips produced for personal computers.
+*(Information courtesy M. Pierre-Yves Rochat.)*
+
 The slash notation `E405/08` is an Epsitec schematic convention used by
 R. Forster: the part before the slash is the **chip type** (E405) and the
 number after the slash is the **I/O port address** (0x08).  Port 0x08 is
@@ -320,8 +325,11 @@ so the CRT DAC stream is continuous even when the CPU holds the bus.
 Physical pixel buffer : 512 × 240 (1 bpp → ARGB8888)
 Lit pixel colour      : #00E700  (P31 green phosphor)
 Background colour     : #000800  (dark phosphor glow)
-Aspect-corrected view : 512 × 384 (1.6× vertical stretch via SDL_RenderCopy)
-Status bar            : +12 px below → total SDL window 512 × 396 (×2 = 1024 × 792)
+Aspect-corrected view : 512 × 384 (1.6× vertical — accurate hardware AR)
+Emulator render size  : 512 × 480 (2× vertical — integer scaling for crisp display)
+Status bar            : +12 px below → total SDL window 512 × 492 (×2 = 1024 × 984)
+Note: the emulator uses 2× (480 lines) rather than the exact 1.6× (384 lines) to
+keep all integer scale factors clean. The smaky6_samos.py image export uses 1.6×.
 ```
 
 ---
@@ -480,7 +488,7 @@ acknowledge cycle returns **RST 08h (0xCF)** instead of the normal
 
 | Parameter       | Value                                                      |
 |-----------------|-------------------------------------------------------------|
-| Controller      | WD1010-compatible (confirmed from Phantom ROM disassembly)  |
+| Controller      | WD1000/WD1001/WD1002-compatible (confirmed from Phantom ROM disassembly; chip identification courtesy of M. Pierre-Yves Rochat) |
 | Sectors/track   | **32** (sector index masked with `0x1F` in ROM at 0x0380)   |
 | Heads/cylinder  | **6** (`C=6` divisor in CHS decomposition loop at 0x0380)   |
 | Bytes/sector    | **256** (INIR with `B=0` → 256 iterations)                  |
@@ -489,7 +497,7 @@ acknowledge cycle returns **RST 08h (0xCF)** instead of the normal
 | Drive names     | SM6WIN0 (drive 0), SM6WIN1 (drive 1)                        |
 | Image format    | Flat binary; `harddisks/SM6WIN0.DSK` / `SM6WIN1.DSK`        |
 
-### 8.2 Port protocol (WD1010-compatible register set)
+### 8.2 Port protocol (WD1000/WD1001/WD1002-compatible register set)
 
 All Winchester registers are at ports `0x20–0x27` and `0x2B`
 (decoded with the 6-bit mask `port & 0x3F`).
