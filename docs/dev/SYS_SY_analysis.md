@@ -199,7 +199,7 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 |-------|-----|---------------|----------------------------------------------------------|
 | 0x00  | W   | 0x00E3        | **Video mode control** — init write (alpha-only, value 0x01) |
 | 0x00  | W   | 0x02BC        | **Video mode control** — all runtime mode-switch writes  |
-| 0x01  | W   | 0x0048        | Phantom ROM bank-switch (write 0)                        |
+| 0x01  | W   | 0x0048        | **Dual function:** `data=0x00` → Phantom ROM bank-switch (disable 2 KB ROM, make 0x0000–0x07FF writable RAM). `data≠0x00` → **ISR ACK** — resets the emulator's `cla_seen` flag so Stage 2 can fire in the next ISR frame. The SAMOS 50 Hz ISR writes a non-zero value here at the start of every interrupt. |
 | 0x19  | W   | 0x0158        | Floppy control register                                  |
 
 ### OS section (0x0800–0x22FF)
@@ -221,11 +221,22 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > **Post-OS keyboard path:** After SAMOS loads, the ISR Stage 2 path that writes
 > to the circular buffer is **permanently blocked** by `(0x4582) == 0x80` (set at OS
 > init and never changed).  Physical keypresses therefore bypass the ISR entirely:
-> `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` writes
-> directly to the circular buffer at the current write pointer (`(0x457C)`), advancing
-> it on each write and stopping only when the `0x80` guard sentinel is hit.  The CLA
-> path is only used during the pre-OS boot phase (ROM `kbd_wait` at `0x00FD`) and by
-> the emulator's autoboot injection (`machine_inject_key()`).
+> `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` drains the
+> entire FIFO each frame into the circular buffer at the current write pointer
+> (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.
+>
+> `keyboard_frame_tick()` also sets the `samos_loaded` flag once it detects that
+> SAMOS has written its 50 Hz ISR vector to `(0x4566)` (`== 0x003E`).  This happens
+> at `0x00CD` in SYS.SY, **after** the SAMOS boot-menu keyboard wait at `0x00B5`.
+> Before `samos_loaded` is set, the `iff1=0` branch of `keyboard_read_cla()` is
+> allowed to pop the FIFO (for physical keys in monitor mode); after it is set,
+> `iff1=0` means "inside the SAMOS ISR" and the FIFO must not be touched there.
+>
+> The CLA port read path is used only during the pre-OS boot phase: Phantom ROM
+> `kbd_wait` at `0x00FD` (device-selection prompt) and SAMOS init `kbd_wait` at
+> `0x00B5` (boot-menu / second keypress), both of which poll `IN A,(0x00)` with
+> interrupts disabled.  After SAMOS is running, the autoboot injection path
+> (`machine_inject_key()`) also uses CLA fields.
 > See `docs/dev/keyboard_analysis.md` for the full pipeline description.
 | 0x03  | W   | 0x5B0F          | Buzzer/beep                                      |
 | 0x08  | R/W | 0x5D58–0x5DCA  | **SPI-style bit-serial** (see detail below)       |
