@@ -45,7 +45,7 @@ void video_render(struct Smaky6 *m);
  *   uniform with no banding at any integer display_scale factor.
  *   SDL_RenderCopy is a 1:1 blit; SDL_RenderSetLogicalSize handles window scaling.
  *   AR = 512:480 ≈ 1.067:1 (slightly wider than square).
- *   At display_scale=2: physical window = 1024 × (480+12)*2 = 1024 × 984 px.
+ *   At display_scale=1: physical window = 512 × (480+12) = 512 × 492 px.
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20

@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
-    int display_scale = 2;             /* -scale N: integer pixel scale factor */
+    int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
     int autoboot_timeout_sec = -1;  /* -1 = default when autoboot is enabled */
 
