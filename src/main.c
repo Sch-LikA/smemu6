@@ -98,6 +98,7 @@ static void usage(const char *argv0)
         "  -no-beeper     Disable the machine buzzer (beeper is on by default)\n"
         "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
         "  -no-display-off  Ignore display-off writes (port 0x00 bit0=0); screen stays on\n"
+        "  -scanlines     Draw CRT-style scanline overlay (darkens every other output row)\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
         "  -help          Show this help\n"
@@ -134,6 +135,7 @@ int main(int argc, char *argv[])
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
+    int scanlines          = 0;  /* -scanlines: draw CRT scanline overlay */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
@@ -270,6 +272,8 @@ int main(int argc, char *argv[])
             enable_drive_sound = 1;
         } else if (strcmp(argv[i], "-no-display-off") == 0) {
             no_display_off = 1;
+        } else if (strcmp(argv[i], "-scanlines") == 0) {
+            scanlines = 1;
         } else if (strcmp(argv[i], "-dump-ram") == 0 && i + 1 < argc) {
             dump_ram_path = argv[++i];
         } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
@@ -396,6 +400,8 @@ int main(int argc, char *argv[])
         machine_set_trace_kbd(m, 1);
     if (no_display_off)
         machine_set_no_display_off(m, 1);
+    if (scanlines)
+        machine_set_scanlines(m, 1);
 
     /* ── Main loop ──────────────────────────────────────────────────────────────────────── */
     /*

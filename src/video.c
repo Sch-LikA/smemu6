@@ -359,6 +359,22 @@ void video_render(struct Smaky6 *m)
     SDL_Rect machine_dst = { 0, 0, VIDEO_PX_W, VIDEO_ASPECT_H };
     SDL_RenderCopy(ren, tex, NULL, &machine_dst);
 
+    /* ── CRT scanline overlay ────────────────────────────────────────────── *
+     * Draw a 50%-transparent black rectangle 1 logical pixel tall over every
+     * other output row, mimicking the dark gaps between phosphor scan lines.
+     * The SDL logical size is VIDEO_PX_W × VIDEO_ASPECT_H; integer rows here
+     * correspond directly to the output pixels before display_scale is applied. */
+    if (m->vid.scanlines && m->vid.display_on) {
+        SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(ren, 0, 0, 0, 128);
+        SDL_Rect line = { 0, 0, VIDEO_PX_W, 1 };
+        for (int y = 1; y < VIDEO_ASPECT_H; y += 2) {
+            line.y = y;
+            SDL_RenderFillRect(ren, &line);
+        }
+        SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+    }
+
     /* ── Status bar: disk activity + track/sector ───────────────────────── */
 render_status_bar:
     /* Grey background for the LED strip */

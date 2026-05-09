@@ -65,6 +65,7 @@ struct Smaky6 {
         VideoMode     mode;
         int           display_on;       /* 1 = enabled (normal), 0 = blanked (port 0x00 bit 0 = 0) */
         int           no_display_off;   /* 1 = ignore display-off writes (keeps screen always on) */
+        int           scanlines;          /* 1 = draw semi-transparent dark lines on every other output row */
         int           gfx_msb_first;
         uint8_t       chargen[2048];
         /* Shadow copy of the alpha plane for change-detection / stderr dump */

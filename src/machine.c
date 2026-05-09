@@ -601,6 +601,11 @@ void machine_set_no_display_off(struct Smaky6 *m, int on)
     m->vid.no_display_off = on ? 1 : 0;
 }
 
+void machine_set_scanlines(struct Smaky6 *m, int on)
+{
+    m->vid.scanlines = on ? 1 : 0;
+}
+
 /* ── Internal accessor helpers (used by subsystem .c files) ─────────────── */
 /* NOTE: All subsystem .c files now include machine_internal.h and access
  * fields directly.  These helpers are kept only for external callers that
