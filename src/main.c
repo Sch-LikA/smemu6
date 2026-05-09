@@ -68,8 +68,8 @@ static void usage(const char *argv0)
 {
     fprintf(stderr,
         "Usage: %s [options]\n"
-        "  -disk <img>    Mount floppy image on drive A (DX0)\n"
-        "  -disk2 <img>   Mount floppy image on drive B (DX1)\n"
+        "  -disk <img>    Mount floppy image on DX0\n"
+        "  -disk2 <img>   Mount floppy image on DX1\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -autoboot      Inject Enter key after 3 s to auto-select floppy boot\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode (0x1B = Escape)\n"
@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
     }
     if (disk2_path) {
         if (floppy_mount(m, 1, disk2_path) != 0) {
-            fprintf(stderr, "WARNING: could not mount '%s' on drive B\n", disk2_path);
+            fprintf(stderr, "WARNING: could not mount '%s' on DX1\n", disk2_path);
         }
     }
 

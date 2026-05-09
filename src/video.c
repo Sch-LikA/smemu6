@@ -298,7 +298,7 @@ void video_render(struct Smaky6 *m)
      * Glyphs are rendered 1:1 from chargen (8×8 logical px); the display_scale
      * factor applied to the SDL window makes them crisp at any scale value.
      * Slot width = 256 logical px (two equal halves of 512-wide window). */
-    static const char *drive_label[2] = { "A", "B" };
+    static const char *drive_label[2] = { "DX0", "DX1" };
     const int gh  = 8;   /* chargen glyph height in logical pixels */
     const int ly  = VIDEO_ASPECT_H + (VIDEO_LED_H - gh) / 2;  /* vertically centred */
     for (int d = 0; d < 2; d++) {
@@ -319,15 +319,17 @@ void video_render(struct Smaky6 *m)
         SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
         SDL_RenderDrawRect(ren, &led);
 
-        /* Drive letter glyph (1px per bit) */
-        uint8_t code = (uint8_t)drive_label[d][0];
+        /* Drive name glyphs: "DX0" / "DX1" (3 chars × 9px stride) */
         int tx = lx + 12;
         SDL_SetRenderDrawColor(ren, 0, 200, 0, 255);
-        for (int sl = 0; sl < 8; sl++) {
-            uint8_t bits = m->vid.chargen[code * 16 + sl];
-            for (int b = 0; b < 8; b++) {
-                if (bits & (1u << b))
-                    SDL_RenderDrawPoint(ren, tx + b, ly + sl);
+        for (int ci = 0; drive_label[d][ci]; ci++) {
+            uint8_t code = (uint8_t)drive_label[d][ci];
+            for (int sl = 0; sl < 8; sl++) {
+                uint8_t bits = m->vid.chargen[code * 16 + sl];
+                for (int b = 0; b < 8; b++) {
+                    if (bits & (1u << b))
+                        SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ly + sl);
+                }
             }
         }
 
@@ -337,7 +339,7 @@ void video_render(struct Smaky6 *m)
             int trk = m->fdc.track[d];
             int sec = m->fdc.phased_sector[d];
             snprintf(info, sizeof(info), "T:%02d S:%02d", trk, sec);
-            int ix = tx + 10;   /* after drive letter + 2px gap */
+            int ix = tx + 29;   /* after "DX0"/"DX1" (3×9px) + 2px gap */
             SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);
             for (int ci = 0; info[ci]; ci++) {
                 uint8_t gc = (uint8_t)info[ci];

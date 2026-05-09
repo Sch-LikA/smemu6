@@ -55,12 +55,12 @@ int floppy_mount(struct Smaky6 *m, int drive, const char *path)
 
     if ((unsigned long)sz == FLOPPY_IMAGE_77) {
         m->fdc.num_tracks[drive] = FLOPPY_TRACKS_77;
-        fprintf(stderr, "floppy: mounted '%s' on drive %c (77 tracks, 315 KB)\n",
-                path, 'A' + drive);
+        fprintf(stderr, "floppy: mounted '%s' on DX%d (77 tracks, 315 KB)\n",
+                path, drive);
     } else if ((unsigned long)sz == FLOPPY_IMAGE_40) {
         m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
-        fprintf(stderr, "floppy: mounted '%s' on drive %c (40 tracks, 160 KB)\n",
-                path, 'A' + drive);
+        fprintf(stderr, "floppy: mounted '%s' on DX%d (40 tracks, 160 KB)\n",
+                path, drive);
     } else {
         m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
         fprintf(stderr, "floppy: WARNING: '%s' has unexpected size %ld bytes; "
