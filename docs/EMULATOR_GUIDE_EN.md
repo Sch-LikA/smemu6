@@ -68,14 +68,15 @@ The build system copies them automatically into `build/roms/`.
 
 | File | Size | Required | Description |
 |------|------|----------|-------------|
-| `roms/sysmon.rom` | 4 KB | Yes (without floppy) | SYSMON machine monitor |
-| `roms/samos.rom` | 4 KB | Optional | SAMOS floppy OS |
-| `roms/full.rom` | 8 KB | Optional | Combined SYSMON + SAMOS |
+| `roms/samos_sys17.rom` | 2 KB | **Yes** | Phantom bootloader ROM (SYS17 TMS2716) |
 | `roms/chargen.rom` | 2 KB | Optional | Character generator PROM |
 
 > **Note:** If `chargen.rom` is absent, the emulator uses a built-in synthetic
 > character table. Text will be legible but may differ slightly from the
 > original hardware.
+>
+> If `samos_sys17.rom` is missing, the emulator prints a warning and the CPU
+> executes undefined memory — nothing useful will happen.
 
 ---
 

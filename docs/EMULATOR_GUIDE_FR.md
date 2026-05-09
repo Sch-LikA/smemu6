@@ -68,14 +68,15 @@ Le système de compilation les copie automatiquement dans `build/roms/`.
 
 | Fichier | Taille | Requis | Description |
 |---------|--------|--------|-------------|
-| `roms/sysmon.rom` | 4 Ko | Oui (sans disquette) | Moniteur machine SYSMON |
-| `roms/samos.rom` | 4 Ko | Optionnel | OS disquette SAMOS |
-| `roms/full.rom` | 8 Ko | Optionnel | SYSMON + SAMOS combinés |
+| `roms/samos_sys17.rom` | 2 Ko | **Oui** | ROM Phantom (SYS17 TMS2716) |
 | `roms/chargen.rom` | 2 Ko | Optionnel | PROM de génération de caractères |
 
 > **Note :** Si `chargen.rom` est absent, l'émulateur utilise une table de
 > caractères synthétique intégrée. Le texte sera lisible mais peut légèrement
 > différer du matériel original.
+>
+> Si `samos_sys17.rom` est absent, l'émulateur affiche un avertissement et le
+> CPU exécute de la mémoire indéfinie — rien d'utile ne se produira.
 
 ---
 
