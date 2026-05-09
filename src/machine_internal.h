@@ -10,6 +10,7 @@
 
 #include "memory.h"
 #include "video.h"
+#include "rtc.h"
 #include "usart.h"
 #include <Z80.h>
 #include <SDL2/SDL.h>
@@ -146,9 +147,8 @@ struct Smaky6 {
         int stall_frames; /* consecutive frames with no PC progress */
     } dbg;
 
-    /* Port 0x08 SPI-style serial interface (stubbed signals) */
-    uint8_t io08_out;
-    uint8_t io08_in;
+    /* Port 0x08: E405/08 RTC serial interface (extension board) */
+    RtcState rtc;
 
     /* 50 Hz interrupt pending */
     int irq_pending;

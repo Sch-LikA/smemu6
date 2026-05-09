@@ -4,6 +4,7 @@
 #include "memory.h"
 #include "video.h"
 #include "keyboard.h"
+#include "rtc.h"
 #include "usart.h"
 #include "parallel.h"
 #include "floppy.h"
@@ -66,9 +67,9 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
     case 0x08:
         if (m->dbg.trace_port08) {
             fprintf(stderr, "[io08] IN  pc=%04X -> %02X\n",
-                    (unsigned)Z80_PC(m->cpu), m->io08_in);
+                    (unsigned)Z80_PC(m->cpu), rtc_read_port(&m->rtc));
         }
-        return m->io08_in;
+        return rtc_read_port(&m->rtc);
     /* Port 0x19 bits[3:0] = current hard-sector index (used by SAMOS floppy code) */
     case 0x19: return floppy_read_sector19(m);
     /* Port 0x1A read: bit 7 = byte-ready flag (polled via IN F,(C)) */
@@ -182,15 +183,14 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
     case 0x05: usart_write_command(m, USART_PAPER, data);       break;
     case 0x06: usart_write_data(m, USART_CASS, data);           break;
     case 0x07: usart_write_command(m, USART_CASS, data);        break;
-    /* Port 0x08: SPI-style serial interface used by SYS.SY.
-     * We keep a simple output latch and clear frame IRQ acknowledge side effect. */
+    /* Port 0x08: E405/08 RTC serial interface (extension board).
+     * Bit 3=CK, bit 0=I/O (bidirectional), bit 2=CS (kept high during txn). */
     case 0x08:
-        m->io08_out = data;
-        m->irq_pending = 0;
         if (m->dbg.trace_port08) {
             fprintf(stderr, "[io08] OUT pc=%04X <- %02X\n",
                     (unsigned)Z80_PC(m->cpu), data);
         }
+        rtc_write_port(&m->rtc, data);
         break;
     case 0x1A: floppy_write_cont(m, data);                      break;
     /* Port 0x19 write: Phantom ROM floppy command register.
@@ -286,8 +286,7 @@ struct Smaky6 *machine_create(void)
     m->dbg.trace_scr = 0;   /* screen dump off by default; enable with -scrdump */
     sound_init(m);
     debug_init(m);
-    m->io08_out = 0;
-    m->io08_in  = 0;
+    rtc_init(&m->rtc);
 
     /* Wire up Z80 callbacks */
     m->cpu.context      = m;
@@ -432,6 +431,7 @@ void machine_run_frame(struct Smaky6 *m)
             cycles += ran;
         }
         sound_end_frame(m);  /* flush per-frame buzzer buffer to audio queue */
+        rtc_tick_frame(&m->rtc);
         floppy_tick(m);
     } else {
         /* Single-step: execute one instruction */

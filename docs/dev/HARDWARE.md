@@ -161,7 +161,7 @@ All ROM and the upper 32 KB of RAM live on this plug-in extension board.
 |-----------------|-----------|-------|--------------------------------------------------|
 | IC1             | TMS2716   | 1     | **Phantom ROM** — 2 KB EPROM at 0x0000–0x07FF    |
 | IC16–IC31       | 4116 DRAM | 16    | **Upper 32 KB RAM** — 0x8000–0xFFFF              |
-| IC5             | E405/08   | 1     | **RTC** (Horloge absolue) — serial, 32.768 kHz   |
+| IC5             | E405/08   | 1     | **RTC** (Horloge absolue, chip: **E405**, port: **0x08**) — serial, 32.768 kHz |
 | IC2, IC10       | LS158     | 2     | Row/column address MUX for DRAM                  |
 | IC3             | 1/2 LS139 | 1     | RAS / bank decoder                               |
 | IC8             | S287      | 1     | Extension bus interface + address decode         |
@@ -178,7 +178,14 @@ Z80 executes `OUT (01h), A=00h` (MOVROM), exposing the underlying RAM.
 RAS/CAS multiplexing by IC2/IC10 (LS158 MUX), bank select by IC3 (LS139).
 Refresh driven by the Z80 `RFSH` / `REFRESH` signal from the mainboard bus.
 
-**RTC — E405/08 (IC5)**: 3-wire synchronous serial interface:
+**RTC — E405/08 (IC5)**: 3-wire synchronous serial interface.
+
+The slash notation `E405/08` is an Epsitec schematic convention: the part
+before the slash is the **chip type** (E405) and the number after the slash
+is the **I/O port address** (0x08).  Port 0x08 is therefore directly encoded
+in the component designator on the schematic.
+
+Serial interface:
 - **CK** — serial clock (toggled by Z80 I/O write)
 - **CS** — chip select (asserted on I/O access to the port)
 - **I/O** — bidirectional serial data

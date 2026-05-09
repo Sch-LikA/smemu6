@@ -43,6 +43,7 @@ add_executable(smaky6emu
     src/floppy.c
     src/sound.c
     src/debug.c
+    src/rtc.c
 )
 
 target_include_directories(smaky6emu PRIVATE src)
