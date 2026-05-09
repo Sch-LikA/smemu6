@@ -73,7 +73,7 @@ int floppy_mount(struct Smaky6 *m, int drive, const char *path)
 
 uint8_t floppy_read_stat(struct Smaky6 *m)
 {
-    int     drive = (m->fdc.ctrl >> 4) & 1;
+    int     drive = m->fdc.selected_drive;
     uint8_t stat  = 0x00u;
     if (m->fdc.track[drive] == 0) stat |= 0x01u;   /* TRACK0 */
     if (m->fdc.image[drive])      stat |= 0x04u;   /* DRIVE_READY */
@@ -98,7 +98,7 @@ uint8_t floppy_read_stat(struct Smaky6 *m)
  */
 uint8_t floppy_read_sector19(struct Smaky6 *m)
 {
-    int drive = (m->fdc.ctrl >> 4) & 1;
+    int drive = m->fdc.selected_drive;
     if (!m->fdc.image[drive])
         return 0xFFu;
 
@@ -144,7 +144,7 @@ uint8_t floppy_read_cont(struct Smaky6 *m)
  */
 uint8_t floppy_read_data(struct Smaky6 *m)
 {
-    int drive = (m->fdc.ctrl >> 4) & 1;
+    int drive = m->fdc.selected_drive;
 
     if (m->fdc.byte_pos == 0) {
         /* Sync byte */
@@ -171,9 +171,8 @@ uint8_t floppy_read_data(struct Smaky6 *m)
              * The Micropolis sector header contains the physical track number
              * as byte 1 (the ID byte).  The OS compares this against its
              * expected-track variable at (0x2B8B) via CP (HL) at 0x20C2.
-             * Drive is determined from selected_drive (set by port 0x19 writes)
-             * rather than ctrl (which is also updated by port 0x1A step bytes
-             * that encode step direction and can have bit4=1 for drive-A ops). */
+             * Drive is determined from selected_drive (set by DRISEL1/DRISEL2
+             * bits 5/6 of port 0x19 per Plan F5 IC7 LS475 schematic). */
             int sd = m->fdc.selected_drive;
             drive   = sd;
             req_sec = m->fdc.sector & 0x0Fu;
@@ -228,7 +227,7 @@ uint8_t floppy_read_data(struct Smaky6 *m)
 
 void floppy_write_cont(struct Smaky6 *m, uint8_t val)
 {
-    int drive = (val >> 4) & 1;
+    int drive = m->fdc.selected_drive;
 
     if (m->rom_mask[0x0000] != 0) {
         /* Phantom ROM mode: edge-triggered step on bit 2, direction from bit 3

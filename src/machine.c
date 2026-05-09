@@ -209,11 +209,12 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         uint8_t old_ctrl = m->fdc.ctrl;
         m->fdc.ctrl           = data;
         m->fdc.nmi_armed = ((data & 0x0Cu) == 0x0Cu);
-        /* Drive is selected by the motor-on+NMI-arm command (bits 2+3 both set).
-         * Other port 0x19 values encode seek/step setup and may have bit4 set
-         * for unrelated reasons — do NOT update selected_drive from those. */
-        if (m->fdc.nmi_armed)
-            m->fdc.selected_drive = (data >> 4) & 1;
+        /* Drive is selected by DRISEL1 (bit 5 = 0x20 → DX0) and
+         * DRISEL2 (bit 6 = 0x40 → DX1) in the control register (Plan F5,
+         * IC7 LS475 output bit weights in octal: 40=DX0, 100=DX1).
+         * Update whenever MOTORON (bit 3) is asserted. */
+        if (data & 0x08u)
+            m->fdc.selected_drive = (data & 0x40u) ? 1 : 0;
         if (data != old_ctrl) {
             m->fdc.seek_busy = 2;  /* realistic seek settle delay (~40ms at 50Hz) */
         }
