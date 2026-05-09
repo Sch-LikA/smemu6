@@ -14,19 +14,20 @@ static uint8_t int_to_bcd(int n)
 /* ── MISO pre-load ───────────────────────────────────────────────────────── */
 
 /*
- * Prepare the next MISO bit from the current read position.
- * Called after each falling CK edge during the READ phase, and once when
- * the READ command is first decoded (to pre-load the very first bit).
+ * Pre-load the MISO bit for the CURRENT bit_count position.
+ * Called on each falling CK edge BEFORE advancing bit_count.
  *
- * The protocol sends bytes MSB-first: bit_count=0 → bit7, bit_count=7 → bit0.
+ * Protocol: the Z80 receive loop does RRA;RR(HL) which places the first
+ * received bit at position 0 (LSB) after 8 iterations.  The RTC therefore
+ * transmits bytes LSB-first: bit_count=0 → bit0, bit_count=7 → bit7.
  */
 static void rtc_preload_miso(RtcState *rtc)
 {
-    if (rtc->phase != RTC_READING || rtc->byte_idx >= 7) {
+    if (rtc->byte_idx >= 7) {
         rtc->miso = 0;
         return;
     }
-    rtc->miso = (rtc->regs[rtc->byte_idx] >> (7 - rtc->bit_count)) & 1u;
+    rtc->miso = (rtc->regs[rtc->byte_idx] >> rtc->bit_count) & 1u;
 }
 
 /* BCD increment with ceiling; returns 1 on carry (value wrapped to 0). */
@@ -56,21 +57,26 @@ void rtc_init(RtcState *rtc)
     /*
      * Weekday: localtime() tm_wday 0=Sun … 6=Sat
      * Smaky convention: 1=Mon … 7=Sun  (from SDAY prompt "(1=Mon ... 7=Sun)wd:")
+     * Confirmed: value 5 → "Vendredi" (Friday), so Saturday = 6, Sunday = 7.
      */
     int wday_smaky = (t->tm_wday == 0) ? 7 : t->tm_wday;
 
-    rtc->regs[0] = int_to_bcd(t->tm_sec);
+    /* E405 register order confirmed from SAMOS display behaviour:
+     *   SAMOS time hh:mm:ss reads bytes [0],[1],[6]
+     *   SAMOS date DD/MM/YY reads bytes [2],[3],[4]
+     *   SAMOS weekday name reads byte [5] */
+    rtc->regs[0] = int_to_bcd(t->tm_hour);
     rtc->regs[1] = int_to_bcd(t->tm_min);
-    rtc->regs[2] = int_to_bcd(t->tm_hour);
-    rtc->regs[3] = int_to_bcd(wday_smaky);
-    rtc->regs[4] = int_to_bcd(t->tm_mday);
-    rtc->regs[5] = int_to_bcd(t->tm_mon + 1);   /* tm_mon is 0-based */
-    rtc->regs[6] = int_to_bcd(t->tm_year % 100); /* 2-digit year */
+    rtc->regs[2] = int_to_bcd(t->tm_mday);
+    rtc->regs[3] = int_to_bcd(t->tm_mon + 1);   /* tm_mon is 0-based */
+    rtc->regs[4] = int_to_bcd(t->tm_year % 100); /* 2-digit year */
+    rtc->regs[5] = int_to_bcd(wday_smaky);
+    rtc->regs[6] = int_to_bcd(t->tm_sec);
 
     fprintf(stderr, "[rtc] init: %02X:%02X:%02X  wd=%02X  %02X/%02X/%02X\n",
-            rtc->regs[2], rtc->regs[1], rtc->regs[0],
-            rtc->regs[3],
-            rtc->regs[4], rtc->regs[5], rtc->regs[6]);
+            rtc->regs[0], rtc->regs[1], rtc->regs[6],
+            rtc->regs[5],
+            rtc->regs[2], rtc->regs[3], rtc->regs[4]);
 }
 
 void rtc_tick_frame(RtcState *rtc)
@@ -79,26 +85,26 @@ void rtc_tick_frame(RtcState *rtc)
     if (--rtc->frame_frac > 0) return;
     rtc->frame_frac = 50;
 
-    /* Advance seconds; propagate carry through minutes, hours, day, month, year */
-    if (!bcd_inc(&rtc->regs[0], 59)) return;
-    if (!bcd_inc(&rtc->regs[1], 59)) return;
-    if (!bcd_inc(&rtc->regs[2], 23)) return;
+    /* Advance seconds(6) → minutes(1) → hours(0); propagate carry */
+    if (!bcd_inc(&rtc->regs[6], 59)) return;  /* seconds */
+    if (!bcd_inc(&rtc->regs[1], 59)) return;  /* minutes */
+    if (!bcd_inc(&rtc->regs[0], 23)) return;  /* hours   */
 
-    /* Advance weekday (1–7, wraps 7→1) */
+    /* Advance weekday (1–7: 1=Mon…7=Sun, wraps 7→1) */
     {
-        int wd = (rtc->regs[3] & 0x0F);   /* BCD single digit 1-7 */
+        int wd = (rtc->regs[5] & 0x0F);   /* BCD single digit 1-7 */
         wd = (wd % 7) + 1;
-        rtc->regs[3] = int_to_bcd(wd);
+        rtc->regs[5] = int_to_bcd(wd);
     }
 
-    /* Day-of-month: simple 31-day ceiling (good enough for emulator purposes) */
-    if (!bcd_inc(&rtc->regs[4], 31)) return;
-    if (!bcd_inc(&rtc->regs[5], 12)) return;
+    /* Day-of-month: simple 31-day ceiling */
+    if (!bcd_inc(&rtc->regs[2], 31)) return;
+    if (!bcd_inc(&rtc->regs[3], 12)) return;
     /* Year: 2-digit BCD, wraps 99→00 */
     {
-        int yr = ((rtc->regs[6] >> 4) & 0x0F) * 10 + (rtc->regs[6] & 0x0F);
+        int yr = ((rtc->regs[4] >> 4) & 0x0F) * 10 + (rtc->regs[4] & 0x0F);
         yr = (yr + 1) % 100;
-        rtc->regs[6] = int_to_bcd(yr);
+        rtc->regs[4] = int_to_bcd(yr);
     }
 }
 
@@ -149,7 +155,9 @@ latch_cmd_bit:
                     rtc->phase     = RTC_READING;
                     rtc->byte_idx  = 0;
                     rtc->bit_count = 0;
-                    rtc_preload_miso(rtc);  /* pre-load first bit for Z80 read */
+                    /* Do NOT preload here: the first falling edge of the receive
+                     * loop (CK: 1→0 as Z80 transitions from command to data phase)
+                     * will preload bit 0 before the first IN instruction. */
                 } else {
                     rtc->phase     = RTC_WRITING;
                     rtc->byte_idx  = 0;
@@ -162,30 +170,35 @@ latch_cmd_bit:
 
     case RTC_READING:
         /*
-         * The Z80 reads MISO between falling and rising CK edges:
-         *   OUT(CK=0) → IN(MISO) → OUT(CK=1)
-         * Advance the bit counter on the falling edge so the next MISO is
-         * ready before the next IN instruction.
+         * Protocol timing (Z80 receive loop):
+         *   OUT(CK=0) → [falling edge] → IN(MISO) → OUT(CK=1) → repeat
+         *
+         * On each FALLING edge the Z80 is about to read MISO.  We preload the
+         * CURRENT bit first, THEN advance the counter.  This is critical:
+         * the first OUT(CK=0) of the receive loop produces a falling edge
+         * (CK was left at 1 by the last command clock), so bit 0 must be
+         * preloaded on that very first falling edge for the upcoming IN.
          */
         if (falling) {
+            rtc_preload_miso(rtc);   /* latch bit_count BEFORE advancing */
             rtc->bit_count++;
             if (rtc->bit_count == 8) {
                 rtc->byte_idx++;
                 rtc->bit_count = 0;
-                if (rtc->byte_idx >= 7) {
+                if (rtc->byte_idx >= 7)
                     rtc->phase = RTC_IDLE;
-                    rtc->miso  = 0;
-                    break;
-                }
+                    /* miso still holds last bit for upcoming IN; reset happens
+                     * when Z80 outputs A=0 at the end of the transaction */
             }
-            rtc_preload_miso(rtc);
         }
         break;
 
     case RTC_WRITING:
-        /* Latch MOSI (bit0) on each rising CK edge, MSB first */
+        /* Latch MOSI (bit0) on each rising CK edge, LSB first:
+         * Z80 transmit loop shifts out bit0 of C first (RR C extracts LSB).
+         * Build shift_reg by placing each received bit at position bit_count. */
         if (rising) {
-            rtc->shift_reg = (uint8_t)((rtc->shift_reg << 1) | io);
+            rtc->shift_reg |= (uint8_t)(io << rtc->bit_count);
             rtc->bit_count++;
             if (rtc->bit_count == 8) {
                 if (rtc->byte_idx < 7)
@@ -197,9 +210,9 @@ latch_cmd_bit:
                     rtc->phase = RTC_IDLE;
                     fprintf(stderr,
                             "[rtc] write: %02X:%02X:%02X  wd=%02X  %02X/%02X/%02X\n",
-                            rtc->regs[2], rtc->regs[1], rtc->regs[0],
-                            rtc->regs[3],
-                            rtc->regs[4], rtc->regs[5], rtc->regs[6]);
+                            rtc->regs[0], rtc->regs[1], rtc->regs[6],
+                            rtc->regs[5],
+                            rtc->regs[2], rtc->regs[3], rtc->regs[4]);
                 }
             }
         }

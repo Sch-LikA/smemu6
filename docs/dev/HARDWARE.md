@@ -205,6 +205,18 @@ Serial interface (3-wire synchronous bit-bang, proprietary — predates SPI):
 Protocol: 4-bit command phase (LSB-first), then 7 BCD data bytes (LSB-first per
 byte).  Command 0b1111 (0x0F) = read; 0b0111 (0x07) = write.
 
+Register layout (7 bytes, BCD, confirmed empirically from SAMOS display):
+
+| Byte | Content  | Range  | SAMOS field         |
+|------|----------|--------|---------------------|
+| 0    | hours    | 00–23  | time **hh**         |
+| 1    | minutes  | 00–59  | time **mm**         |
+| 2    | day      | 01–31  | date **DD**         |
+| 3    | month    | 01–12  | date **MM**         |
+| 4    | year     | 00–99  | date **YY**         |
+| 5    | weekday  | 1–7    | day name (1=Mon…7=Sun) |
+| 6    | seconds  | 00–59  | time **ss**         |
+
 **SIRING / 7910**: The board title suffix "SIRING 7910" is the Epsitec
 internal board designation. "7910" is the date code (October 1979).
 The meaning of "SIRING" is not confirmed from available sources.

@@ -358,6 +358,18 @@ OUT (0x08), A          ; deselect
 
 **Target confirmed**: E405/08 RTC (IC5, extension board).
 
+Register layout (7 bytes, BCD, confirmed empirically from SAMOS display output):
+
+| Byte | Content  | Range  | SAMOS field            |
+|------|----------|--------|------------------------|
+| 0    | hours    | 00–23  | time **hh**            |
+| 1    | minutes  | 00–59  | time **mm**            |
+| 2    | day      | 01–31  | date **DD**            |
+| 3    | month    | 01–12  | date **MM**            |
+| 4    | year     | 00–99  | date **YY**            |
+| 5    | weekday  | 1–7    | day name (1=Mon…7=Sun) |
+| 6    | seconds  | 00–59  | time **ss**            |
+
 #### Port 0x0B — Bit-serial shift clock
 
 Protocol (disassembled from OS ~0x5ADA–0x5B10):

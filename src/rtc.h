@@ -24,13 +24,16 @@
  *        Write: Z80 shifts via RL(HL)+RLA (MSB of source byte sent first)
  *
  * Register layout (7 bytes, BCD encoding, transmitted LSB-first per byte):
- *   regs[0] = seconds   (00–59)
- *   regs[1] = minutes   (00–59)
- *   regs[2] = hours     (00–23, 24-hour)
- *   regs[3] = weekday   (1=Mon … 7=Sun, Smaky convention)
- *   regs[4] = day       (01–31)
- *   regs[5] = month     (01–12)
- *   regs[6] = year      (00–99, 2 digits, BCD)
+ *   regs[0] = hours     (00–23, 24-hour)       → SAMOS time hh field
+ *   regs[1] = minutes   (00–59)                → SAMOS time mm field
+ *   regs[2] = day       (01–31)                → SAMOS date DD field
+ *   regs[3] = month     (01–12)                → SAMOS date MM field
+ *   regs[4] = year      (00–99, 2-digit BCD)   → SAMOS date YY field
+ *   regs[5] = weekday   (1=Mon … 7=Sun)        → SAMOS weekday name
+ *   regs[6] = seconds   (00–59)                → SAMOS time ss field
+ *
+ * Layout confirmed empirically: SAMOS reads hh:mm:ss from bytes [0],[1],[6]
+ * and date DD/MM/YY from bytes [2],[3],[4]; weekday name from byte [5].
  */
 #ifndef RTC_H
 #define RTC_H
