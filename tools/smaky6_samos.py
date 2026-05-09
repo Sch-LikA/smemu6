@@ -484,21 +484,24 @@ def cmd_image(args, data: bytearray, tracks: int):
         print(f"WARNING: {n_bytes} bytes is not a multiple of {BYTES_PER_ROW}; "
               f"last partial row ignored.", file=sys.stderr)
 
-    # Build greyscale image (0=black, 255=white).
+    # Build RGB image with green phosphor colours.
+    # Lit pixel = classic P31 phosphor green; dark pixel = near-black.
     # The hardware repeats each stored row on 4 consecutive scan lines, so the
     # "natural" display height is n_rows × 4 (e.g. 60 × 4 = 240 lines).
+    PHOSPHOR_ON  = (57, 255, 20)   # P31 green phosphor (lit)
+    PHOSPHOR_OFF = (0,  10,  0)    # very dark green (dark)
     HARDWARE_ROW_REPEAT = 4
     display_h = n_rows * HARDWARE_ROW_REPEAT
-    img = PILImage.new('L', (PX_W, display_h), 0)
+    img = PILImage.new('RGB', (PX_W, display_h), PHOSPHOR_OFF)
     pix = img.load()
     for row in range(n_rows):
         for col in range(BYTES_PER_ROW):
             byte = raw[row * BYTES_PER_ROW + col]
             for bit in range(8):
                 px = col * 8 + bit          # LSB-first: bit 0 → leftmost pixel
-                v  = 255 if (byte >> bit) & 1 else 0
-                for rep in range(HARDWARE_ROW_REPEAT):
-                    pix[px, row * HARDWARE_ROW_REPEAT + rep] = v
+                if (byte >> bit) & 1:
+                    for rep in range(HARDWARE_ROW_REPEAT):
+                        pix[px, row * HARDWARE_ROW_REPEAT + rep] = PHOSPHOR_ON
 
     # Determine output path
     outpath = getattr(args, 'outpng', None)
