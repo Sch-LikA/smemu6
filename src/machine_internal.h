@@ -114,7 +114,11 @@ struct Smaky6 {
 
     /* Sound */
     struct {
-        int buzzer_bit;
+        int    buzzer_bit;
+        zusize frame_base;  /* total frame T-states before the current z80_run
+                             * sub-batch; set by machine_run_frame so that
+                             * sound_set_bit can compute the absolute frame
+                             * position as (frame_base + cpu.cycles). */
     } snd;
 
     /* Debug */
@@ -128,6 +132,7 @@ struct Smaky6 {
             int trace_port19;  /* 1 = log port 0x19 writes */
             int trace_fdc;     /* 1 = log focused floppy ID/checksum stream events */
         int trace_flow;  /* 1 = log dense post-handoff control flow */
+        int trace_snd;   /* 1 = log every port 0x03 write (buzzer) */
         int flow_budget; /* max flow log lines per run */
         uint16_t last_flow_pc;
         uint32_t flow_spin_count;

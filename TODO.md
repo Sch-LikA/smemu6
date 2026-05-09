@@ -365,11 +365,16 @@ field.  From that, reconstruct the full register map.
 
 ---
 
-## Sound / Beeper
+## ~~Sound / Beeper~~ ✅ Done
 
-Port `0x03` bit-bang beeper is read and written by the ROM but the emulator
-produces no audio output.  SDL2 audio is available; a simple 1-bit buzzer
-callback could be wired in.
+Port `0x03` bit 0 drives the buzzer.  Each write calls `sound_set_bit()` which
+maps the current T-state frame position (`m->snd.frame_base + m->cpu.cycles`)
+to a sample index and fills a per-frame `int16_t[882]` buffer with the previous
+level.  `sound_end_frame()` (called by `machine_run_frame`) flushes the frame
+buffer to SDL via `SDL_QueueAudio` (push mode — no callback thread race).
+
+This gives sample-accurate buzzer reproduction: a software loop toggling port
+0x03 at 2500 Hz produces a 2500 Hz square wave in the audio output.
 
 ---
 

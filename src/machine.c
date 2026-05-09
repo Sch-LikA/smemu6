@@ -160,7 +160,14 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         break;
     case 0x02: parallel_write_data(m, data);                    break;
     /* Port 0x03: sound bit-bang (RST 38 interrupt handler loops here for beep) */
-    case 0x03: sound_set_bit(m, data & 1);                      break;
+    case 0x03:
+        sound_set_bit(m, data & 1);
+        if (m->dbg.trace_snd) {
+            fprintf(stderr, "[snd] OUT 03 pc=%04X data=%02X frame_base=%u cpu.cyc=%u\n",
+                    (unsigned)Z80_PC(m->cpu), data,
+                    (unsigned)m->snd.frame_base, (unsigned)m->cpu.cycles);
+        }
+        break;
     case 0x04: usart_write_data(m, USART_PAPER, data);          break;
     case 0x05: usart_write_command(m, USART_PAPER, data);       break;
     case 0x06: usart_write_data(m, USART_CASS, data);           break;
@@ -359,6 +366,7 @@ void machine_run_frame(struct Smaky6 *m)
 
     if (!debug_is_stepping(m)) {
         zusize cycles = 0;
+        m->snd.frame_base = 0;   /* reset sound frame-position tracker */
         if (do_int_pulse) {
             /* Run to mid-frame, pulse INT briefly, then finish frame. */
             zusize budget = INT_PULSE_AT - cycles;
@@ -373,6 +381,7 @@ void machine_run_frame(struct Smaky6 *m)
                 }
                 cycles += ran;
             }
+            m->snd.frame_base = cycles;  /* update before INT-window batch */
             z80_int(&m->cpu, Z_TRUE);
             budget = (INT_PULSE_AT + INT_PULSE_WIDTH) - cycles;
             if (budget > 0) {
@@ -387,6 +396,7 @@ void machine_run_frame(struct Smaky6 *m)
                 cycles += ran;
             }
             z80_int(&m->cpu, Z_FALSE);
+            m->snd.frame_base = cycles;  /* update before final batch */
             budget = TSTATES_PER_FRAME - cycles;
             if (budget > 0) {
                 zusize ran = z80_execute(&m->cpu, budget);
@@ -410,6 +420,7 @@ void machine_run_frame(struct Smaky6 *m)
             }
             cycles += ran;
         }
+        sound_end_frame(m);  /* flush per-frame buzzer buffer to audio queue */
         floppy_tick(m);
     } else {
         /* Single-step: execute one instruction */
@@ -554,6 +565,11 @@ void machine_set_trace_port19(struct Smaky6 *m, int on)
 void machine_set_trace_fdc(struct Smaky6 *m, int on)
 {
     m->dbg.trace_fdc = on ? 1 : 0;
+}
+
+void machine_set_trace_snd(struct Smaky6 *m, int on)
+{
+    m->dbg.trace_snd = on ? 1 : 0;
 }
 
 /* ── Internal accessor helpers (used by subsystem .c files) ─────────────── */
