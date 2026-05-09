@@ -335,7 +335,7 @@ void video_render(struct Smaky6 *m)
         if (mounted) {
             char info[12];
             int trk = m->fdc.track[d];
-            int sec = m->fdc.phased_sector;
+            int sec = m->fdc.phased_sector[d];
             snprintf(info, sizeof(info), "T:%02d S:%02d", trk, sec);
             int ix = tx + 10;   /* after drive letter + 2px gap */
             SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);

@@ -188,8 +188,13 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
      * CHANGES (new seek command), not on redundant writes. */
     case 0x19: {
         uint8_t old_ctrl = m->fdc.ctrl;
-        m->fdc.ctrl      = data;
+        m->fdc.ctrl           = data;
         m->fdc.nmi_armed = ((data & 0x0Cu) == 0x0Cu);
+        /* Drive is selected by the motor-on+NMI-arm command (bits 2+3 both set).
+         * Other port 0x19 values encode seek/step setup and may have bit4 set
+         * for unrelated reasons — do NOT update selected_drive from those. */
+        if (m->fdc.nmi_armed)
+            m->fdc.selected_drive = (data >> 4) & 1;
         if (data != old_ctrl) {
             m->fdc.seek_busy = 2;  /* realistic seek settle delay (~40ms at 50Hz) */
         }

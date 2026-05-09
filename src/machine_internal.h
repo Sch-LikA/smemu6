@@ -101,12 +101,15 @@ struct Smaky6 {
          * and a disk is mounted, replicating the Micropolis sector-hole NMI. */
         int      nmi_armed;
 
-        /* Phase tracking for relocated SAMOS boot:
-         * Tracks which sector we're currently reading so we can serve
-         * deterministic sector IDs (always 0) in the DATA phase instead
-         * of rotating indices. This couples controller state to loader
-         * expectations during the relocated boot sequence. */
-        uint8_t  phased_sector;  /* sector locked at start of read sequence */
+        /* Active drive as selected by the last port 0x19 write (bit 4).
+         * Kept separate from ctrl so that port 0x1A step-pulse bytes (which
+         * also have a drive bit but encode step direction, not selection)
+         * cannot override the drive choice set by the OS. */
+        int      selected_drive;
+
+        /* Per-drive sector latch: updated at byte_pos=1 to track which sector
+         * is being read on each drive (for the status-bar display). */
+        uint8_t  phased_sector[2];
     } fdc;
 
     /* Sound */

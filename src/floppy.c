@@ -24,7 +24,9 @@ void floppy_init(struct Smaky6 *m)
     m->fdc.disk_active[0] = 0;
     m->fdc.disk_active[1] = 0;
     m->fdc.nmi_armed = 0;
-    m->fdc.phased_sector = 0;
+    m->fdc.selected_drive    = 0;
+    m->fdc.phased_sector[0]  = 0;
+    m->fdc.phased_sector[1]  = 0;
     memset(m->fdc.sec_buf, 0, sizeof(m->fdc.sec_buf));
 }
 
@@ -168,11 +170,14 @@ uint8_t floppy_read_data(struct Smaky6 *m)
              * The Micropolis sector header contains the physical track number
              * as byte 1 (the ID byte).  The OS compares this against its
              * expected-track variable at (0x2B8B) via CP (HL) at 0x20C2.
-             * Always use drive 0 (drive A): post-ROM stepping keeps track[0]
-             * current, and the ARM command sets ctrl to drive=0 (e.g., 0x2C). */
+             * Drive is determined from selected_drive (set by port 0x19 writes)
+             * rather than ctrl (which is also updated by port 0x1A step bytes
+             * that encode step direction and can have bit4=1 for drive-A ops). */
+            int sd = m->fdc.selected_drive;
+            drive   = sd;
             req_sec = m->fdc.sector & 0x0Fu;
-            id_sec  = m->fdc.track[0];  /* track number, drive A always */
-            track   = m->fdc.track[0];
+            id_sec  = m->fdc.track[sd];
+            track   = m->fdc.track[sd];
         }
 
         if (m->fdc.image[drive]) {
@@ -196,6 +201,7 @@ uint8_t floppy_read_data(struct Smaky6 *m)
                     (unsigned)m->fdc.ctrl);
         }
         m->fdc.byte_pos = 2;
+        m->fdc.phased_sector[drive] = req_sec;
         return id_sec;   /* sector ID = what the ROM expects */
     }
 
@@ -247,13 +253,15 @@ void floppy_write_cont(struct Smaky6 *m, uint8_t val)
          *   - (0x2B88) bit6=0 → single-sided → target in (0x2B8B)
          *   - (0x2B88) bit6=1 → double-sided → target in (0x2B8C)
          * This is robust against any value of (0x2B88).
-         * SYS.SY always operates on drive A (drive 0). */
+         * Drive from selected_drive (port 0x19), not ctrl (port 0x1A step
+         * bytes can have bit4=1 for drive-A ops — cannot use as drive select). */
+        int sd = m->fdc.selected_drive;
         uint8_t b88    = m->bus[0x2B88];
         uint8_t target = ((b88 >> 6) & 1) ? m->bus[0x2B8C] : m->bus[0x2B8B];
-        if (m->fdc.track[0] < target && m->fdc.track[0] < m->fdc.num_tracks[0] - 1u)
-            m->fdc.track[0]++;
-        else if (m->fdc.track[0] > target)
-            m->fdc.track[0]--;
+        if (m->fdc.track[sd] < target && m->fdc.track[sd] < m->fdc.num_tracks[sd] - 1u)
+            m->fdc.track[sd]++;
+        else if (m->fdc.track[sd] > target)
+            m->fdc.track[sd]--;
     }
     m->fdc.ctrl = val;
 }
