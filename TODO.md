@@ -7,37 +7,34 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
-### Period-correct green-phosphor look
+### ~~Period-correct green-phosphor look~~ ✅ Done
 
-The real Smaky 6 used a green-phosphor monochrome CRT.  The SDL renderer currently
-draws white-on-black pixels.  Apply a green tint (e.g. map lit pixels to `#33FF33`
-or a warm P31 phosphor colour) and dim the background slightly for an authentic look.
+The SDL renderer now draws lit pixels as `#00E700` (P31 green phosphor) on a near-black
+dark green background `#000800` (`VIDEO_COLOR_LIT` / `VIDEO_COLOR_BG` in `video.h`).
 
-### Correct pixel aspect ratio
+### ~~Correct pixel aspect ratio~~ ✅ Done
 
-The real CRT had non-square pixels.  The graphic plane is 512 × 240 logical pixels
-but each scan line is approximately 4× taller than a pixel is wide on the original
-display.  The emulator should output with the correct aspect ratio rather than
-square pixels.  Target: scale to 512 × 960 (4× vertical) or a proportional window
-size, with a scanline option for CRT feel.
+The real CRT had non-square pixels (~2–4× taller than wide).  The machine pixel buffer
+(512×240) is rendered 1:1 into the SDL logical window; the physical window is enlarged by
+the `-scale` factor (default 2×), giving 1024×520 at the default setting.  The `VIDEO_ASPECT_H`
+constant is kept equal to `VIDEO_PX_H` so no stretching is applied inside the logical window
+— integer scaling via the SDL window size is the preferred approach.
 
-### Integer scaling option
+### ~~Integer scaling option~~ ✅ Done
 
-Provide a command-line flag (e.g. `-scale N`) and/or a runtime toggle to force
-integer scaling so pixels are never fractionally sized.  At 1×, 2×, 3× etc. the
-image should be centred with black borders rather than stretched.
+`-scale N` (N = 1..8, default 2) multiplies the physical window by N.  At default 2×,
+the window is 1024 × 520 (240+20 status bar × 2).  SDL logical size stays fixed at
+`VIDEO_WIN_W × VIDEO_WIN_H` so the rendering code is scale-independent.
 
-### Live floppy track/sector visualisation
+### ~~Live floppy track/sector visualisation~~ ✅ Done
 
-Show a small heads-up overlay (or side panel) indicating, for each mounted drive:
-- Current track number
-- Current sector within the track
-- Motor on/off state
-- Read/write activity indicator (flashes on each sector transfer)
+The status bar (20 logical px, scales with `-scale`) shows per-drive:
+- Amber LED (bright = active transfer, dim = mounted idle, off = no image)
+- Drive letter glyph (from chargen ROM, rendered as 2×2 logical-pixel rects per bit)
+- `T:nn S:nn` — current track and sector from `m->fdc.track[d]` / `m->fdc.sector`
 
-The data is already available from `m->fdc` fields.  This helps diagnose disk-access
-behaviour and is faithful to the LED indicators on the real Micropolis drive.
-
+Each chargen glyph bit is rendered as a 2×2 logical-pixel filled rect so glyphs look
+crisp at any `-scale` value without needing a separate font.
 ---
 
 ## Keyboard

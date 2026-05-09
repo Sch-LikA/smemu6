@@ -36,15 +36,28 @@ void video_render(struct Smaky6 *m);
  *   Chargen ROM   : TMS2716 / 2716 EPROM, 2048 bytes.
  *                   Layout: 16 bytes per character (rows 0–7 = glyph, 8–15 = 0).
  *                   Bit 0 of each byte = leftmost pixel (LSB-first).
- *   Window        : 512 × 240 (native; SDL logical size)
+ *
+ * Pixel aspect ratio:
+ *   The real Smaky 6 CRT had non-square pixels — each scan line was ~2×
+ *   taller than a pixel was wide (real hardware ~4×, but 2× is the practical
+ *   default for comfortable desktop use).  VIDEO_ASPECT_H is the rendered
+ *   machine-content height in logical pixels; VIDEO_PX_H remains the internal
+ *   pixel buffer height.  SDL_RenderCopy stretches the texture vertically.
+ *   The integer scale factor (default 2) is applied by SDL_RenderSetLogicalSize;
+ *   the physical window = VIDEO_WIN_W*scale × VIDEO_WIN_H*scale.
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
 #define VIDEO_SCAN_LINES   240
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
-#define VIDEO_LED_H        12          /* status-bar height for disk LEDs */
+#define VIDEO_ASPECT_H     VIDEO_PX_H          /* 1:1 mapping; scale applied by SDL window size */
+#define VIDEO_LED_H        20                  /* status-bar height (track/sector info) */
 #define VIDEO_WIN_W        VIDEO_PX_W
-#define VIDEO_WIN_H        (VIDEO_PX_H + VIDEO_LED_H)
+#define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)
+
+/* Phosphor colours (ARGB8888).  P31 green phosphor: lit = #00E700, bg = #000800. */
+#define VIDEO_COLOR_LIT    0xFF00E700u
+#define VIDEO_COLOR_BG     0xFF000800u
 
 #endif /* VIDEO_H */

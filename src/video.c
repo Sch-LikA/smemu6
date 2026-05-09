@@ -68,33 +68,33 @@ static const uint8_t CHARGEN_SYNTHETIC[128][8] = {
     [0x3D] = {0x0,0x0,0xF,0x0,0xF,0x0,0x0,0}, /* = */
     [0x28] = {0x1,0x2,0x4,0x4,0x4,0x2,0x1,0}, /* ( */
     [0x29] = {0x8,0x4,0x2,0x2,0x2,0x4,0x8,0}, /* ) */
-    /* lowercase (same as uppercase for now – stub) */
-    [0x61]={0x6,0x9,0x9,0xF,0x9,0x9,0x9,0},  /* a */
-    [0x62]={0xE,0x9,0x9,0xE,0x9,0x9,0xE,0},  /* b */
-    [0x63]={0x6,0x9,0x8,0x8,0x8,0x9,0x6,0},  /* c */
-    [0x64]={0xE,0x9,0x9,0x9,0x9,0x9,0xE,0},  /* d */
-    [0x65]={0xF,0x8,0x8,0xE,0x8,0x8,0xF,0},  /* e */
-    [0x66]={0xF,0x8,0x8,0xE,0x8,0x8,0x8,0},  /* f */
-    [0x67]={0x6,0x9,0x8,0xB,0x9,0x9,0x6,0},  /* g */
-    [0x68]={0x9,0x9,0x9,0xF,0x9,0x9,0x9,0},  /* h */
-    [0x69]={0xF,0x2,0x2,0x2,0x2,0x2,0xF,0},  /* i */
-    [0x6A]={0x7,0x1,0x1,0x1,0x1,0x9,0x6,0},  /* j */
-    [0x6B]={0x9,0xA,0xC,0xC,0xA,0x9,0x9,0},  /* k */
-    [0x6C]={0x8,0x8,0x8,0x8,0x8,0x8,0xF,0},  /* l */
-    [0x6D]={0x9,0xF,0xF,0x9,0x9,0x9,0x9,0},  /* m */
-    [0x6E]={0x9,0xD,0xD,0xB,0xB,0x9,0x9,0},  /* n */
-    [0x6F]={0x6,0x9,0x9,0x9,0x9,0x9,0x6,0},  /* o */
-    [0x70]={0xE,0x9,0x9,0xE,0x8,0x8,0x8,0},  /* p */
-    [0x71]={0x6,0x9,0x9,0x9,0xB,0x9,0x7,0},  /* q */
-    [0x72]={0xE,0x9,0x9,0xE,0xA,0x9,0x9,0},  /* r */
-    [0x73]={0x6,0x9,0x8,0x6,0x1,0x9,0x6,0},  /* s */
-    [0x74]={0xF,0x2,0x2,0x2,0x2,0x2,0x2,0},  /* t */
-    [0x75]={0x9,0x9,0x9,0x9,0x9,0x9,0x6,0},  /* u */
-    [0x76]={0x9,0x9,0x9,0x9,0x9,0x6,0x6,0},  /* v */
-    [0x77]={0x9,0x9,0x9,0x9,0xF,0xF,0x9,0},  /* w */
-    [0x78]={0x9,0x9,0x6,0x6,0x6,0x9,0x9,0},  /* x */
-    [0x79]={0x9,0x9,0x6,0x2,0x2,0x2,0x2,0},  /* y */
-    [0x7A]={0xF,0x1,0x2,0x4,0x8,0x8,0xF,0},  /* z */
+    /* lowercase — distinct from uppercase (proper descender forms where practical) */
+    [0x61]={0x0,0x0,0x7,0x9,0x9,0xF,0x9,0},  /* a */
+    [0x62]={0x8,0x8,0xE,0x9,0x9,0x9,0xE,0},  /* b */
+    [0x63]={0x0,0x0,0x6,0x9,0x8,0x9,0x6,0},  /* c */
+    [0x64]={0x1,0x1,0x7,0x9,0x9,0x9,0x7,0},  /* d */
+    [0x65]={0x0,0x0,0x6,0x9,0xF,0x8,0x6,0},  /* e */
+    [0x66]={0x3,0x4,0x4,0xE,0x4,0x4,0x4,0},  /* f */
+    [0x67]={0x0,0x0,0x7,0x9,0x9,0x7,0x1,0x6},/* g — descender */
+    [0x68]={0x8,0x8,0xE,0x9,0x9,0x9,0x9,0},  /* h */
+    [0x69]={0x2,0x0,0x6,0x2,0x2,0x2,0x7,0},  /* i */
+    [0x6A]={0x1,0x0,0x3,0x1,0x1,0x9,0x6,0},  /* j */
+    [0x6B]={0x8,0x8,0x9,0xA,0xC,0xA,0x9,0},  /* k */
+    [0x6C]={0x6,0x2,0x2,0x2,0x2,0x2,0x7,0},  /* l */
+    [0x6D]={0x0,0x0,0xF,0x9,0x9,0x9,0x9,0},  /* m */
+    [0x6E]={0x0,0x0,0xE,0x9,0x9,0x9,0x9,0},  /* n */
+    [0x6F]={0x0,0x0,0x6,0x9,0x9,0x9,0x6,0},  /* o */
+    [0x70]={0x0,0x0,0xE,0x9,0x9,0xE,0x8,0x8},/* p — descender */
+    [0x71]={0x0,0x0,0x7,0x9,0x9,0x7,0x1,0x1},/* q — descender */
+    [0x72]={0x0,0x0,0xB,0xC,0x8,0x8,0x8,0},  /* r */
+    [0x73]={0x0,0x0,0x6,0x8,0x6,0x1,0xE,0},  /* s */
+    [0x74]={0x4,0x4,0xF,0x4,0x4,0x4,0x3,0},  /* t */
+    [0x75]={0x0,0x0,0x9,0x9,0x9,0x9,0x6,0},  /* u */
+    [0x76]={0x0,0x0,0x9,0x9,0x9,0x6,0x6,0},  /* v */
+    [0x77]={0x0,0x0,0x9,0x9,0x9,0xF,0xF,0},  /* w */
+    [0x78]={0x0,0x0,0x9,0x6,0x6,0x6,0x9,0},  /* x */
+    [0x79]={0x0,0x0,0x9,0x9,0x7,0x1,0x6,0},  /* y */
+    [0x7A]={0x0,0x0,0xF,0x2,0x4,0x8,0xF,0},  /* z */
 };
 
 /* Direct field access: struct Smaky6 fully visible via machine_internal.h */
@@ -180,9 +180,12 @@ void video_render(struct Smaky6 *m)
     uint32_t pixels[VIDEO_PX_W * VIDEO_PX_H];
     memset(pixels, 0, sizeof(pixels));
 
-    const uint32_t WHITE = 0xFFFFFFFFu;
-    const uint32_t BLACK = 0xFF000000u;
-    (void)BLACK;
+    const uint32_t LIT = VIDEO_COLOR_LIT;
+    const uint32_t BG  = VIDEO_COLOR_BG;
+
+    /* Fill with phosphor background colour */
+    for (int i = 0; i < VIDEO_PX_W * VIDEO_PX_H; i++)
+        pixels[i] = BG;
 
     /* Respect the selected display mode. Unconditionally compositing the
      * bitmap plane makes the OS workspace at 0x4500 look like random screen
@@ -206,7 +209,7 @@ void video_render(struct Smaky6 *m)
                         int py = py0 + sl;
                         if (px < VIDEO_PX_W && py < VIDEO_PX_H) {
                             if (bits & (1u << b))
-                                pixels[py * VIDEO_PX_W + px] = WHITE;
+                                pixels[py * VIDEO_PX_W + px] = LIT;
                         }
                     }
                 }
@@ -224,7 +227,7 @@ void video_render(struct Smaky6 *m)
                     int px = col * 8 + (m->vid.gfx_msb_first ? (7 - bit) : bit);
                     if (px < VIDEO_PX_W && row < VIDEO_PX_H) {
                         if (byte & (1u << bit))
-                            pixels[row * VIDEO_PX_W + px] = WHITE;
+                            pixels[row * VIDEO_PX_W + px] = LIT;
                     }
                 }
             }
@@ -275,53 +278,84 @@ void video_render(struct Smaky6 *m)
 
     SDL_RenderClear(ren);
 
-    /* Render machine content (512×240) into the top portion of the window */
-    SDL_Rect machine_dst = { 0, 0, VIDEO_PX_W, VIDEO_PX_H };
+    /* Render machine content (512×240) at 1:1 into the logical window.
+     * The physical window is VIDEO_WIN_H * display_scale pixels tall, giving
+     * integer-scaled output.  No explicit vertical stretch is applied here —
+     * the scale factor already enlarges the output proportionally. */
+    SDL_Rect machine_dst = { 0, 0, VIDEO_PX_W, VIDEO_ASPECT_H };
     SDL_RenderCopy(ren, tex, NULL, &machine_dst);
 
-    /* ── Status bar: disk-activity LEDs ─────────────────────────────────── */
+    /* ── Status bar: disk activity + track/sector ───────────────────────── */
     /* Dark background for the LED strip */
-    SDL_SetRenderDrawColor(ren, 20, 20, 20, 255);
-    SDL_Rect bar = { 0, VIDEO_PX_H, VIDEO_WIN_W, VIDEO_LED_H };
+    SDL_SetRenderDrawColor(ren, 10, 18, 10, 255);
+    SDL_Rect bar = { 0, VIDEO_ASPECT_H, VIDEO_WIN_W, VIDEO_LED_H };
     SDL_RenderFillRect(ren, &bar);
     /* Separator line */
-    SDL_SetRenderDrawColor(ren, 60, 60, 60, 255);
-    SDL_RenderDrawLine(ren, 0, VIDEO_PX_H, VIDEO_WIN_W - 1, VIDEO_PX_H);
+    SDL_SetRenderDrawColor(ren, 0, 80, 0, 255);
+    SDL_RenderDrawLine(ren, 0, VIDEO_ASPECT_H, VIDEO_WIN_W - 1, VIDEO_ASPECT_H);
 
-    /* Two LEDs, one per drive (A and B) */
+    /* Two drive slots: LED + label + track number.
+     * Each chargen glyph bit is rendered as a ps×ps filled rect so glyphs
+     * look crisp at any display_scale without needing a separate font. */
     static const char *drive_label[2] = { "A", "B" };
+    const int ps  = 2;   /* logical pixels per chargen bit */
+    const int gw  = 8 * ps;  /* glyph cell width  = 16 logical px */
+    const int gh  = 8 * ps;  /* glyph cell height = 16 logical px */
     for (int d = 0; d < 2; d++) {
         int mounted = m->fdc.image[d] != NULL;
         int active  = m->fdc.disk_active[d] > 0;
-        int lx = 6 + d * 22;      /* LED left edge in logical coords */
-        int ly = VIDEO_PX_H + 3;  /* LED top edge */
+        int lx = 6 + d * 140;                      /* LED left edge */
+        int ly = VIDEO_ASPECT_H + (VIDEO_LED_H - gh) / 2;  /* vertically centred */
 
-        /* LED body: 10×6 rect */
-        SDL_Rect led = { lx, ly, 10, 6 };
+        /* LED body: 10×gh rect */
+        SDL_Rect led = { lx, ly, 10, gh };
         if (active) {
             SDL_SetRenderDrawColor(ren, 255, 140, 0, 255);  /* amber (active) */
         } else if (mounted) {
             SDL_SetRenderDrawColor(ren, 55, 30, 0, 255);    /* dim amber (idle) */
         } else {
-            SDL_SetRenderDrawColor(ren, 30, 30, 30, 255);   /* off (no disk) */
+            SDL_SetRenderDrawColor(ren, 20, 20, 20, 255);   /* off */
         }
         SDL_RenderFillRect(ren, &led);
-
-        /* LED border */
-        SDL_SetRenderDrawColor(ren, 90, 90, 90, 255);
+        SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
         SDL_RenderDrawRect(ren, &led);
 
-        /* Drive letter label (1 chargen glyph, 4px wide × 6px tall) to the
-         * right of the LED, using the loaded chargen ROM */
+        /* Drive letter glyph */
         uint8_t code = (uint8_t)drive_label[d][0];
-        int tx = lx + 12;
+        int tx = lx + 14;
         int ty = ly;
-        SDL_SetRenderDrawColor(ren, 140, 140, 140, 255);
-        for (int sl = 0; sl < 6; sl++) {
+        SDL_SetRenderDrawColor(ren, 0, 200, 0, 255);
+        for (int sl = 0; sl < 8; sl++) {
             uint8_t bits = m->vid.chargen[code * 16 + sl];
-            for (int b = 0; b < 4; b++) {
-                if (bits & (1u << b))
-                    SDL_RenderDrawPoint(ren, tx + b, ty + sl);
+            for (int b = 0; b < 8; b++) {
+                if (bits & (1u << b)) {
+                    SDL_Rect dot = { tx + b * ps, ty + sl * ps, ps, ps };
+                    SDL_RenderFillRect(ren, &dot);
+                }
+            }
+        }
+
+        /* Track / sector info — only when mounted */
+        if (mounted) {
+            char info[12];
+            int trk = m->fdc.track[d];
+            int sec = (d == 0) ? m->fdc.sector : 0;
+            snprintf(info, sizeof(info), "T:%02d S:%02d", trk, sec);
+            int ix = tx + gw + 4;
+            int iy = ty;
+            SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);
+            for (int ci = 0; info[ci]; ci++) {
+                uint8_t gc = (uint8_t)info[ci];
+                for (int sl = 0; sl < 8; sl++) {
+                    uint8_t bits = m->vid.chargen[gc * 16 + sl];
+                    for (int b = 0; b < 8; b++) {
+                        if (bits & (1u << b)) {
+                            SDL_Rect dot = { ix + ci * (gw + 2) + b * ps,
+                                             iy + sl * ps, ps, ps };
+                            SDL_RenderFillRect(ren, &dot);
+                        }
+                    }
+                }
             }
         }
     }

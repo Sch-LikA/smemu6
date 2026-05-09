@@ -80,6 +80,7 @@ static void usage(const char *argv0)
         "  -autoboot-timeout <s> Wall-clock timeout in autoboot mode (0=off)\n"
         "  -vmode <m>     Force video mode: alpha|graphic|super\n"
         "  -gfxbits <b>   Bitmap bit order: lsb|msb\n"
+        "  -scale <n>     Integer display scale (1..8, default 2 = 1024x496 window)\n"
         "  -trace08       Trace IN/OUT traffic on port 0x08\n"
         "  -traceflow     Trace focused post-handoff low-RAM control flow\n"
         "  -trace11       Trace port 0x11 reads\n"
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
     int tracekbd = 0;
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
+    int display_scale = 2;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
     int autoboot_timeout_sec = -1;  /* -1 = default when autoboot is enabled */
 
@@ -210,6 +212,14 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid -gfxbits value: %s (expected lsb|msb)\n", b);
                 return 1;
             }
+        } else if (strcmp(argv[i], "-scale") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long v = strtol(argv[++i], &end, 0);
+            if (!end || *end != '\0' || v < 1 || v > 8) {
+                fprintf(stderr, "Invalid -scale value: %s (expected 1..8)\n", argv[i]);
+                return 1;
+            }
+            display_scale = (int)v;
         } else if (strcmp(argv[i], "-trace08") == 0) {
             trace08 = 1;
         } else if (strcmp(argv[i], "-traceflow") == 0) {
@@ -256,7 +266,7 @@ int main(int argc, char *argv[])
     SDL_Window *win = SDL_CreateWindow(
         "Smaky 6 Emulator",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        VIDEO_WIN_W, VIDEO_WIN_H,
+        VIDEO_WIN_W * display_scale, VIDEO_WIN_H * display_scale,
         SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
     if (!win) {
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
