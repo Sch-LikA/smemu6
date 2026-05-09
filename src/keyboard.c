@@ -41,6 +41,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.cla_seen        = 0;
     m->kbd.shift_pressed   = 0;
     m->kbd.fonct_bits      = 0;
+    m->kbd.repeat_scan     = SDL_SCANCODE_UNKNOWN;
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
     m->kbd.samos_loaded    = 0;
@@ -116,6 +117,12 @@ void keyboard_frame_tick(struct Smaky6 *m)
         wr++;
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
+        /* Arm SAMOS ISR Stage 4 auto-repeat (0x01DF–0x0206):
+         *   0x4558 = initial-delay countdown (0x23 = 35 frames = 700 ms)
+         *   0x4577 = key code to re-inject when countdown reaches zero
+         * Cleared by KEYUP in keyboard_event() when the held key is released. */
+        m->bus[0x4558u] = 0x23u;
+        m->bus[0x4577u] = code & 0x7Fu;
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd_tick] circ[0x%04X] <- 0x%02X ('%c')  ptr now 0x%04X  [ptr]=0x%02X\n",
                     (unsigned)(wr-1), (unsigned)(code & 0x7Fu),
@@ -158,12 +165,21 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         }
     }
 
-    if (ev->type == SDL_KEYUP)
-        return;   /* FIFO-based delivery: nothing to do on key-up */
+    if (ev->type == SDL_KEYUP) {
+        /* Cancel SAMOS auto-repeat when the user releases any regular key.
+         * Zeroing 0x4558 stops the Stage 4 countdown before the next
+         * re-injection fires.  Safe to do unconditionally: if samos_loaded
+         * is still 0 the address is uninitialised RAM and no repeat is running. */
+        if (m->kbd.samos_loaded)
+            m->bus[0x4558u] = 0u;
+        return;
+    }
     if (ev->type != SDL_KEYDOWN) return;
     if (ev->repeat) return;   /* ignore SDL key-repeat; SAMOS handles its own repeat */
 
     SDL_Scancode scan = ev->keysym.scancode;
+    /* Track scancode so we can cancel repeat on the matching KEYUP. */
+    m->kbd.repeat_scan = scan;
     for (int i = 0; i < KEY_TABLE_LEN; i++) {
         if (KEY_TABLE[i].scan == scan) {
             uint8_t code = KEY_TABLE[i].code;

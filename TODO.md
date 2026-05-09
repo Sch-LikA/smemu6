@@ -39,7 +39,7 @@ crisp at any `-scale` value without needing a separate font.
 
 ## Keyboard
 
-### Auto-repeat (SAMOS ≥ 1.3)  [confirmed]
+### ~~Auto-repeat (SAMOS ≥ 1.3)~~ ✅ Done  [confirmed]
 
 SAMOS ISR Stage 4 (`0x01DF–0x0206`) implements hardware-accurate key auto-repeat.
 
@@ -60,9 +60,10 @@ the circular buffer, also set `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code
 The SAMOS ISR will then handle the actual repeat injection autonomously on subsequent
 frames, using the same timing as the real hardware.
 
-Alternatively: track the held key and countdown in `struct kbd` and inject repeats
-directly from `keyboard_frame_tick()`, bypassing the ISR.  The first approach is
-cleaner because it lets SAMOS control the rate.
+✅ Done — `keyboard_frame_tick()` sets `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`
+after each drain to the SAMOS circular buffer.  `keyboard_event()` zeros `0x4558` on any
+regular KEYUP while SAMOS is loaded, stopping the countdown when the key is released.
+`repeat_scan` (SDL_Scancode) tracked in `struct kbd`.
 
 See [docs/dev/keyboard_analysis.md](docs/dev/keyboard_analysis.md) for the full Stage 4 disassembly.
 

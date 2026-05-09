@@ -41,7 +41,10 @@ struct Smaky6 {
                                   * Allows Stage 2's CLA read to return the key even
                                   * though Stage 1 already cleared 'found'. */
         int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
-        uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (F1-F7) */
+        uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" */
+        SDL_Scancode repeat_scan; /* scancode of the key whose code was last drained
+                                   * to the SAMOS circ-buf; KEYUP of this scan zeros
+                                   * the SAMOS repeat-countdown register (0x4558). */
         /* Software FIFO feeding SAMOS circular buffer one key per frame.
          * keyboard_event() pushes here; keyboard_frame_tick() pops to SAMOS
          * when the buffer slot is free (ptr == 0x4596 = empty). */
