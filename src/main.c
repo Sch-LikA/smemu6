@@ -472,6 +472,10 @@ int main(int argc, char *argv[])
                 keyboard_event(m, &ev.key);
                 break;
 
+            case SDL_TEXTINPUT:
+                keyboard_text_event(m, &ev.text);
+                break;
+
             default:
                 break;
             }

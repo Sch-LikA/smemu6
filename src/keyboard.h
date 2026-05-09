@@ -13,6 +13,14 @@ void keyboard_fini(struct Smaky6 *m);
 /* Feed an SDL key event (keydown / keyup) into the keyboard model */
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
 
+/*
+ * Feed an SDL_TEXTINPUT event into the keyboard model.
+ * Converts the UTF-8 text to Smaky display codes and pushes them to the FIFO.
+ * Only printable ASCII (0x20–0x7E) is accepted; other codepoints are ignored.
+ * Use this for printable characters so that the host OS handles shift/Caps Lock.
+ */
+void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);
+
 /* Call once per 50 Hz frame: decrements the post-KEYUP hold countdown */
 void keyboard_frame_tick(struct Smaky6 *m);
 

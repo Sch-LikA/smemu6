@@ -262,11 +262,13 @@ assumptions and works for any OS input method.
 
 ## Display / Video
 
-### Lowercase character support
+### ~~Lowercase character support~~ ✓ DONE
 
-The chargen ROM (`roms/chargen.rom`) contains a full lowercase set, but
-`video.c` currently renders lowercase as identical to uppercase (stub comment at
-line 71).  Lowercase codes should be passed through to the chargen lookup unchanged.
+The chargen ROM already has lowercase glyphs (0x61–0x7A).  The fix was on the
+keyboard input side: replaced printable-character entries in `KEY_TABLE[]` with
+an `SDL_TEXTINPUT` handler (`keyboard_text_event()`).  The host OS applies shift /
+Caps Lock so 'a' arrives by default and 'A' with Shift.  The raw byte is pushed to
+the FIFO unchanged, and the chargen renders it correctly.
 
 ### Display-off mode
 
