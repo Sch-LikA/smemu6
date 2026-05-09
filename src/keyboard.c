@@ -135,17 +135,17 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         return;
     }
 
-    /* "Touches de fonction" — 7 function keys (F1-F7) set/clear a bitmask.
+    /* "Touches de fonction" — 7 function keys set/clear a bitmask.
      * keyboard_read_cla() returns this when no regular key is pending. */
     {
         static const struct { SDL_Scancode scan; uint8_t bit; } FONCT[] = {
-            { SDL_SCANCODE_F1, 0x01 }, /* CHANGE  */
-            { SDL_SCANCODE_F2, 0x02 }, /* SEARCH  */
-            { SDL_SCANCODE_F3, 0x04 }, /* SHOW    */
-            { SDL_SCANCODE_F4, 0x08 }, /* COPY    */
-            { SDL_SCANCODE_F5, 0x10 }, /* CURSOR  */
-            { SDL_SCANCODE_F6, 0x20 }, /* PROGRA  */
-            { SDL_SCANCODE_F7, 0x40 }, /* KILL    */
+            { SDL_SCANCODE_RCTRL,       0x01 }, /* CHANGE  */
+            { SDL_SCANCODE_APPLICATION, 0x02 }, /* SEARCH  (Menu / App key) */
+            { SDL_SCANCODE_F10,         0x04 }, /* SHOW    */
+            { SDL_SCANCODE_LALT,        0x08 }, /* COPY    */
+            { SDL_SCANCODE_LCTRL,       0x10 }, /* CURSOR  */
+            { SDL_SCANCODE_RALT,        0x20 }, /* PROGRA  (AltGr) */
+            { SDL_SCANCODE_LGUI,        0x40 }, /* KILL    (Left Windows / Super) */
         };
         for (int i = 0; i < (int)(sizeof(FONCT)/sizeof(FONCT[0])); i++) {
             if (FONCT[i].scan == ev->keysym.scancode) {
