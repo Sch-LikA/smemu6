@@ -450,13 +450,20 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 |-----|----------|-------------------------------------------------------------------|
 | 1   | WRTMOD   | Write mode                                                        |
 | 2   | INTON    | Interrupt / NMI arm                                               |
-| 3   | MOTORON  | Spindle motor on; also latches the drive-select bits below        |
+| 3   | MOTORON  | Spindle motor on                                                  |
 | 4   | STPDIRIN | Step direction (1 = toward track 0)                               |
-| 5   | DRISEL1  | Drive select: **1 = DX0** (drive A) selected when MOTORON is set  |
-| 6   | DRISEL2  | Drive select: **1 = DX1** (drive B) selected when MOTORON is set  |
+| 5   | DRISEL1  | Drive select: **1 = DX0** (drive A)                               |
+| 6   | DRISEL2  | Drive select: **1 = DX1** (drive B)                               |
 | 7   | DRISEL3  | Third drive select (not used on standard Smaky 6)                 |
 
-Common written values: `0x2C` = DX0 arm (DRISEL1\|MOTORON\|INTON), `0x4C` = DX1 arm (DRISEL2\|MOTORON\|INTON), `0x00` = motor off / NMI disarm.
+Drive selection takes effect whenever any DRISEL bit (bits 5/6) is written,
+regardless of MOTORON.  The Phantom ROM always writes DRISEL together with MOTORON
+(`0x2C` / `0x4C`), but SAMOS probes drive presence by writing DRISEL *without*
+MOTORON (e.g. `0x40` = DX1 probe, no motor) before reading status.
+
+Common written values: `0x2C` = DX0 arm (DRISEL1\|MOTORON\|INTON), `0x4C` = DX1 arm
+(DRISEL2\|MOTORON\|INTON), `0x40` = DX1 presence probe (DRISEL2 only, no motor),
+`0x00` = motor off / NMI disarm.
 
 **Port 0x19 — CTRL (read):**
 
