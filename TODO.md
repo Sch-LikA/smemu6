@@ -93,29 +93,33 @@ from `keyboard_read_cla()` when no regular key is pending.  The existing `0x80`
 no-key sentinel already occupies the FOUND=1 / no-key case — the FOUND=0 path just
 needs to return `fonct_bits` instead of `0x80`.
 
-Suggested SDL mapping (F-keys not otherwise used):
+✅ Done — `fonct_bits` field added to `struct kbd`; FONCT[] table in `keyboard_event()`
+sets/clears bits on KEYDOWN/KEYUP; `keyboard_read_cla()` returns `0x80 | fonct_bits`
+when no regular key is pending.
 
-| Key     | SDL scancode        |
-|---------|---------------------|
-| CHANGE  | `SDL_SCANCODE_F1`   |
-| SEARCH  | `SDL_SCANCODE_F2`   |
-| SHOW    | `SDL_SCANCODE_F3`   |
-| COPY    | `SDL_SCANCODE_F4`   |
-| CURSOR  | `SDL_SCANCODE_F5`   |
-| PROGRA  | `SDL_SCANCODE_F6`   |
-| KILL    | `SDL_SCANCODE_F7`   |
+SDL mapping:
 
-**Category 2 — regular FIFO keys with special codes**
+| Key     | SDL scancode                          | Host key                  |
+|---------|---------------------------------------|---------------------------|
+| CHANGE  | `SDL_SCANCODE_RCTRL`                  | Right Ctrl                |
+| SEARCH  | `SDL_SCANCODE_APPLICATION`            | Menu / App key            |
+| SHOW    | `SDL_SCANCODE_F10`                    | F10 (Fn not SDL-visible)  |
+| COPY    | `SDL_SCANCODE_LALT`                   | Left Alt                  |
+| CURSOR  | `SDL_SCANCODE_LCTRL`                  | Left Ctrl                 |
+| PROGRA  | `SDL_SCANCODE_RALT`                   | AltGr (= Right Alt)       |
+| KILL    | `SDL_SCANCODE_LGUI`                   | Left Windows / Super      |
+
+**Category 2 — regular FIFO keys with special codes** ✅ Done
 
 These keys send a code through the normal FIFO path (same as letters/digits).
 Codes confirmed from doc section 10.4, page 213 (octal):
 
-| Key      | Octal  | Hex    | Glyph | Note                        |
-|----------|--------|--------|-------|-----------------------------|
-| MACRO    | `036`  | `0x1E` | `«`   | French opening guillemet    |
-| DEF(INE) | `037`  | `0x1F` | `»`   | French closing guillemet    |
+| Key      | Octal  | Hex    | Glyph | Host key  | Note                        |
+|----------|--------|--------|-------|-----------|--------------------------|
+| MACRO    | `036`  | `0x1E` | `«`   | F8        | French opening guillemet    |
+| DEF(INE) | `037`  | `0x1F` | `»`   | F9        | French closing guillemet    |
 
-To implement: add these two entries to `KEY_TABLE[]` in `keyboard.c`:
+Implemented in `KEY_TABLE[]` in `keyboard.c`:
 ```c
 { SDL_SCANCODE_F8,  0x1E },   /* MACRO  → «  */
 { SDL_SCANCODE_F9,  0x1F },   /* DEFINE → »  */
@@ -201,10 +205,8 @@ let the OS/SAMOS handle the control semantics.
 
 | Oct | Hex    | Name | Meaning                                              |
 |-----|--------|------|------------------------------------------------------|
-| 010 | `0x08` | BS   | backspace — already mapped (`SDL_SCANCODE_BACKSPACE`) |
-| 177 | `0x7F` | DEL  | delete-forward — not yet mapped; also the filled-block glyph in chargen |
-
-To implement: add `{ SDL_SCANCODE_DELETE, 0x7F }` to `KEY_TABLE[]`.
+| 010 | `0x08` | BS   | backspace — mapped to `SDL_SCANCODE_BACKSPACE` ✅    |
+| 177 | `0x7F` | DEL  | delete-forward — mapped to `SDL_SCANCODE_DELETE` ✅; also the filled-block glyph in chargen |
 
 Note on `0x1B` dual use: when written to the display it renders the ä glyph (Prom
 2716 chargen mapping); when sent to the printer or serial port it acts as an escape
@@ -317,7 +319,7 @@ the selected drive. The status bar shows `DX0:` and `DX1:` labels.
 
 ## ~~Winchester / Hard Disk~~ ✅ Done
 
-**WD1010-compatible controller emulated in `src/winchester.c` / `src/winchester.h`.**
+**WD1000/WD1001/WD1002-compatible controller emulated in `src/winchester.c` / `src/winchester.h`.**
 
 Port map (ports `0x20–0x27`, `0x2B`; 6-bit mask `port & 0x3F`):
 
