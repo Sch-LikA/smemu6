@@ -111,7 +111,7 @@ void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
     SDL_Texture *tex = SDL_CreateTexture(ren,
         SDL_PIXELFORMAT_ARGB8888,
         SDL_TEXTUREACCESS_STREAMING,
-        VIDEO_PX_W, VIDEO_PX_H);
+        VIDEO_PX_W, VIDEO_ASPECT_H);
     if (!tex) {
         fprintf(stderr, "video: SDL_CreateTexture: %s\n", SDL_GetError());
     }
@@ -177,14 +177,14 @@ void video_render(struct Smaky6 *m)
 
     if (!ren || !tex) return;
 
-    uint32_t pixels[VIDEO_PX_W * VIDEO_PX_H];
+    uint32_t pixels[VIDEO_PX_W * VIDEO_ASPECT_H];
     memset(pixels, 0, sizeof(pixels));
 
     const uint32_t LIT = VIDEO_COLOR_LIT;
     const uint32_t BG  = VIDEO_COLOR_BG;
 
     /* Fill with phosphor background colour */
-    for (int i = 0; i < VIDEO_PX_W * VIDEO_PX_H; i++)
+    for (int i = 0; i < VIDEO_PX_W * VIDEO_ASPECT_H; i++)
         pixels[i] = BG;
 
     /* Respect the selected display mode. Unconditionally compositing the
@@ -202,14 +202,18 @@ void video_render(struct Smaky6 *m)
 
                 for (int sl = 0; sl < 8; sl++) {
                     /* TMS2716 layout: 16 bytes/char; rows 0-7 hold the glyph.
-                     * Bit 0 = leftmost pixel (LSB-first serial output). */
+                     * Bit 0 = leftmost pixel (LSB-first serial output).
+                     * Map raw scan line to aspect-corrected display lines via
+                     * Bresenham: raw_y * ASPECT_H / PX_H (= raw_y * 8 / 5). */
                     uint8_t bits = cg[code * 16 + sl];
+                    int raw_y = py0 + sl;
+                    int y0 = raw_y * VIDEO_ASPECT_H / VIDEO_PX_H;
+                    int y1 = (raw_y + 1) * VIDEO_ASPECT_H / VIDEO_PX_H;
                     for (int b = 0; b < 8; b++) {
                         int px = px0 + b;
-                        int py = py0 + sl;
-                        if (px < VIDEO_PX_W && py < VIDEO_PX_H) {
-                            if (bits & (1u << b))
-                                pixels[py * VIDEO_PX_W + px] = LIT;
+                        if (px < VIDEO_PX_W && (bits & (1u << b))) {
+                            for (int y = y0; y < y1; y++)
+                                pixels[y * VIDEO_PX_W + px] = LIT;
                         }
                     }
                 }
@@ -218,16 +222,26 @@ void video_render(struct Smaky6 *m)
     }
 
     if (mode != VMODE_ALPHA) {
-        /* ── Graphic plane ───────────────────────────────────────────────── */
+        /* ── Graphic plane ───────────────────────────────────────────────── *
+         * The Smaky 6 graphic framebuffer is 512 pixels wide × 60 lores rows
+         * = 64 bytes/row × 60 rows = 3840 bytes starting at MEM_GFX_BASE.
+         * Each row is stretched to 4 display scan lines (60×4 = 240), making
+         * pixels 1px wide × 4px tall — the characteristic vertical-stripe look. */
         for (int row = 0; row < VIDEO_SCAN_LINES; row++) {
+            /* Map lores row to aspect-corrected display line range.
+             * Each row spans 4 raw scan lines; 4 × (ASPECT_H/PX_H) = 6.4 lines.
+             * Bresenham: row r → display lines [r*4*ASPECT_H/PX_H, (r+1)*4*ASPECT_H/PX_H)
+             * = 6 or 7 lines alternating, totalling exactly ASPECT_H = 384. */
+            int y0 = row * 4 * VIDEO_ASPECT_H / VIDEO_PX_H;
+            int y1 = (row * 4 + 4) * VIDEO_ASPECT_H / VIDEO_PX_H;
             for (int col = 0; col < 64; col++) {
                 uint16_t addr = (uint16_t)(MEM_GFX_BASE + row * 64 + col);
                 uint8_t  byte = memory_read(m, addr);
                 for (int bit = 0; bit < 8; bit++) {
                     int px = col * 8 + (m->vid.gfx_msb_first ? (7 - bit) : bit);
-                    if (px < VIDEO_PX_W && row < VIDEO_PX_H) {
-                        if (byte & (1u << bit))
-                            pixels[row * VIDEO_PX_W + px] = LIT;
+                    if ((byte & (1u << bit)) && px < VIDEO_PX_W) {
+                        for (int y = y0; y < y1; y++)
+                            pixels[y * VIDEO_PX_W + px] = LIT;
                     }
                 }
             }

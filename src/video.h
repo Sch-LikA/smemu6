@@ -38,16 +38,18 @@ void video_render(struct Smaky6 *m);
  *                   Bit 0 of each byte = leftmost pixel (LSB-first).
  *
  * Pixel aspect ratio:
- *   The real Smaky 6 CRT was ~4:3.  The pixel buffer is 512×240, so to fill
- *   a 4:3 frame the rendered height must be 512*(3/4) = 384 logical px.
- *   VIDEO_ASPECT_H = 384 gives a 1.6× vertical stretch applied by
- *   SDL_RenderCopy; the integer display_scale (default 2) is applied by the
- *   physical window size so the render code is scale-independent.
- *   At scale=2: physical window = 1024 × (384+12)*2 = 1024 × 792 px.
+ *   The real Smaky 6 CRT was ~4:3.  The pixel buffer is rendered directly at
+ *   512 × VIDEO_ASPECT_H = 512 × 384 (4:3 frame).  Each raw scan line raw_y
+ *   (0–239) is mapped to display lines [raw_y*384/240, (raw_y+1)*384/240)
+ *   using integer Bresenham so every row gets either 1 or 2 output lines
+ *   with no SDL interpolation artifacts (some rows would otherwise get 6, some
+ *   7 output pixels due to the non-integer 1.6× ratio if SDL scaled the
+ *   texture).  SDL_RenderCopy is now a 1:1 blit.
+ *   At display_scale=2: physical window = 1024 × (384+12)*2 = 1024 × 792 px.
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
-#define VIDEO_SCAN_LINES   240
+#define VIDEO_SCAN_LINES   60    /* lores rows in graphic framebuffer; each row × 4 display lines = 240 */
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
 #define VIDEO_ASPECT_H     384                  /* 4:3 equivalent: 512*(3/4)=384; 1.6× vertical stretch */
