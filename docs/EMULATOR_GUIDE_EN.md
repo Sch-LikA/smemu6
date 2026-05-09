@@ -101,11 +101,16 @@ cd build
 ./smaky6emu -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
 ```
 
-**Boot with a floppy and a hard disk:**
+**Boot from Winchester (DX0) with a floppy accessible as DX1:**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img -harddisk ../harddisks/SM6WIN0.DSK
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
 ```
+
+> On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
+> The floppy drive (if installed) occupies the DX1 slot.
+> Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
+> configuration; only `-harddisk` + `-floppy2` matches real hardware.
 
 **Boot and wait at the SAMOS `>` prompt (for `-inject-str`):**
 
@@ -131,7 +136,15 @@ cd build
 | `-harddisk <img>` | Mount a Winchester image on hard-disk drive 0 (SM6WIN0) |
 | `-harddisk2 <img>` | Mount a Winchester image on hard-disk drive 1 (SM6WIN1) |
 
-Floppy and hard disk options are independent and can be combined freely.
+**Hardware note:** On a Winchester-equipped Smaky 6 the hard disk occupies the
+DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
+
+| Configuration | Options |
+|---------------|---------|
+| Floppy-only (DX0) | `-floppy <img>` |
+| Two floppies (DX0 + DX1) | `-floppy <img> -floppy2 <img>` |
+| Winchester (DX0) + floppy (DX1) | `-harddisk <img> -floppy2 <img>` |
+| Winchester only | `-harddisk <img>` |
 
 ### Boot control
 

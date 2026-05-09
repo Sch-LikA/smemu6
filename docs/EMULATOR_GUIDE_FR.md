@@ -101,11 +101,16 @@ cd build
 ./smaky6emu -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
 ```
 
-**Démarrer avec une disquette et un disque dur :**
+**Démarrer depuis le Winchester (DX0) avec une disquette accessible en DX1 :**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img -harddisk ../harddisks/SM6WIN0.DSK
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
 ```
+
+> Sur les Smaky 6 équipés d'un Winchester, le disque dur **est** DX0.
+> Le lecteur de disquettes (s'il est installé) occupe l'emplacement DX1.
+> Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
+> seul `-harddisk` + `-floppy2` correspond à la configuration matérielle réelle.
 
 **Démarrage jusqu'à l'invite `>` de SAMOS (pour `-inject-str`) :**
 
@@ -131,7 +136,16 @@ cd build
 | `-harddisk <img>` | Monter une image Winchester sur le lecteur dur 0 (SM6WIN0) |
 | `-harddisk2 <img>` | Monter une image Winchester sur le lecteur dur 1 (SM6WIN1) |
 
-Les options disquette et disque dur sont indépendantes et peuvent être combinées librement.
+**Note matériel :** Sur un Smaky 6 équipé d'un Winchester, le disque dur occupe
+l'emplacement DX0 et la disquette (si présente) occupe DX1. Les combinaisons
+valides sont :
+
+| Configuration | Options |
+|---------------|---------|
+| Disquette seule (DX0) | `-floppy <img>` |
+| Deux disquettes (DX0 + DX1) | `-floppy <img> -floppy2 <img>` |
+| Winchester (DX0) + disquette (DX1) | `-harddisk <img> -floppy2 <img>` |
+| Winchester seul | `-harddisk <img>` |
 
 ### Contrôle du démarrage
 
