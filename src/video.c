@@ -246,19 +246,28 @@ void video_render(struct Smaky6 *m)
             for (int col = 0; col < VIDEO_COLS_CHAR; col++) {
                 uint16_t addr = (uint16_t)(MEM_ALPHA_BASE + row * VIDEO_COLS_CHAR + col);
                 uint8_t  code = memory_read(m, addr) & 0x7Fu;
-                int      px0  = col * 8;
-                int      py0  = row * VIDEO_CHAR_H;
+                int      px0   = col * 8;
+
+                /* Two-level Bresenham for the alpha plane.
+                 * Level 1: character row boundaries in output space.
+                 *   20 rows → 384 lines = 19 or 20 output lines per row.
+                 *   This makes all character rows the same height (±1 px).
+                 * Level 2: within the row's output range, distribute the
+                 *   VIDEO_CHAR_H scan lines evenly.  The within-row ratio
+                 *   is 12→19 or 12→20, both of which produce a more uniform
+                 *   1,2,1,2... or 1,2,2,1,2,2,... pattern instead of the
+                 *   irregular 1,2,1,2,2,1,2,1,2,2,1,2 of global 240→384. */
+                int row_y0 = row * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
+                int row_y1 = (row + 1) * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
+                int rh     = row_y1 - row_y0;  /* 19 or 20 */
 
                 for (int sl = 0; sl < VIDEO_CHAR_H; sl++) {
                     /* TMS2716 layout: 16 bytes/char; rows 0-9 hold glyph+descenders,
                      * rows 10-11 are blank spacing (always 0 in ROM).
-                     * Bit 0 = leftmost pixel (LSB-first serial output).
-                     * Map raw scan line to aspect-corrected display lines via
-                     * Bresenham: raw_y * ASPECT_H / PX_H (= raw_y * 8 / 5). */
+                     * Bit 0 = leftmost pixel (LSB-first serial output). */
                     uint8_t bits = cg[code * 16 + sl];
-                    int raw_y = py0 + sl;
-                    int y0 = raw_y * VIDEO_ASPECT_H / VIDEO_PX_H;
-                    int y1 = (raw_y + 1) * VIDEO_ASPECT_H / VIDEO_PX_H;
+                    int y0 = row_y0 + sl * rh / VIDEO_CHAR_H;
+                    int y1 = row_y0 + (sl + 1) * rh / VIDEO_CHAR_H;
                     for (int b = 0; b < 8; b++) {
                         int px = px0 + b;
                         if (px < VIDEO_PX_W && (bits & (1u << b))) {
