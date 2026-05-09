@@ -335,13 +335,27 @@ from the USART side, though it is unreachable under normal boot anyway.
 
 ## RTC (Real-Time Clock)
 
-The Smaky 6 contains a battery-backed RTC chip.  No hardware documentation is
-currently available, so the I/O port mapping and register layout are unknown.
+**Hardware confirmed from extension board schematic (R. Forster, Oct 1979):**
+
+| Item             | Value                                                       |
+|------------------|-------------------------------------------------------------|
+| Chip             | **E405/08** (IC5 on extension board)                        |
+| Interface        | 3-wire synchronous serial (SPI-like)                        |
+| I/O port         | **0x08** — R/W                                              |
+| bit 3 (OUT)      | **CK** — serial clock (toggled by Z80 OUT)                  |
+| bit 2 (OUT)      | **MOSI** — serial data to RTC (I/O write)                   |
+| bit 0 (IN)       | **MISO** — serial data from RTC (I/O read)                  |
+| Crystal          | 32.768 kHz                                                  |
+| Battery          | 1.5 V cell (backup)                                         |
+
+The port mapping and pin assignments are confirmed.  What remains unknown is
+the **register-level protocol**: the command byte(s) sent before each read/write
+and the bit-field layout of the time/date registers.
 
 **Reverse-engineering approach — analyse CLI.SY tools:**
 
 Three CLI utilities in `CLI.SY` access the RTC and can be disassembled to recover
-the port/register protocol:
+the register protocol:
 
 | Tool    | Prompt shown to user            | Input format                          |
 |---------|---------------------------------|---------------------------------------|
@@ -349,18 +363,17 @@ the port/register protocol:
 | `SDAY`  | `(1=Mon ... 7=Sun)wd:`          | single digit 1–7 then ENTER           |
 | `STIME` | `hh mm ss`                      | `<hour> <minute> <second>` then ENTER |
 
-Disassemble each tool (e.g. via the existing disassembler / `objdump`-style pass
-on the extracted `.SY` binary) and trace the OUT instructions that follow the
-input parsing to identify the RTC port and the byte sequence written for each
-field.  From that, reconstruct the full register map.
+Disassemble each tool and trace the OUT/IN instructions at port 0x08 that
+follow the input parsing to identify the command sequences and register layout.
 
-**Implementation plan (once port map is known):**
+**Implementation plan (once register map is known):**
 
 1. On emulator start, seed the emulated RTC registers from the host `time()`/
    `localtime()` — the guest sees the correct wall-clock time without any user
    action.
 2. Expose a thin `rtc.c` module (`rtc_read(port)` / `rtc_write(port, val)`)
-   wired into the machine I/O dispatch.
+   wired into the machine I/O dispatch at port 0x08.  Bit-bang the 3-wire
+   protocol (shift register driven by CK edges on OUT, sample MISO on IN).
 3. Advance the RTC once per emulated frame (20 ms) or via a sub-frame counter
    so seconds tick in real time.
 4. No persistence is required for a first pass (RTC resets to host time on each
