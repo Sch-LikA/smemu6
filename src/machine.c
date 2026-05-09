@@ -10,6 +10,7 @@
 #include "floppy.h"
 #include "sound.h"
 #include "debug.h"
+#include "winchester.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -76,9 +77,10 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
     case 0x1A: return floppy_read_cont(m);
     /* Port 0x1B: streaming sector data (sync / ID / 256 data bytes / checksum) */
     case 0x1B: return floppy_read_data(m);
-    /* Winchester status registers (minimal ready-idle stub). */
-    case 0x21: return 0x00u;
-    case 0x27: return 0x50u; /* READY + SEEK_COMPLETE, not busy */
+    /* Winchester hard-disk controller */
+    case 0x20: return winchester_read_data(&m->win);   /* data register       */
+    case 0x21: return winchester_read_error(&m->win);  /* error register      */
+    case 0x27: return winchester_read_status(&m->win); /* status register     */
         /* Port 0x11: unknown I/O device. Stub for now. */
         case 0x11:
             if (m->dbg.trace_port11) {
@@ -237,10 +239,14 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         }
         break;
     }
-    /* Winchester registers 0x21–0x27 — stub */
-    case 0x21: case 0x23: case 0x24:
-    case 0x25: case 0x26: case 0x27: case 0x2B:
-        break;
+    /* Winchester registers 0x20–0x27 */
+    case 0x20: winchester_write_data      (&m->win, data); break;
+    case 0x23: winchester_write_sector_num(&m->win, data); break;
+    case 0x24: winchester_write_cyl_lo    (&m->win, data); break;
+    case 0x25: winchester_write_cyl_hi    (&m->win, data); break;
+    case 0x26: winchester_write_sdh       (&m->win, data); break;
+    case 0x27: winchester_write_cmd       (&m->win, data); break;
+    case 0x2B: /* unknown reset/select — no-op */ break;
     default:
         break;
     }
@@ -287,6 +293,7 @@ struct Smaky6 *machine_create(void)
     sound_init(m);
     debug_init(m);
     rtc_init(&m->rtc);
+    winchester_init(&m->win);
 
     /* Wire up Z80 callbacks */
     m->cpu.context      = m;
@@ -316,6 +323,7 @@ void machine_destroy(struct Smaky6 *m)
     debug_fini(m);
     sound_fini(m);
     floppy_fini(m);
+    winchester_fini(&m->win);
     parallel_fini(m);
     usart_fini(m);
     keyboard_fini(m);

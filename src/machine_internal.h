@@ -12,6 +12,7 @@
 #include "video.h"
 #include "rtc.h"
 #include "usart.h"
+#include "winchester.h"
 #include <Z80.h>
 #include <SDL2/SDL.h>
 #include <stdint.h>
@@ -149,6 +150,9 @@ struct Smaky6 {
 
     /* Port 0x08: E405/08 RTC serial interface (extension board) */
     RtcState rtc;
+
+    /* Ports 0x20–0x27: Winchester hard-disk controller */
+    WinState win;
 
     /* 50 Hz interrupt pending */
     int irq_pending;

@@ -44,6 +44,7 @@ add_executable(smaky6emu
     src/sound.c
     src/debug.c
     src/rtc.c
+    src/winchester.c
 )
 
 target_include_directories(smaky6emu PRIVATE src)

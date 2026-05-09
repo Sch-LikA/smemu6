@@ -6,6 +6,7 @@
 #include "keyboard.h"
 #include "debug.h"
 #include "floppy.h"
+#include "winchester.h"
 #include "sound.h"
 
 #include <SDL2/SDL.h>
@@ -71,6 +72,8 @@ static void usage(const char *argv0)
         "Usage: %s [options]\n"
         "  -disk <img>    Mount floppy image on DX0\n"
         "  -disk2 <img>   Mount floppy image on DX1\n"
+        "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
+        "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -autoboot      Inject Enter key after 3 s to auto-select floppy boot\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode (0x1B = Escape)\n"
@@ -107,6 +110,8 @@ int main(int argc, char *argv[])
 {
     const char *disk_path  = NULL;
     const char *disk2_path = NULL;
+    const char *harddisk_path  = NULL;
+    const char *harddisk2_path = NULL;
     int trace    = 0;
     int autoboot = 0;
     int break_to_monitor = 0;  /* SHIFT+BREAK for monitor entry */
@@ -138,6 +143,10 @@ int main(int argc, char *argv[])
             disk_path = argv[++i];
         } else if (strcmp(argv[i], "-disk2") == 0 && i + 1 < argc) {
             disk2_path = argv[++i];
+        } else if (strcmp(argv[i], "-harddisk") == 0 && i + 1 < argc) {
+            harddisk_path = argv[++i];
+        } else if (strcmp(argv[i], "-harddisk2") == 0 && i + 1 < argc) {
+            harddisk2_path = argv[++i];
         } else if (strcmp(argv[i], "-trace") == 0) {
             trace = 1;
         } else if (strcmp(argv[i], "-autoboot") == 0) {
@@ -348,6 +357,16 @@ int main(int argc, char *argv[])
         if (floppy_mount(m, 1, disk2_path) != 0) {
             fprintf(stderr, "WARNING: could not mount '%s' on DX1\n", disk2_path);
         }
+    }
+
+    /* Mount hard-disk images if specified */
+    if (harddisk_path) {
+        if (winchester_load(&m->win, 0, harddisk_path) != 0)
+            fprintf(stderr, "WARNING: could not mount hard-disk '%s' on drive 0\n", harddisk_path);
+    }
+    if (harddisk2_path) {
+        if (winchester_load(&m->win, 1, harddisk2_path) != 0)
+            fprintf(stderr, "WARNING: could not mount hard-disk '%s' on drive 1\n", harddisk2_path);
     }
 
     machine_reset(m);
