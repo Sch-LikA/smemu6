@@ -311,8 +311,8 @@ prefer permanent writes.
 
 ### ~~Second floppy drive (DX1)~~ ✅ Done
 
-The emulator supports two floppy drives. Mount via `-disk <img>` (DX0) and
-`-disk2 <img>` (DX1). Drive selection from port `0x19` motor-on+NMI-arm writes
+The emulator supports two floppy drives. Mount via `-floppy <img>` (DX0) and
+`-floppy2 <img>` (DX1). Drive selection from port `0x19` motor-on+NMI-arm writes
 (bits 2+3 both set) sets `fdc.selected_drive`; stepping and sector reads respect
 the selected drive. The status bar shows `DX0:` and `DX1:` labels.
 

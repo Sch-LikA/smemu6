@@ -5,7 +5,7 @@ developed at EPFL (Lausanne) by Jean-Daniel Nicoud and commercialized by
 Epsitec (~450 units, 1979–1983).
 
 The machine is a Z80 @ 2.5 MHz with a 512×240 green-phosphor display, a
-Micropolis hard-sectored 5.25" floppy drive, and an optional WD1010-compatible
+Micropolis hard-sectored 5.25" floppy drive, and an optional WD1000/WD1001/WD1002-compatible
 Winchester hard disk.  The Phantom ROM (2 KB) bootstraps the SAMOS operating
 system from floppy.
 
@@ -80,19 +80,19 @@ will report a warning but continue.
 cd build
 
 # Boot SAMOS from floppy, auto-select floppy boot after 3 s
-./smaky6emu -disk "../floppies/1 Systeme_1HComplet.dsk" -autoboot
+./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -autoboot
 
 # Boot with a Winchester hard disk attached
-./smaky6emu -disk "../floppies/1 Systeme_1HComplet.dsk" \
+./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" \
             -harddisk ../harddisks/SM6WIN0.DSK
 
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-    ./smaky6emu -disk "../floppies/1 Systeme_1HComplet.dsk" \
+    ./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" \
                 -autoboot -inject-str "LIST\n" -timeout 20
 
 # Scale the window up 3× (useful on HiDPI screens)
-./smaky6emu -disk "../floppies/1 Systeme_1HComplet.dsk" -scale 3
+./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3
 ```
 
 ---
@@ -101,35 +101,43 @@ SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
 
 ### 4.1 Storage
 
-#### `-disk <path>`
+#### `-floppy <path>`
 Mount a floppy disk image on **DX0:** (the primary floppy drive).  The image
 is opened read-only; no writes are flushed back to the file.
 
 ```bash
-./smaky6emu -disk ../floppies/sys.dsk
+./smaky6emu -floppy ../floppies/sys.dsk
 ```
 
-#### `-disk2 <path>`
+#### `-floppy2 <path>`
 Mount a floppy disk image on **DX1:** (the secondary floppy drive).
 
 ```bash
-./smaky6emu -disk sys.dsk -disk2 data.dsk
+./smaky6emu -floppy sys.dsk -floppy2 data.dsk
 ```
 
 #### `-harddisk <path>`
 Mount a flat binary hard-disk image as **Winchester drive 0** (SM6WIN0).
-The WD1010-compatible controller is emulated at ports `0x20–0x27`.
+The WD1000/WD1001/WD1002-compatible controller is emulated at ports `0x20–0x27`.
 Geometry: 6 heads, 32 sectors/track, 256 bytes/sector, up to 255 cylinders.
 
 ```bash
-./smaky6emu -disk sys.dsk -harddisk ../harddisks/SM6WIN0.DSK
+./smaky6emu -floppy sys.dsk -harddisk ../harddisks/SM6WIN0.DSK
 ```
 
 #### `-harddisk2 <path>`
 Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 
+> **Note:** The WD1000/WD1001/WD1002 hardware supports two drives (SDH register bit 3), and the emulator
+> correctly images both.  However, standard SAMOS does **not** expose a separate CLI device
+> name for drive 1 — the OS has only a single Winchester dispatch path (RST 20 → `0x0339`)
+> governed by a binary floppy/Winchester flag at RAM address `0x4502`.  Drive 1 is accessible
+> only if the SAMOS Winchester driver explicitly sets SDH bit 3, which is not observed in the
+> standard `SYS.SY` 1-H image.  Mount it for archival or custom-software use, but do not
+> expect it to appear as a second named device in the SAMOS CLI.
+
 ```bash
-./smaky6emu -disk sys.dsk -harddisk SM6WIN0.DSK -harddisk2 SM6WIN1.DSK
+./smaky6emu -floppy sys.dsk -harddisk SM6WIN0.DSK -harddisk2 SM6WIN1.DSK
 ```
 
 ---
@@ -143,7 +151,7 @@ boot menu.  Combine with `-autoboot2` to choose a different boot target, or
 with `-inject-str` to type a command once SAMOS is running.
 
 ```bash
-./smaky6emu -disk sys.dsk -autoboot
+./smaky6emu -floppy sys.dsk -autoboot
 ```
 
 #### `-autoboot2 <code>`
@@ -155,7 +163,7 @@ The Phantom ROM boot menu accepts:
 - `0x20` / Space — boot from DX0: (same as Enter in most ROM versions)
 
 ```bash
-./smaky6emu -disk sys.dsk -autoboot -autoboot2 0x00
+./smaky6emu -floppy sys.dsk -autoboot -autoboot2 0x00
 ```
 
 #### `-autoboot3 <code>`
@@ -179,7 +187,7 @@ on screen.  The string is converted to uppercase Smaky key codes:
 
 ```bash
 # Run the LIST command automatically after boot
-./smaky6emu -disk sys.dsk -autoboot -inject-str "LIST\n"
+./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n"
 ```
 
 #### `-inject-via-fifo`
@@ -208,7 +216,7 @@ bar); the physical window is `n × 512` by `n × 252`.
 | 4     | 2048 × 1008   | 4K screens           |
 
 ```bash
-./smaky6emu -disk sys.dsk -scale 3
+./smaky6emu -floppy sys.dsk -scale 3
 ```
 
 #### `-vmode <mode>`
@@ -222,7 +230,7 @@ writes to port `0x00`.  One of:
 | `super`   | Superimposed (alpha + graphic)            |
 
 ```bash
-./smaky6emu -disk sys.dsk -vmode alpha
+./smaky6emu -floppy sys.dsk -vmode alpha
 ```
 
 #### `-gfxbits <order>`
@@ -240,7 +248,7 @@ the screen stays visible at all times.  Useful when software briefly blanks
 the display during a mode switch and you want to keep the window live.
 
 ```bash
-./smaky6emu -disk sys.dsk -no-display-off
+./smaky6emu -floppy sys.dsk -no-display-off
 ```
 
 ---
@@ -253,7 +261,7 @@ sample-accurate square-wave tones through SDL audio.  Use this flag when
 running headless or when audio is unavailable.
 
 ```bash
-SDL_AUDIODRIVER=dummy ./smaky6emu -disk sys.dsk -no-beeper
+SDL_AUDIODRIVER=dummy ./smaky6emu -floppy sys.dsk -no-beeper
 ```
 
 #### `-drive-sound`
@@ -261,7 +269,7 @@ Enable floppy drive sound effects: motor whir, head-step clicks, and
 sector-hole ticks.  Off by default.
 
 ```bash
-./smaky6emu -disk sys.dsk -drive-sound
+./smaky6emu -floppy sys.dsk -drive-sound
 ```
 
 ---
@@ -278,7 +286,7 @@ Default policy (when this option is omitted):
 Useful in CI pipelines combined with `-autoboot` and `-inject-str`.
 
 ```bash
-./smaky6emu -disk sys.dsk -autoboot -inject-str "LIST\n" -timeout 30
+./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n" -timeout 30
 ```
 
 #### `-autoboot-timeout <seconds>`
@@ -361,7 +369,13 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **Enter / Return**          | Smaky CR (`0x0D`)                                        |
 | **F11** / **Pause**         | **BREAK** — fires NMI, drops into SAMOS monitor           |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
-| **F1–F7**                   | Smaky function keys (CHANGE, SEARCH, SHOW, COPY, CURSOR, PROGRA, KILL) |
+| **Right Ctrl**              | CHANGE function key                                       |
+| **Menu / App**              | SEARCH function key                                       |
+| **F10**                     | SHOW function key                                         |
+| **Left Alt**                | COPY function key                                         |
+| **Left Ctrl**               | CURSOR function key                                       |
+| **AltGr** (Right Alt)       | PROGRA function key                                       |
+| **Left Windows / Super**    | KILL function key                                         |
 | **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
 
 Accented Swiss-French characters (é, è, à, ü, ö, …) are accepted from the

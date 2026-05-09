@@ -70,8 +70,8 @@ static void usage(const char *argv0)
 {
     fprintf(stderr,
         "Usage: %s [options]\n"
-        "  -disk <img>    Mount floppy image on DX0\n"
-        "  -disk2 <img>   Mount floppy image on DX1\n"
+        "  -floppy <img>  Mount floppy image on DX0\n"
+        "  -floppy2 <img> Mount floppy image on DX1\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
@@ -143,9 +143,9 @@ int main(int argc, char *argv[])
     int autoboot_timeout_sec = -1;  /* -1 = default when autoboot is enabled */
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-disk") == 0 && i + 1 < argc) {
+        if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
             disk_path = argv[++i];
-        } else if (strcmp(argv[i], "-disk2") == 0 && i + 1 < argc) {
+        } else if (strcmp(argv[i], "-floppy2") == 0 && i + 1 < argc) {
             disk2_path = argv[++i];
         } else if (strcmp(argv[i], "-harddisk") == 0 && i + 1 < argc) {
             harddisk_path = argv[++i];

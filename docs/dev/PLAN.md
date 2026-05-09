@@ -421,9 +421,10 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
 | 0x27 | 047  | R/W    | Command (OUT) / status (IN) — WD-style register       |
 | 0x2B | 053  | OUT    | Unknown — 1–2 uses (possibly reset or drive select)   |
 
-The register block 0x21–0x27 maps well onto a **WD1010/WD2010-style** controller
+The register block 0x21–0x27 maps well onto a **WD1000/WD1001/WD1002-style** controller
 (Data, WPC, SecCnt, SecNum, CylLo, CylHi, Cmd/Stat), suggesting the Smaky 6 Winchester
 card uses a Shugart-compatible chip connected at base address 0x21.
+Chip family identification courtesy of **M. Pierre-Yves Rochat**.
 
 Port 0x08 is also bit-banged by the SYS boot code (11 OUT + 1 IN with `EX (SP),HL`
 delay loops and `RR C` shift patterns), likely for clocking or synchronisation with the
@@ -989,7 +990,7 @@ smaky6emu/
 77. **Minimal reproducible boot command**:
     ```
     SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-      ./build/smaky6emu -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot -timeout 35
+      ./build/smaky6emu -floppy "floppies/1 Systeme_1HComplet.dsk" -autoboot -timeout 35
     ```
 
 ### Phase 2 — MAME
