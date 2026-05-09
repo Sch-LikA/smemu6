@@ -1,0 +1,380 @@
+# Émulateur Smaky 6 — Guide d'utilisation
+
+Ce guide explique comment compiler, lancer et utiliser l'**émulateur Smaky 6**.
+Pour la documentation sur l'ordinateur Smaky 6 lui-même (commandes, OS, matériel),
+voir `docs/SMAKY6_USER_GUIDE_FR.md`.
+
+---
+
+## Table des matières
+
+1. [Prérequis](#1-prérequis)
+2. [Compilation](#2-compilation)
+3. [Fichiers ROM](#3-fichiers-rom)
+4. [Démarrage rapide](#4-démarrage-rapide)
+5. [Référence des options](#5-référence-des-options)
+6. [Mapping du clavier](#6-mapping-du-clavier)
+7. [Options d'affichage](#7-options-daffichage)
+8. [Images disquette](#8-images-disquette)
+9. [Automatisation et scripts](#9-automatisation-et-scripts)
+10. [Débogage et traces](#10-débogage-et-traces)
+11. [Dumps mémoire](#11-dumps-mémoire)
+12. [Résolution de problèmes](#12-résolution-de-problèmes)
+
+---
+
+## 1. Prérequis
+
+| Dépendance | Version minimum | Utilité |
+|------------|----------------|---------|
+| CMake | 3.16 | Système de compilation |
+| SDL2 | 2.0 | Fenêtre, clavier, affichage |
+| Compilateur C | C11 (gcc / clang) | Compilation |
+| git | quelconque | FetchContent pour le cœur Z80 |
+
+Optionnel (uniquement pour générer les PDF) :
+
+| Dépendance | Utilité |
+|------------|---------|
+| pandoc | Conversion Markdown → PDF |
+| lualatex | Moteur PDF utilisé par pandoc |
+
+---
+
+## 2. Compilation
+
+```bash
+git clone https://github.com/your-username/smaky6emu
+cd smaky6emu
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+```
+
+Pour une version release :
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+Le binaire résultant est `build/smaky6emu`.
+
+---
+
+## 3. Fichiers ROM
+
+Placez les fichiers ROM dans `roms/` (relatif à la racine du dépôt).
+Le système de compilation les copie automatiquement dans `build/roms/`.
+
+| Fichier | Taille | Requis | Description |
+|---------|--------|--------|-------------|
+| `roms/sysmon.rom` | 4 Ko | Oui (sans disquette) | Moniteur machine SYSMON |
+| `roms/samos.rom` | 4 Ko | Optionnel | OS disquette SAMOS |
+| `roms/full.rom` | 8 Ko | Optionnel | SYSMON + SAMOS combinés |
+| `roms/chargen.rom` | 2 Ko | Optionnel | PROM de génération de caractères |
+
+> **Note :** Si `chargen.rom` est absent, l'émulateur utilise une table de
+> caractères synthétique intégrée. Le texte sera lisible mais peut légèrement
+> différer du matériel original.
+
+---
+
+## 4. Démarrage rapide
+
+**Démarrer dans le moniteur machine (sans disquette) :**
+
+```bash
+cd build
+./smaky6emu
+```
+
+**Démarrer depuis une image disquette :**
+
+```bash
+./smaky6emu -disk ../floppies/sys.img
+```
+
+**Démarrer avec deux lecteurs :**
+
+```bash
+./smaky6emu -disk ../floppies/sys.img -disk2 ../floppies/data.img
+```
+
+**Démarrage automatique jusqu'à l'invite `>` de SAMOS :**
+
+```bash
+./smaky6emu -disk ../floppies/sys.img -autoboot
+```
+
+---
+
+## 5. Référence des options
+
+### Lecteurs disquette
+
+| Option | Description |
+|--------|-------------|
+| `-disk <img>` | Monter une image disquette sur le lecteur **DX0:** |
+| `-disk2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
+
+### Contrôle du démarrage
+
+| Option | Description |
+|--------|-------------|
+| `-autoboot` | Injecte Entrée ~3 s après le démarrage pour sélectionner le boot disquette |
+| `-break-to-monitor` | Injecte SHIFT+BREAK pour entrer dans le moniteur au démarrage |
+| `-autoboot2 <n>` | Second code de touche envoyé après l'autoboot (décimal ou `0xHH` ; défaut `0x20` = Espace) |
+| `-autoboot3 <n>` | Troisième code de touche optionnel (désactivé par défaut) |
+| `-autoboot-timeout <s>` | Timeout horloge murale en mode autoboot (`0` = désactivé) |
+
+### Injection de chaîne
+
+| Option | Description |
+|--------|-------------|
+| `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
+| `-inject-delay <f>` | Images à attendre après la détection de `>` avant l'injection (défaut : 2) |
+| `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
+
+**Exemple — exécuter `LIST` automatiquement :**
+
+```bash
+./smaky6emu -disk ../floppies/sys.img -autoboot -inject-str "LIST\n"
+```
+
+### Affichage
+
+| Option | Description |
+|--------|-------------|
+| `-vmode <m>` | Forcer le mode vidéo : `alpha` (texte seul), `graphic` (graphique seul), `super` (texte + graphique) |
+| `-gfxbits <b>` | Ordre des bits du bitmap : `lsb` (défaut) ou `msb` |
+| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `2` → 1024 × 496 pixels) |
+
+### Timing et timeouts
+
+| Option | Description |
+|--------|-------------|
+| `-timeout <s>` | Timeout global en secondes (`0` = désactivé ; défaut 30 s quand `-trace` est actif) |
+
+---
+
+## 6. Mapping du clavier
+
+Le Smaky 6 possède un clavier QWERTZ suisse avec des touches de fonction
+spéciales. L'émulateur les associe aux touches PC standard comme suit.
+
+### Touches spéciales
+
+| Touche PC | Fonction Smaky 6 |
+|-----------|-----------------|
+| `F1` | Touche de fonction CHANGE |
+| `F2` | Touche de fonction SEARCH |
+| `F3` | Touche de fonction SHOW |
+| `F4` | Touche de fonction COPY |
+| `F5` | Touche de fonction CURSOR |
+| `F6` | Touche de fonction PROGRA |
+| `F7` | Touche de fonction KILL |
+| `F11` ou `Pause` | **BREAK** — déclenche une NMI → entre dans le moniteur SYSMON |
+| `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
+| `Escape` | ESC Smaky / annulation de ligne |
+| `Tab` | Insère `DX1:` dans la ligne de commande CLI |
+
+### Touches standard
+
+Tous les caractères ASCII imprimables sont transmis directement.
+Le Smaky 6 utilise un clavier **QWERTZ** (allemand suisse) — si votre clavier
+PC est QWERTY ou AZERTY, certaines touches de ponctuation peuvent différer.
+
+---
+
+## 7. Options d'affichage
+
+Le Smaky 6 possède deux couches d'affichage indépendantes :
+
+- **Couche Alpha** — affichage texte 64 × 20 caractères
+- **Couche Graphique** — bitmap monochrome (>30 000 pixels)
+
+L'option `-vmode` contrôle les couches affichées :
+
+| Valeur | Ce qui est affiché |
+|--------|-------------------|
+| `alpha` | Couche texte seule |
+| `graphic` | Couche graphique seule |
+| `super` | Les deux couches superposées (fonctionnement normal) |
+
+L'option `-scale` définit le niveau de zoom entier. Scale 2 (défaut) donne
+une fenêtre de 1024 × 496 pixels, confortable sur la plupart des moniteurs.
+
+---
+
+## 8. Images disquette
+
+### Format supporté
+
+L'émulateur lit les **images de secteurs bruts Micropolis** : 77 pistes ×
+16 secteurs × 256 octets = 315 392 octets par disque.
+
+Placez les fichiers image n'importe où et passez le chemin à `-disk` / `-disk2`.
+Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
+
+### Utiliser les images `.dsk` de `Partageables/`
+
+Le répertoire `Partageables/` contient des images originales au format `.dsk`.
+La plupart peuvent être montées directement :
+
+```bash
+./smaky6emu -disk "../Partageables/1 System 1H complet avec appli inconnue/1 Systeme_1HComplet.dsk"
+```
+
+### Extraire des fichiers d'une disquette
+
+Utilisez l'outil Python inclus dans `tools/` :
+
+```bash
+python3 tools/smaky6_fuse.py ../floppies/sys.dsk --list
+python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out floppies/extracted/
+```
+
+---
+
+## 9. Automatisation et scripts
+
+L'émulateur peut être piloté de manière non interactive en combinant
+`-autoboot`, `-inject-str` et `-timeout`.
+
+**Exécuter une commande et capturer la sortie écran :**
+
+```bash
+./smaky6emu \
+    -disk ../floppies/sys.img \
+    -autoboot \
+    -inject-str "LIST\n" \
+    -timeout 20 \
+    -scrdump 2>ecran.txt
+```
+
+**Exécuter avec traçage pour le débogage :**
+
+```bash
+./smaky6emu \
+    -disk ../floppies/sys.img \
+    -autoboot \
+    -trace \
+    -timeout 15 2>trace.log
+```
+
+**Dumper la RAM en fin d'exécution :**
+
+```bash
+./smaky6emu \
+    -disk ../floppies/sys.img \
+    -autoboot \
+    -inject-str "BASIC\n" \
+    -timeout 30 \
+    -dump-ram basic_init.bin
+```
+
+---
+
+## 10. Débogage et traces
+
+Ces options sont destinées au développement de l'émulateur et à la
+rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
+
+| Option | Ce qui est tracé |
+|--------|-----------------|
+| `-trace` | Compteur de programme Z80 aux jalons clés du démarrage |
+| `-traceflow` | Flux de contrôle en RAM basse après la remise en main par l'OS |
+| `-tracekbd` | Chaque lecture du port statut clavier et écriture CLA |
+| `-tracesnd` | Chaque écriture sur le port `0x03` (buzzer) |
+| `-trace08` | Tout le trafic `IN`/`OUT` sur le port `0x08` |
+| `-trace11` | Toutes les lectures du port `0x11` |
+| `-trace19` | Toutes les écritures sur le port `0x19` (contrôle disquette) |
+| `-tracecd` | Toutes les lectures du port `0xCD` (interface Winchester) |
+| `-tracefdc` | Événements ciblés du flux ID/checksum disquette |
+| `-scrdump` | Lignes d'écran modifiées affichées sur stderr à chaque image |
+
+**Astuce :** Combinez avec la redirection shell pour capturer les traces
+sans les mélanger à la sortie de l'émulateur :
+
+```bash
+./smaky6emu -disk sys.img -autoboot -tracekbd 2>clavier.log
+```
+
+---
+
+## 11. Dumps mémoire
+
+**Dump automatique à la fin :**
+
+```bash
+./smaky6emu -disk sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+```
+
+**Dump interactif pendant une session en cours :**
+
+Appuyez sur `Ctrl+D` dans le terminal, ou envoyez `SIGUSR1` au processus :
+
+```bash
+kill -SIGUSR1 $(pgrep smaky6emu)
+```
+
+Ceci écrit un fichier nommé `smaky6_ram_NNNN_pcXXXX.bin` dans le répertoire
+courant, où `NNNN` est un numéro de séquence et `XXXX` la valeur du PC Z80
+au moment du dump.
+
+Le dump de 64 Ko peut être inspecté avec n'importe quel éditeur hexadécimal
+ou désassembleur :
+
+```bash
+xxd snapshot.bin | less
+objdump -b binary -m z80 -D snapshot.bin | less
+```
+
+---
+
+## 12. Résolution de problèmes
+
+**Écran noir / pas de vidéo après le démarrage**
+
+Essayez de forcer un mode vidéo :
+
+```bash
+./smaky6emu -disk sys.img -autoboot -vmode alpha
+```
+
+**Les graphiques apparaissent inversés ou brouillés**
+
+Essayez de changer l'ordre des bits du bitmap :
+
+```bash
+./smaky6emu -disk sys.img -autoboot -gfxbits msb
+```
+
+**L'émulateur quitte immédiatement avec l'erreur 043**
+
+L'image disquette est peut-être illisible ou dans le mauvais format.
+Vérifiez la taille du fichier : une image valide fait exactement 315 392 octets.
+
+```bash
+wc -c monimage.dsk
+```
+
+**Les entrées clavier n'atteignent pas l'émulateur**
+
+Assurez-vous que la fenêtre SDL a le focus (cliquez dessus). L'émulateur
+ne traite les événements clavier que lorsque sa fenêtre est au premier plan.
+
+**L'autoboot n'atteint pas l'invite `>`**
+
+Certaines images disquette nécessitent plus de temps pour se charger.
+Augmentez le délai d'injection :
+
+```bash
+./smaky6emu -disk sys.img -autoboot -inject-delay 100
+```
+
+**Comment générer / mettre à jour les PDF des manuels**
+
+```bash
+./tools/generate_pdfs.sh
+```

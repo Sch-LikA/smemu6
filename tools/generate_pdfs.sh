@@ -46,6 +46,8 @@ mkdir -p "$OUT_DIR"
 
 # ── manual definitions: "source|toc-title|output-stem" ───────────────────────
 declare -a MANUALS=(
+    "EMULATOR_GUIDE_FR.md|Table des matières|EMULATOR_GUIDE_FR"
+    "EMULATOR_GUIDE_EN.md|Table of Contents|EMULATOR_GUIDE_EN"
     "SMAKY6_USER_GUIDE_FR.md|Table des matières|SMAKY6_USER_GUIDE_FR"
     "SMAKY6_USER_GUIDE_EN.md|Table of Contents|SMAKY6_USER_GUIDE_EN"
     "SMAKY6_FUNNY_GUIDE_FR.md|Table des matières|SMAKY6_FUNNY_GUIDE_FR"
