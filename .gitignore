@@ -7,3 +7,4 @@ floppies/extracted/
 __pycache__/
 .venv/
 *.pyc
+smaky6_ram*.bin
