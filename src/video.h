@@ -32,10 +32,11 @@ void video_render(struct Smaky6 *m);
 /*
  * Display geometry
  *   Graphic plane : 512 × 240 px (1 bpp), 64 bytes/row
- *   Alpha plane   : 64 cols × 20 rows, each char 8 px wide × 8 px tall
+ *   Alpha plane   : 64 cols × 20 rows, each char 8 px wide × 12 px tall
+ *                   20 rows × 12 px = 240 raw lines = VIDEO_PX_H exactly.
  *   Chargen ROM   : TMS2716 / 2716 EPROM, 2048 bytes.
- *                   Layout: 16 bytes per character (rows 0–7 = glyph, 8–15 = 0).
- *                   Bit 0 of each byte = leftmost pixel (LSB-first).
+ *                   Layout: 16 bytes per character (rows 0–9 = glyph+descenders,
+ *                   rows 10–15 = 0). Bit 0 of each byte = leftmost pixel (LSB-first).
  *
  * Pixel aspect ratio:
  *   The real Smaky 6 CRT was ~4:3.  The pixel buffer is rendered directly at
@@ -49,6 +50,7 @@ void video_render(struct Smaky6 *m);
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
+#define VIDEO_CHAR_H       12   /* scan lines per character cell: 20×12 = 240 = VIDEO_PX_H */
 #define VIDEO_SCAN_LINES   60    /* lores rows in graphic framebuffer; each row × 4 display lines = 240 */
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
