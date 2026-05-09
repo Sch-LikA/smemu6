@@ -484,35 +484,41 @@ def cmd_image(args, data: bytearray, tracks: int):
         print(f"WARNING: {n_bytes} bytes is not a multiple of {BYTES_PER_ROW}; "
               f"last partial row ignored.", file=sys.stderr)
 
-    # Build greyscale image (0=black, 255=white)
-    img = PILImage.new('L', (PX_W, n_rows), 0)
+    # Build greyscale image (0=black, 255=white).
+    # The hardware repeats each stored row on 4 consecutive scan lines, so the
+    # "natural" display height is n_rows × 4 (e.g. 60 × 4 = 240 lines).
+    HARDWARE_ROW_REPEAT = 4
+    display_h = n_rows * HARDWARE_ROW_REPEAT
+    img = PILImage.new('L', (PX_W, display_h), 0)
     pix = img.load()
     for row in range(n_rows):
         for col in range(BYTES_PER_ROW):
             byte = raw[row * BYTES_PER_ROW + col]
             for bit in range(8):
                 px = col * 8 + bit          # LSB-first: bit 0 → leftmost pixel
-                pix[px, row] = 255 if (byte >> bit) & 1 else 0
+                v  = 255 if (byte >> bit) & 1 else 0
+                for rep in range(HARDWARE_ROW_REPEAT):
+                    pix[px, row * HARDWARE_ROW_REPEAT + rep] = v
 
     # Determine output path
     outpath = getattr(args, 'outpng', None)
     if not outpath:
         outpath = e['name'].strip() + '.png'
 
-    # Save raw 1:1 pixel image
+    # Save hardware-stretch image (512 × display_h, square pixels, no AR).
     img.save(outpath)
-    print(f"Rendered {e['name']} ({n_rows} scan lines, {PX_W} px wide) → {outpath}")
+    print(f"Rendered {e['name']} ({n_rows} stored rows → {display_h} display lines, {PX_W} px wide) → {outpath}")
 
     # Save aspect-ratio-corrected version.
-    # The real CRT displayed 512×240 in a 4:3 aspect ratio, making each pixel
-    # 1.6× taller than wide: (512/240) / (4/3) = 1.6.
-    # Corrected height = 240 × (8/5) = 384 (or n_rows × 8/5 for partial images).
-    ar_h = round(n_rows * 8 / 5)
+    # The real CRT showed 512×240 in a 4:3 frame, so each pixel was 1.6× taller
+    # than wide: (512/240) / (4/3) = 1.6.  Apply this to the already-stretched
+    # display height: display_h × (8/5) = 240 × 1.6 = 384 for a full frame.
+    ar_h = round(display_h * 8 / 5)
     img_ar = img.resize((PX_W, ar_h), PILImage.NEAREST)
     base, ext = outpath.rsplit('.', 1) if '.' in outpath else (outpath, 'png')
     ar_path  = f"{base}_ar.{ext}"
     img_ar.save(ar_path)
-    print(f"Aspect-ratio corrected ({PX_W}×{ar_h}, 1.6× vertical) → {ar_path}")
+    print(f"Aspect-ratio corrected ({PX_W}×{ar_h}, 1.6× pixel AR) → {ar_path}")
 
 
 def cmd_cat(args, data: bytearray, tracks: int):
