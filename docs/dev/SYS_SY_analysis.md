@@ -590,13 +590,16 @@ Fix: `floppy_read_data` post-ROM path at byte_pos=1 now returns `m->fdc.track[0]
 The Phantom ROM step protocol (bit 2 edge-triggered on port 0x19 write) was being
 applied to post-ROM code. SYS.SY sub `0x2187` writes port `0x1A` once per step;
 the old code never moved the head. The step direction was also derived from the
-write value's bit 4 (drive-select bit in the ROM protocol, not in SYS.SY), which
-picked the wrong drive during stepping.
+write value's bit 4.  Per Plan F5, bit 4 of port 0x19 is STPDIRIN (step
+direction), not drive select; the actual drive is selected via DRISEL1 (bit 5)
+/ DRISEL2 (bit 6), latched when MOTORON (bit 3) is asserted.
 
 Fix: post-ROM path steps once per `floppy_write_cont` call; head direction is
 derived by comparing `m->fdc.track[0]` against the target stored in workspace
 variable `(0x2B8B)` (single-sided) or `(0x2B8C)` (double-sided, bit 6 of
-`(0x2B88)` selects which). Drive is always 0 (floppy A).
+`(0x2B88)` selects which). Drive is determined from `fdc.selected_drive` (set
+by port 0x19 DRISEL1/DRISEL2 bits), not from bit 4 of the port 0x1A write value
+(bit 4 of port 0x1A is not a reliable drive-select signal).
 
 ### Key workspace addresses (SYS.SY FDC protocol)
 

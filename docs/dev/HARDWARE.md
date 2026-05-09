@@ -426,7 +426,7 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 
 ### 7.2 Port protocol (bit-banged discrete logic)
 
-**Port 0x1A — CONT (write):**
+**Port 0x1A — CONT (write, Plan F4 step/motor control):**
 
 | Bit | Name        | Function                                             |
 |-----|-------------|------------------------------------------------------|
@@ -434,8 +434,9 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 | 1   | HEAD_LOAD   | 1 = head loaded (pressed against disk)               |
 | 2   | STEP_PULSE  | 0→1 rising edge = one track step                     |
 | 3   | DIRECTION   | 1 = step toward track 0 (inward); 0 = away           |
-| 4   | DRIVE_SEL   | 0 = DX0: (drive A); 1 = DX1: (drive B)              |
-| 5   | INT_ENABLE  | 1 = enable sector-hole interrupt (RST 08h)           |
+
+> **Note:** bit 4 of port 0x1A writes is **not** drive select.  Drive selection
+> is controlled solely via port 0x19 DRISEL1 (bit 5) / DRISEL2 (bit 6) — see below.
 
 **Port 0x1A — CONT (read):**
 
@@ -443,14 +444,19 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 |-----|-----------|------------------------------------|
 | 7   | BYTE_READY| 1 = next streaming byte available  |
 
-**Port 0x19 — CTRL (write / Phantom ROM mode):**
+**Port 0x19 — CTRL (write / Phantom ROM mode, IC7 LS475 Plan F5):**
 
-| Bits  | Function                                                    |
-|-------|-------------------------------------------------------------|
-| [1:0] | Step speed / mode                                           |
-| [2]   | Motor on (combined command with bits 3+4)                   |
-| [3]   | NMI arm — when bits 2+3 both set: motor-on + NMI enabled    |
-| [4]   | Drive select (same semantics as CONT bit 4)                 |
+| Bit | Name     | Function                                                          |
+|-----|----------|-------------------------------------------------------------------|
+| 1   | WRTMOD   | Write mode                                                        |
+| 2   | INTON    | Interrupt / NMI arm                                               |
+| 3   | MOTORON  | Spindle motor on; also latches the drive-select bits below        |
+| 4   | STPDIRIN | Step direction (1 = toward track 0)                               |
+| 5   | DRISEL1  | Drive select: **1 = DX0** (drive A) selected when MOTORON is set  |
+| 6   | DRISEL2  | Drive select: **1 = DX1** (drive B) selected when MOTORON is set  |
+| 7   | DRISEL3  | Third drive select (not used on standard Smaky 6)                 |
+
+Common written values: `0x2C` = DX0 arm (DRISEL1\|MOTORON\|INTON), `0x4C` = DX1 arm (DRISEL2\|MOTORON\|INTON), `0x00` = motor off / NMI disarm.
 
 **Port 0x19 — CTRL (read):**
 

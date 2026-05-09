@@ -10,14 +10,29 @@ struct Smaky6;
  * Micropolis 5.25" hard-sectored single-sided:
  *   40 tracks × 16 sectors × 256 bytes = 163,840 bytes per disk
  *
- * Port map (bit-banged discrete logic):
- *   Port 0x1A (CONT) write:
- *     bit 0 = MOTOR       (1 = on)
- *     bit 1 = HEAD_LOAD   (1 = loaded)
- *     bit 2 = STEP_PULSE  (0→1 rising edge = one step)
- *     bit 3 = DIRECTION   (1 = toward track 0)
- *     bit 4 = DRIVE_SEL   (drive B if 1, A if 0)
- *     bit 5 = INT_ENABLE  (enable sector interrupt)
+ * Port map (bit-banged discrete logic, per Plan F3–F5 schematics):
+ *
+ *   Port 0x19 (CTRL) write — IC7 LS475 control register (Plan F5):
+ *     bit 1 = WRTMOD      (write mode)
+ *     bit 2 = INTON       (interrupt enable / NMI arm)
+ *     bit 3 = MOTORON     (spindle motor on; also triggers drive-select latch)
+ *     bit 4 = STPDIRIN    (step direction: 1 = toward track 0)
+ *     bit 5 = DRISEL1     (drive select: 1 = DX0, mutually exclusive with bit 6)
+ *     bit 6 = DRISEL2     (drive select: 1 = DX1, mutually exclusive with bit 5)
+ *     bit 7 = DRISEL3     (reserved / third drive select)
+ *   Port 0x19 (CTRL) read:
+ *     bits [3:0] = current hard-sector index (0–15)
+ *     bit 5 = 0 → head at track 0 (TRACK0 signal)
+ *     bit 6 = 0 → seek settled (SEEK_BUSY cleared)
+ *
+ *   Port 0x1A (CONT) write — step/motor control (Plan F4):
+ *     bit 0 = MOTOR       (1 = spindle on)
+ *     bit 1 = HEAD_LOAD   (1 = head pressed against disk)
+ *     bit 2 = STEP_PULSE  (0→1 rising edge = one track step)
+ *     bit 3 = DIRECTION   (step direction, mirrors STPDIRIN on port 0x19)
+ *   NOTE: bit 4 of port 0x1A writes should NOT be interpreted as drive select;
+ *         drive selection is controlled exclusively via port 0x19 DRISEL1/2 bits.
+ *
  *   Port 0x1B (STAT) read:
  *     bit 0 = TRACK0      (1 = head at track 0)
  *     bit 1 = READ_REQ    (1 = sector index pulse / data ready)

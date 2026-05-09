@@ -312,9 +312,10 @@ prefer permanent writes.
 ### ~~Second floppy drive (DX1)~~ ✅ Done
 
 The emulator supports two floppy drives. Mount via `-floppy <img>` (DX0) and
-`-floppy2 <img>` (DX1). Drive selection from port `0x19` motor-on+NMI-arm writes
-(bits 2+3 both set) sets `fdc.selected_drive`; stepping and sector reads respect
-the selected drive. The status bar shows `DX0:` and `DX1:` labels.
+`-floppy2 <img>` (DX1). Drive selection uses port `0x19` (IC7 LS475, Plan F5):
+DRISEL1 (bit 5 = `0x20`) selects DX0, DRISEL2 (bit 6 = `0x40`) selects DX1;
+the latch updates whenever MOTORON (bit 3) is asserted. Stepping and sector reads
+respect `fdc.selected_drive`. The status bar shows `DX0:` and `DX1:` labels.
 
 ---
 
