@@ -89,22 +89,28 @@ cd build
 ./smaky6emu
 ```
 
-**Boot from a floppy image:**
+**Boot from a floppy image (starts automatically):**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img
+./smaky6emu -floppy ../floppies/sys.img
 ```
 
-**Boot with two drives:**
+**Boot with two floppy drives:**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -disk2 ../floppies/data.img
+./smaky6emu -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
 ```
 
-**Auto-boot and land at the SAMOS `>` prompt:**
+**Boot with a floppy and a hard disk:**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -autoboot
+./smaky6emu -floppy ../floppies/sys.img -harddisk ../harddisks/SM6WIN0.DSK
+```
+
+**Boot and wait at the SAMOS `>` prompt (for `-inject-str`):**
+
+```bash
+./smaky6emu -floppy ../floppies/sys.img -autoboot
 ```
 
 ---
@@ -115,16 +121,25 @@ cd build
 
 | Option | Description |
 |--------|-------------|
-| `-disk <img>` | Mount a floppy image on drive **DX0:** |
-| `-disk2 <img>` | Mount a floppy image on drive **DX1:** |
+| `-floppy <img>` | Mount a floppy image on drive **DX0:** |
+| `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
+
+### Hard disk (Winchester)
+
+| Option | Description |
+|--------|-------------|
+| `-harddisk <img>` | Mount a Winchester image on hard-disk drive 0 (SM6WIN0) |
+| `-harddisk2 <img>` | Mount a Winchester image on hard-disk drive 1 (SM6WIN1) |
+
+Floppy and hard disk options are independent and can be combined freely.
 
 ### Boot control
 
 | Option | Description |
 |--------|-------------|
-| `-autoboot` | Inject Enter ~3 s after start to select floppy boot |
-| `-break-to-monitor` | Inject SHIFT+BREAK to enter monitor mode at startup |
-| `-autoboot2 <n>` | Second key code sent after autoboot (decimal or `0xHH`; default `0x20` = Space) |
+| `-autoboot` | Inject Enter once SAMOS loads, to reach the `>` prompt (needed for `-inject-str`). The machine boots from DX0 automatically; `-autoboot` is mainly needed to wait for SAMOS and fire string injection. Use `-autoboot2` to boot from a non-default drive. |
+| `-break-to-monitor` | Inject SHIFT+BREAK to enter the SYSMON monitor at startup |
+| `-autoboot2 <n>` | Boot-selection key code (decimal or `0xHH`): `0x00`=Enter/DX0, `0x40`=DX1, `0x60`=Winchester (default `0x20` = Space → DX0) |
 | `-autoboot3 <n>` | Optional third key code (default: disabled) |
 | `-autoboot-timeout <s>` | Wall-clock timeout in autoboot mode (`0` = off) |
 
@@ -139,7 +154,7 @@ cd build
 **Example — run `LIST` automatically:**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -autoboot -inject-str "LIST\n"
+./smaky6emu -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
 ```
 
 ### Display
@@ -181,6 +196,8 @@ The emulator maps them to standard PC keys as follows.
 | `F5` | CURSOR function key |
 | `F6` | PROGRA function key |
 | `F7` | KILL function key |
+| `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
+| `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** — triggers NMI → drops into SYSMON monitor |
 | `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
 | `Escape` | Smaky ESC / line cancel |
@@ -221,7 +238,7 @@ a 1024 × 496 window, comfortable on most monitors.
 The emulator reads **Micropolis raw sector images**: 77 tracks × 16 sectors ×
 256 bytes = 315 392 bytes per disk.
 
-Place image files anywhere and pass the path to `-disk` / `-disk2`.
+Place image files anywhere and pass the path to `-floppy` / `-floppy2`.
 The `floppies/` directory in the repository is the conventional location.
 
 ### Extracting files from a floppy
@@ -267,13 +284,13 @@ work-in-progress; real samples will be added later). Enable with
 **Example — boot with beeper and drive sounds:**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -drive-sound
+./smaky6emu -floppy sys.img -autoboot -drive-sound
 ```
 
 **Example — mute everything:**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -no-beeper
+./smaky6emu -floppy sys.img -autoboot -no-beeper
 ```
 
 ---
@@ -287,7 +304,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "LIST\n" \
     -timeout 20 \
@@ -298,7 +315,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -trace \
     -timeout 15 2>trace.log
@@ -308,7 +325,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "BASIC\n" \
     -timeout 30 \
@@ -339,7 +356,7 @@ They produce output on **stderr**.
 them with emulator output:
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -tracekbd 2>kbd.log
+./smaky6emu -floppy sys.img -autoboot -tracekbd 2>kbd.log
 ```
 
 ---
@@ -349,7 +366,7 @@ them with emulator output:
 **Automatic dump on exit:**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+./smaky6emu -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Interactive dump during a running session:**
@@ -380,7 +397,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Try forcing a video mode:
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -vmode alpha
+./smaky6emu -floppy sys.img -autoboot -vmode alpha
 ```
 
 **Graphics appear inverted or garbled**
@@ -388,7 +405,7 @@ Try forcing a video mode:
 Try toggling the bitmap bit order:
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -gfxbits msb
+./smaky6emu -floppy sys.img -autoboot -gfxbits msb
 ```
 
 **Emulator exits immediately with error 043**
@@ -410,7 +427,7 @@ processes keyboard events when its window is focused.
 Some floppy images require more time to load. Increase the injection delay:
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -inject-delay 100
+./smaky6emu -floppy sys.img -autoboot -inject-delay 100
 ```
 
 **How to generate / update the PDF manuals**

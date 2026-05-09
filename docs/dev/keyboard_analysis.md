@@ -45,6 +45,24 @@ n'est en fait pas nécessaire"* — bit 7 of the CLA byte encodes the FOUND stat
 `keyboard_read_cla()` correctly clears the `found` software flag when it returns a key code,
 directly mirroring this hardware behavior.
 
+### Power-on FOUND=1 (automatic DX0 boot)
+
+On real hardware the FOUND latch (4013 FF2) powers up in an undefined state, in practice
+asserted.  The Phantom ROM boot menu at `0x003E` calls `kbd_wait` (`0x00FD`), which reads
+CLA in a tight loop and exits as soon as bit 7 = 0 (FOUND=1).  With FOUND=1 at power-on
+the first CLA read returns `0x00` (Enter) and the ROM immediately proceeds to boot from
+DX0 — no user key-press required.
+
+The emulator replicates this by initialising `found=1` and `key_code=0x00` in
+`keyboard_init()`.  The latch is consumed (found→0) on the first CLA read and does not
+interfere with subsequent user input once SAMOS is running.
+
+Consequence for `-autoboot`: the machine now boots from DX0 automatically without
+`-autoboot`.  The flag remains useful for:
+- Reaching the SAMOS `>` prompt before firing `-inject-str` (it injects an Enter once
+  SAMOS loads)
+- Selecting a non-default boot drive via `-autoboot2`: `0x40`=DX1, `0x60`=Winchester
+
 ### Emulator keyboard flags (autoboot/inject path only)
 
 Physical keyboard input bypasses all CLA machinery (see "Emulator Implementation" section below).

@@ -89,22 +89,28 @@ cd build
 ./smaky6emu
 ```
 
-**Démarrer depuis une image disquette :**
+**Démarrer depuis une image disquette (démarrage automatique) :**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img
+./smaky6emu -floppy ../floppies/sys.img
 ```
 
-**Démarrer avec deux lecteurs :**
+**Démarrer avec deux lecteurs disquette :**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -disk2 ../floppies/data.img
+./smaky6emu -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
 ```
 
-**Démarrage automatique jusqu'à l'invite `>` de SAMOS :**
+**Démarrer avec une disquette et un disque dur :**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -autoboot
+./smaky6emu -floppy ../floppies/sys.img -harddisk ../harddisks/SM6WIN0.DSK
+```
+
+**Démarrage jusqu'à l'invite `>` de SAMOS (pour `-inject-str`) :**
+
+```bash
+./smaky6emu -floppy ../floppies/sys.img -autoboot
 ```
 
 ---
@@ -115,16 +121,25 @@ cd build
 
 | Option | Description |
 |--------|-------------|
-| `-disk <img>` | Monter une image disquette sur le lecteur **DX0:** |
-| `-disk2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
+| `-floppy <img>` | Monter une image disquette sur le lecteur **DX0:** |
+| `-floppy2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
+
+### Disque dur (Winchester)
+
+| Option | Description |
+|--------|-------------|
+| `-harddisk <img>` | Monter une image Winchester sur le lecteur dur 0 (SM6WIN0) |
+| `-harddisk2 <img>` | Monter une image Winchester sur le lecteur dur 1 (SM6WIN1) |
+
+Les options disquette et disque dur sont indépendantes et peuvent être combinées librement.
 
 ### Contrôle du démarrage
 
 | Option | Description |
 |--------|-------------|
-| `-autoboot` | Injecte Entrée ~3 s après le démarrage pour sélectionner le boot disquette |
-| `-break-to-monitor` | Injecte SHIFT+BREAK pour entrer dans le moniteur au démarrage |
-| `-autoboot2 <n>` | Second code de touche envoyé après l'autoboot (décimal ou `0xHH` ; défaut `0x20` = Espace) |
+| `-autoboot` | Injecte Entrée une fois SAMOS chargé, pour atteindre l'invite `>` (nécessaire pour `-inject-str`). La machine démarre depuis DX0 automatiquement ; `-autoboot` sert principalement à attendre SAMOS et déclencher l'injection. Utiliser `-autoboot2` pour démarrer depuis un autre lecteur. |
+| `-break-to-monitor` | Injecte SHIFT+BREAK pour entrer dans le moniteur SYSMON au démarrage |
+| `-autoboot2 <n>` | Code de touche de sélection du démarrage (décimal ou `0xHH`) : `0x00`=Entrée/DX0, `0x40`=DX1, `0x60`=Winchester (défaut `0x20` = Espace → DX0) |
 | `-autoboot3 <n>` | Troisième code de touche optionnel (désactivé par défaut) |
 | `-autoboot-timeout <s>` | Timeout horloge murale en mode autoboot (`0` = désactivé) |
 
@@ -139,7 +154,7 @@ cd build
 **Exemple — exécuter `LIST` automatiquement :**
 
 ```bash
-./smaky6emu -disk ../floppies/sys.img -autoboot -inject-str "LIST\n"
+./smaky6emu -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
 ```
 
 ### Affichage
@@ -181,6 +196,8 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 | `F5` | Touche de fonction CURSOR |
 | `F6` | Touche de fonction PROGRA |
 | `F7` | Touche de fonction KILL |
+| `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
+| `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
 | `Escape` | ESC Smaky / annulation de ligne |
@@ -221,7 +238,7 @@ une fenêtre de 1024 × 496 pixels, confortable sur la plupart des moniteurs.
 L'émulateur lit les **images de secteurs bruts Micropolis** : 77 pistes ×
 16 secteurs × 256 octets = 315 392 octets par disque.
 
-Placez les fichiers image n'importe où et passez le chemin à `-disk` / `-disk2`.
+Placez les fichiers image n'importe où et passez le chemin à `-floppy` / `-floppy2`.
 Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
 
 ### Extraire des fichiers d'une disquette
@@ -269,13 +286,13 @@ Activez avec `-drive-sound`.
 **Exemple — démarrer avec buzzer et sons du lecteur :**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -drive-sound
+./smaky6emu -floppy sys.img -autoboot -drive-sound
 ```
 
 **Exemple — tout couper :**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -no-beeper
+./smaky6emu -floppy sys.img -autoboot -no-beeper
 ```
 
 ---
@@ -289,7 +306,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "LIST\n" \
     -timeout 20 \
@@ -300,7 +317,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -trace \
     -timeout 15 2>trace.log
@@ -310,7 +327,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smaky6emu \
-    -disk ../floppies/sys.img \
+    -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "BASIC\n" \
     -timeout 30 \
@@ -341,7 +358,7 @@ rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
 sans les mélanger à la sortie de l'émulateur :
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -tracekbd 2>clavier.log
+./smaky6emu -floppy sys.img -autoboot -tracekbd 2>clavier.log
 ```
 
 ---
@@ -351,7 +368,7 @@ sans les mélanger à la sortie de l'émulateur :
 **Dump automatique à la fin :**
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+./smaky6emu -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Dump interactif pendant une session en cours :**
@@ -383,7 +400,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Essayez de forcer un mode vidéo :
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -vmode alpha
+./smaky6emu -floppy sys.img -autoboot -vmode alpha
 ```
 
 **Les graphiques apparaissent inversés ou brouillés**
@@ -391,7 +408,7 @@ Essayez de forcer un mode vidéo :
 Essayez de changer l'ordre des bits du bitmap :
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -gfxbits msb
+./smaky6emu -floppy sys.img -autoboot -gfxbits msb
 ```
 
 **L'émulateur quitte immédiatement avec l'erreur 043**
@@ -414,7 +431,7 @@ Certaines images disquette nécessitent plus de temps pour se charger.
 Augmentez le délai d'injection :
 
 ```bash
-./smaky6emu -disk sys.img -autoboot -inject-delay 100
+./smaky6emu -floppy sys.img -autoboot -inject-delay 100
 ```
 
 **Comment générer / mettre à jour les PDF des manuels**
