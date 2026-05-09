@@ -333,51 +333,33 @@ from the USART side, though it is unreachable under normal boot anyway.
 
 ---
 
-## RTC (Real-Time Clock)
+## ~~RTC (Real-Time Clock)~~ ✅ Done
 
-**Hardware confirmed from extension board schematic (R. Forster, Oct 1979):**
+**Hardware confirmed from extension board schematic (R. Forster, Oct 1979).**
 
-| Item             | Value                                                       |
-|------------------|-------------------------------------------------------------|
-| Chip             | **E405/08** (IC5 on extension board)                        |
-| Interface        | 3-wire synchronous serial (SPI-like)                        |
-| I/O port         | **0x08** — R/W                                              |
-| bit 3 (OUT)      | **CK** — serial clock (toggled by Z80 OUT)                  |
-| bit 2 (OUT)      | **MOSI** — serial data to RTC (I/O write)                   |
-| bit 0 (IN)       | **MISO** — serial data from RTC (I/O read)                  |
-| Crystal          | 32.768 kHz                                                  |
-| Battery          | 1.5 V cell (backup)                                         |
+Chip **E405/08** (IC5), port **0x08** R/W.  Proprietary 3-wire synchronous
+bit-bang serial protocol (not SPI — predates the standard).  Bit3=CK,
+bits1–2=CS/direction control (held high during transaction), bit0=bidir data.
+Command phase: 4 bits LSB-first (0x0F=read, 0x07=write).  Data phase: 7 BCD
+bytes LSB-first per byte.
 
-The port mapping and pin assignments are confirmed.  What remains unknown is
-the **register-level protocol**: the command byte(s) sent before each read/write
-and the bit-field layout of the time/date registers.
+Register layout confirmed empirically from SAMOS display output:
 
-**Reverse-engineering approach — analyse CLI.SY tools:**
+| Byte | Content  | Range  | SAMOS field          |
+|------|----------|--------|----------------------|
+| 0    | hours    | 00–23  | time **hh**          |
+| 1    | minutes  | 00–59  | time **mm**          |
+| 2    | day      | 01–31  | date **DD**          |
+| 3    | month    | 01–12  | date **MM**          |
+| 4    | year     | 00–99  | date **YY**          |
+| 5    | weekday  | 1–7    | day name (1=Mon…7=Sun) |
+| 6    | seconds  | 00–59  | time **ss**          |
 
-Three CLI utilities in `CLI.SY` access the RTC and can be disassembled to recover
-the register protocol:
-
-| Tool    | Prompt shown to user            | Input format                          |
-|---------|---------------------------------|---------------------------------------|
-| `SDATE` | `dd mm yy`                      | `<day> <month> <year>` then ENTER     |
-| `SDAY`  | `(1=Mon ... 7=Sun)wd:`          | single digit 1–7 then ENTER           |
-| `STIME` | `hh mm ss`                      | `<hour> <minute> <second>` then ENTER |
-
-Disassemble each tool and trace the OUT/IN instructions at port 0x08 that
-follow the input parsing to identify the command sequences and register layout.
-
-**Implementation plan (once register map is known):**
-
-1. On emulator start, seed the emulated RTC registers from the host `time()`/
-   `localtime()` — the guest sees the correct wall-clock time without any user
-   action.
-2. Expose a thin `rtc.c` module (`rtc_read(port)` / `rtc_write(port, val)`)
-   wired into the machine I/O dispatch at port 0x08.  Bit-bang the 3-wire
-   protocol (shift register driven by CK edges on OUT, sample MISO on IN).
-3. Advance the RTC once per emulated frame (20 ms) or via a sub-frame counter
-   so seconds tick in real time.
-4. No persistence is required for a first pass (RTC resets to host time on each
-   emulator launch, matching the battery-backed behaviour after a power cycle).
+Implemented in `src/rtc.c` / `src/rtc.h`:
+- Seeded from host `localtime()` on start
+- Frame tick advances seconds every 50 frames (50 Hz)
+- Full read/write protocol emulated (command nibble decode, falling-edge MISO
+  preload, LSB-first accumulation on write)
 
 ---
 
