@@ -55,6 +55,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fonct_bits      = 0;
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
+    m->kbd.samos_loaded    = 0;
 }
 
 /* Called once per 50 Hz frame from the main loop.  Decrements the hold-time
@@ -72,6 +73,12 @@ void keyboard_frame_tick(struct Smaky6 *m)
         }
     }
 
+    /* Once IFF1 is 1 (SAMOS ran EI), record that the OS is loaded.
+     * After this point, iff1=0 in keyboard_read_cla means ISR context,
+     * not Phantom ROM monitor mode, so the FIFO must not be drained there. */
+    if (m->cpu.iff1 && !m->kbd.samos_loaded)
+        m->kbd.samos_loaded = 1;
+
     /* Feed pending keys from the FIFO into the SAMOS circular buffer.
      * Skip when iff1=0 (monitor mode): the monitor polls CLA directly via
      * keyboard_read_cla(), so keys must stay in the FIFO for that path.
@@ -86,13 +93,31 @@ void keyboard_frame_tick(struct Smaky6 *m)
     if (!m->cpu.iff1) return;  /* monitor mode: leave FIFO for CLA path */
     while (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-        if (m->bus[wr] == 0x80u) break;  /* guard sentinel hit — buffer full, stop */
+        /* Sanity check: if write pointer is outside the circular buffer area,
+         * SAMOS workspace is not yet initialized or was corrupted.
+         * Print a warning and stop — do NOT write to a wrong address. */
+        if (wr < 0x4596u || wr > 0x45B6u) {
+            fprintf(stderr,
+                    "[kbd_tick] write ptr 0x%04X out of range [0x4596,0x45B6]"
+                    " — SAMOS workspace not ready, deferring\n", wr);
+            break;
+        }
+        if (m->bus[wr] == 0x80u) {
+            if (m->dbg.trace_kbd)
+                fprintf(stderr, "[kbd_tick] guard sentinel at 0x%04X — buffer full\n", wr);
+            break;
+        }
         uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
         m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
         m->bus[wr] = code & 0x7Fu;
         wr++;
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
+        if (m->dbg.trace_kbd)
+            fprintf(stderr, "[kbd_tick] circ[0x%04X] <- 0x%02X ('%c')  ptr now 0x%04X  [ptr]=0x%02X\n",
+                    (unsigned)(wr-1), (unsigned)(code & 0x7Fu),
+                    (code >= 0x20 && code < 0x7F) ? (char)(code & 0x7Fu) : '?',
+                    (unsigned)wr, (unsigned)m->bus[wr]);
     }
 }
 
@@ -149,6 +174,17 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
             if (next != m->kbd.fifo_head) {   /* not full */
                 m->kbd.fifo[m->kbd.fifo_tail] = code;
                 m->kbd.fifo_tail = next;
+                if (m->dbg.trace_kbd)
+                    fprintf(stderr, "[kbd_event] pushed 0x%02X ('%c') to FIFO[%d]"
+                            "  iff1=%d\n",
+                            (unsigned)code,
+                            (code >= 0x20 && code < 0x7F) ? (char)code : '?',
+                            m->kbd.fifo_tail - 1,
+                            m->cpu.iff1);
+            } else {
+                if (m->dbg.trace_kbd)
+                    fprintf(stderr, "[kbd_event] FIFO FULL — dropped 0x%02X\n",
+                            (unsigned)code);
             }
             return;
         }
@@ -194,8 +230,13 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
                 return m->kbd.key_code & 0x7Fu;  /* bit 7 = 0 → key present */
             }
         }
-        /* No injected key: serve physical keys from FIFO. */
-        if (m->kbd.fifo_head != m->kbd.fifo_tail) {
+        /* No injected key: serve physical keys from FIFO.
+         * Only done when samos_loaded=0 (Phantom ROM / pre-SAMOS boot).
+         * Once SAMOS has run EI, iff1=0 means the Z80 is inside the ISR
+         * (IFF1 cleared on INT acknowledgment).  In that case the FIFO
+         * must NOT be popped here — keyboard_frame_tick() drains it to
+         * the SAMOS circular buffer instead. */
+        if (!m->kbd.samos_loaded && m->kbd.fifo_head != m->kbd.fifo_tail) {
             uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
             m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
             return code & 0x7Fu;  /* bit 7 = 0 → key present */

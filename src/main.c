@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <unistd.h>
 
 /* ── Configuration ──────────────────────────────────────────────────────────*/
 /*
@@ -25,11 +27,39 @@
 #define FLOPPY_DIR   "floppies/"
 
 static volatile sig_atomic_t g_terminate_requested = 0;
+static volatile sig_atomic_t g_dump_ram_requested   = 0;
 
 static void handle_terminate_signal(int sig)
 {
     (void)sig;
     g_terminate_requested = 1;
+}
+
+static void handle_dump_signal(int sig)
+{
+    (void)sig;
+    g_dump_ram_requested = 1;
+}
+
+/* ── RAM dump ───────────────────────────────────────────────────────────────*/
+
+static void do_ram_dump(const struct Smaky6 *m)
+{
+    char path[64];
+    static int dump_seq = 0;
+    snprintf(path, sizeof(path), "smaky6_ram_%04d_pc%04X.bin",
+             dump_seq++, (unsigned)machine_get_pc(m));
+    FILE *f = fopen(path, "wb");
+    if (!f) {
+        fprintf(stderr, "[dump] fopen(%s): %s\n", path, strerror(errno));
+        return;
+    }
+    /* Full 64 KB address space */
+    if (fwrite(m->bus, 1, 65536, f) != 65536)
+        fprintf(stderr, "[dump] short write to %s\n", path);
+    fclose(f);
+    fprintf(stderr, "[dump] RAM written to %s  (PC=%04X)\n",
+            path, (unsigned)machine_get_pc(m));
 }
 
 /* ── Helpers ────────────────────────────────────────────────────────────────*/
@@ -57,7 +87,10 @@ static void usage(const char *argv0)
         "  -trace19       Trace port 0x19 writes (floppy control)\n"
         "  -tracefdc      Trace focused floppy ID/checksum stream events\n"
         "  -tracekbd      Trace every keyboard CLA / status port read\n"
-        "  -help          Show this help\n",
+        "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
+        "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
+        "  -help          Show this help\n"
+        "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n",
         argv0);
 }
 
@@ -80,6 +113,8 @@ int main(int argc, char *argv[])
     int trace19 = 0;
     int tracefdc = 0;
     int tracekbd = 0;
+    const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
+    int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int global_timeout_sec = -1;  /* -1 = auto policy */
     int autoboot_timeout_sec = -1;  /* -1 = default when autoboot is enabled */
 
@@ -189,6 +224,10 @@ int main(int argc, char *argv[])
             tracefdc = 1;
         } else if (strcmp(argv[i], "-tracekbd") == 0) {
             tracekbd = 1;
+        } else if (strcmp(argv[i], "-dump-ram") == 0 && i + 1 < argc) {
+            dump_ram_path = argv[++i];
+        } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
+            inject_via_fifo = 1;
         } else if (strcmp(argv[i], "-help") == 0) {
             usage(argv[0]);
             return 0;
@@ -203,8 +242,10 @@ int main(int argc, char *argv[])
         global_timeout_sec = trace ? 45 : 0;
     }
 
-    signal(SIGINT, handle_terminate_signal);
+    signal(SIGINT,  handle_terminate_signal);
     signal(SIGTERM, handle_terminate_signal);
+    signal(SIGUSR1, handle_dump_signal);
+    fprintf(stderr, "[main] PID %d — send SIGUSR1 to dump RAM\n", (int)getpid());
 
     /* ── SDL2 init ──────────────────────────────────────────────────────── */
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
@@ -331,6 +372,10 @@ int main(int argc, char *argv[])
             running = 0;
         }
 
+        if (g_dump_ram_requested) {
+            g_dump_ram_requested = 0;
+            do_ram_dump(m);
+        }
         if (global_timeout_ms > 0 && !timeout_reported) {
             Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
             if (elapsed_ms >= global_timeout_ms) {
@@ -361,6 +406,10 @@ int main(int argc, char *argv[])
                            (ev.key.keysym.mod & KMOD_CTRL)) {
                     /* Ctrl+Q: quit the emulator */
                     running = 0;
+                } else if (ev.key.keysym.scancode == SDL_SCANCODE_D &&
+                           (ev.key.keysym.mod & KMOD_CTRL)) {
+                    /* Ctrl+D: dump full 64 KB RAM to file */
+                    do_ram_dump(m);
                 } else {
                     keyboard_event(m, &ev.key);
                 }
@@ -437,6 +486,17 @@ int main(int argc, char *argv[])
             keyboard_frame_tick(m);  /* drain FIFO into SAMOS buffer before Z80 runs */
             machine_int(m);   /* assert 50 Hz display interrupt */
             machine_run_frame(m);
+            /* After the frame: if tracing, log the circ-buf ptr so we can see
+             * whether SAMOS consumed any keys during this frame. */
+            if (m->dbg.trace_kbd) {
+                uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+                if (ptr != 0x4596u) {
+                    fprintf(stderr, "[frame] end: circ ptr=0x%04X [ptr]=0x%02X"
+                            "  fifo head=%d tail=%d\n",
+                            ptr, (unsigned)m->bus[ptr],
+                            m->kbd.fifo_head, m->kbd.fifo_tail);
+                }
+            }
             if (m->cpu_stalled) {
                 fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
                 running = 0;
@@ -511,25 +571,52 @@ int main(int argc, char *argv[])
             /* ── CLI prompt detection: write all chars directly into the
              *    circular buffer when "* -" appears, bypassing the ISR
              *    pipeline (Stage 2 requires (0x4582)!=0x80, which is false
-             *    after a normal boot with no physical keys). ── */
+             *    after a normal boot with no physical keys). ──
+             * With -inject-via-fifo: push chars through the software FIFO
+             * instead, which is the same path as physical keypresses, to
+             * verify the keyboard_frame_tick → circ_buf delivery chain. */
             if (inject_len > 0 && inject_idx == 0 &&
                 stage2_pressed && machine_cli_prompt_visible(m)) {
                 if (trace)
                     fprintf(stderr,
                             "[inject] CLI prompt detected at frame %d; "
-                            "writing %d char(s) directly to circular buffer\n",
-                            frame_cnt, inject_len);
-                for (int _i = 0; _i < inject_len; _i++) {
-                    uint8_t kc = inject_codes[_i];
-                    machine_inject_to_circ_buf(m, kc);
+                            "writing %d char(s) via %s\n",
+                            frame_cnt, inject_len,
+                            inject_via_fifo ? "FIFO" : "circular buffer");
+                if (!inject_via_fifo) {
+                    for (int _i = 0; _i < inject_len; _i++) {
+                        uint8_t kc = inject_codes[_i];
+                        machine_inject_to_circ_buf(m, kc);
+                        if (trace)
+                            fprintf(stderr,
+                                    "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
+                                    (unsigned)kc,
+                                    (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
+                                    _i + 1, inject_len);
+                    }
+                    inject_idx = inject_len; /* mark done */
+                } else {
+                    inject_idx = 1; /* mark that injection has started */
+                }
+            }
+            /* -inject-via-fifo: push one char per frame through the FIFO,
+             * mimicking real keyboard_event() calls so keyboard_frame_tick()
+             * drains them to the circ buf — same delivery path as physical keys. */
+            if (inject_via_fifo && inject_idx > 0 && inject_idx <= inject_len) {
+                uint8_t kc = inject_codes[inject_idx - 1];
+                int next = (m->kbd.fifo_tail + 1) & 63;
+                if (next != m->kbd.fifo_head) {
+                    m->kbd.fifo[m->kbd.fifo_tail] = kc;
+                    m->kbd.fifo_tail = next;
                     if (trace)
                         fprintf(stderr,
-                                "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
+                                "[inject-fifo] FIFO <- 0x%02X ('%c') "
+                                "(char %d/%d)\n",
                                 (unsigned)kc,
                                 (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
-                                _i + 1, inject_len);
+                                inject_idx, inject_len);
                 }
-                inject_idx = inject_len; /* mark done */
+                inject_idx++;  /* advance; stops when inject_idx > inject_len */
             }
         }
 
@@ -544,6 +631,19 @@ int main(int argc, char *argv[])
     }
 
     /* ── Cleanup ────────────────────────────────────────────────────────── */
+    if (dump_ram_path) {
+        FILE *f = fopen(dump_ram_path, "wb");
+        if (!f) {
+            fprintf(stderr, "[dump] fopen(%s): %s\n", dump_ram_path, strerror(errno));
+        } else {
+            if (fwrite(m->bus, 1, 65536, f) != 65536)
+                fprintf(stderr, "[dump] short write to %s\n", dump_ram_path);
+            else
+                fprintf(stderr, "[dump] RAM written to %s  (PC=%04X)\n",
+                        dump_ram_path, (unsigned)machine_get_pc(m));
+            fclose(f);
+        }
+    }
     machine_destroy(m);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);

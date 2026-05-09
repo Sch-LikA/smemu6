@@ -144,13 +144,19 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
          * RAM at 0x0000–0x07FF so SYSMON can be LDIR'd there from SYS.SY. */
         if (data == 0x00)
             memory_unprotect_rom(m, 0x0000, 0x0800);
-        else
+        else {
             /* SAMOS ISR ACK: OUT (0x01), A with data=0x08 acknowledges the
              * 50 Hz frame tick and resets the CLA-seen flag so Stage 1 of
              * the next ISR frame starts fresh (cla_seen=0 means Stage 1 will
              * not forward key_held to the key path — only 'found' can trigger
              * it, ensuring Stage 2 fires on the frame after Stage 1). */
+            if (m->dbg.trace_kbd) {
+                uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+                fprintf(stderr, "[kbd] ISR ACK pc=%04X data=%02X cla_seen=0  ptr=0x%04X [ptr]=0x%02X\n",
+                        (unsigned)Z80_PC(m->cpu), data, ptr, (unsigned)m->bus[ptr]);
+            }
             m->kbd.cla_seen = 0;
+        }
         break;
     case 0x02: parallel_write_data(m, data);                    break;
     /* Port 0x03: sound bit-bang (RST 38 interrupt handler loops here for beep) */
@@ -483,6 +489,11 @@ void machine_inject_to_circ_buf(struct Smaky6 *m, uint8_t code)
     wr++;
     m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
     m->bus[0x457Du] = (uint8_t)(wr >> 8);
+    if (m->dbg.trace_kbd)
+        fprintf(stderr, "[inject_circ] code=0x%02X ('%c')  ptr now 0x%04X\n",
+                (unsigned)(code & 0x7Fu),
+                ((code & 0x7Fu) >= 0x20 && (code & 0x7Fu) < 0x7F) ? (char)(code & 0x7Fu) : '?',
+                (unsigned)wr);
 }
 
 int machine_cli_prompt_visible(const struct Smaky6 *m)

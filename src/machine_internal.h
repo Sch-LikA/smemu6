@@ -46,6 +46,11 @@ struct Smaky6 {
         uint8_t fifo[64];
         int     fifo_head;       /* next read index */
         int     fifo_tail;       /* next write index */
+        int     samos_loaded;    /* set once iff1 has been 1 (EI executed = SAMOS running).
+                                  * While 0: Phantom ROM boot — keyboard_read_cla iff1=0
+                                  * branch serves the FIFO for Phantom ROM kbd_wait.
+                                  * Once 1: iff1=0 means ISR context — FIFO must NOT be
+                                  * served from CLA; it drains only via keyboard_frame_tick. */
     } kbd;
 
     /* Video */
