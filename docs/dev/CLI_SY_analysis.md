@@ -71,6 +71,36 @@ dispatcher to validate that an argument was supplied.
 |23 | DX1:/D   | `0x6202`      | 0    | Drive DX1 destination   |
 | … | (17 more entries) | | |                         |
 
+### CLI special-key behaviour (confirmed by manual p.13–14)
+
+| Key                   | CLI action                                                           |
+|-----------------------|----------------------------------------------------------------------|
+| TAB                   | Inserts literal string `DX1:` into the command line                 |
+| ESC (BREAK key)       | If line is non-empty: clears current line. If empty: recalls previous command. |
+| KILL (function key)   | Aborts current peripheral I/O transfer; sends EOF to SAMOS          |
+| SHIFT-BREAK           | Hard reset → reboot from DX0:                                       |
+| FUNCTION-SHIFT-BREAK  | Hard reset → reboot from DX1: (emulator: not yet implemented)       |
+
+The `TAB → DX1:` shortcut is because the most common cross-drive operation starts
+with `DX1:` as the file source or destination.  Users can then append a filename
+directly, e.g. `TAB MYFILE.SM` → `DX1: MYFILE.SM`.
+
+### CLI Peripheral device names
+
+I/O peripherals are referenced with a `$` prefix in XFER, APPEND, PRINT, TYPE, COPY:
+
+| Name   | Direction | Hardware                                  |
+|--------|-----------|-------------------------------------------|
+| `$PR`  | Input     | Paper reader — USART 4 (20 mA current loop) |
+| `$PP`  | Output    | Paper punch — USART 4                     |
+| `$PI`  | Input     | Parallel interface input                  |
+| `$PO`  | Output    | Parallel interface output                 |
+| `$MI`  | Input     | Modem in — USART 6                        |
+| `$MO`  | Output    | Modem out — USART 6                       |
+| `$LP`  | Output    | Line printer (requires overlay LP.SY)     |
+| `$KEY` | Input     | Keyboard                                  |
+| `$DIS` | Output    | Display                                   |
+
 ### I/O instructions in CLI.SY (only 3)
 
 | RAM address | File offset | Instruction    | Purpose                     |

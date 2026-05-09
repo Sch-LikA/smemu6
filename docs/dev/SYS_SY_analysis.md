@@ -21,17 +21,52 @@ The extracted image [floppies/extracted/1 Systeme_1HComplet](floppies/extracted/
 Each message entry starts with one byte `0x80 | code`, followed by a zero-terminated
 French text string.
 
-Examples from `ER.SY`:
-- `0x9B` (`0x80 | 0x1B`) -> `erreur de lecture`
-- `0x8A` (`0x80 | 0x0A`) -> `fichier inexistant`
+### Complete error code table (from manual p.24 + ER.SY French strings)
+
+| Code (dec) | Code (oct) | English message (manual)  | French string (ER.SY)          |
+|------------|------------|---------------------------|--------------------------------|
+|  1         | 001        | Write protect file        | fichier protégé écriture       |
+|  2         | 002        | Read protect file         | fichier protégé lecture        |
+|  4         | 004        | Permanent file            | fichier permanent              |
+|  5         | 005        | Line too long             | ligne trop longue              |
+|  6         | 006        | End of file               | fin de fichier                 |
+|  7         | 007        | File end overflow         | dépassement fin de fichier     |
+| 10         | 012        | File in use for writing   | fichier ouvert en écriture     |
+| 11         | 013        | File already exist        | fichier déjà existant          |
+| 12         | 014        | File does not exist       | **fichier inexistant**         |
+| 13         | 015        | Illegal filename          | nom de fichier illégal         |
+| 14         | 016        | Illegal reservation       | réservation illégale           |
+| 16         | 020        | Cannot load file          | chargement impossible          |
+| 17         | 021        | Out of file               | plus de fichier                |
+| 20         | 024        | File in use for reading   | fichier ouvert en lecture      |
+| 21         | 025        | Unknown device            | périphérique inconnu           |
+| 22         | 026        | Channel error             | erreur de canal                |
+| 23         | 027        | File(s) in use            | fichier(s) en cours            |
+| 24         | 030        | All channels in use       | tous les canaux occupés        |
+| 25         | 031        | Directory full            | répertoire plein               |
+| 26         | 032        | Disk full                 | disque plein                   |
+| 30         | 036        | Device timeout            | timeout périphérique           |
+| 31         | 037        | Write protect tab set     | languette de protection        |
+| 32         | 040        | Write error               | **erreur d'écriture**          |
+| 33         | 041        | Read error                | **erreur de lecture**          |
+| 34         | 042        | No starting address       | pas d'adresse de départ        |
+| 35         | 043        | Bad load                  | **chargement erroné**          |
+| 36         | 044        | Buffer full               | tampon plein                   |
+| 110        | 156        | Illegal order             | ordre illégal                  |
+| 114        | 162        | System error              | erreur système                 |
+| 115        | 163        | Map error                 | erreur de map                  |
+
+**Note**: The CLI displays errors in **octal** (`ERROR 033` = decimal 27 = `0x1B`).
+This tripped us up early — `0x4554=0x1B` at ERROR 033 is the octal display value 33₈ = 27₁₀.
 
 ### Confirmed runtime mapping
 
-- `ERROR 033` (octal) = `0x1B` -> **read error** (`erreur de lecture`)
-- `ERROR 012` (octal) = `0x0A` -> **file not found** (`fichier inexistant`)
+- `ERROR 033` (octal) = decimal 27 = `0x1B` → **not in the table above** — this is not a standard ER.SY code; it is the octal display of `0x1B` (value stored at `0x4554`). Resolved as an emulator FDC bug, not an OS error.
+- `ERROR 035` (octal) = decimal 29 = `0x1D` → **Bad load** (`chargement erroné`) — seen when `selected_drive` was corrupted by step-command bytes; fixed in Phase 1Q.
+- `ERROR 012` (octal) = decimal 10 → **File in use for writing** — or **File does not exist** (code 12 decimal = 014 octal); context-dependent.
 
-This confirms that `ERROR 033` is not cosmetic; it is a real I/O failure class,
-consistent with the post-relocation floppy read path analysis.
+This confirms that `ERROR 035` = *Bad load* is a real I/O failure class,
+consistent with the post-relocation floppy read path analysis and the drive-selection bug fix.
 
 ### Drive naming reminder (Smaky conventions)
 

@@ -628,3 +628,28 @@ Example mapping entries needed:
 | U+00E7  | `0x1D`    | ç    |
 | U+00AB  | `0x1E`    | «    |
 | U+00BB  | `0x1F`    | »    |
+
+---
+
+## Boot-time Key Combinations (Phantom ROM)
+
+According to the official user manual (p.24, section "ROM Phantom — Possibilités"):
+
+| Physical combo              | Emulator mapping          | Action                                           |
+|-----------------------------|---------------------------|--------------------------------------------------|
+| **SHIFT-BREAK**             | Shift+Pause / Shift+F11   | Hard reset → boot from **DX0:** (normal boot)   |
+| **FUNCTION-SHIFT-BREAK**    | (not yet mapped)          | Hard reset → boot from **DX1:**                 |
+| **BREAK**                   | Pause / F11               | NMI → Phantom ROM monitor / PDP-11 loader (USART 14) |
+| **FUNCTION-BREAK**          | (not yet mapped)          | Memory test (POST)                               |
+
+The `FUNCTION` key is the `REP/FNCT` modifier (hardware repeat/function key).
+At boot-time the Phantom ROM polls it alongside SHIFT and BREAK to determine the
+boot path.  During normal OS operation it is the FNCT modifier that selects alternate
+character meanings (e.g., FNCT+key → accented characters on some keys).
+
+### Emulator implementation note
+
+`src/main.c` maps `Shift+Pause` and `Shift+F11` to `machine_reset(m)` (hard reset,
+re-reads ROM, restarts the boot sequence from DX0:).  The FUNCTION-SHIFT-BREAK path
+(boot from DX1:) is not yet implemented — it would require injecting the FUNCTION bit
+into the CLA bitmask alongside SHIFT+BREAK so the Phantom ROM takes the DX1 path.

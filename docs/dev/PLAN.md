@@ -180,12 +180,17 @@ The OS keeps a small workspace just above the stack (SP=0x4600):
 2. **0x003B**: `OUT (0x19),A` — probe floppy (first write may set `seek_busy`)
 3. `OUT (0x00),A` — **video mode init** (A=0x01 = alpha-mode enable; write-only, no effect on FOUND)
 4. `CALL kbd_wait (0x00FD)` — **wait for keypress** (spins `IN A,(0x00)`, bit 7 = no key)
-   - **Key = SHIFT+BREAK (Escape 0x1B)**: **SPECIAL — monitor entry path**
-     - Display `"ROM de chargement rev 1-7"` banner
-     - Allow user to type commands (MON, etc.) for SYSMON direct entry
-     - This is an **alternate boot path** on early/service hardware variants
-     - Emulator support: `-break-to-monitor` flag injects SHIFT+BREAK at boot
-   - Key = 0x00 (Enter / neutral) → `LD A,0x20` → single-sided floppy (drive A)
+
+   According to the manual (p.24, "POSSIBILITES OFFERTES PAR LA ROM PHANTOM"):
+   - **SHIFT-BREAK**            → boot from DX0: (single-sided floppy path, A=0x20)
+   - **FUNCTION-SHIFT-BREAK**  → boot from DX1:
+   - **BREAK**                  → PDP-11 loader from USART 14
+   - **FUNCTION-BREAK**        → memory test (POST)
+
+   In the Phantom ROM code, the key-code value at kbd_wait#1 is checked:
+   - **Key = SHIFT+BREAK (0x1B)**: alternate monitor entry path →
+     display `"ROM de chargement rev 1-7"` banner (see `-break-to-monitor` flag)
+   - Key = 0x00 (Enter / neutral) → `LD A,0x20` → single-sided floppy (DX0:)
    - Key ≠ 0 (other) → `SLA A` → `A=0x40` → double-sided / Winchester path
 5. `LD (0x4500),A` — store drive-control byte in OS workspace
 6. `RST 18h` — `screen_clear`: fill alpha plane 0x4000–0x44FF with spaces; zero workspace 0x4600–0x54FF
@@ -287,10 +292,49 @@ French monitor prompt strings appear to belong to a different system image or re
 - After the loader handoff, the emulator visibly reaches this 1-H family banner (`SYS 1-H * 64 K`
   / `SAMOS 1-H`), which is consistent with the extracted relocated image.
 
+### File Extensions
+
+All Smaky 6 file names follow the convention `NAME.EX` where `.EX` is the extension:
+
+| Extension | Type                                              |
+|-----------|---------------------------------------------------|
+| `.SY`     | System file (OS, must be on boot disk)            |
+| `.SM`     | Executable program (assembled binary)             |
+| `.MC`     | Macro file (CLI command batch script)             |
+| `.BS`     | BASIC source file                                 |
+| `.SR`     | Assembler source file (SMILE)                     |
+| `.DR`     | Directory (sub-directory container)               |
+| `.LS`     | Listing file (assembler output)                   |
+| `.ST`     | Symbol table (used with `.REF`)                   |
+| `.IM`     | Image file (1-bpp graphic plane bitmap)           |
+| `.HP`     | Help file (read by HELP command)                  |
+| `.INT`    | Interrupt driver (e.g. FPRINT.INT.SM)             |
+
+### CLI Peripheral Names
+
+The CLI addresses I/O devices using `$` prefix names. These appear in XFER, APPEND,
+PRINT etc. commands:
+
+| Name   | Direction | Hardware                                  |
+|--------|-----------|-------------------------------------------|
+| `$PR`  | Input     | Paper reader — USART 4 (20 mA loop)       |
+| `$PP`  | Output    | Paper punch — USART 4                     |
+| `$PI`  | Input     | Parallel interface input                  |
+| `$PO`  | Output    | Parallel interface output                 |
+| `$MI`  | Input     | Modem in — USART 6                        |
+| `$MO`  | Output    | Modem out — USART 6                       |
+| `$LP`  | Output    | Line printer (overlay via LP.SY)          |
+| `$KEY` | Input     | Keyboard                                  |
+| `$DIS` | Output    | Display                                   |
+
+Any peripheral transfer can be aborted with the **KILL** function key,
+which sends an end-of-file to SAMOS.
+
 ### Keyboard
 
 - Hardware-scanned, oscillator @ 300 kHz
-- 57 keys + 7 function keys + 4 joystick potentiometers + light pen jack
+- 57 keys + 7 function keys (CHANGE, SEARCH, SHOW, COPY, CURSOR, PROGRA, KILL)
+- QWERTZ Swiss-ROM layout with French-accented lower-case characters
 - **Physical keyboard delivery (post-boot)**: ISR Stage 2 is permanently blocked once SAMOS is running (`(0x4582)==0x80` sentinel, set at init and never changed). Physical keypresses flow: `keyboard_event()` → 64-slot software FIFO → `keyboard_frame_tick()`, which drains **the entire FIFO** into the SAMOS circular buffer each 20 ms frame, stopping only when the guard sentinel (`0x80` at ~`0x45B6`) is hit or the write pointer is out of range. SDL key-repeat events are discarded (SAMOS Stage 4 handles its own repeat). `keyboard_frame_tick()` also detects when SAMOS has installed its 50 Hz ISR vector (`bus[0x4566..7]==0x003E`, written at `0x00CD` in SYS.SY after the boot-menu kbd_wait exits) and sets the `samos_loaded` flag — after which the `iff1=0` branch of `keyboard_read_cla()` stops serving the FIFO, since `iff1=0` then means "inside the SAMOS ISR" rather than "inside Phantom ROM kbd_wait".
 - **Autoboot / inject delivery (pre-boot or inject-str)**: `machine_inject_key()` sets CLA fields (`found`, `key_code`, `physically_held`, `key_hold_frames`), which flow through `keyboard_read_cla()` → ISR Stage 1 → `0x457E` (syscall 0x0E) or Stage 2 → circular buffer.
 - Port 0x00 CLA read is used only by the autoboot path. Port 0x01 bit 2 reflects `physically_held || key_hold_frames > 0` for the autoboot path.
@@ -299,19 +343,30 @@ French monitor prompt strings appear to belong to a different system image or re
 - Full key/ASCII table documented in section 10.4 of the PDF
 - Bit 7 of port 0x00 read: 0 = key latched, 1 = no key; also bit 2 of port 0x01 = FOUND status
 
-**Special Key Combination (Emulator Support)**
-- **SHIFT + BREAK (Escape)**: Triggers alternate monitor entry boot path
-  - Shows `"ROM de chargement rev 1-7"` banner immediately after power-on
-  - Allows direct SYSMON access via command input (e.g., typing MON)
-  - Detected by checking both SHIFT state and BREAK key (0x1B)
-  - Emulator flag: `-break-to-monitor` auto-injects this combination at frame 100 (~2 sec)
+**Special key combinations (manual p.24 / Phantom ROM behaviour)**
+
+| Combo                   | Emulator key        | Action                                              |
+|-------------------------|---------------------|-----------------------------------------------------|
+| SHIFT-BREAK             | Shift+Pause / Shift+F11 | **Hard reset → boot from DX0:**                 |
+| FUNCTION-SHIFT-BREAK    | (not yet mapped)    | Boot from DX1:                                      |
+| BREAK                   | Pause / F11         | NMI → monitor (or PDP-11 loader at boot prompt)    |
+| FUNCTION-BREAK          | (not yet mapped)    | Memory test (POST)                                  |
+| TAB (in CLI)            | Tab                 | Inserts `DX1:` into the command line               |
+| ESC (in CLI)            | Escape              | Cancel current line; if empty, recall previous line |
+| KILL (function key)     | (not yet mapped)    | Abort current peripheral transfer                   |
+
+**Emulator flag `-break-to-monitor`**: auto-injects SHIFT-BREAK at frame 100 (~2 sec)
+to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banner).
 
 ### Sound
 
-- Loudspeaker / buzzer, bit-banged from I/O port
-- `?BEEP`: simple beep system call
-- `?PLAY`: music — array of (frequency, duration) pairs terminated by 0
-- ASCII BEL (0x07) triggers beep
+- Loudspeaker / buzzer, bit-banged from I/O port 0x03
+- Each `OUT (0x03),A` write toggles the speaker (hardware is pulse-triggered; data value irrelevant)
+- ROM beep loop: ~96 writes at ~2139 T-state spacing → 584 Hz square wave, ~82 ms duration
+- **Emulated**: `sound_set_bit()` toggles internal level on every write; `sound_end_frame()` flushes 882-sample frame buffer via `SDL_QueueAudio` (push mode, no callback thread)
+- `?BEEP`: SAMOS syscall for simple beep
+- `?PLAY`: SAMOS syscall for music — array of (frequency, duration) pairs terminated by 0
+- ASCII BEL (0x07) triggers beep via CLI/system
 
 ### Floppy Controller
 
