@@ -212,8 +212,11 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         /* Drive is selected by DRISEL1 (bit 5 = 0x20 → DX0) and
          * DRISEL2 (bit 6 = 0x40 → DX1) in the control register (Plan F5,
          * IC7 LS475 output bit weights in octal: 40=DX0, 100=DX1).
-         * Update whenever MOTORON (bit 3) is asserted. */
-        if (data & 0x08u)
+         * Update whenever any DRISEL bit is written — the Phantom ROM always
+         * sets MOTORON alongside DRISEL, but SAMOS probes drive presence by
+         * writing DRISEL alone (0x40 = DX1 with no MOTORON) before reading
+         * status. Conditioning on MOTORON caused DX1 detection to fail. */
+        if (data & 0x60u)
             m->fdc.selected_drive = (data & 0x40u) ? 1 : 0;
         if (data != old_ctrl) {
             m->fdc.seek_busy = 2;  /* realistic seek settle delay (~40ms at 50Hz) */
