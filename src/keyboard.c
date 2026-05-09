@@ -73,10 +73,15 @@ void keyboard_frame_tick(struct Smaky6 *m)
         }
     }
 
-    /* Once IFF1 is 1 (SAMOS ran EI), record that the OS is loaded.
-     * After this point, iff1=0 in keyboard_read_cla means ISR context,
-     * not Phantom ROM monitor mode, so the FIFO must not be drained there. */
-    if (m->cpu.iff1 && !m->kbd.samos_loaded)
+    /* Detect when SAMOS has fully initialized its keyboard buffer.
+     * The SAMOS init routine (0x0095) stores sentinel 0x80 to 0x4595.
+     * Before that, bus[0x4595]=0x00 (memory_init clears all RAM to 0x00).
+     * This is more reliable than watching iff1, because the Phantom ROM's
+     * ISR (at 0x003E) executes EI at 0x007F before RET — so iff1 briefly
+     * becomes 1 during the Phantom ROM boot phase while the user is still
+     * at the "Disque souple" menu.  Using the sentinel avoids that false
+     * positive. */
+    if (!m->kbd.samos_loaded && m->bus[0x4595u] == 0x80u)
         m->kbd.samos_loaded = 1;
 
     /* Feed pending keys from the FIFO into the SAMOS circular buffer.
