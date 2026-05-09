@@ -217,15 +217,6 @@ The emulator reads **Micropolis raw sector images**: 77 tracks × 16 sectors ×
 Place image files anywhere and pass the path to `-disk` / `-disk2`.
 The `floppies/` directory in the repository is the conventional location.
 
-### Using the `.dsk` images from `Partageables/`
-
-The `Partageables/` directory contains original floppy images in `.dsk`
-format. Most can be mounted directly:
-
-```bash
-./smaky6emu -disk "../Partageables/1 System 1H complet avec appli inconnue/1 Systeme_1HComplet.dsk"
-```
-
 ### Extracting files from a floppy
 
 Use the Python tool included in `tools/`:

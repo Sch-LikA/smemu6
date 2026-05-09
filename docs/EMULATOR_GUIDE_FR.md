@@ -217,15 +217,6 @@ L'émulateur lit les **images de secteurs bruts Micropolis** : 77 pistes ×
 Placez les fichiers image n'importe où et passez le chemin à `-disk` / `-disk2`.
 Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
 
-### Utiliser les images `.dsk` de `Partageables/`
-
-Le répertoire `Partageables/` contient des images originales au format `.dsk`.
-La plupart peuvent être montées directement :
-
-```bash
-./smaky6emu -disk "../Partageables/1 System 1H complet avec appli inconnue/1 Systeme_1HComplet.dsk"
-```
-
 ### Extraire des fichiers d'une disquette
 
 Utilisez l'outil Python inclus dans `tools/` :
