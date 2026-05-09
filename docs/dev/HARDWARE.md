@@ -41,7 +41,7 @@ Hardware versions:
 - **32 KB model** — 2 × 8 × 4116 DRAM on mainboard; fixed SYSMON + SAMOS ROMs at 0x0000–0x1FFF.
 - **48 KB model** — as above plus one extra DRAM bank.
 - **64 KB Phantom model** — mainboard 32 KB DRAM + **extension board** (32 KB DRAM
-  + 2 KB Phantom ROM + RTC + SIRING interface); single 2 KB Phantom bootstrap ROM at
+  + 2 KB Phantom ROM + RTC + SIRING connector); single 2 KB Phantom bootstrap ROM at
   0x0000–0x07FF that bank-switches itself out after loading the OS from floppy.
   *This is the variant documented and emulated here.*
 
@@ -189,8 +189,7 @@ the system clock. The 1.5 V cell maintains timekeeping across power cycles.
 
 **SIRING / 7910**: The board title suffix "SIRING 7910" is the Epsitec
 internal board designation. "7910" is the date code (October 1979).
-"SIRING" likely refers to the Epsitec inter-machine serial ring network
-(a proprietary multi-drop bus used to link Smaky computers).
+The meaning of "SIRING" is not confirmed from available sources.
 
 **Bus connectors**: The board uses ADPER (B22) and ADMEN (B21/B15/B14)
 for address bus connections, plus REFRESH (A21), WRITE (A16/A30), NODA (B20),
