@@ -81,8 +81,8 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 
 - **Alphanumeric plane**: 20 lines × 64 chars, memory-mapped at 0x4000
   - 20 × 64 = 1280 bytes (0x4000–0x44FF)
-- **Graphic plane**: **512 × 240 pixels** (1 bpp), stored at 0x4500
-  - 240 scan lines × 64 bytes/row = 15 360 bytes (0x4500–0x80FF)
+- **Graphic plane**: **512 × 240 pixels** (1 bpp), stored at 0x4600
+  - 60 lores rows × 64 bytes/row = 3840 bytes (0x4600–0x54FF); each row rendered 4 display lines tall
   - **Confirmed by NATHALIE.IM render**: 3840 bytes = 60 rows × 64 bytes/row; AR-corrected to 512×240
   - Real CRT: each scan line is ~4× taller than a pixel is wide → 512×240 effective output
 - **Three display modes**: alpha-only (`?IALPHA`), graphic-only (`?IGRA`), superimposed (`?IAGRA`)
@@ -100,9 +100,9 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 **TMS2716 chargen ROM format (confirmed from `Char 2716.HEX` dump):**
 - 2048 bytes, 16 bytes per character (128 chars × 16)
 - Address: `A10:A4` = char code (7-bit), `A3:A0` = scan row
-- Rows 0–7 = glyph data, rows 8–15 = all zeros
+- Rows 0–9 = glyph + descenders; rows 10–11 = blank spacing (always 0); rows 12–15 = unused zeros
 - Bit 0 of each byte = **leftmost pixel** (LSB-first serial output)
-- Character cell: **8 px wide × 8 px tall** → 64 cols × 8 px = 512 px/row ✓
+- Character cell: **8 px wide × 12 scan lines tall** → 20 rows × 12 px = 240 px/col ✓ → 64 cols × 8 px = 512 px/row ✓
 
 **Two distinct code spaces (doc page 217):**
 - *Keyboard code*: output of keyboard EPROM at port CLA (0x00)
@@ -124,7 +124,7 @@ Ports confirmed by `roms/samos_sys17.rom` disassembly (z80dasm, 2025); prior ent
 | 0x05  | SUSA1?    | R/W   | ✓ Schem   | **8251 USART status/control** — permanent I/O interface                        |
 | 0x06  | CAS       | R/W   | ✓ Schem   | **8251 USART data** — cassette reader interface                                |
 | 0x07  | SCAS      | R/W   | ✓ Schem   | **8251 USART command/status** — cassette reader control                         |
-| ~0x08 | RZ50/RZ59 | R/W   | ✓ SYS.SY  | **SPI-style bit-serial** (confirmed by OS disassembly, Phase 1K). Bit 0 = MISO (input), Bit 2 = MOSI (output), Bit 3 = CLK. Protocol: reset (OUT 0), send 4 bits, receive 8×7 bytes using `IN A,(0x08)` / `RRA` / `RR (HL)`. **NOT a display-mode register** — prior doc was wrong. Target peripheral unknown (RTC? config latch?). |
+| 0x08  | RTC       | R/W   | ✓ Schem   | **E405/08 RTC serial interface** (extension board, "Horloge absolue"). Confirmed by extension board schematic (R. Forster, Oct 1979): 3-wire serial — bit 3 = CK (clock), bit 2 = MOSI / I/O-out, bit 0 = MISO / I/O-in. `OUT (0x08),0` resets/deselects; protocol sends 4 control bits then clocks 8×7 bytes. Called RZ50/RZ59 in SAMOS OS source. Backed by 32.768 kHz crystal + 1.5 V battery on extension board. |
 | 0x19  | —         | R/W   | ✓ ROM     | **Floppy/Winchester multiplex register**. Write: drive-control byte = base OR offset; `base+0x0A` = motor-on+head-load; `base+0x0C` = motor-on+NMI-enable (arms sector-hole NMI); 0x00 = stop motor (disarms NMI). Read: bits [3:0] = current hard-sector index (0–15); bit 4 = 0 → byte ready; bit 5 = 0 → head at track 0 (setup_sector exits when bit5=0); bit 6 = 0 → seek settled (floppy_seek_sys exits when bit6=0). |
 | 0x1A  | CONT      | R/W   | ✓ ROM     | **Write**: floppy control / Winchester data byte. **Read** (via `IN F,(C)` with C=0x1A): tests bit 7 as a ready/request flag without storing value. |
 | 0x1B  | STAT      | Read  | ✓ ROM     | Floppy controller status (4 direct reads); bits 4, 7 tested. Also: data byte read then compared (checksum / ID match logic). |
@@ -551,7 +551,8 @@ smaky6emu/
 
 4. `video.c`: SDL2 texture **512×240**, graphic blit (64 bytes/row, LSB-first), alpha overlay, 3 modes
 5. TMS2716 chargen ROM loaded from `roms/chargen.rom`; 74S262 synthetic fallback
-   - Confirmed: 16 bytes/char, rows 0–7 glyph, bit0 = leftmost pixel
+   - Confirmed: 16 bytes/char, rows 0–9 glyph+descenders, rows 10–11 blank, bit0 = leftmost pixel
+   - Character cell 8×12 (20 rows × 12 px = 240 = VIDEO_PX_H); descenders on g/j/p/q/y in rows 8–9
 
 ### Phase 1C — Keyboard ✅
 

@@ -38,9 +38,10 @@ The machine is organized on a **backplane with plug-in boards**:
 | CARACTÈRES   | Sheet 11-3             | Char-gen, serializers, line buffers, parallel |
 
 Hardware versions:
-- **32 KB model** — 2 × 8 × 4116 DRAM; fixed SYSMON + SAMOS ROMs at 0x0000–0x1FFF.
+- **32 KB model** — 2 × 8 × 4116 DRAM on mainboard; fixed SYSMON + SAMOS ROMs at 0x0000–0x1FFF.
 - **48 KB model** — as above plus one extra DRAM bank.
-- **64 KB Phantom model** — all DRAM; single 2 KB "Phantom" bootstrap ROM at
+- **64 KB Phantom model** — mainboard 32 KB DRAM + **extension board** (32 KB DRAM
+  + 2 KB Phantom ROM + RTC + SIRING interface); single 2 KB Phantom bootstrap ROM at
   0x0000–0x07FF that bank-switches itself out after loading the OS from floppy.
   *This is the variant documented and emulated here.*
 
@@ -120,8 +121,7 @@ multiplexing (RAS/CAS) is handled by LS 158 multiplexers (F19, E19) on the
 MÉMOIRE board.  The Z80 `RFSH` signal is fed to the RAS logic for the mandatory
 refresh cycles.
 
-Upper RAM (0x8000–0xFFFF) is provided by a separate DRAM expansion; a jumper on
-the board selects the 32 KB / 64 KB configuration.
+Upper RAM (0x8000–0xFFFF) is provided by the memory extension board (§3.5).
 
 ### 3.3 ROM (MÉMOIRE board)
 
@@ -148,6 +148,53 @@ into four 16 KB quadrant-selects:
 The `MOVROM` signal (latched by D18/D19 flip-flop on receipt of
 `OUT (01h), A=00h`) disables the Phantom ROM chip-select, exposing the
 underlying RAM at 0x0000–0x07FF.
+
+### 3.5 Memory Extension Board (64 KB Phantom model)
+
+*Confirmed from Epsitec schematic: "Extension mémoire 32K RAM dynamique + 2K EPROM /
+Horloge absolue + SIRING 7910", designed by Ronald Forster, Epsitec, October 1979.*
+
+In the 64 KB Phantom model the mainboard ROM sockets (C21–C24) are **unpopulated**.
+All ROM and the upper 32 KB of RAM live on this plug-in extension board.
+
+| Component       | Part      | Count | Function                                         |
+|-----------------|-----------|-------|--------------------------------------------------|
+| IC1             | TMS2716   | 1     | **Phantom ROM** — 2 KB EPROM at 0x0000–0x07FF    |
+| IC16–IC31       | 4116 DRAM | 16    | **Upper 32 KB RAM** — 0x8000–0xFFFF              |
+| IC5             | E405/08   | 1     | **RTC** (Horloge absolue) — serial, 32.768 kHz   |
+| IC2, IC10       | LS158     | 2     | Row/column address MUX for DRAM                  |
+| IC3             | 1/2 LS139 | 1     | RAS / bank decoder                               |
+| IC8             | S287      | 1     | Extension bus interface + address decode         |
+| IC11            | 81LS95    | 1     | Octal tri-state data bus driver                  |
+| IC14, IC15      | C175      | 2     | Quad D latch — DRAM data line buffers            |
+| —               | 32 kHz XTAL | 1  | Crystal for RTC                                  |
+| —               | 1.5 V cell  | 1  | Battery backup for RTC                           |
+
+**Phantom ROM (IC1)**: The TMS2716 EPROM is on this board, not the mainboard.
+Its chip-select (`sel0`) is driven by IC8 (S287) and is disabled when the
+Z80 executes `OUT (01h), A=00h` (MOVROM), exposing the underlying RAM.
+
+**DRAM (IC16–IC31)**: 16×4116 = 32 KB at 0x8000–0xFFFF.
+RAS/CAS multiplexing by IC2/IC10 (LS158 MUX), bank select by IC3 (LS139).
+Refresh driven by the Z80 `RFSH` / `REFRESH` signal from the mainboard bus.
+
+**RTC — E405/08 (IC5)**: 3-wire synchronous serial interface:
+- **CK** — serial clock (toggled by Z80 I/O write)
+- **CS** — chip select (asserted on I/O access to the port)
+- **I/O** — bidirectional serial data
+
+This maps to **port 0x08** (see §8): bit 3 = CK, bit 2 = serial-out (I/O write),
+bit 0 = serial-in (I/O read). The SAMOS OS reads the RTC during boot to seed
+the system clock. The 1.5 V cell maintains timekeeping across power cycles.
+
+**SIRING / 7910**: The board title suffix "SIRING 7910" is the Epsitec
+internal board designation. "7910" is the date code (October 1979).
+"SIRING" likely refers to the Epsitec inter-machine serial ring network
+(a proprietary multi-drop bus used to link Smaky computers).
+
+**Bus connectors**: The board uses ADPER (B22) and ADMEN (B21/B15/B14)
+for address bus connections, plus REFRESH (A21), WRITE (A16/A30), NODA (B20),
+and RESET (A20).
 
 ---
 
@@ -304,7 +351,7 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 | `0x05`        | R/W     | USART0-CMD  | 8251 USART "permanent I/O" — status / command            |
 | `0x06`        | R/W     | USART1-DATA | 8251 USART "cassette" (C13) — data register              |
 | `0x07`        | R/W     | USART1-CMD  | 8251 USART "cassette" — status / command                 |
-| `0x08`        | R/W     | IO08        | SPI-style serial latch; WR also clears IRQ-pending flag  |
+| `0x08`        | R/W     | RTC         | **E405/08 RTC** serial interface (Horloge absolue, extension board): bit 3=CK, bit 2=MOSI, bit 0=MISO |
 | `0x11`        | R       | (unknown)   | Unknown device; returns 0x00 (stub)                      |
 | `0x19`        | R/W     | FDC-CTRL    | Floppy control / sector index (see §7)                   |
 | `0x1A`        | R/W     | FDC-CONT    | Floppy continuation / step-pulse register                |
@@ -538,5 +585,6 @@ Load CLI.SY  →  "SAMOS rev 2-8 / DX0: / >" prompt
 
 ---
 
-*Document compiled from four Epsitec schematics (J. Zuba, November 1978),
+*Document compiled from five Epsitec schematics: four by J. Zuba (November 1978)
+and one extension board schematic by Ronald Forster (October 1979);
 the SAMOS 2-8 / Phantom ROM disassembly, and the Smaky6emu emulator source.*
