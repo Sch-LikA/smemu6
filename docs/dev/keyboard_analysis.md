@@ -54,6 +54,7 @@ The following flags are used **only** by `machine_inject_key()` and the autoboot
 - **`physically_held`** — injected key-down state.  Set by `machine_inject_key()`, cleared when `key_hold_frames` countdown reaches 0.
 - **`key_hold_frames`** — countdown (5 frames) so Stage 2 sees the key as still held.
 - **`cla_seen`** — ISR-cycle flag.  Set by every CLA read.  **Cleared by the ISR ACK** (`OUT (0x01), data≠0`) at the start of each 50 Hz frame.  This is a software-only emulator concept; on real hardware FOUND is reasserted within 200µs so Stage 2 always sees it — `cla_seen` is the emulator's proxy for that reassertion.
+- **`samos_loaded`** — set to 1 when `keyboard_frame_tick()` detects that SAMOS has installed its 50 Hz ISR vector (`bus[0x4566..7] == 0x003E`).  This happens at address `0x00CD` in SYS.SY, **after** the boot-menu keyboard wait at `0x00B5` exits.  Once set, `keyboard_read_cla()` never pops the FIFO in the `iff1=0` branch, because `iff1=0` then means "inside the SAMOS ISR" rather than "inside Phantom ROM kbd_wait".
 
 Port 0x01 bit 2 (FOUND) reflects `physically_held || key_hold_frames > 0`, not `found`.
 
@@ -224,34 +225,55 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 ```
 
 `keyboard_frame_tick()` is called **once per 50 Hz frame, BEFORE `machine_run_frame()`**.
-It drains one key from the FIFO into the SAMOS circular buffer on every frame that
-the buffer has space (guard sentinel not reached):
+It drains **all** pending FIFO entries into the SAMOS circular buffer each frame (not one per frame),
+stopping only when the guard sentinel is hit (buffer region full) or the write pointer is out of range
+(SAMOS workspace not yet initialized):
 
 ```c
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    if (!m->cpu.iff1) return;   /* monitor mode: leave FIFO for CLA path */
-    if (m->kbd.fifo_head == m->kbd.fifo_tail) return;  /* FIFO empty */
-    uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-    if (m->bus[wr] == 0x80u) return;  /* 0x80 = guard sentinel, buffer full */
-    uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
-    m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-    m->bus[wr] = code & 0x7Fu;
-    wr++;
-    m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
-    m->bus[0x457Du] = (uint8_t)(wr >> 8);
+    /* key_hold_frames countdown (autoboot / inject path) */
+    if (m->kbd.key_hold_frames > 0) {
+        if (--m->kbd.key_hold_frames == 0 && !m->kbd.physically_held)
+            m->kbd.cla_seen = 0;
+    }
+
+    /* Detect when SAMOS has installed its 50 Hz ISR vector.
+     * Execution order in SYS.SY:
+     *   0x0095: SAMOS init — fill, write sentinels (incl. 0x4595=0x80)
+     *   0x00B5: IN A,(0x00)  ← boot-menu kbd_wait (samos_loaded still 0 here)
+     *   0x00CD: LD (0x4566),0x003E  ← trigger fires next frame (samos_loaded→1)
+     *   0x020D: EI — first ISR fires after samos_loaded=1, FIFO protected
+     * Using bus[0x4595]==0x80 fires too early (before kbd_wait). */
+    if (!m->kbd.samos_loaded) {
+        uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
+        if (vec == 0x003Eu)
+            m->kbd.samos_loaded = 1;
+    }
+
+    if (!m->cpu.iff1) return;   /* ISR context or monitor: leave FIFO for CLA path */
+    /* Drain the entire FIFO into the SAMOS circular buffer each frame. */
+    while (m->kbd.fifo_head != m->kbd.fifo_tail) {
+        uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+        if (wr < 0x4596u || wr > 0x45B6u) break;   /* SAMOS workspace not ready */
+        if (m->bus[wr] == 0x80u) break;             /* guard sentinel: buffer full */
+        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
+        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
+        m->bus[wr] = code & 0x7Fu;
+        wr++;
+        m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
+        m->bus[0x457Du] = (uint8_t)(wr >> 8);
+    }
 }
 ```
 
-**Why guard-sentinel check (not `wr == 0x4596`)?**
+**Why guard-sentinel check (not `ptr == base`)?**
 
-An earlier version checked `wr == 0x4596` (buffer at base = empty) and hardcoded the
-write address to `0x4596`.  This silently dropped keys whenever the OS left the write
-pointer advanced — for example, while an unconsumed character was still in the buffer,
-or if SAMOS delayed resetting the pointer.  Keys typed at normal interactive speed
-would be lost.  The correct check mirrors `machine_inject_to_circ_buf()`: write at
-`[wr]` (wherever the pointer currently is) and advance, stopping only when the `0x80`
-guard sentinel is hit (buffer region full, ~32 chars capacity).
+Writing stops when `bus[wr] == 0x80` — not when `wr == 0x4596` (base address).  The sentinel at `~0x45B6` marks the end of the writable region.  The SAMOS consume routine decrements the write pointer but leaves the consumed byte in place; a base-address check would stop too early when the pointer has been advanced by a previous write.  The guard-sentinel correctly limits writes to the ~32-slot buffer capacity.
+
+**Why drain all FIFO entries, not just one per frame?**
+
+Draining one entry per frame would impose a minimum 20 ms inter-character floor — i.e., keys typed at normal human speed could be dropped or delayed by a full frame.  Draining all pending entries each frame matches `machine_inject_to_circ_buf()` behaviour and means SAMOS sees the full burst of typed characters without artificial throttling.
 
 ### Autoboot / inject: CLA-based delivery
 
@@ -291,29 +313,35 @@ The emulator has two branches depending on `iff1`:
 
 **`iff1=0` branch (Phantom ROM / monitor / `kbd_wait` context):**
 
-> ⚠️ **Known bug:** The current `!iff1` branch only serves physical keys from the FIFO.
-> `machine_inject_key()` writes to CLA fields (`found`, `key_code`, `physically_held`) — not
-> to the FIFO.  The Phantom ROM `kbd_wait` loop (0x00FD) runs with `iff1=0` and polls
-> `IN A,(0x00)` directly.  Because the `!iff1` branch ignores CLA fields, injected keys
-> (autoboot Enter at frame 150) are invisible to `kbd_wait` → boot stalls forever.
->
-> **Fix needed:** The `!iff1` branch must check CLA fields first (like the `iff1` branch)
-> before falling through to the FIFO:
-> ```c
-> if (!m->cpu.iff1) {
->     /* Serve machine_inject_key() CLA fields for Phantom ROM kbd_wait polling */
->     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
->     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
->     m->kbd.cla_seen = 1;
->     if (have_key) {
->         m->kbd.found = 0;
->         return m->kbd.key_code & 0x7Fu;
->     }
->     /* Physical keys: fall through to FIFO */
->     if (m->kbd.fifo_head != m->kbd.fifo_tail) { ... }
->     return 0x80u;
-> }
-> ```
+This branch handles two distinct situations that both produce `iff1=0`:
+
+1. **Phantom ROM kbd_wait (pre-SAMOS, `samos_loaded=0`)** — the CPU is polling `IN A,(0x00)` at 0x00B5 with interrupts disabled.  Autoboot inject must be visible here.
+2. **Inside the SAMOS ISR (`samos_loaded=1`)** — the Z80 clears IFF1 on INT acknowledgement.  FIFO keys must NOT be consumed here; they have already been written to the circular buffer by `keyboard_frame_tick()` before this frame's ISR ran.
+
+```c
+if (!m->cpu.iff1) {
+    /* CLA fields first — serve machine_inject_key() / autoboot path
+     * (also used by SAMOS ISR Stages 1 & 2 for injected keys). */
+    int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
+    int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
+    m->kbd.cla_seen = 1;
+    if (have_key) {
+        m->kbd.found = 0;
+        return m->kbd.key_code & 0x7Fu;  /* bit 7=0 → key present */
+    }
+    /* Physical FIFO: only serve before SAMOS ISR is installed.
+     * Once samos_loaded=1, iff1=0 means we are inside the SAMOS ISR;
+     * FIFO entries are already in the circular buffer — do not pop them again. */
+    if (!m->kbd.samos_loaded && m->kbd.fifo_head != m->kbd.fifo_tail) {
+        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
+        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
+        return code & 0x7Fu;
+    }
+    return 0x80u | m->kbd.fonct_bits;
+}
+```
+
+**Why the sentinel `0x4595==0x80` cannot be used here:** that sentinel is written at address `0x00A4`, before the boot-menu `kbd_wait` at `0x00B5`.  If `samos_loaded` were set by that sentinel, the FIFO branch would be blocked during `kbd_wait`, making the boot-menu keypress invisible.  The ISR vector at `0x4566` is written *after* `kbd_wait` exits — it is the correct trigger.
 
 ### ISR ACK (machine.c port 0x01 write, data≠0)
 
@@ -386,6 +414,8 @@ Autoboot stage3 keys are held for 5 frames so Stage 2 can see them (pre-OS boot 
 | `0x4581` | Secondary staging byte |
 | `0x4582` | Inter-frame key sentinel (0x80 = none pending) |
 | `0x457C` | Circular buffer **write** pointer (init: 0x4596) |
+| `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait; used as `samos_loaded` trigger) |
+| `0x4595` | SAMOS init sentinel (written to `0x80` at `0x00A4`, **before** kbd_wait — cannot be used as `samos_loaded` trigger) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
 
