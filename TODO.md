@@ -30,8 +30,8 @@ the window is 1024 × 520 (240+20 status bar × 2).  SDL logical size stays fixe
 
 The status bar (20 logical px, scales with `-scale`) shows per-drive:
 - Amber LED (bright = active transfer, dim = mounted idle, off = no image)
-- Drive letter glyph (from chargen ROM, rendered as 2×2 logical-pixel rects per bit)
-- `T:nn S:nn` — current track and sector from `m->fdc.track[d]` / `m->fdc.sector`
+- Drive label glyph (`DX0:` / `DX1:`, from chargen ROM, rendered as 1px-per-bit)
+- `T:nn S:nn` — current track and sector from `m->fdc.track[d]` / `m->fdc.phased_sector[d]`
 
 Each chargen glyph bit is rendered as a 2×2 logical-pixel filled rect so glyphs look
 crisp at any `-scale` value without needing a separate font.
@@ -303,13 +303,12 @@ An optional `-write-through` flag could bypass the buffer and write directly to
 the image file (the simpler `r+b` / `fseek` / `fwrite` path), for users who
 prefer permanent writes.
 
-### Second floppy drive (DX1)
+### ~~Second floppy drive (DX1)~~ ✅ Done
 
-The emulator currently supports only one floppy drive (DX0, mounted via `-disk`).
-The real Smaky 6 supported a second drive (DX1), selectable from the CLI with
-`DX1:/D` as the destination drive for copy operations.  The port `0x19` drive-select
-bits already encode the drive number; a `-disk2` flag and a second `FDC` image slot
-are needed in `machine_internal.h` / `floppy.c`.
+The emulator supports two floppy drives. Mount via `-disk <img>` (DX0) and
+`-disk2 <img>` (DX1). Drive selection from port `0x19` motor-on+NMI-arm writes
+(bits 2+3 both set) sets `fdc.selected_drive`; stepping and sector reads respect
+the selected drive. The status bar shows `DX0:` and `DX1:` labels.
 
 ---
 

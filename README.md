@@ -20,8 +20,9 @@ cmake --build build
 
 ```bash
 cd build
-./smaky6emu                        # text monitor only (requires sysmon.rom)
-./smaky6emu -disk ../disks/sys.img # boot from floppy image
+./smaky6emu                          # text monitor only (requires sysmon.rom)
+./smaky6emu -disk ../floppies/sys.img # boot from floppy image (DX0)
+./smaky6emu -disk ../floppies/sys.img -disk2 ../floppies/other.img  # DX0 + DX1
 ```
 
 Floppy images go in `floppies/`. ROM files go in `roms/`:
@@ -31,11 +32,12 @@ Floppy images go in `floppies/`. ROM files go in `roms/`:
 
 ## Controls
 
-| Key         | Function                  |
-|-------------|---------------------------|
-| F12         | Toggle single-step mode   |
-| F11 / Pause | NMI (BREAK → monitor)     |
-| Escape      | Smaky ESC                 |
+| Key                     | Function                                  |
+|-------------------------|-------------------------------------------|
+| F12                     | Toggle single-step mode                   |
+| F11 / Pause             | BREAK — NMI (drops into monitor)          |
+| Shift+F11 / Shift+Pause | SHIFT+BREAK — hard reset (reboots)        |
+| Escape                  | Smaky ESC                                 |
 
 ## ROM Extraction
 

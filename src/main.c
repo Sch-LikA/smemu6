@@ -92,6 +92,8 @@ static void usage(const char *argv0)
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
         "  -help          Show this help\n"
+        "  Pause / F11          BREAK key (NMI → monitor)\n"
+        "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
         "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n",
         argv0);
 }
@@ -420,7 +422,10 @@ int main(int argc, char *argv[])
                     debug_toggle(m);
                 } else if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE ||
                            ev.key.keysym.scancode == SDL_SCANCODE_F11) {
-                    machine_nmi(m);
+                    if (ev.key.keysym.mod & KMOD_SHIFT)
+                        machine_reset(m);   /* SHIFT+BREAK → hard reset */
+                    else
+                        machine_nmi(m);     /* BREAK alone → NMI / monitor */
                 } else if (ev.key.keysym.scancode == SDL_SCANCODE_Q &&
                            (ev.key.keysym.mod & KMOD_CTRL)) {
                     /* Ctrl+Q: quit the emulator */
