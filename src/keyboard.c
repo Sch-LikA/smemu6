@@ -45,6 +45,16 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
     m->kbd.samos_loaded    = 0;
+
+    /* Simulate real hardware power-on state: the FOUND latch is undefined at
+     * power-on and typically powers up asserted.  The Phantom ROM keyboard wait
+     * at 0x003E (CALL 0x00FD) reads CLA; if FOUND=1 it exits immediately with
+     * A=key_code.  Key code 0x00 = Enter → ROM selects DX0 floppy boot.
+     * Without this the emulator loops forever at the keyboard wait menu.
+     * The latch is consumed (found→0) on the first CLA read, so it does not
+     * interfere with user input once the machine is running. */
+    m->kbd.found     = 1;
+    m->kbd.key_code  = 0x00;  /* Enter → boot from DX0 */
 }
 
 /* Called once per 50 Hz frame from the main loop.  Decrements the hold-time
