@@ -14,12 +14,13 @@ R. Forster October 1979) and reverse-engineering of the SAMOS 2-8 ROM images.*
 5. [Keyboard Interface](#5-keyboard-interface)
 6. [I/O Port Map](#6-io-port-map)
 7. [Floppy Controller](#7-floppy-controller)
-8. [Serial Interfaces (USART)](#8-serial-interfaces-usart)
-9. [Parallel Interface](#9-parallel-interface)
-10. [Sound / Buzzer](#10-sound--buzzer)
-11. [Interrupt Architecture](#11-interrupt-architecture)
-12. [Boot Sequence (Phantom ROM)](#12-boot-sequence-phantom-rom)
-13. [Signal Glossary](#13-signal-glossary)
+8. [Winchester Controller](#8-winchester-controller)
+9. [Serial Interfaces (USART)](#9-serial-interfaces-usart)
+10. [Parallel Interface](#10-parallel-interface)
+11. [Sound / Buzzer](#11-sound--buzzer)
+12. [Interrupt Architecture](#12-interrupt-architecture)
+13. [Boot Sequence (Phantom ROM)](#13-boot-sequence-phantom-rom)
+14. [Signal Glossary](#14-signal-glossary)
 
 ---
 
@@ -385,8 +386,17 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 | `0x19`        | R/W     | FDC-CTRL    | Floppy control / sector index (see §7)                   |
 | `0x1A`        | R/W     | FDC-CONT    | Floppy continuation / step-pulse register                |
 | `0x1B`        | R       | FDC-DATA    | Floppy streaming data byte                               |
-| `0x21`        | R/W     | WIN-DATA    | Winchester hard-disk data (stub)                         |
-| `0x27`        | R       | WIN-STAT    | Winchester status: 0x50 = READY + SEEK_COMPLETE          |
+| `0x20`        | R       | WIN-DATA-R  | Winchester data register (IN) — read next sector byte    |
+| `0x20`        | W       | WIN-DATA-W  | Winchester data register (OUT) — write sector byte (stub)|
+| `0x21`        | R       | WIN-ERR     | Winchester error register — `0x00` = no error            |
+| `0x21`        | W       | WIN-PRECOMP | Write pre-compensation cylinder (ignored)                |
+| `0x23`        | W       | WIN-SEC     | Sector number: bits[4:0], 0-based (0–31)                 |
+| `0x24`        | W       | WIN-CYL-LO  | Cylinder low byte                                        |
+| `0x25`        | W       | WIN-CYL-HI  | Cylinder high byte (Phantom always 0 → max 255 cyls)     |
+| `0x26`        | W       | WIN-SDH     | SDH: bits[2:0]=head (0–5), bit[3]=drive select (0/1)     |
+| `0x27`        | R       | WIN-STATUS  | `0xFF`=no image, `0x50`=RDY+SC, `0x58`=RDY+SC+DRQ       |
+| `0x27`        | W       | WIN-CMD     | `0x1n`=RESTORE, `0x2n`=READ SECTOR, `0x3n`=WRITE(stub)  |
+| `0x2B`        | W       | WIN-?       | Unknown register — no-op                                 |
 | `0x0D` (=0xCD)| R       | WIN-DMA     | Winchester DMA / status (returns 0x00)                   |
 
 ---
@@ -460,11 +470,92 @@ right sector, then reads 256 bytes via port 0x1B.  The Phantom ROM INT vector
 
 When the floppy NMI is armed (`OUT (19h)` with bits 2+3 set), the INT
 acknowledge cycle returns **RST 08h (0xCF)** instead of the normal
-**RST 38h (0xFF)** (see §11).
+**RST 38h (0xFF)** (see §12).
 
 ---
 
-## 8. Serial Interfaces (USART)
+## 8. Winchester Controller
+
+### 8.1 Drive hardware
+
+| Parameter       | Value                                                      |
+|-----------------|-------------------------------------------------------------|
+| Controller      | WD1010-compatible (confirmed from Phantom ROM disassembly)  |
+| Sectors/track   | **32** (sector index masked with `0x1F` in ROM at 0x0380)   |
+| Heads/cylinder  | **6** (`C=6` divisor in CHS decomposition loop at 0x0380)   |
+| Bytes/sector    | **256** (INIR with `B=0` → 256 iterations)                  |
+| Max cylinders   | **255** (Phantom always writes `0` to CYL_HI port 0x25)     |
+| Drive capacity  | 255 × 6 × 32 × 256 ≈ **12 MB** per drive                   |
+| Drive names     | SM6WIN0 (drive 0), SM6WIN1 (drive 1)                        |
+| Image format    | Flat binary; `harddisks/SM6WIN0.DSK` / `SM6WIN1.DSK`        |
+
+### 8.2 Port protocol (WD1010-compatible register set)
+
+All Winchester registers are at ports `0x20–0x27` and `0x2B`
+(decoded with the 6-bit mask `port & 0x3F`).
+
+| Port   | R/W | Register        | Description                                                           |
+|--------|-----|-----------------|-----------------------------------------------------------------------|
+| `0x20` | R   | Data (IN)       | Read next byte from sector buffer (256 bytes, use INIR)               |
+| `0x20` | W   | Data (OUT)      | Write next byte during WRITE SECTOR (stub — discarded)                |
+| `0x21` | R   | Error           | Error bits after last command: `0x00` = no error                      |
+| `0x21` | W   | Write precomp   | Write pre-compensation cylinder (ignored)                             |
+| `0x23` | W   | Sector number   | Sector within track: bits[4:0], 0-based (0–31)                        |
+| `0x24` | W   | Cylinder low    | Low byte of cylinder address                                          |
+| `0x25` | W   | Cylinder high   | High byte of cylinder (Phantom always writes 0 → max 255 cylinders)   |
+| `0x26` | W   | SDH             | bits[2:0] = head (0–5), bit[3] = drive select (0 or 1)                |
+| `0x27` | R   | Status          | `0xFF` = no image (BSY), `0x50` = RDY+SC (idle), `0x58` = RDY+SC+DRQ |
+| `0x27` | W   | Command         | `0x1n` = RESTORE, `0x2n` = READ SECTOR, `0x3n` = WRITE SECTOR (stub) |
+| `0x2B` | W   | (unknown)       | Purpose not confirmed from schematics; treated as no-op               |
+
+### 8.3 CHS → LBA mapping
+
+Confirmed from Phantom ROM disassembly at `0x0370–0x0398`:
+
+```
+sector   = DE & 0x1F                   (5-bit field, 0-based)
+track    = DE >> 5                     (packed 16-bit address DE, bits[15:5])
+head     = track mod 6
+cylinder = track div 6
+
+LBA      = cylinder × 192 + head × 32 + sector
+         = cylinder × HEADS_PER_CYL × SECTORS_PER_TRK
+           + head × SECTORS_PER_TRK
+           + sector
+```
+
+The 16-bit register pair `DE` in the Phantom ROM equals the LBA exactly.
+Disk images are flat arrays of 256-byte sectors indexed by LBA.
+
+### 8.4 Status register values
+
+| Value  | Meaning                                                                     |
+|--------|-----------------------------------------------------------------------------|
+| `0xFF` | No image mounted — BSY set; `winchester_init` loop times out → *Disque inactif* |
+| `0x50` | RDY (bit 6) + SC (bit 4) — drive ready, idle                                |
+| `0x58` | RDY + SC + DRQ (bit 3) — data available for read (or write buffer ready)    |
+
+### 8.5 Command set
+
+| Command | Code   | Action                                                            |
+|---------|--------|-------------------------------------------------------------------|
+| RESTORE | `0x1n` | Seek to cylinder 0; reset state; return to IDLE                   |
+| READ    | `0x2n` | CHS→LBA, load 256 bytes from image into buffer, set DRQ           |
+| WRITE   | `0x3n` | Enter WRITING phase; accept 256 bytes via port 0x20 (stub — bytes discarded) |
+
+Commands execute **instantaneously** (no BSY delay) — the emulator is
+synchronous and the Phantom ROM polls port 0x27 in a tight loop.
+
+### 8.6 Bus arbitration note
+
+The `HOLDBL` line (Z80 pin 33, §2.2) is labeled "Winchester" on the
+schematic.  The real hardware likely uses a DMA engine to burst sector
+data without CPU involvement.  The emulator bypasses DMA entirely: after
+a READ command sets DRQ, the CPU reads port 0x20 directly via `INIR`.
+
+---
+
+## 9. Serial Interfaces (USART)
 
 Two **Intel 8251** USART chips are on the PROCESSEUR board (doc-227, J. Zahn):
 
@@ -489,7 +580,7 @@ PROCESSEUR schematic connecting to a header).
 
 ---
 
-## 9. Parallel Interface
+## 10. Parallel Interface
 
 | Port  | Direction | Name  | Description                                           |
 |-------|-----------|-------|-------------------------------------------------------|
@@ -502,7 +593,7 @@ generator (confirmed on schematic sheet 11-3 by the `INTERFACE PARALLÈLE` label
 
 ---
 
-## 10. Sound / Buzzer
+## 11. Sound / Buzzer
 
 The Smaky 6 has a single **bit-banged buzzer** (piezo / small loudspeaker):
 
@@ -521,7 +612,7 @@ sufficient to drive a small speaker.
 
 ---
 
-## 11. Interrupt Architecture
+## 12. Interrupt Architecture
 
 The Z80 operates in **Interrupt Mode 0** throughout (never altered by any
 firmware).  In IM 0 the interrupting device places a **full opcode** on the data
@@ -559,7 +650,7 @@ Generated by the AFFICHAGE board's vertical-sync counter.  In SAMOS 2-8:
 
 ---
 
-## 12. Boot Sequence (Phantom ROM)
+## 13. Boot Sequence (Phantom ROM)
 
 ```
 POWER-ON / RESET
@@ -595,7 +686,7 @@ Load CLI.SY  →  "SAMOS rev 2-8 / DX0: / >" prompt
 
 ---
 
-## 13. Signal Glossary
+## 14. Signal Glossary
 
 | Signal       | Description                                                           |
 |--------------|-----------------------------------------------------------------------|

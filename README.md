@@ -3,7 +3,7 @@
 Emulator for the **Smaky 6**, a 1978 Swiss Z80-based personal computer
 developed at EPFL (Lausanne) by Jean-Daniel Nicoud.
 
-See [PLAN.md](PLAN.md) for full hardware documentation and implementation plan.
+See [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md) for full hardware documentation.
 
 ## Building
 
@@ -20,14 +20,18 @@ cmake --build build
 
 ```bash
 cd build
-./smaky6emu                          # text monitor only (requires sysmon.rom)
-./smaky6emu -disk ../floppies/sys.img # boot from floppy image (DX0)
-./smaky6emu -disk ../floppies/sys.img -disk2 ../floppies/other.img  # DX0 + DX1
+./smaky6emu                                        # Phantom ROM only (requires roms/samos_sys17.rom)
+./smaky6emu -disk ../floppies/sys.img              # boot from floppy image on DX0
+./smaky6emu -disk ../floppies/sys.img \
+            -disk2 ../floppies/other.img           # DX0 + DX1
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK     # boot with Winchester drive 0
+./smaky6emu -disk ../floppies/sys.img \
+            -harddisk ../harddisks/SM6WIN0.DSK \
+            -harddisk2 ../harddisks/SM6WIN1.DSK    # floppy + both Winchester drives
 ```
 
-Floppy images go in `floppies/`. ROM files go in `roms/`:
-- `roms/sysmon.rom` — 4 KB SYSMON monitor
-- `roms/samos.rom`  — 4 KB SAMOS floppy OS (optional)
+Floppy images go in `floppies/`. Hard-disk images go in `harddisks/`. ROM files go in `roms/`:
+- `roms/samos_sys17.rom` — 2 KB Phantom bootstrap ROM (TMS2716 "SYS17")
 - `roms/chargen.rom` — 2 KB character generator PROM (optional; synthetic fallback used)
 
 ## Controls

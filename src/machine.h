@@ -44,6 +44,11 @@ void machine_set_trace_fdc(struct Smaky6 *m, int on);
 void machine_set_trace_snd(struct Smaky6 *m, int on);
 void machine_set_trace_scr(struct Smaky6 *m, int on);
 
+/* When enabled, port 0x00 writes with bit0=0 are ignored (screen stays on).
+ * Useful when the emulated OS does a display-off during boot that would
+ * otherwise blank the window before the first useful frame is rendered. */
+void machine_set_no_display_off(struct Smaky6 *m, int on);
+
 /* Inject a key into the keyboard buffer (code=0 → Return/floppy-boot) */
 void machine_inject_key(struct Smaky6 *m, uint8_t code);
 

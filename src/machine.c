@@ -146,7 +146,7 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         }
         if (!(data & 0x01)) {
             /* Display-off: bit 0 = 0 blanks the screen */
-            if (m->vid.display_on) {
+            if (m->vid.display_on && !m->vid.no_display_off) {
                 fprintf(stderr, "[video] display OFF (port00=0x%02X)\n", data);
                 m->vid.display_on = 0;
             }
@@ -594,6 +594,11 @@ void machine_set_trace_snd(struct Smaky6 *m, int on)
 void machine_set_trace_scr(struct Smaky6 *m, int on)
 {
     m->dbg.trace_scr = on ? 1 : 0;
+}
+
+void machine_set_no_display_off(struct Smaky6 *m, int on)
+{
+    m->vid.no_display_off = on ? 1 : 0;
 }
 
 /* ── Internal accessor helpers (used by subsystem .c files) ─────────────── */

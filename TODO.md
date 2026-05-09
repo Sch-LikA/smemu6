@@ -315,11 +315,34 @@ the selected drive. The status bar shows `DX0:` and `DX1:` labels.
 
 ---
 
-## Winchester / Hard Disk
+## ~~Winchester / Hard Disk~~ ✅ Done
 
-The WD-style register set at ports `0x21–0x27` is minimally stubbed.
-Only `SM6WIN0.DSK` and `SM6WIN1.DSK` image loading exists.  No actual
-sector read/write pipeline is implemented.
+**WD1010-compatible controller emulated in `src/winchester.c` / `src/winchester.h`.**
+
+Port map (ports `0x20–0x27`, `0x2B`; 6-bit mask `port & 0x3F`):
+
+| Port   | R/W | Description                                                           |
+|--------|-----|-----------------------------------------------------------------------|
+| `0x20` | R   | Data register (IN) — read next sector byte                            |
+| `0x20` | W   | Data register (OUT) — write sector byte (stub, discarded)             |
+| `0x21` | R   | Error register — `0x00` = no error                                    |
+| `0x21` | W   | Write pre-compensation (ignored)                                      |
+| `0x23` | W   | Sector number register — bits[4:0], 0-based                           |
+| `0x24` | W   | Cylinder low byte                                                     |
+| `0x25` | W   | Cylinder high byte                                                    |
+| `0x26` | W   | SDH — bits[2:0]=head (0–5), bit[3]=drive select (0/1)                 |
+| `0x27` | R   | Status — `0xFF`=no image, `0x50`=RDY+SC, `0x58`=RDY+SC+DRQ           |
+| `0x27` | W   | Command — `0x1n`=RESTORE, `0x2n`=READ SECTOR, `0x3n`=WRITE(stub)     |
+| `0x2B` | W   | Unknown — no-op                                                       |
+
+Geometry (confirmed from Phantom ROM disassembly at `0x0370–0x0398`):
+- **6** heads/cylinder, **32** sectors/track, **256** bytes/sector
+- CHS→LBA: `cyl×192 + head×32 + sec`; `DE` in Phantom ROM = LBA
+
+Disk images mounted via CLI: `-harddisk <img>` (drive 0), `-harddisk2 <img>` (drive 1).
+
+Status without image → `0xFF` (BSY forever → *Disque inactif* message on boot).
+WRITE SECTOR command is a stub (bytes counted but discarded).
 
 ---
 
