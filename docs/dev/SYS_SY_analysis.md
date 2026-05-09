@@ -274,7 +274,7 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > (`machine_inject_key()`) also uses CLA fields.
 > See `docs/dev/keyboard_analysis.md` for the full pipeline description.
 | 0x03  | W   | 0x5B0F          | Buzzer/beep                                      |
-| 0x08  | R/W | 0x5D58–0x5DCA  | **SPI-style bit-serial** (see detail below)       |
+| 0x08  | R/W | 0x5D58–0x5DCA  | **3-wire synchronous serial (E405/08 RTC)** (see detail below) |
 | 0x0B  | W   | 0x5ADB–0x5B37  | **Bit-serial shift clock** (see detail below)     |
 | 0x18  | W   | 0x7010–0x703F  | Floppy-related byte stream (bit7 ready; `IN F,(C)` poll) |
 | 0x19  | R/W | multiple        | Floppy control (same as ROM)                     |
@@ -282,7 +282,20 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 | 0x1C  | W   | 0x63C0, 0x6583, 0x6594 | Unknown — disk DMA or acknowledge         |
 | 0x2B  | W   | 0x6B8E, 0x6DAB  | Winchester reset/select                          |
 
-#### Port 0x08 — SPI-style bit-serial interface
+#### Port 0x08 — 3-wire synchronous serial interface (E405/08 RTC)
+
+This is a **proprietary Epsitec protocol**, not SPI (SPI was standardized by
+Motorola in the mid-1980s; this machine predates it).  Confirmed target:
+**E405/08 RTC chip** (IC5 on extension board, “Horloge absolue”).
+
+Data bit: **bit 0** is the bidirectional I/O line (MISO on IN, data-out via
+bit0 on OUT).  Bits 1–2 are direction/CS control held high during a
+transaction.  Bit 3 is CLK.  The comment `SET 2,A; SET 1,A` sets the
+CS/direction lines; the data bit is placed at bit0 via `RR C; RLA`.
+
+Command phase: 4 bits, **LSB first** (C=0x0F for read, C=0x07 for write).
+Data phase: 7 BCD bytes, **LSB first** per byte.
+Z80 receive: `RRA; RR (HL)` → first received bit lands at bit0 of `(HL)`.
 
 Protocol (disassembled from OS ~0x5D53–0x5D9A):
 
@@ -334,16 +347,16 @@ XOR A
 OUT (0x08), A          ; deselect
 ```
 
-**Bit assignments for port 0x08:**
+**Bit assignments for port 0x08 (confirmed from R. Forster schematic, Oct 1979):**
 
-| Bit | Direction | Function       |
-|-----|-----------|----------------|
-| 0   | Input     | MISO (data in) |
-| 2   | Output    | MOSI (data out)|
-| 3   | Output    | SPI CLK        |
+| Bit | Direction | Function                                |
+|-----|-----------|-----------------------------------------|
+| 0   | Bidir     | Serial data (MISO on IN, data on OUT)   |
+| 1   | Output    | CS / direction control (high during tx) |
+| 2   | Output    | CS / direction control (high during tx) |
+| 3   | Output    | CLK                                     |
 
-Target peripheral is unknown; candidates: RTC chip, hardware configuration
-register, second keyboard controller, or display-mode latch.
+**Target confirmed**: E405/08 RTC (IC5, extension board).
 
 #### Port 0x0B — Bit-serial shift clock
 

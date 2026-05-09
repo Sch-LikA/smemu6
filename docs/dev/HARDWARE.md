@@ -197,14 +197,13 @@ port address.  Only R. Forster's extension board uses the `ChipType/PortAddr`
 slash notation.  **E405/08 (IC5) is the only such chip across all nine
 schematics.**
 
-Serial interface:
+Serial interface (3-wire synchronous bit-bang, proprietary — predates SPI):
 - **CK** — serial clock (toggled by Z80 I/O write)
-- **CS** — chip select (asserted on I/O access to the port)
-- **I/O** — bidirectional serial data
+- **I/O** — bidirectional data line (MOSI on write, MISO on read)
+- **CS** — implicit chip-select (bits 1–2 held high during a transaction)
 
-This maps to **port 0x08** (see §8): bit 3 = CK, bit 2 = serial-out (I/O write),
-bit 0 = serial-in (I/O read). The SAMOS OS reads the RTC during boot to seed
-the system clock. The 1.5 V cell maintains timekeeping across power cycles.
+Protocol: 4-bit command phase (LSB-first), then 7 BCD data bytes (LSB-first per
+byte).  Command 0b1111 (0x0F) = read; 0b0111 (0x07) = write.
 
 **SIRING / 7910**: The board title suffix "SIRING 7910" is the Epsitec
 internal board designation. "7910" is the date code (October 1979).
@@ -369,7 +368,7 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 | `0x05`        | R/W     | USART0-CMD  | 8251 USART "permanent I/O" — status / command            |
 | `0x06`        | R/W     | USART1-DATA | 8251 USART "cassette" (C13) — data register              |
 | `0x07`        | R/W     | USART1-CMD  | 8251 USART "cassette" — status / command                 |
-| `0x08`        | R/W     | RTC         | **E405/08 RTC** serial interface (Horloge absolue, extension board): bit 3=CK, bit 2=MOSI, bit 0=MISO |
+| `0x08`        | R/W     | RTC         | **E405/08 RTC** 3-wire synchronous serial (Horloge absolue): bit3=CK, bit2/1=CS, bit0=data (MISO on IN) |
 | `0x11`        | R       | (unknown)   | Unknown device; returns 0x00 (stub)                      |
 | `0x19`        | R/W     | FDC-CTRL    | Floppy control / sector index (see §7)                   |
 | `0x1A`        | R/W     | FDC-CONT    | Floppy continuation / step-pulse register                |

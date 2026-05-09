@@ -3,21 +3,27 @@
  * Hardware (confirmed from R. Forster schematic, Oct 1979):
  *   Chip   : E405/08 (IC5)
  *   Port   : 0x08  R/W
- *   bit 3  : CK   – serial clock (rising edge latches data)
- *   bit 0  : I/O  – bidirectional data (MOSI on write, MISO on read)
- *   bit 2  : always 1 during a transaction (chip-select / direction)
- *   bit 1  : 1 during command phase, 0 during data phase
+ *   bit 3  : CK   – serial clock (rising edge latches MOSI; falling pre-loads MISO)
+ *   bit 2  : DIR/CS – held high during a transaction
+ *   bit 1  : DIR/CS – held high during command phase
+ *   bit 0  : I/O  – bidirectional data (MOSI on OUT, MISO on IN)
  *
- * Protocol (recovered from SYS.SY disassembly):
+ * Interface type: 3-wire synchronous bit-bang serial, proprietary Epsitec
+ * protocol.  The machine was built 1978-79, predating the SPI standard
+ * (Motorola, mid-1980s).  The protocol is structurally similar (CLK + CS +
+ * bidirectional DATA) but is not SPI and has its own command encoding.
+ *
+ * Protocol (recovered from SYS.SY disassembly, file offsets 0x0E50–0x0ED5):
  *   1. OUT(0x08) = 0x00  → idle / reset
  *   2. Command phase: 4 rising CK edges, bit0 = command bit (LSB first)
  *        Read  command nibble: 0b1111 (C=0x0F in ROM)
  *        Write command nibble: 0b0111 (C=0x07 in ROM)
- *   3. Data phase: 7 bytes × 8 bits, MSB first
- *        Read : RTC drives bit0 (MISO) on each CK=0 phase; Z80 reads with IN
- *        Write: Z80 drives bit0 (MOSI) on each CK=0; latched on rising edge
+ *   3. Data phase: 7 bytes, LSB first per byte
+ *        (Z80 receive loop: RRA;RR(HL) → first received bit lands at bit0)
+ *        Read : RTC drives bit0 (MISO) on falling CK; Z80 reads with IN
+ *        Write: Z80 shifts via RL(HL)+RLA (MSB of source byte sent first)
  *
- * Register layout (7 bytes, BCD encoding):
+ * Register layout (7 bytes, BCD encoding, transmitted LSB-first per byte):
  *   regs[0] = seconds   (00–59)
  *   regs[1] = minutes   (00–59)
  *   regs[2] = hours     (00–23, 24-hour)
