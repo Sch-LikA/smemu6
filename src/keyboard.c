@@ -73,16 +73,26 @@ void keyboard_frame_tick(struct Smaky6 *m)
         }
     }
 
-    /* Detect when SAMOS has fully initialized its keyboard buffer.
-     * The SAMOS init routine (0x0095) stores sentinel 0x80 to 0x4595.
-     * Before that, bus[0x4595]=0x00 (memory_init clears all RAM to 0x00).
-     * This is more reliable than watching iff1, because the Phantom ROM's
-     * ISR (at 0x003E) executes EI at 0x007F before RET — so iff1 briefly
-     * becomes 1 during the Phantom ROM boot phase while the user is still
-     * at the "Disque souple" menu.  Using the sentinel avoids that false
-     * positive. */
-    if (!m->kbd.samos_loaded && m->bus[0x4595u] == 0x80u)
-        m->kbd.samos_loaded = 1;
+    /* Detect when SAMOS has installed its 50 Hz ISR, which happens AFTER the
+     * boot-menu keyboard wait (kbd_wait at 0x00B5).  The execution order is:
+     *
+     *   JP 0x0105 → CALL 0x0095 (SAMOS init)
+     *     0x0095: fill 0x454A..0x45F9 with 0x00
+     *     0x00A4: LD (0x4595),A    ; sentinel written — but kbd_wait NOT YET
+     *     0x00B5: IN A,(0x00)      ; kbd_wait — boot menu key read here
+     *     ... (key exits the wait loop) ...
+     *     0x00CD: LD HL,0x003E
+     *     0x00D0: LD (0x4566),HL   ; ISR vector installed ← trigger HERE
+     *
+     * Using bus[0x4595]==0x80 fires too early (before kbd_wait).
+     * Using bus[0x4566..7]==0x003E fires after kbd_wait but before the first
+     * ISR executes with iff1=0 — which is what we need to prevent FIFO
+     * entries from leaking into Stage 1's CLA read. */
+    if (!m->kbd.samos_loaded) {
+        uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
+        if (vec == 0x003Eu)
+            m->kbd.samos_loaded = 1;
+    }
 
     /* Feed pending keys from the FIFO into the SAMOS circular buffer.
      * Skip when iff1=0 (monitor mode): the monitor polls CLA directly via
