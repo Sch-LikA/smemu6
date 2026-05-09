@@ -441,6 +441,11 @@ int main(int argc, char *argv[])
                 running = 0;
                 break;
 
+            case SDL_WINDOWEVENT:
+                if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
+                    running = 0;
+                break;
+
             case SDL_KEYDOWN:
                 if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
                     debug_toggle(m);
