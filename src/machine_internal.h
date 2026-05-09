@@ -133,6 +133,7 @@ struct Smaky6 {
             int trace_fdc;     /* 1 = log focused floppy ID/checksum stream events */
         int trace_flow;  /* 1 = log dense post-handoff control flow */
         int trace_snd;   /* 1 = log every port 0x03 write (buzzer) */
+        int trace_scr;   /* 1 = dump changed screen rows to stderr (opt-in via -scrdump) */
         int flow_budget; /* max flow log lines per run */
         uint16_t last_flow_pc;
         uint32_t flow_spin_count;

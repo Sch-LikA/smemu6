@@ -254,7 +254,7 @@ void video_render(struct Smaky6 *m)
             }
             line[len] = '\0';
 
-            if (len > 0)
+            if (len > 0 && m->dbg.trace_scr)
                 fprintf(stderr, "[scr r%02d] %s\n", row, line);
 
             if (row <= 3 && strncmp(line, "ERROR", 5) == 0) {

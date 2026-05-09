@@ -273,6 +273,7 @@ struct Smaky6 *machine_create(void)
     usart_init(m);
     parallel_init(m);
     floppy_init(m);
+    m->dbg.trace_scr = 0;   /* screen dump off by default; enable with -scrdump */
     sound_init(m);
     debug_init(m);
     m->io08_out = 0;
@@ -570,6 +571,11 @@ void machine_set_trace_fdc(struct Smaky6 *m, int on)
 void machine_set_trace_snd(struct Smaky6 *m, int on)
 {
     m->dbg.trace_snd = on ? 1 : 0;
+}
+
+void machine_set_trace_scr(struct Smaky6 *m, int on)
+{
+    m->dbg.trace_scr = on ? 1 : 0;
 }
 
 /* ── Internal accessor helpers (used by subsystem .c files) ─────────────── */

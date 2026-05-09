@@ -90,6 +90,7 @@ static void usage(const char *argv0)
         "  -tracefdc      Trace focused floppy ID/checksum stream events\n"
         "  -tracekbd      Trace every keyboard CLA / status port read\n"
         "  -tracesnd      Trace every port 0x03 write (buzzer)\n"
+        "  -scrdump       Dump changed screen rows to stderr\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
         "  -help          Show this help\n"
@@ -120,6 +121,7 @@ int main(int argc, char *argv[])
     int tracefdc = 0;
     int tracekbd = 0;
     int tracesnd = 0;
+    int scrdump = 0;
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int display_scale = 2;             /* -scale N: integer pixel scale factor */
@@ -244,6 +246,8 @@ int main(int argc, char *argv[])
             tracekbd = 1;
         } else if (strcmp(argv[i], "-tracesnd") == 0) {
             tracesnd = 1;
+        } else if (strcmp(argv[i], "-scrdump") == 0) {
+            scrdump = 1;
         } else if (strcmp(argv[i], "-dump-ram") == 0 && i + 1 < argc) {
             dump_ram_path = argv[++i];
         } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
@@ -351,6 +355,8 @@ int main(int argc, char *argv[])
         machine_set_trace_fdc(m, 1);
     if (tracesnd)
         machine_set_trace_snd(m, 1);
+    if (scrdump)
+        machine_set_trace_scr(m, 1);
     if (tracekbd)
         machine_set_trace_kbd(m, 1);
 

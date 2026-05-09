@@ -42,6 +42,7 @@ void machine_set_trace_port_cd(struct Smaky6 *m, int on);
 void machine_set_trace_port19(struct Smaky6 *m, int on);
 void machine_set_trace_fdc(struct Smaky6 *m, int on);
 void machine_set_trace_snd(struct Smaky6 *m, int on);
+void machine_set_trace_scr(struct Smaky6 *m, int on);
 
 /* Inject a key into the keyboard buffer (code=0 → Return/floppy-boot) */
 void machine_inject_key(struct Smaky6 *m, uint8_t code);
