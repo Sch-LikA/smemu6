@@ -270,10 +270,11 @@ an `SDL_TEXTINPUT` handler (`keyboard_text_event()`).  The host OS applies shift
 Caps Lock so 'a' arrives by default and 'A' with Shift.  The raw byte is pushed to
 the FIFO unchanged, and the chargen renders it correctly.
 
-### Display-off mode
+### ~~Display-off mode~~ ✓ DONE
 
-Writing `0x00` to port `0x00` sets display-off (bit 0 = display enable = 0).
-`video_set_mode()` ignores this; the screen stays visible.  Low priority.
+Writing `0x00` to port `0x00` now blanks the machine area (black pixels).
+Port writes with bit 0 = 1 re-enable the display.  The status bar remains
+visible in both states.  Implemented via `vid.display_on` flag.
 
 ---
 

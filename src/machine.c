@@ -123,6 +123,10 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
      * (the CLA read path), NOT by writing it.  Writes here are video-only. */
     case 0x00:
         if (data & 0x01) { /* display enable bit — mode is meaningful */
+            if (!m->vid.display_on) {
+                fprintf(stderr, "[video] display ON (port00=0x%02X)\n", data);
+                m->vid.display_on = 1;
+            }
             VideoMode new_mode;
             if (data & 0x08)
                 new_mode = VMODE_GRAPHIC; /* bit 3: graphics-only */
@@ -137,7 +141,13 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
                 video_set_mode(m, new_mode);
             }
         }
-        /* data == 0x00: display off — ignore for now (no blank mode in VideoMode) */
+        if (!(data & 0x01)) {
+            /* Display-off: bit 0 = 0 blanks the screen */
+            if (m->vid.display_on) {
+                fprintf(stderr, "[video] display OFF (port00=0x%02X)\n", data);
+                m->vid.display_on = 0;
+            }
+        }
         break;
     case 0x01:
         /* Phantom ROM bank-switch: disable 2 KB Phantom ROM, expose writable

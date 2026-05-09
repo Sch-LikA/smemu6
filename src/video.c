@@ -153,8 +153,9 @@ static const uint8_t CHARGEN_SYNTHETIC[128][16] = {
 void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
 {
     (void)win;
-    m->vid.ren  = ren;
-    m->vid.mode = VMODE_ALPHA;
+    m->vid.ren        = ren;
+    m->vid.mode       = VMODE_ALPHA;
+    m->vid.display_on  = 1;
     m->vid.gfx_msb_first = 0;
 
     SDL_Texture *tex = SDL_CreateTexture(ren,
@@ -228,6 +229,15 @@ void video_render(struct Smaky6 *m)
 
     uint32_t pixels[VIDEO_PX_W * VIDEO_ASPECT_H];
     memset(pixels, 0, sizeof(pixels));
+
+    /* Display-off: blank the machine area (status bar still renders below) */
+    if (!m->vid.display_on) {
+        SDL_Rect machine_dst = { 0, 0, VIDEO_PX_W, VIDEO_ASPECT_H };
+        SDL_UpdateTexture(tex, NULL, pixels, VIDEO_PX_W * (int)sizeof(uint32_t));
+        SDL_RenderCopy(ren, tex, NULL, &machine_dst);
+        /* fall through to status bar rendering */
+        goto render_status_bar;
+    }
 
     const uint32_t LIT = VIDEO_COLOR_LIT;
     const uint32_t BG  = VIDEO_COLOR_BG;
@@ -350,6 +360,7 @@ void video_render(struct Smaky6 *m)
     SDL_RenderCopy(ren, tex, NULL, &machine_dst);
 
     /* ── Status bar: disk activity + track/sector ───────────────────────── */
+render_status_bar:
     /* Grey background for the LED strip */
     SDL_SetRenderDrawColor(ren, 48, 48, 48, 255);
     SDL_Rect bar = { 0, VIDEO_ASPECT_H, VIDEO_WIN_W, VIDEO_LED_H };
