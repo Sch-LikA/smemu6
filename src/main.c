@@ -6,6 +6,7 @@
 #include "keyboard.h"
 #include "debug.h"
 #include "floppy.h"
+#include "sound.h"
 
 #include <SDL2/SDL.h>
 #include <signal.h>
@@ -91,6 +92,8 @@ static void usage(const char *argv0)
         "  -tracekbd      Trace every keyboard CLA / status port read\n"
         "  -tracesnd      Trace every port 0x03 write (buzzer)\n"
         "  -scrdump       Dump changed screen rows to stderr\n"
+        "  -no-beeper     Disable the machine buzzer (beeper is on by default)\n"
+        "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
         "  -help          Show this help\n"
@@ -122,6 +125,8 @@ int main(int argc, char *argv[])
     int tracekbd = 0;
     int tracesnd = 0;
     int scrdump = 0;
+    int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
+    int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int display_scale = 2;             /* -scale N: integer pixel scale factor */
@@ -248,6 +253,10 @@ int main(int argc, char *argv[])
             tracesnd = 1;
         } else if (strcmp(argv[i], "-scrdump") == 0) {
             scrdump = 1;
+        } else if (strcmp(argv[i], "-no-beeper") == 0) {
+            enable_beeper = 0;
+        } else if (strcmp(argv[i], "-drive-sound") == 0) {
+            enable_drive_sound = 1;
         } else if (strcmp(argv[i], "-dump-ram") == 0 && i + 1 < argc) {
             dump_ram_path = argv[++i];
         } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
@@ -271,8 +280,11 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, handle_dump_signal);
     fprintf(stderr, "[main] PID %d — send SIGUSR1 to dump RAM\n", (int)getpid());
 
-    /* ── SDL2 init ──────────────────────────────────────────────────────── */
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
+    sound_set_beeper_enabled(enable_beeper);
+    sound_set_drive_sound_enabled(enable_drive_sound);
+
+    /* ── SDL2 init ─────────────────────────────────────────────────────────────────────── */
+    if (SDL_Init(SDL_INIT_VIDEO | ((enable_beeper || enable_drive_sound) ? SDL_INIT_AUDIO : 0) | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }

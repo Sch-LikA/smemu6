@@ -50,6 +50,7 @@ target_include_directories(smaky6emu PRIVATE src)
 target_link_libraries(smaky6emu PRIVATE
     SDL2::SDL2
     Z80
+    m
 )
 
 # ── Compiler warnings ─────────────────────────────────────────────────────────

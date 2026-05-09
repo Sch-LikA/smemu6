@@ -156,6 +156,13 @@ cd build
 |--------|-------------|
 | `-timeout <s>` | Timeout global en secondes (`0` = désactivé ; défaut 30 s quand `-trace` est actif) |
 
+### Son
+
+| Option | Défaut | Description |
+|--------|--------|-------------|
+| `-no-beeper` | — | Coupe le buzzer 1-bit de la machine (le buzzer est **actif** par défaut) |
+| `-drive-sound` | — | Active les sons synthétisés du lecteur de disquettes : ronronnement moteur, clics de pas de tête et tics de trou de secteur (désactivé par défaut) |
+
 ---
 
 ## 6. Mapping du clavier
@@ -228,7 +235,52 @@ python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out floppies/ex
 
 ---
 
-## 9. Automatisation et scripts
+## 9. Son
+
+L'émulateur reproduit deux catégories de son via la sortie audio SDL2.
+
+### Buzzer
+
+Le Smaky 6 dispose d'un buzzer 1-bit piloté par le port `0x03`. Les
+logiciels produisent des tonalités en basculant ce port dans une boucle
+serrée ; chaque écriture inverse l'état du haut-parleur. L'émulateur modélise
+cela avec une onde carrée unipolaire à 44 100 Hz.
+
+Le buzzer est **actif par défaut**. Passez `-no-beeper` pour le couper.
+
+### Sons du lecteur de disquettes
+
+L'émulateur peut synthétiser l'environnement sonore du lecteur
+Micropolis 5.25" à secteurs fixes :
+
+- **Ronronnement moteur** — bruit filtré passe-bande (300–1 500 Hz) qui
+  monte en puissance au démarrage de la broche et décroît ~0,8 s après la
+  dernière activité de positionnement.
+- **Clic de pas de tête** — claquement sec (bruit passe-bande 600–3 000 Hz
+  avec décroissance exponentielle) produit à chaque pas de piste lors d'un
+  positionnement.
+- **Tic de trou de secteur** — bref bruit produit à chaque trou de secteur
+  au passage devant le capteur optique (16 tics par tour à ~300 tr/min).
+
+Les sons du lecteur sont **désactivés par défaut** (sons synthétisés en
+cours de développement ; de vrais échantillons seront ajoutés plus tard).
+Activez avec `-drive-sound`.
+
+**Exemple — démarrer avec buzzer et sons du lecteur :**
+
+```bash
+./smaky6emu -disk sys.img -autoboot -drive-sound
+```
+
+**Exemple — tout couper :**
+
+```bash
+./smaky6emu -disk sys.img -autoboot -no-beeper
+```
+
+---
+
+## 10. Automatisation et scripts
 
 L'émulateur peut être piloté de manière non interactive en combinant
 `-autoboot`, `-inject-str` et `-timeout`.
@@ -267,7 +319,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ---
 
-## 10. Débogage et traces
+## 11. Débogage et traces
 
 Ces options sont destinées au développement de l'émulateur et à la
 rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
@@ -294,7 +346,7 @@ sans les mélanger à la sortie de l'émulateur :
 
 ---
 
-## 11. Dumps mémoire
+## 12. Dumps mémoire
 
 **Dump automatique à la fin :**
 
@@ -324,7 +376,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 
 ---
 
-## 12. Résolution de problèmes
+## 13. Résolution de problèmes
 
 **Écran noir / pas de vidéo après le démarrage**
 

@@ -156,6 +156,13 @@ cd build
 |--------|-------------|
 | `-timeout <s>` | Global wall-clock timeout in seconds (`0` = off; default 30 s when `-trace` is active) |
 
+### Sound
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-no-beeper` | — | Silence the machine's 1-bit buzzer (beeper is **on** by default) |
+| `-drive-sound` | — | Enable synthesized floppy drive sounds: motor whir, head-step clicks, and sector-hole ticks (off by default) |
+
 ---
 
 ## 6. Keyboard Mapping
@@ -228,7 +235,50 @@ python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out floppies/ex
 
 ---
 
-## 9. Automation and Scripting
+## 9. Sound
+
+The emulator reproduces two categories of sound through SDL2 audio output.
+
+### Buzzer (beeper)
+
+The Smaky 6 has a simple 1-bit buzzer driven by port `0x03`. Software
+produces tones by toggling the port in a tight loop; each write flips the
+speaker state. The emulator models this accurately with a unipolar square
+wave at 44 100 Hz.
+
+The buzzer is **enabled by default**. Pass `-no-beeper` to silence it.
+
+### Floppy drive sounds
+
+The emulator can synthesize the acoustic character of the Micropolis 5.25"
+hard-sectored drive:
+
+- **Motor whir** — bandpass-filtered noise (300–1 500 Hz) that fades in when
+  the spindle starts and fades out ~0.8 s after the last seek activity.
+- **Head-step click** — a sharp crack (600–3 000 Hz bandpass noise with
+  exponential decay) produced on every track seek step.
+- **Sector-hole tick** — a soft noise burst fired once per sector hole as the
+  disk rotates (16 ticks per revolution at ~300 RPM).
+
+Drive sounds are **disabled by default** (synthesized sounds are a
+work-in-progress; real samples will be added later). Enable with
+`-drive-sound`.
+
+**Example — boot with beeper and drive sounds:**
+
+```bash
+./smaky6emu -disk sys.img -autoboot -drive-sound
+```
+
+**Example — mute everything:**
+
+```bash
+./smaky6emu -disk sys.img -autoboot -no-beeper
+```
+
+---
+
+## 10. Automation and Scripting
 
 The emulator can be driven non-interactively by combining `-autoboot`,
 `-inject-str`, and `-timeout`.
@@ -267,7 +317,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 
 ---
 
-## 10. Debugging and Tracing
+## 11. Debugging and Tracing
 
 These flags are intended for emulator development and reverse-engineering.
 They produce output on **stderr**.
@@ -294,7 +344,7 @@ them with emulator output:
 
 ---
 
-## 11. RAM Dumps
+## 12. RAM Dumps
 
 **Automatic dump on exit:**
 
@@ -323,7 +373,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 
 ---
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 **Black screen / no video after boot**
 

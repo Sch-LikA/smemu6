@@ -2,7 +2,10 @@
 # generate_pdfs.sh — Regenerate all Smaky 6 manual PDFs from Markdown sources.
 #
 # Usage:
-#   ./tools/generate_pdfs.sh [--out DIR]
+#   ./tools/generate_pdfs.sh [--out DIR] [--force]
+#
+# By default only PDFs whose Markdown source is newer than the existing PDF
+# are rebuilt.  Pass --force (-f) to regenerate all PDFs unconditionally.
 #
 # Requirements: pandoc, lualatex (texlive-luatex + texlive-latex-extra +
 #               texlive-fonts-recommended + texlive-science)
@@ -19,13 +22,16 @@ DOCS_DIR="$REPO_ROOT/docs"
 OUT_DIR="$DOCS_DIR/pdf"
 
 # ── argument parsing ──────────────────────────────────────────────────────────
+FORCE=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --out) OUT_DIR="$2"; shift 2 ;;
         --out=*) OUT_DIR="${1#--out=}"; shift ;;
+        --force|-f) FORCE=1; shift ;;
         -h|--help)
-            echo "Usage: $0 [--out DIR]"
+            echo "Usage: $0 [--out DIR] [--force]"
             echo "  --out DIR   Output directory for PDFs (default: docs/pdf/)"
+            echo "  --force     Regenerate all PDFs even if the source is unchanged"
             exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
@@ -67,6 +73,13 @@ for entry in "${MANUALS[@]}"; do
 
     if [[ ! -f "$src" ]]; then
         echo "  SKIP  $src_file (file not found)"
+        continue
+    fi
+
+    # Skip if the PDF is already up to date (source not newer than output)
+    if [[ $FORCE -eq 0 && -f "$out" && "$out" -nt "$src" ]]; then
+        printf "  %-40s → %s ... UP-TO-DATE\n" "$src_file" "$out_stem.pdf"
+        (( PASS++ )) || true
         continue
     fi
 

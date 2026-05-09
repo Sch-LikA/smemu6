@@ -1,6 +1,7 @@
 /* floppy.c – Micropolis hard-sectored floppy controller (discrete logic) */
 #include "machine_internal.h"
 #include "floppy.h"
+#include "sound.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -239,6 +240,7 @@ void floppy_write_cont(struct Smaky6 *m, uint8_t val)
             uint8_t max_track = m->fdc.num_tracks[drive] - 1;
             if (dir) { if (m->fdc.track[drive] > 0)          m->fdc.track[drive]--; }
             else     { if (m->fdc.track[drive] < max_track)   m->fdc.track[drive]++; }
+            sound_floppy_step(m, drive);
         }
         m->fdc.step_prev = step_now;
     } else {
@@ -262,6 +264,7 @@ void floppy_write_cont(struct Smaky6 *m, uint8_t val)
             m->fdc.track[sd]++;
         else if (m->fdc.track[sd] > target)
             m->fdc.track[sd]--;
+        sound_floppy_step(m, drive);
     }
     m->fdc.ctrl = val;
 }
@@ -270,6 +273,9 @@ void floppy_tick(struct Smaky6 *m)
 {
     m->fdc.sector   = (m->fdc.sector + 1) % FLOPPY_SECTORS;
     m->fdc.byte_pos = 0;   /* new hard-sector: reset data stream */
+
+    /* Sector-hole sensor click (audible while motor is spinning) */
+    sound_floppy_sector(m);
 
     /* Decay seek_busy counter — simulates realistic head-settle timing */
     if (m->fdc.seek_busy > 0)

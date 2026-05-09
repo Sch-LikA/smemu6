@@ -286,12 +286,12 @@ void video_render(struct Smaky6 *m)
     SDL_RenderCopy(ren, tex, NULL, &machine_dst);
 
     /* ── Status bar: disk activity + track/sector ───────────────────────── */
-    /* Dark background for the LED strip */
-    SDL_SetRenderDrawColor(ren, 10, 18, 10, 255);
+    /* Grey background for the LED strip */
+    SDL_SetRenderDrawColor(ren, 48, 48, 48, 255);
     SDL_Rect bar = { 0, VIDEO_ASPECT_H, VIDEO_WIN_W, VIDEO_LED_H };
     SDL_RenderFillRect(ren, &bar);
     /* Separator line */
-    SDL_SetRenderDrawColor(ren, 0, 80, 0, 255);
+    SDL_SetRenderDrawColor(ren, 90, 90, 90, 255);
     SDL_RenderDrawLine(ren, 0, VIDEO_ASPECT_H, VIDEO_WIN_W - 1, VIDEO_ASPECT_H);
 
     /* Two drive slots: LED + label + track number.
