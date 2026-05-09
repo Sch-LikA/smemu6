@@ -1,7 +1,7 @@
 # Smaky 6 — Hardware Reference for FPGA Recreation
 
-*Based on four original schematics (J. Zuba, Epsitec, November 1978) and
-reverse-engineering of the SAMOS 2-8 ROM images.*
+*Based on nine original Epsitec schematics and documents (J. Zahn November 1978,
+R. Forster October 1979) and reverse-engineering of the SAMOS 2-8 ROM images.*
 
 ---
 
@@ -30,12 +30,16 @@ by Jean-Daniel Nicoud and commercialized by Epsitec (~450 units, 1979–1983).
 
 The machine is organized on a **backplane with plug-in boards**:
 
-| Board        | J. Zuba schematic sheet | Content                                       |
-|--------------|------------------------|-----------------------------------------------|
-| PROCESSEUR   | Sheet 11-4             | Z80, clock, 8251 USARTs, NMI, bus control     |
-| MÉMOIRE      | Sheet 11-2             | DRAM banks, ROM sockets, address decode       |
-| AFFICHAGE    | Sheet 11-1             | Scan counters, pixel clock, DMA HOLD logic    |
-| CARACTÈRES   | Sheet 11-3             | Char-gen, serializers, line buffers, parallel |
+| Board        | Schematic document             | Content                                       |
+|--------------|-------------------------------|-----------------------------------------------|
+| PROCESSEUR   | doc-227 (J. Zahn, Nov 1978)   | Z80, clock, 8251 USARTs, NMI, bus control     |
+| MÉMOIRE      | doc-228 (J. Zahn, Nov 1978)   | DRAM banks, ROM sockets, address decode       |
+| AFFICHAGE    | doc-229 (J. Zahn, Nov 1978)   | Scan counters, pixel clock, DMA HOLD logic    |
+| CARACTÈRES   | doc-230 (J. Zahn, Nov 1978)   | Char-gen, serializers, line buffers, parallel |
+| Ext. board   | doc-230-memext (R. Forster, Oct 1979) | 32K DRAM + Phantom ROM + RTC + SIRING ||
+| CLAVIER      | doc-231 (J. Zahn, Nov 1978)   | Keyboard scan matrix, encoder (S471), counters |
+| Floppy ctrl  | doc-189-191 (3 sheets)        | Micro-floppy serialisation / decode / IRQ     |
+| Par. I/O     | doc-219-225 (J. Zahn, 7 pp)   | Parallel interface description + port map    |
 
 Hardware versions:
 - **32 KB model** — 2 × 8 × 4116 DRAM on mainboard; fixed SYSMON + SAMOS ROMs at 0x0000–0x1FFF.
@@ -180,10 +184,18 @@ Refresh driven by the Z80 `RFSH` / `REFRESH` signal from the mainboard bus.
 
 **RTC — E405/08 (IC5)**: 3-wire synchronous serial interface.
 
-The slash notation `E405/08` is an Epsitec schematic convention: the part
-before the slash is the **chip type** (E405) and the number after the slash
-is the **I/O port address** (0x08).  Port 0x08 is therefore directly encoded
-in the component designator on the schematic.
+The slash notation `E405/08` is an Epsitec schematic convention used by
+R. Forster: the part before the slash is the **chip type** (E405) and the
+number after the slash is the **I/O port address** (0x08).  Port 0x08 is
+therefore directly encoded in the component designator.
+
+**Important distinction:** J. Zahn's schematics also use E-prefixed identifiers
+(e.g. E17 = LS 139, E9 = 2101 SRAM, E11 = 2101 SRAM) but these are **board
+grid coordinate references** — the letter denotes the row and the number
+denotes the column on the backplane layout.  They do **not** encode any I/O
+port address.  Only R. Forster's extension board uses the `ChipType/PortAddr`
+slash notation.  **E405/08 (IC5) is the only such chip across all nine
+schematics.**
 
 Serial interface:
 - **CK** — serial clock (toggled by Z80 I/O write)
@@ -443,12 +455,15 @@ acknowledge cycle returns **RST 08h (0xCF)** instead of the normal
 
 ## 8. Serial Interfaces (USART)
 
-Two **Intel 8251** USART chips are on the PROCESSEUR board:
+Two **Intel 8251** USART chips are on the PROCESSEUR board (doc-227, J. Zahn):
 
-| Instance   | Schematic ref | I/O ports     | Connected to                   |
-|------------|--------------|---------------|--------------------------------|
-| USART 0    | C15          | 0x04 / 0x05   | "Permanent I/O" — paper tape reader / modem / RS-232 |
-| USART 1    | C13          | 0x06 / 0x07   | Cassette tape interface (ADC 6) |
+| Instance   | Schematic ref | Schematic label       | I/O ports     | Connected to                   |
+|------------|--------------|----------------------|---------------|--------------------------------|
+| USART 0    | C15          | `adc 4 (permanent I/O)` | 0x04 / 0x05 | Permanent I/O — paper tape reader / modem / RS-232 |
+| USART 1    | C13          | `adc 8 (cassette)`   | 0x06 / 0x07   | Cassette tape interface |
+
+The `adc N` label is J. Zahn's notation for "adresse de canal N"
+(channel address N), encoding the base I/O port of the device.
 
 Each 8251 uses the standard data/status/command register pair.  Port `+0` is
 data; port `+1` is status (read) / command (write).
@@ -591,6 +606,10 @@ Load CLI.SY  →  "SAMOS rev 2-8 / DX0: / >" prompt
 
 ---
 
-*Document compiled from five Epsitec schematics: four by J. Zuba (November 1978)
-and one extension board schematic by Ronald Forster (October 1979);
-the SAMOS 2-8 / Phantom ROM disassembly, and the Smaky6emu emulator source.*
+*Document compiled from nine Epsitec schematic documents: six board schematics
+by J. Zahn (November 1978: doc-227 CPU, doc-228 MÉMOIRE, doc-229 AFFICHAGE,
+doc-230 CARACTÈRES, doc-231 CLAVIER), one extension board schematic by Ronald
+Forster (doc-230-memext, October 1979), one micro-floppy controller schematic
+(doc-189-191, 3 sheets), and two interface documentation documents (doc-211-212
+keyboard text, doc-219-225 parallel interface 7 pp.); the SAMOS 2-8 / Phantom
+ROM disassembly; and the Smaky6emu emulator source.*
