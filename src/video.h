@@ -39,14 +39,13 @@ void video_render(struct Smaky6 *m);
  *                   rows 10–15 = 0). Bit 0 of each byte = leftmost pixel (LSB-first).
  *
  * Pixel aspect ratio:
- *   The real Smaky 6 CRT was ~4:3.  The pixel buffer is rendered directly at
- *   512 × VIDEO_ASPECT_H = 512 × 384 (4:3 frame).  Each raw scan line raw_y
- *   (0–239) is mapped to display lines [raw_y*384/240, (raw_y+1)*384/240)
- *   using integer Bresenham so every row gets either 1 or 2 output lines
- *   with no SDL interpolation artifacts (some rows would otherwise get 6, some
- *   7 output pixels due to the non-integer 1.6× ratio if SDL scaled the
- *   texture).  SDL_RenderCopy is now a 1:1 blit.
- *   At display_scale=2: physical window = 1024 × (384+12)*2 = 1024 × 792 px.
+ *   The pixel buffer is rendered at 512 × VIDEO_ASPECT_H = 512 × 480.
+ *   480 = 240 × 2 exactly, so every raw scan line maps to exactly 2 output
+ *   lines and every character row maps to exactly 24 output lines — perfectly
+ *   uniform with no banding at any integer display_scale factor.
+ *   SDL_RenderCopy is a 1:1 blit; SDL_RenderSetLogicalSize handles window scaling.
+ *   AR = 512:480 ≈ 1.067:1 (slightly wider than square).
+ *   At display_scale=2: physical window = 1024 × (480+12)*2 = 1024 × 984 px.
  */
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
@@ -54,7 +53,7 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_SCAN_LINES   60    /* lores rows in graphic framebuffer; each row × 4 display lines = 240 */
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
-#define VIDEO_ASPECT_H     384                  /* 4:3 equivalent: 512*(3/4)=384; 1.6× vertical stretch */
+#define VIDEO_ASPECT_H     480                  /* 2× vertical: 240×2=480; every scan line → 2 output lines, every char row → 24 lines */
 #define VIDEO_LED_H        12                  /* status-bar height (4px pad + 8px chargen glyph) */
 #define VIDEO_WIN_W        VIDEO_PX_W
 #define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)

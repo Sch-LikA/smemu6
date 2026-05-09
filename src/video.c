@@ -248,15 +248,11 @@ void video_render(struct Smaky6 *m)
                 uint8_t  code = memory_read(m, addr) & 0x7Fu;
                 int      px0   = col * 8;
 
-                /* Two-level Bresenham for the alpha plane.
-                 * Level 1: character row boundaries in output space.
-                 *   20 rows → 384 lines = 19 or 20 output lines per row.
-                 *   This makes all character rows the same height (±1 px).
-                 * Level 2: within the row's output range, distribute the
-                 *   VIDEO_CHAR_H scan lines evenly.  The within-row ratio
-                 *   is 12→19 or 12→20, both of which produce a more uniform
-                 *   1,2,1,2... or 1,2,2,1,2,2,... pattern instead of the
-                 *   irregular 1,2,1,2,2,1,2,1,2,2,1,2 of global 240→384. */
+                /* Two-level exact mapping for the alpha plane.
+                 * ASPECT_H=480=240×2, so every level is exact integer math:
+                 * Level 1: char row r → output lines [r*24, (r+1)*24).
+                 * Level 2: scan line sl → output lines [y0, y0+2) within row.
+                 * No Bresenham rounding needed; all rows and scan lines are uniform. */
                 int row_y0 = row * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
                 int row_y1 = (row + 1) * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
                 int rh     = row_y1 - row_y0;  /* 19 or 20 */
@@ -282,15 +278,10 @@ void video_render(struct Smaky6 *m)
 
     if (mode != VMODE_ALPHA) {
         /* ── Graphic plane ───────────────────────────────────────────────── *
-         * The Smaky 6 graphic framebuffer is 512 pixels wide × 60 lores rows
-         * = 64 bytes/row × 60 rows = 3840 bytes starting at MEM_GFX_BASE.
-         * Each row is stretched to 4 display scan lines (60×4 = 240), making
-         * pixels 1px wide × 4px tall — the characteristic vertical-stripe look. */
+         * 60 lores rows × 4 raw scan lines = 240 raw lines → 480 output lines.
+         * Each lores row maps to exactly 8 output lines (480/60=8, exact). */
         for (int row = 0; row < VIDEO_SCAN_LINES; row++) {
-            /* Map lores row to aspect-corrected display line range.
-             * Each row spans 4 raw scan lines; 4 × (ASPECT_H/PX_H) = 6.4 lines.
-             * Bresenham: row r → display lines [r*4*ASPECT_H/PX_H, (r+1)*4*ASPECT_H/PX_H)
-             * = 6 or 7 lines alternating, totalling exactly ASPECT_H = 384. */
+            /* Each lores row spans 4 raw scan lines → exactly 8 output lines. */
             int y0 = row * 4 * VIDEO_ASPECT_H / VIDEO_PX_H;
             int y1 = (row * 4 + 4) * VIDEO_ASPECT_H / VIDEO_PX_H;
             for (int col = 0; col < 64; col++) {
