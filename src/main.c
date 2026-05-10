@@ -92,7 +92,7 @@ static void usage(const char *argv0)
         "  -timeout <s>   Global wall-clock timeout (0=off, default 30s with -trace)\n"
         "  -autoboot-timeout <s> Wall-clock timeout in autoboot mode (0=off)\n"
         "  -vmode <m>     Force video mode: alpha|graphic|super\n"
-        "  -gfxbits <b>   Bitmap bit order: lsb|msb\n"
+        "  -gfxbits <b>   Bitmap bit order: lsb|msb (default: msb — hardware-verified)\n"
         "  -scale <n>     Integer display scale (1..8, default 2 = 1024x496 window)\n"
         "  -trace08       Trace IN/OUT traffic on port 0x08\n"
         "  -traceflow     Trace focused post-handoff low-RAM control flow\n"

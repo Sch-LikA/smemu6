@@ -21,7 +21,11 @@ void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
     m->vid.ren        = ren;
     m->vid.mode       = VMODE_ALPHA;
     m->vid.display_on  = 1;
-    m->vid.gfx_msb_first = 0;
+    /* Graphic plane: LS165 shift register clocks D7 (pin H) out first → MSB-first.
+     * The chargen shift register has the ROM data bus wired in reverse (D0→H),
+     * giving LSB-first for the alpha plane — but the graphic plane uses natural
+     * wiring (D7→H) and must be rendered MSB-first. */
+    m->vid.gfx_msb_first = 1;
 
     SDL_Texture *tex = SDL_CreateTexture(ren,
         SDL_PIXELFORMAT_ARGB8888,
