@@ -169,3 +169,16 @@ endif()
 if(EXISTS ${CMAKE_SOURCE_DIR}/floppies)
     file(COPY ${CMAKE_SOURCE_DIR}/floppies DESTINATION ${CMAKE_BINARY_DIR})
 endif()
+
+# ── Install rules (used by AppImage packaging) ────────────────────────────────
+if(NOT EMSCRIPTEN)
+    include(GNUInstallDirs)
+    install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/smemu6/roms)
+    install(FILES ${CMAKE_SOURCE_DIR}/smemu6.desktop
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+    install(FILES ${CMAKE_SOURCE_DIR}/web/smaky6-256.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
+            RENAME smaky6.png)
+endif()
