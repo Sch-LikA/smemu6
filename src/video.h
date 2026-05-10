@@ -54,12 +54,18 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
 #define VIDEO_ASPECT_H     480                  /* 2× vertical: 240×2=480; every scan line → 2 output lines, every char row → 24 lines */
-#define VIDEO_LED_H        26                  /* status-bar height: 2 rows × 12px + 2px gap */
+#define VIDEO_LED_H        14                  /* status-bar height: 1 floppy row */
 #define VIDEO_WIN_W        VIDEO_PX_W
 #define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)
 
 /* Phosphor colours (ARGB8888).  P31 green phosphor: lit = #00E700, bg = #000800. */
 #define VIDEO_COLOR_LIT    0xFF00E700u
 #define VIDEO_COLOR_BG     0xFF000800u
+
+/* White phosphor palette (some Smaky 6 units): lit = #E8E8E8, bg = #080808. */
+#define VIDEO_COLOR_LIT_WHITE  0xFFE8E8E8u
+#define VIDEO_COLOR_BG_WHITE   0xFF080808u
+
+typedef enum { PHOSPHOR_GREEN = 0, PHOSPHOR_WHITE = 1 } PhosphorColour;
 
 #endif /* VIDEO_H */

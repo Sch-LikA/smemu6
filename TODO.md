@@ -7,15 +7,14 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
-### Startup launcher window (SDL configuration dialog)
+### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 
 Before the emulator window opens, show a small SDL launcher that lets users
-configure common options without touching the CLI.  This is a new source file
-(e.g. `src/launcher.c` / `src/launcher.h`) that renders directly into an SDL
-window using the same SDL2 renderer already present in the project, plus
-`SDL_ttf` for text.  `main.c` calls `launcher_run()` first; it fills a
-`LauncherConfig` struct and returns; `main()` then maps the struct back to the
-existing `machine_config` fields and continues with the normal startup path.
+configure common options without touching the CLI.  Implemented in
+`src/launcher.c` / `src/launcher.h`.  `main.c` calls `launcher_run()` after
+SDL_Init; it fills a `LauncherConfig` struct and returns; `main()` applies the
+struct to the existing config fields and continues with the normal startup path.
+Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 
 #### Window layout (top to bottom)
 
@@ -32,6 +31,7 @@ existing `machine_config` fields and continues with the normal startup path.
 | *(DX0 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
 | `DX1:` | Static label: **Floppy** (no second harddisk) | `-floppy2` |
 | *(DX1 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
+| Autoboot | Toggle: **On** / **Off** — injects Enter after 3 s to auto-select floppy boot | `-autoboot` |
 
 File paths are shown truncated (last 40 chars with `…` prefix) next to each
 picker button.  A small `×` button clears the selection.
@@ -45,10 +45,7 @@ picker button.  A small `×` button clears the selection.
 | Scanlines | Drop-down: **Off** / **On** | `-scanlines` | On |
 | Disable screen blanking | Toggle: **On** / **Off** | `-no-display-off` | On |
 
-> **Note:** "White phosphor" requires a new `-phosphor white` CLI option and a
-> second set of `VIDEO_COLOR_LIT` / `VIDEO_COLOR_BG` constants in `video.h`
-> (`#E0E0E0` / `#080808` or similar).  This option is surfaced in the launcher
-> but the underlying rendering change must be implemented separately.
+> **Note:** `-phosphor white` is implemented. The launcher **Phosphor colour** drop-down is wired directly.
 
 > **Note:** `-scanlines` is implemented and tested. The launcher control is wired directly.
 
@@ -87,9 +84,9 @@ picker button.  A small `×` button clears the selection.
 
 | New flag | Purpose | Default |
 |----------|---------|---------|
-| `-phosphor white` | Use white-phosphor palette instead of green | green |
+| ~~`-phosphor white`~~ | ~~Use white-phosphor palette instead of green~~ | ✅ Done |
 | ~~`-scanlines`~~ | ~~Draw alternating dim lines over the framebuffer (CRT effect)~~ | ✅ Done |
-| `-no-launcher` | Skip the launcher and go straight to the emulator | *(launcher shown)* |
+| ~~`-no-launcher`~~ | ~~Skip the launcher and go straight to the emulator~~ | ✅ Done |
 
 ---
 
@@ -365,7 +362,7 @@ Writing `0x00` to port `0x00` now blanks the machine area (black pixels).
 Port writes with bit 0 = 1 re-enable the display.  The status bar remains
 visible in both states.  Implemented via `vid.display_on` flag.
 
-### CRT phosphor colour option
+### ~~CRT phosphor colour option~~ ✅ Done
 
 Add a `-phosphor <colour>` CLI option (and a matching control in the launcher)
 to select the screen palette:
@@ -376,13 +373,13 @@ to select the screen palette:
 | `white` | `#E8E8E8` | `#080808`   | White phosphor — some Smaky 6 units shipped with this |
 
 **Implementation:**
-1. Add two `uint32_t` constants to `video.h` for the white palette
+1. ~~Add two `uint32_t` constants to `video.h` for the white palette
    (`VIDEO_COLOR_LIT_WHITE`, `VIDEO_COLOR_BG_WHITE`), keeping the existing
-   green constants as-is.
-2. Add a `phosphor` field (enum or int) to `struct vid` in `machine_internal.h`.
-3. In `video_render_frame()`, select `LIT`/`BG` based on `m->vid.phosphor`.
-4. Add `machine_set_phosphor(m, phosphor)` in `machine.c` / `machine.h`.
-5. Parse `-phosphor green|white` in `main.c`; call `machine_set_phosphor()`.
+   green constants as-is.~~ ✅
+2. ~~Add a `phosphor` field (enum or int) to `struct vid` in `machine_internal.h`.~~ ✅ (`PhosphorColour` enum)
+3. ~~In `video_render_frame()`, select `LIT`/`BG` based on `m->vid.phosphor`.~~ ✅
+4. ~~Add `machine_set_phosphor(m, phosphor)` in `machine.c` / `machine.h`.~~ ✅
+5. ~~Parse `-phosphor green|white` in `main.c`; call `machine_set_phosphor()`.~~ ✅
 6. Wire to the **Phosphor colour** drop-down in the launcher (already stubbed
    in the launcher TODO above).
 
@@ -514,3 +511,55 @@ This gives sample-accurate buzzer reproduction: a software loop toggling port
 
 - **Phase 2**: MAME driver integration (not started)
 - **Phase 3**: MiSTer FPGA RTL implementation (not started)
+
+---
+
+## Web / Emscripten
+
+Provide a browser-playable build of the emulator via Emscripten.
+
+### What already works
+- **SDL2** — Emscripten ships it as a built-in port (`-s USE_SDL=2`); no source changes needed.
+- **Z80 / Zeta** — pure C, no platform deps; compiles as-is.
+
+### Issues to resolve
+
+#### File picker
+`tinyfiledialogs` does not support Emscripten (no native dialog API in the browser).
+Replace the `pick_thread` / `tinyfd_openFileDialog` call with an `#ifdef __EMSCRIPTEN__`
+branch that:
+1. Uses `EM_ASM` to programmatically click a hidden `<input type="file" accept=".dsk">` element in the HTML shell.
+2. Attaches a JS `FileReader` `onchange` handler that reads the file into the Emscripten virtual FS (e.g. under `/tmp/`).
+3. Calls back into C via `EM_ASM` / `emscripten_run_script` (or a proper `EMSCRIPTEN_KEEPALIVE` C callback) with the virtual path once the read is complete.
+4. Because the JS side is already async/callback-based, **no SDL thread is needed** for the web build — `pick_ctx.state` can be set to `PICK_DONE` directly from the JS callback.
+
+The `SDL_CreateThread` wrapper is kept unchanged for native builds; WASM skips it entirely under `#ifndef __EMSCRIPTEN__`.
+
+#### Main loop
+The `while (running)` loops in `launcher_run()` and `machine_run()` must yield to the browser between frames.
+Wrap with:
+```c
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(loop_iter_fn, 0, 1);
+#else
+    while (running) { loop_iter_fn(); }
+#endif
+```
+Extract per-frame logic into a static callback `loop_iter_fn` (receives state via a file-static or heap struct).
+
+#### Threading
+`SDL_CreateThread` requires `SharedArrayBuffer`, which needs `Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp` headers.
+For the file picker this is moot (replaced by JS callback).
+For any other threads (sound is push-mode, no thread; CPU runs on main loop) — check at integration time.
+
+#### ROM / floppy preloading
+The virtual FS must be pre-populated with the ROMs at build time using `--preload-file roms@/roms` (and optionally `--preload-file floppies@/floppies`).
+CLI args become query-string params or a JS config object passed to `Module.arguments`.
+
+### CMake integration
+Add a `cmake/Emscripten.cmake` toolchain file (or a separate `CMakePresets.json` entry) that:
+- Sets `CMAKE_TOOLCHAIN_FILE` to the Emscripten toolchain
+- Adds `-s USE_SDL=2 -s ASYNCIFY` (or `-s WASM=1`) link flags
+- Adds `--preload-file` entries for ROMs
+- Sets output suffix to `.html` / `.js` / `.wasm`
+- Skips `tinyfiledialogs` (replace with stub or `#ifdef` guard in `CMakeLists.txt`)

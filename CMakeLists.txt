@@ -31,9 +31,22 @@ set(Z80_WITH_FULL_IM0    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Z80)
 
+# ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
+FetchContent_Declare(
+    tinyfiledialogs
+    GIT_REPOSITORY https://git.code.sf.net/p/tinyfiledialogs/code
+    GIT_TAG        master
+)
+FetchContent_GetProperties(tinyfiledialogs)
+if(NOT tinyfiledialogs_POPULATED)
+    FetchContent_Populate(tinyfiledialogs)
+endif()
+
 # ── Sources ───────────────────────────────────────────────────────────────────
 add_executable(smemu6
     src/main.c
+    src/launcher.c
+    ${tinyfiledialogs_SOURCE_DIR}/tinyfiledialogs.c
     src/machine.c
     src/memory.c
     src/video.c
@@ -47,7 +60,7 @@ add_executable(smemu6
     src/winchester.c
 )
 
-target_include_directories(smemu6 PRIVATE src)
+target_include_directories(smemu6 PRIVATE src ${tinyfiledialogs_SOURCE_DIR})
 
 target_link_libraries(smemu6 PRIVATE
     SDL2::SDL2

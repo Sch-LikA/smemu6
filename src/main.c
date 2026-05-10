@@ -8,6 +8,7 @@
 #include "floppy.h"
 #include "winchester.h"
 #include "sound.h"
+#include "launcher.h"
 
 #include <SDL2/SDL.h>
 #include <signal.h>
@@ -99,8 +100,10 @@ static void usage(const char *argv0)
         "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
         "  -no-display-off  Ignore display-off writes (port 0x00 bit0=0); screen stays on\n"
         "  -scanlines     Draw CRT-style scanline overlay (darkens every other output row)\n"
+        "  -phosphor <colour>  Screen phosphor: green (default, P31 #00E700) or white (#E8E8E8)\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
+        "  -no-launcher   Skip the startup configuration dialog\n"
         "  -help          Show this help\n"
         "  Pause / F11          BREAK key (NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
@@ -136,6 +139,8 @@ int main(int argc, char *argv[])
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
     int scanlines          = 0;  /* -scanlines: draw CRT scanline overlay */
+    int phosphor_white     = 0;  /* -phosphor white: use white phosphor palette */
+    int no_launcher        = 0;  /* -no-launcher: skip startup dialog */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
@@ -274,10 +279,20 @@ int main(int argc, char *argv[])
             no_display_off = 1;
         } else if (strcmp(argv[i], "-scanlines") == 0) {
             scanlines = 1;
+        } else if (strcmp(argv[i], "-phosphor") == 0) {
+            if (i + 1 >= argc) { fprintf(stderr, "-phosphor requires an argument (green|white)\n"); return 1; }
+            i++;
+            if (strcmp(argv[i], "white") == 0) {
+                phosphor_white = 1;
+            } else if (strcmp(argv[i], "green") != 0) {
+                fprintf(stderr, "Unknown phosphor colour '%s' (use green or white)\n", argv[i]); return 1;
+            }
         } else if (strcmp(argv[i], "-dump-ram") == 0 && i + 1 < argc) {
             dump_ram_path = argv[++i];
         } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
             inject_via_fifo = 1;
+        } else if (strcmp(argv[i], "-no-launcher") == 0) {
+            no_launcher = 1;
         } else if (strcmp(argv[i], "-help") == 0) {
             usage(argv[0]);
             return 0;
@@ -301,13 +316,54 @@ int main(int argc, char *argv[])
     sound_set_drive_sound_enabled(enable_drive_sound);
 
     /* ── SDL2 init ─────────────────────────────────────────────────────────────────────── */
+    /* Disable X11 _NET_WM_PING so the WM never marks the window as
+     * unresponsive (e.g. while a file dialog thread is running). */
+    SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_PING, "0");
+
     if (SDL_Init(SDL_INIT_VIDEO | ((enable_beeper || enable_drive_sound) ? SDL_INIT_AUDIO : 0) | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
 
+    /* ── Launcher ───────────────────────────────────────────────────────── */
+    if (!no_launcher) {
+        LauncherConfig lc;
+        int lresult = launcher_run(&lc);
+        if (lresult != 0) {
+            /* User closed the launcher without clicking Start */
+            SDL_Quit();
+            return 0;
+        }
+        /* Apply launcher config — only where CLI did not already provide a value */
+        if (lc.dx0_is_harddisk >= 0 && !disk_path && !harddisk_path) {
+            /* launcher chose drive type but no path yet — type remembered below */
+        }
+        if (lc.dx0_path && !disk_path && !harddisk_path) {
+            if (lc.dx0_is_harddisk == 1)
+                harddisk_path = lc.dx0_path;
+            else
+                disk_path = lc.dx0_path;
+        }
+        if (lc.dx1_path && !disk2_path)
+            disk2_path = lc.dx1_path;
+        if (lc.autoboot >= 0 && !autoboot)
+            autoboot = lc.autoboot;
+        if (lc.scale >= 1 && display_scale == 1)
+            display_scale = lc.scale;
+        if (lc.phosphor_white >= 0 && !phosphor_white)
+            phosphor_white = lc.phosphor_white;
+        if (lc.scanlines >= 0 && !scanlines)
+            scanlines = lc.scanlines;
+        if (lc.no_display_off >= 0 && !no_display_off)
+            no_display_off = lc.no_display_off;
+        if (lc.beeper >= 0)
+            enable_beeper = lc.beeper;
+        /* Re-apply beeper setting now that launcher may have changed it */
+        sound_set_beeper_enabled(enable_beeper);
+    }
+
     SDL_Window *win = SDL_CreateWindow(
-        "Smemu6 — Smart Emulator of the Smart Keyboard",
+        "Smemu6 - Smaky6 Emulator",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         VIDEO_WIN_W * display_scale, VIDEO_WIN_H * display_scale,
         SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -402,6 +458,8 @@ int main(int argc, char *argv[])
         machine_set_no_display_off(m, 1);
     if (scanlines)
         machine_set_scanlines(m, 1);
+    if (phosphor_white)
+        machine_set_phosphor(m, 1);
 
     /* ── Main loop ──────────────────────────────────────────────────────────────────────── */
     /*

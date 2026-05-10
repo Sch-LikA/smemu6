@@ -49,6 +49,7 @@ void machine_set_trace_scr(struct Smaky6 *m, int on);
  * otherwise blank the window before the first useful frame is rendered. */
 void machine_set_no_display_off(struct Smaky6 *m, int on);
 void machine_set_scanlines(struct Smaky6 *m, int on);
+void machine_set_phosphor(struct Smaky6 *m, int white); /* 0=green (default), 1=white */
 
 /* Inject a key into the keyboard buffer (code=0 → Return/floppy-boot) */
 void machine_inject_key(struct Smaky6 *m, uint8_t code);
