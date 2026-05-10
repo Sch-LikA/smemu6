@@ -19,9 +19,7 @@ Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 #### Window layout (top to bottom)
 
 **Header**
-- Project name + two-line description:  
-  *"Smemu6 — Smart Emulator of the Smart Keyboard"*  
-  *"Z80 @ 2.5 MHz · 512×240 green-phosphor display · SAMOS OS"*
+- Single centred line: *"Smemu6 -- Smart Emulator of the Smart Keyboard"*
 
 **Storage section**
 
@@ -31,16 +29,16 @@ Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 | *(DX0 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
 | `DX1:` | Static label: **Floppy** (no second harddisk) | `-floppy2` |
 | *(DX1 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
-| Autoboot | Toggle: **On** / **Off** — injects Enter after 3 s to auto-select floppy boot | `-autoboot` |
+| Autoboot | Toggle: **On** / **Off** — injects Enter after 3 s to auto-select floppy boot | `-autoboot` | **On** |
 
-File paths are shown truncated (last 40 chars with `…` prefix) next to each
-picker button.  A small `×` button clears the selection.
+File paths are shown truncated (last 46 chars with `…` prefix) on a sub-row
+directly below each disk row (Browse + Clear buttons).  A small `×` button clears the selection.
 
 **Screen section**
 
 | Label | Control | Emulator option | Default |
 |-------|---------|-----------------|---------|
-| Scaling | Drop-down: **1×** / **2×** / **3×** / **4×** | `-scale N` | 2× |
+| Scaling | Drop-down: **1×** / **2×** / **3×** / **4×** | `-scale N` | **1×** |
 | Phosphor colour | Drop-down: **Green** / **White** | *(new `-phosphor white` option)* | Green |
 | Scanlines | Drop-down: **Off** / **On** | `-scanlines` | On |
 | Disable screen blanking | Toggle: **On** / **Off** | `-no-display-off` | On |
@@ -68,17 +66,21 @@ picker button.  A small `×` button clears the selection.
 
 #### Implementation notes
 
-- Render using SDL2 primitives + `SDL_ttf` (a small embedded bitmap font is an
-  alternative if we want zero extra dependencies — the chargen ROM covers only
-  uppercase ASCII so a second font is needed for mixed-case labels).
-- File picker: use `SDL_ShowOpenFileDialog` (SDL 3) or fall back to a
-  `popen("zenity …")` / `popen("osascript …")` shim on Linux/macOS.  On SDL 2
-  (current dep) the shim approach is the only portable option.
+- Rendered with SDL2 primitives only — no `SDL_ttf`.  Text uses the authentic
+  Smaky 6 chargen ROM embedded as `src/chargen_rom.h` (128 chars × 16 rows, LSB-first;
+  rows 0–9 carry glyph data including descenders, rows 10–15 are zero).
+  `FONT_ROWS 10` is used as the render loop bound so descenders (`p`, `q`, `g`, `y`, `j`)
+  are shown; `FONT_H 8` is used for layout/centering.
+- File picker: async `tinyfiledialogs` call running in a detached `SDL_CreateThread`
+  so the event loop is never blocked.  `PickCtx` state machine (`PICK_IDLE` /
+  `PICK_RUNNING` / `PICK_DONE`) is polled from the main loop.
+  `SDL_HINT_VIDEO_X11_NET_WM_PING=0` prevents the WM from marking the window
+  as unresponsive while the picker thread starts up.
 - The launcher must work in headless mode (`SDL_VIDEODRIVER=dummy`): detect the
   dummy driver and skip the launcher, reading config from CLI only.
 - All launcher settings are additive: CLI options passed alongside the binary
   override the launcher defaults (launcher only sets options not provided on CLI).
-- Window size: ~480 × 560 logical pixels at 1:1; no scaling needed.
+- Window size: 460 × 464 logical pixels at 1:1; no scaling needed.
 
 #### New options to add to main.c / README / guides
 
@@ -111,13 +113,14 @@ the window is 1024 × 520 (240+20 status bar × 2).  SDL logical size stays fixe
 
 ### ~~Live floppy track/sector visualisation~~ ✅ Done
 
-The status bar (20 logical px, scales with `-scale`) shows per-drive:
+The status bar (14 logical px `VIDEO_LED_H`, scales with `-scale`) shows per floppy drive:
 - Amber LED (bright = active transfer, dim = mounted idle, off = no image)
 - Drive label glyph (`DX0:` / `DX1:`, from chargen ROM, rendered as 1px-per-bit)
 - `T:nn S:nn` — current track and sector from `m->fdc.track[d]` / `m->fdc.phased_sector[d]`
 
-Each chargen glyph bit is rendered as a 2×2 logical-pixel filled rect so glyphs look
-crisp at any `-scale` value without needing a separate font.
+Only the two floppy drives are shown.  The Winchester (HD0/HD1) row that was
+previously displayed below was removed — SAMOS only exposes DX0 and DX1 to
+the user, so the extra row added clutter without value.
 ---
 
 ## Keyboard
