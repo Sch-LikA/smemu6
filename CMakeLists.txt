@@ -170,21 +170,31 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/floppies)
     file(COPY ${CMAKE_SOURCE_DIR}/floppies DESTINATION ${CMAKE_BINARY_DIR})
 endif()
 
-# ── Install rules (used by AppImage packaging) ────────────────────────────────
+# ── Install rules ─────────────────────────────────────────────────────────────
 if(NOT EMSCRIPTEN)
     include(GNUInstallDirs)
-    install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR}
-            COMPONENT smemu6)
-    install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/smemu6/roms
-            COMPONENT smemu6)
-    install(FILES ${CMAKE_SOURCE_DIR}/smemu6.desktop
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
-            COMPONENT smemu6)
-    install(FILES ${CMAKE_SOURCE_DIR}/web/smaky6-256.png
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
-            RENAME smaky6.png
-            COMPONENT smemu6)
+    if(APPLE)
+        # Bundle install: ROMs go inside Contents/Resources/roms/ so that
+        # SDL_GetBasePath() + chdir() in main.c can find them via "roms/".
+        install(TARGETS smemu6 BUNDLE DESTINATION .
+                COMPONENT smemu6)
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
+                DESTINATION smemu6.app/Contents/Resources/roms
+                COMPONENT smemu6)
+    else()
+        install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR}
+                COMPONENT smemu6)
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/smemu6/roms
+                COMPONENT smemu6)
+        install(FILES ${CMAKE_SOURCE_DIR}/smemu6.desktop
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+                COMPONENT smemu6)
+        install(FILES ${CMAKE_SOURCE_DIR}/web/smaky6-256.png
+                DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
+                RENAME smaky6.png
+                COMPONENT smemu6)
+    endif()
 endif()
 
 # ── CPack / .deb packaging ────────────────────────────────────────────────────

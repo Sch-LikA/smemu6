@@ -694,6 +694,20 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+#if defined(__APPLE__) && !defined(__EMSCRIPTEN__)
+    /* macOS launches .app bundles with '/' as the working directory, so
+     * relative paths like "roms/samos_sys17.rom" would not be found.
+     * SDL_GetBasePath() returns the bundle's Contents/Resources/ folder;
+     * chdir() there makes all relative asset lookups work correctly. */
+    {
+        char *base = SDL_GetBasePath();
+        if (base) {
+            if (chdir(base) != 0)
+                fprintf(stderr, "[main] chdir(%s): %s\n", base, strerror(errno));
+            SDL_free(base);
+        }
+    }
+#endif
 
     /* ── Launcher ───────────────────────────────────────────────────────── */
 #ifndef __EMSCRIPTEN__

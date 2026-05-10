@@ -82,9 +82,28 @@ jobs:
           name: windows
           path: dist/*.zip
 
+  # ── macOS .dmg ────────────────────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: brew install cmake sdl2 create-dmg
+
+      - name: Build .dmg
+        run: ./dist-mac.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.dmg
+
   # ── Create GitHub Release and upload all assets ───────────────────────────
   release:
-    needs: [build-appimage, build-deb, build-windows]
+    needs: [build-appimage, build-deb, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -102,4 +121,4 @@ jobs:
           gh release create "$TAG" \
             --title "Smaky 6 Emulator $TAG" \
             --generate-notes \
-            artifacts/*.AppImage artifacts/*.deb artifacts/*.zip
+            artifacts/*.AppImage artifacts/*.deb artifacts/*.zip artifacts/*.dmg
