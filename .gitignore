@@ -1,4 +1,8 @@
 build/
+build-web/
+build-web-debug/
+build-win/
+dist/
 tmp/
 *.o
 *.d
