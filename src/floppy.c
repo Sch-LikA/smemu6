@@ -183,6 +183,16 @@ uint8_t floppy_read_data(struct Smaky6 *m)
         }
 
         if (m->fdc.image[drive]) {
+            /* Clamp track to the image geometry before computing the offset.
+             * The track value comes from emulated RAM (0x4504), which is loaded
+             * from the floppy image itself — a crafted image could place an
+             * out-of-range value there and cause fseek to go beyond the image. */
+            uint8_t max_track = m->fdc.num_tracks[drive] - 1u;
+            if (track > max_track) {
+                fprintf(stderr, "[fdc] track %u out of range (max %u), clamping\n",
+                        (unsigned)track, (unsigned)max_track);
+                track = max_track;
+            }
             m->fdc.disk_active[drive] = 6;
             long offset = ((long)track * FLOPPY_SECTORS + req_sec) * FLOPPY_SECTOR_BYTES;
             if (fseek(m->fdc.image[drive], offset, SEEK_SET) == 0) {
