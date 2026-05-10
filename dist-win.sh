@@ -28,7 +28,7 @@ DIST_ROOT="$SCRIPT_DIR/dist"
 
 # Derive version from git (e.g. v1.2-3-gabcdef → 1.2-3-gabcdef)
 VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo "dev")"
-DIST_NAME="smaky6-win64-${VERSION}"
+DIST_NAME="smemu6-win64-${VERSION}"
 DIST_DIR="$DIST_ROOT/$DIST_NAME"
 
 # ---------------------------------------------------------------------------
@@ -90,15 +90,6 @@ fi
 # License and readme
 cp "$SCRIPT_DIR/LICENSE"    "$DIST_DIR/"
 cp "$SCRIPT_DIR/README.md"  "$DIST_DIR/"
-
-# ---------------------------------------------------------------------------
-# Create a minimal launch batch file for convenience
-# ---------------------------------------------------------------------------
-cat > "$DIST_DIR/smemu6.bat" << 'BAT'
-@echo off
-REM Launch smemu6 — double-click me, or run from cmd.exe / PowerShell
-start "" "%~dp0smemu6.exe"
-BAT
 
 # ---------------------------------------------------------------------------
 # Zip
