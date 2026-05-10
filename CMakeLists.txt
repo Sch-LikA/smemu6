@@ -87,7 +87,7 @@ add_executable(smemu6
 # ── Platform icon resources ────────────────────────────────────────────────────
 # Windows: embed .ico via .rc resource file so the .exe has a taskbar/Explorer icon
 if(WIN32)
-    target_sources(smemu6 PRIVATE "${CMAKE_SOURCE_DIR}/smaky6.rc")
+    target_sources(smemu6 PRIVATE "${CMAKE_SOURCE_DIR}/gfx/smaky6.rc")
 endif()
 
 # macOS: build as .app bundle with .icns icon
@@ -99,9 +99,9 @@ if(APPLE)
         MACOSX_BUNDLE_ICON_FILE "smaky6.icns"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
     )
-    set_source_files_properties("${CMAKE_SOURCE_DIR}/smaky6.icns"
+    set_source_files_properties("${CMAKE_SOURCE_DIR}/gfx/smaky6.icns"
         PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-    target_sources(smemu6 PRIVATE "${CMAKE_SOURCE_DIR}/smaky6.icns")
+    target_sources(smemu6 PRIVATE "${CMAKE_SOURCE_DIR}/gfx/smaky6.icns")
 endif()
 
 target_include_directories(smemu6 PRIVATE src ${TINYFD_INCLUDE})
