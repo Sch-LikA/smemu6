@@ -3,34 +3,286 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smemu6 — Smaky 6 Emulator</title>
+  <title>Smaky 6 — Emulator</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #0d0d1a;
-      color: #d0d0d0;
+      background: #b8b0a0;
+      background-image:
+        radial-gradient(ellipse at 50% 0%, #cec6b4 0%, #a8a090 100%);
+      color: #2a2520;
       font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 16px;
+      padding: 32px 16px 40px;
     }
 
-    h1 {
-      color: #00e700;
-      font-size: 1.1em;
+    /* ── Page title ─────────────────────────────────────────────────────── */
+    #title-plate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 22px;
+    }
+    #title-plate img.logo-img {
+      width: 280px;
+      height: auto;
+      display: block;
+      /* subtle drop shadow under the logo */
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.25));
+    }
+    .model {
+      font-size: 0.72em;
+      color: #7a7060;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    /* ── Machine body shell ─────────────────────────────────────────────── */
+    .machine-body {
+      /* cream/beige body matching the real machine */
+      background: linear-gradient(170deg, #ddd4b4 0%, #cfc6a4 40%, #c4bc98 100%);
+      border-radius: 8px 8px 4px 4px;
+      padding: 18px 20px 0;
+      box-shadow:
+        0 2px 0 #b8b098,
+        0 4px 0 #aaa888,
+        0 6px 18px #00000044,
+        inset 0 1px 0 #eae0c0,
+        inset 0 0 0 1px #b8b098;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* dark base strip at bottom of machine (like the real one) */
+    .machine-body::after {
+      content: '';
+      display: block;
+      width: calc(100% + 40px);  /* full width incl. padding */
+      height: 14px;
+      background: linear-gradient(180deg, #2e2820 0%, #201c18 100%);
+      border-radius: 0 0 5px 5px;
+      margin-top: 6px;
+      box-shadow: inset 0 2px 4px #00000066;
+    }
+
+    /* ── Badge / logo strip ─────────────────────────────────────────────── */
+    .badge-strip {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #b8b094;
+    }
+    .badge {
+      background: linear-gradient(180deg, #c8c0a0 0%, #b8b090 100%);
+      border: 1px solid #a8a080;
+      border-radius: 3px;
+      padding: 3px 10px;
+      font-size: 0.75em;
+      font-weight: bold;
+      letter-spacing: 0.18em;
+      color: #2a2520;
+      text-shadow: 0 1px 0 #ffffff55;
+      box-shadow: 0 1px 2px #00000033, inset 0 1px 0 #ddd4b0;
+      text-transform: uppercase;
+    }
+    .badge-right { color: #7a7060; font-size: 0.65em; letter-spacing: 0.1em; }
+
+    /* ── Launcher panel ─────────────────────────────────────────────────── */
+    #launcher { width: 400px; }
+
+    .lnch-section {
+      width: 100%;
+      border-top: 1px solid #b8b094;
+      padding-top: 10px;
+      margin-top: 2px;
+    }
+    .lnch-section-title {
+      font-size: 0.68em;
+      letter-spacing: 0.14em;
+      color: #7a7060;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    .lnch-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 7px;
+    }
+    .lnch-row label.lbl {
+      width: 36px;
+      font-size: 0.78em;
+      color: #4a4038;
       letter-spacing: 0.08em;
-      margin-bottom: 12px;
-      text-align: center;
+      flex-shrink: 0;
+      font-weight: bold;
     }
 
-    #canvas-container {
+    /* LED indicator */
+    .lnch-led {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #8a8070;
+      box-shadow: 0 0 0 1px #6a6050, inset 0 1px 2px #00000044;
+      flex-shrink: 0;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .lnch-led.active {
+      background: #00dd00;
+      box-shadow: 0 0 0 1px #009900, 0 0 6px #00dd0099;
+    }
+
+    label.pick-btn {
+      background: linear-gradient(180deg, #e0d8b8 0%, #c8c0a0 100%);
+      color: #2a2520;
+      border: 1px solid #a8a080;
+      border-radius: 3px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.78em;
+      box-shadow: 0 1px 0 #ffffff66, inset 0 -1px 0 #00000022;
+      transition: background 0.1s;
+      white-space: nowrap;
+    }
+    label.pick-btn:hover {
+      background: linear-gradient(180deg, #eae0c0 0%, #d4cba8 100%);
+    }
+    label.pick-btn:active {
+      background: linear-gradient(180deg, #c0b898 0%, #d0c8a8 100%);
+      box-shadow: inset 0 1px 2px #00000033;
+    }
+
+    .lnch-fname {
+      font-size: 0.72em;
+      color: #7a7060;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      font-style: italic;
+    }
+
+    .lnch-opts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px 16px;
+    }
+
+    .lnch-opt {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* toggle switch — dark like the keyboard */
+    .toggle-track {
+      width: 28px; height: 14px;
+      background: #9a9280;
+      border: 1px solid #7a7060;
+      border-radius: 7px;
       position: relative;
-      display: inline-block;
-      border: 2px solid #003300;
-      box-shadow: 0 0 24px #00e70044;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 3px #00000055;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #c8c0a0;
+      box-shadow: 0 1px 2px #00000066;
+      transition: transform 0.2s, background 0.2s;
+    }
+    input[type=checkbox]:checked + .toggle-track {
+      background: #006600;
+      border-color: #004400;
+    }
+    input[type=checkbox]:checked + .toggle-track::after {
+      background: #00ee00;
+      transform: translateX(14px);
+    }
+    input[type=checkbox] { display: none; }
+
+    .opt-label {
+      font-size: 0.78em;
+      color: #4a4038;
+    }
+
+    select.lnch-select {
+      background: linear-gradient(180deg, #e0d8b8 0%, #c8c0a0 100%);
+      color: #2a2520;
+      border: 1px solid #a8a080;
+      border-radius: 3px;
+      padding: 3px 6px;
+      font-family: inherit;
+      font-size: 0.78em;
+      cursor: pointer;
+      outline: none;
+      box-shadow: 0 1px 0 #ffffff55;
+    }
+    select.lnch-select:focus { border-color: #006600; outline: none; }
+
+    /* Start button — dark key like the keyboard accent keys */
+    #btn-start {
+      width: 100%;
+      background: linear-gradient(180deg, #3a3028 0%, #2a2018 100%);
+      color: #e0d8b8;
+      border: 1px solid #1a1410;
+      border-radius: 4px;
+      padding: 9px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.88em;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      box-shadow: 0 2px 0 #1a1410, 0 3px 6px #00000044;
+      transition: background 0.1s, box-shadow 0.1s, transform 0.1s;
+    }
+    #btn-start:hover {
+      background: linear-gradient(180deg, #4a3830 0%, #382820 100%);
+    }
+    #btn-start:active {
+      transform: translateY(1px);
+      box-shadow: 0 1px 0 #1a1410, 0 1px 3px #00000044;
+    }
+
+    /* ── Machine (emulator view) ────────────────────────────────────────── */
+    #machine { display: none; }
+
+    /* Bezel — dark like the real machine's screen surround */
+    #bezel {
+      background: linear-gradient(170deg, #242020 0%, #1a1616 100%);
+      border-radius: 5px;
+      padding: 12px 12px 10px;
+      box-shadow:
+        0 0 0 1px #0e0c0c,
+        inset 0 2px 8px #000000cc,
+        inset 0 0 0 1px #302a2a;
+    }
+
+    #canvas-wrap {
+      position: relative;
+      line-height: 0;
+      border-radius: 2px;
+      overflow: hidden;
+      box-shadow: 0 0 20px #00cc0022, inset 0 0 6px #000;
     }
 
     canvas {
@@ -39,7 +291,16 @@
       image-rendering: crisp-edges;
     }
 
-    /* Loading/status overlay */
+    /* subtle screen glare reflection */
+    #canvas-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 45%);
+      pointer-events: none;
+    }
+
+    /* loading overlay */
     #status-overlay {
       position: absolute;
       inset: 0;
@@ -47,242 +308,442 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #0d0d1acc;
-      color: #00e700;
-      font-size: 0.9em;
-      gap: 8px;
+      background: #040804ee;
+      color: #00cc00;
+      font-size: 0.85em;
+      gap: 10px;
       pointer-events: none;
-      transition: opacity 0.4s;
+      transition: opacity 0.5s;
     }
     #status-overlay.hidden { opacity: 0; }
 
     #spinner {
-      width: 32px; height: 32px;
-      border: 3px solid #003300;
-      border-top-color: #00e700;
+      width: 28px; height: 28px;
+      border: 2px solid #003300;
+      border-top-color: #00cc00;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.75s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    #status-text { color: #00aa00; letter-spacing: 0.06em; }
 
-    /* Controls panel */
-    #controls {
-      margin-top: 12px;
+    /* ── Front panel (below screen) ─────────────────────────────────────── */
+    #front-panel {
+      width: 100%;
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      justify-content: center;
-      max-width: 600px;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 2px 2px;
     }
 
-    button {
-      background: #0f3460;
-      color: #d0d0d0;
-      border: 1px solid #1a5276;
-      border-radius: 4px;
-      padding: 6px 14px;
+    #drives { display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .drive-slot {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+    }
+    .drive-label-row { display: flex; align-items: center; gap: 6px; }
+
+    .drive-led {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #8a8070;
+      box-shadow: 0 0 0 1px #6a6050, inset 0 1px 2px #00000044;
+      flex-shrink: 0;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .drive-led.active {
+      background: #00dd00;
+      box-shadow: 0 0 0 1px #009900, 0 0 6px #00dd0088;
+    }
+
+    .drive-name {
+      font-size: 0.72em;
+      color: #5a5040;
+      letter-spacing: 0.1em;
+      font-weight: bold;
+    }
+
+    label.drive-btn {
+      background: linear-gradient(180deg, #ddd4b4 0%, #c8c0a0 100%);
+      color: #2a2520;
+      border: 1px solid #a8a080;
+      border-radius: 3px;
+      padding: 3px 9px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.85em;
-      transition: background 0.15s;
-    }
-    button:hover { background: #1a5276; }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    label.file-label {
-      background: #0f3460;
-      color: #d0d0d0;
-      border: 1px solid #1a5276;
-      border-radius: 4px;
-      padding: 6px 14px;
-      cursor: pointer;
-      font-size: 0.85em;
-      transition: background 0.15s;
-      white-space: nowrap;
-    }
-    label.file-label:hover { background: #1a5276; }
-
-    #dx0-name, #dx1-name {
-      font-size: 0.8em;
-      color: #808080;
-      min-width: 140px;
-    }
-
-    /* Output / stderr log */
-    #output {
-      margin-top: 12px;
-      width: 100%;
-      max-width: 600px;
-      height: 80px;
-      background: #080808;
-      border: 1px solid #1a1a2e;
-      border-radius: 4px;
-      padding: 6px;
       font-size: 0.75em;
-      color: #607060;
+      box-shadow: 0 1px 0 #ffffff55, inset 0 -1px 0 #00000022;
+      transition: background 0.1s;
+    }
+    label.drive-btn:hover {
+      background: linear-gradient(180deg, #eae0c0 0%, #d4cba8 100%);
+    }
+
+    .disk-name {
+      font-size: 0.68em;
+      color: #7a7060;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-style: italic;
+    }
+
+    #btns { display: flex; gap: 8px; align-items: center; padding-top: 2px; }
+
+    /* panel buttons — dark keycap style */
+    button.panel-btn {
+      background: linear-gradient(180deg, #383028 0%, #282018 100%);
+      color: #d0c8a8;
+      border: 1px solid #181410;
+      border-radius: 3px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.75em;
+      letter-spacing: 0.06em;
+      box-shadow: 0 2px 0 #161210, 0 3px 5px #00000033;
+      transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
+    }
+    button.panel-btn:hover:not(:disabled) {
+      background: linear-gradient(180deg, #484038 0%, #382820 100%);
+    }
+    button.panel-btn:active:not(:disabled) {
+      transform: translateY(1px);
+      box-shadow: 0 1px 0 #161210;
+    }
+    button.panel-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* RESET — red accent key, like the real machine's red keys */
+    button#btn-reset {
+      background: linear-gradient(180deg, #bb2a1a 0%, #8a1a0e 100%);
+      color: #f0d8d0;
+      border-color: #5a0e08;
+      box-shadow: 0 2px 0 #5a0e08, 0 3px 5px #00000033;
+    }
+    button#btn-reset:hover:not(:disabled) {
+      background: linear-gradient(180deg, #cc3322 0%, #aa2010 100%);
+    }
+
+    /* log */
+    #log-wrap { width: 100%; }
+
+    #log-toggle {
+      background: none; border: none;
+      color: #8a8070;
+      font-family: inherit; font-size: 0.7em;
+      cursor: pointer; padding: 2px 0; letter-spacing: 0.06em;
+    }
+    #log-toggle:hover { color: #5a5040; }
+
+    #output {
+      margin-top: 4px;
+      width: 100%;
+      height: 60px;
+      background: #040804;
+      border: 1px solid #0e1a0e;
+      border-radius: 2px;
+      padding: 5px 7px;
+      font-size: 0.7em;
+      color: #006600;
       overflow-y: auto;
       resize: vertical;
+      white-space: pre-wrap;
     }
+    #output.hidden { display: none; }
 
-    /* Hidden file inputs — triggered programmatically */
     input[type=file] { display: none; }
   </style>
 </head>
 <body>
 
-<h1>Smemu6 &mdash; Smaky&nbsp;6 Emulator</h1>
-
-<div id="canvas-container">
-  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-  <div id="status-overlay">
-    <div id="spinner"></div>
-    <span id="status-text">Loading…</span>
-  </div>
+<div id="title-plate">
+  <img src="smaky6-logo.svg" alt="SMAKY6" class="logo-img">
+  <span class="model">Emulator</span>
 </div>
 
-<!-- Hidden file inputs: smemu6_pick_done() / smemu6_pick_cancel() are called
-     from JS once the file has been written to the virtual FS. -->
+<!-- ── Launcher config panel ─────────────────────────────────────────────── -->
+<div id="launcher" class="machine-body">
+
+  <div class="badge-strip">
+    <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
+    <span class="badge-right">EPSITEC SA</span>
+  </div>
+
+  <div class="lnch-section" style="border-top:none; padding-top:0; margin-top:0;">
+    <div class="lnch-section-title">Disk images</div>
+
+    <div class="lnch-row">
+      <label class="lbl">DX0</label>
+      <div class="lnch-led" id="lnch-led-dx0"></div>
+      <label class="pick-btn" for="lnch-dx0-file">Insert…</label>
+      <input type="file" id="lnch-dx0-file" accept=".dsk,.DSK">
+      <span class="lnch-fname" id="lnch-dx0-name">no disk</span>
+    </div>
+
+    <div class="lnch-row">
+      <label class="lbl">DX1</label>
+      <div class="lnch-led" id="lnch-led-dx1"></div>
+      <label class="pick-btn" for="lnch-dx1-file">Insert…</label>
+      <input type="file" id="lnch-dx1-file" accept=".dsk,.DSK">
+      <span class="lnch-fname" id="lnch-dx1-name">no disk</span>
+    </div>
+  </div>
+
+  <div class="lnch-section">
+    <div class="lnch-section-title">Display</div>
+    <div class="lnch-opts">
+
+      <div class="lnch-row" style="margin-bottom:0; gap:8px;">
+        <span class="opt-label">Scale</span>
+        <select class="lnch-select" id="lnch-scale">
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+        </select>
+      </div>
+
+      <div class="lnch-row" style="margin-bottom:0; gap:8px;">
+        <span class="opt-label">Phosphor</span>
+        <select class="lnch-select" id="lnch-phosphor">
+          <option value="green" selected>Green</option>
+          <option value="white">White</option>
+        </select>
+      </div>
+
+      <label class="lnch-opt" for="lnch-scanlines">
+        <input type="checkbox" id="lnch-scanlines" checked>
+        <span class="toggle-track"></span>
+        <span class="opt-label">Scanlines</span>
+      </label>
+
+      <label class="lnch-opt" for="lnch-nodispoff">
+        <input type="checkbox" id="lnch-nodispoff" checked>
+        <span class="toggle-track"></span>
+        <span class="opt-label">No display-off</span>
+      </label>
+
+    </div>
+  </div>
+
+  <div class="lnch-section">
+    <div class="lnch-section-title">Boot</div>
+    <div class="lnch-opts">
+      <label class="lnch-opt" for="lnch-autoboot">
+        <input type="checkbox" id="lnch-autoboot" checked>
+        <span class="toggle-track"></span>
+        <span class="opt-label">Autoboot</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="lnch-section" style="padding-bottom: 6px;">
+    <button id="btn-start">&#x25b6;&nbsp;&nbsp;Start</button>
+  </div>
+
+</div>
+
+<!-- ── Emulator machine view ─────────────────────────────────────────────── -->
+<div id="machine" class="machine-body">
+
+  <div class="badge-strip">
+    <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
+    <span class="badge-right">EPSITEC SA</span>
+  </div>
+
+  <div id="bezel">
+    <div id="canvas-wrap">
+      <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+      <div id="status-overlay">
+        <div id="spinner"></div>
+        <span id="status-text">Loading…</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="front-panel">
+    <div id="drives">
+      <div class="drive-slot">
+        <div class="drive-label-row">
+          <div class="drive-led" id="led-dx0"></div>
+          <span class="drive-name">DX0</span>
+          <label class="drive-btn" for="dx0-file">Insert…</label>
+          <input type="file" id="dx0-file" accept=".dsk,.DSK">
+        </div>
+        <span class="disk-name" id="dx0-name">no disk</span>
+      </div>
+      <div class="drive-slot">
+        <div class="drive-label-row">
+          <div class="drive-led" id="led-dx1"></div>
+          <span class="drive-name">DX1</span>
+          <label class="drive-btn" for="dx1-file">Insert…</label>
+          <input type="file" id="dx1-file" accept=".dsk,.DSK">
+        </div>
+        <span class="disk-name" id="dx1-name">no disk</span>
+      </div>
+    </div>
+    <div id="btns">
+      <button class="panel-btn" id="btn-reset" disabled>RESET</button>
+    </div>
+  </div>
+
+  <div id="log-wrap">
+    <button id="log-toggle">&#x25b6; system log</button>
+    <pre id="output" class="hidden"></pre>
+  </div>
+
+</div>
+
+<!-- hidden file input for emscripten pick_file_async -->
 <input type="file" id="smemu6-file-input" accept=".dsk,.DSK">
 
-<!-- Manual disk-load controls (always visible) -->
-<div id="controls">
-  <label class="file-label" for="dx0-file">📂 Load DX0 (.dsk)</label>
-  <input type="file" id="dx0-file" accept=".dsk,.DSK">
-  <span id="dx0-name">no image</span>
-
-  <label class="file-label" for="dx1-file">📂 Load DX1 (.dsk)</label>
-  <input type="file" id="dx1-file" accept=".dsk,.DSK">
-  <span id="dx1-name">no image</span>
-
-  <button id="btn-reset" disabled>Reset</button>
-  <button id="btn-fullscreen">⛶ Fullscreen</button>
-</div>
-
-<pre id="output"></pre>
-
 <script>
-// ── Emscripten module boilerplate ────────────────────────────────────────────
-var statusOverlay = document.getElementById('status-overlay');
-var statusText    = document.getElementById('status-text');
-var output        = document.getElementById('output');
+// ── Launcher disk staging ────────────────────────────────────────────────────
+var launchDx0File = null;
+var launchDx1File = null;
 
+function lnchPickDisk(file, drive) {
+  if (!file) return;
+  if (drive === 'dx0') launchDx0File = file;
+  else                 launchDx1File = file;
+  document.getElementById('lnch-' + drive + '-name').textContent = file.name;
+  document.getElementById('lnch-led-' + drive).classList.add('active');
+}
+document.getElementById('lnch-dx0-file').addEventListener('change', function(e) {
+  lnchPickDisk(e.target.files[0], 'dx0');
+});
+document.getElementById('lnch-dx1-file').addEventListener('change', function(e) {
+  lnchPickDisk(e.target.files[0], 'dx1');
+});
+
+// ── Start button ─────────────────────────────────────────────────────────────
+document.getElementById('btn-start').addEventListener('click', function() {
+  var args = ['-no-launcher'];
+
+  if (document.getElementById('lnch-nodispoff').checked)  args.push('-no-display-off');
+  if (document.getElementById('lnch-autoboot').checked)   args.push('-autoboot');
+  if (document.getElementById('lnch-scanlines').checked)  args.push('-scanlines');
+
+  var phosphor = document.getElementById('lnch-phosphor').value;
+  if (phosphor === 'white') args.push('-phosphor', 'white');
+
+  args.push('-scale', document.getElementById('lnch-scale').value);
+
+  Module.arguments = args;
+
+  document.getElementById('launcher').style.display = 'none';
+  document.getElementById('machine').style.display  = 'flex';
+
+  var s = document.createElement('script');
+  s.src = 'smemu6.js';
+  document.body.appendChild(s);
+});
+
+// ── Emscripten Module ────────────────────────────────────────────────────────
+var output = document.getElementById('output');
 function appendOutput(text) {
   output.textContent += text;
   output.scrollTop = output.scrollHeight;
 }
 
 var Module = {
-  canvas: (function() { return document.getElementById('canvas'); })(),
-
-  print: function(text) {
-    console.log('[stdout] ' + text);
-    appendOutput(text + '\n');
-  },
-  printErr: function(text) {
-    console.warn('[stderr] ' + text);
-    appendOutput(text + '\n');
-  },
+  canvas: document.getElementById('canvas'),
+  print:    function(text) { appendOutput(text + '\n'); },
+  printErr: function(text) { appendOutput(text + '\n'); },
 
   onRuntimeInitialized: function() {
-    console.log('[smemu6] onRuntimeInitialized fired');
-    appendOutput('[web] Runtime initialized.\n');
-    // Create virtual directories the emulator expects at runtime.
     try { Module.FS.mkdir('/floppies'); } catch(e) {}
-    statusOverlay.classList.add('hidden');
+
+    function writeDisk(file, drive, nameId, ledId) {
+      if (!file) return;
+      document.getElementById(nameId).textContent = file.name;
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var buf  = new Uint8Array(e.target.result);
+        var path = '/floppies/user_' + drive + '.dsk';
+        try { Module.FS.unlink(path); } catch(ex) {}
+        Module.FS.writeFile(path, buf);
+        Module.ccall('smemu6_mount_' + drive, null, ['string'], [path]);
+        flashLed(ledId);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    writeDisk(launchDx0File, 'dx0', 'dx0-name', 'led-dx0');
+    writeDisk(launchDx1File, 'dx1', 'dx1-name', 'led-dx1');
+
+    document.getElementById('status-overlay').classList.add('hidden');
     document.getElementById('btn-reset').disabled = false;
+    document.getElementById('canvas').focus();
   },
 
   onAbort: function(reason) {
-    console.error('[smemu6] ABORT: ' + reason);
-    appendOutput('[web] ABORT: ' + reason + '\n');
+    document.getElementById('status-text').textContent = 'ABORTED';
+    document.getElementById('status-overlay').classList.remove('hidden');
+    appendOutput('[ABORT] ' + reason + '\n');
   },
 
   quit: function(status, toThrow) {
-    console.log('[smemu6] quit called, status=' + status);
-    appendOutput('[web] Emulator exited (status=' + status + ').\n');
+    appendOutput('[quit] status=' + status + '\n');
     throw toThrow;
   },
 
   setStatus: function(text) {
-    console.log('[smemu6] setStatus: ' + text);
-    if (text) {
-      statusText.textContent = text;
-      statusOverlay.classList.remove('hidden');
-    }
+    if (text) document.getElementById('status-text').textContent = text;
   },
 
   monitorRunDependencies: function(left) {
-    console.log('[smemu6] dependencies remaining: ' + left);
-    if (left === 0) {
-      statusText.textContent = 'Starting…';
-    } else {
-      statusText.textContent = 'Loading… (' + left + ' remaining)';
-    }
+    if (left === 0) document.getElementById('status-text').textContent = 'Starting\u2026';
   },
-
-  // Pass CLI args: autoboot is always on for the web build; launcher is skipped.
-  // Audio (beeper) is disabled because the Web Audio API requires power-of-two
-  // buffer sizes but SDL's default (882 = 44100/50) is not.
-  arguments: ['-no-launcher', '-no-display-off', '-autoboot', '-no-beeper'],
 };
 
-// ── Manual disk-load helpers ─────────────────────────────────────────────────
-// These allow the user to load a .dsk at any time via the control panel.
-// They write the file into the virtual FS and call floppy_hot_mount via ccall
-// (if/when that export is added).  For now, they write to /tmp/dxN.dsk and
-// print a message; a full hot-mount call requires a C export.
+// ── Runtime disk helpers ─────────────────────────────────────────────────────
+function flashLed(id) {
+  var led = document.getElementById(id);
+  if (!led) return;
+  led.classList.add('active');
+  setTimeout(function() { led.classList.remove('active'); }, 800);
+}
 
-function loadDiskFile(file, drive, nameSpanId) {
+function loadDiskFile(file, drive, nameId, ledId) {
   if (!file) return;
-  document.getElementById(nameSpanId).textContent = file.name;
+  document.getElementById(nameId).textContent = file.name;
   var reader = new FileReader();
   reader.onload = function(e) {
-    var buf = new Uint8Array(e.target.result);
+    var buf  = new Uint8Array(e.target.result);
     var path = '/floppies/user_' + drive + '.dsk';
     try { Module.FS.unlink(path); } catch(ex) {}
     Module.FS.writeFile(path, buf);
-    appendOutput('[web] Loaded ' + file.name + ' → ' + path + '\n');
-    // Hot-mount into the running machine
     Module.ccall('smemu6_mount_' + drive, null, ['string'], [path]);
-    appendOutput('[web] Mounted ' + drive.toUpperCase() + ': ' + file.name +
-                 ' (click Reset to reboot from it)\n');
+    flashLed(ledId);
+    appendOutput('[web] ' + drive.toUpperCase() + ': ' + file.name + ' mounted\n');
   };
   reader.readAsArrayBuffer(file);
 }
 
 document.getElementById('dx0-file').addEventListener('change', function(e) {
-  loadDiskFile(e.target.files[0], 'dx0', 'dx0-name');
+  loadDiskFile(e.target.files[0], 'dx0', 'dx0-name', 'led-dx0');
 });
 document.getElementById('dx1-file').addEventListener('change', function(e) {
-  loadDiskFile(e.target.files[0], 'dx1', 'dx1-name');
+  loadDiskFile(e.target.files[0], 'dx1', 'dx1-name', 'led-dx1');
 });
 
-// ── Reset button ─────────────────────────────────────────────────────────────
 document.getElementById('btn-reset').addEventListener('click', function(e) {
   e.preventDefault();
   Module.ccall('smemu6_reset', null, [], []);
-  appendOutput('[web] Machine reset.\n');
+  appendOutput('[web] reset\n');
 });
 
-// ── Fullscreen ───────────────────────────────────────────────────────────────
-document.getElementById('btn-fullscreen').addEventListener('click', function() {
-  var c = document.getElementById('canvas-container');
-  if (c.requestFullscreen)       c.requestFullscreen();
-  else if (c.webkitRequestFullscreen) c.webkitRequestFullscreen();
+document.getElementById('log-toggle').addEventListener('click', function() {
+  var hidden = document.getElementById('output').classList.toggle('hidden');
+  this.textContent = (hidden ? '\u25b6' : '\u25bc') + ' system log';
 });
 
-// ── Keyboard focus ───────────────────────────────────────────────────────────
-// Keep the canvas focused so SDL keyboard events are received.
 document.getElementById('canvas').addEventListener('click', function() {
   this.focus();
 });
-window.addEventListener('load', function() {
-  document.getElementById('canvas').focus();
-});
 </script>
-
-<script src="smemu6.js"></script>
-
 </body>
 </html>

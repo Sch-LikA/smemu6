@@ -258,7 +258,13 @@ void sound_init(struct Smaky6 *m)
     want.freq     = AUDIO_SAMPLE_RATE;
     want.format   = AUDIO_S16SYS;
     want.channels = 1;
+    /* Emscripten SDL2 requires a power-of-two buffer size; 1024 is the
+     * smallest power of two above our 882-sample frame (44100 / 50 Hz). */
+#ifdef __EMSCRIPTEN__
+    want.samples  = 1024;
+#else
     want.samples  = SAMPLES_PER_FRAME;
+#endif
     want.callback = NULL;   /* push mode -- no callback thread */
 
     g_audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &got, 0);

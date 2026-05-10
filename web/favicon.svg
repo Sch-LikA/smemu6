@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background: cream rounded rect with dark border -->
+  <rect x="1" y="1" width="30" height="30" rx="5" ry="5"
+    fill="#CFC6A4" stroke="#2A2520" stroke-width="2"/>
+  <!-- 3-D shadow text -->
+  <text x="17.5" y="23.5"
+    font-family="Impact,'Arial Black',Arial,sans-serif"
+    font-size="19" font-weight="900"
+    text-anchor="middle"
+    fill="#7a6a50">S6</text>
+  <!-- Main text: outline + fill -->
+  <text x="16" y="22"
+    font-family="Impact,'Arial Black',Arial,sans-serif"
+    font-size="19" font-weight="900"
+    text-anchor="middle"
+    fill="#CFC6A4"
+    stroke="#2A2520" stroke-width="3" stroke-linejoin="round"
+    paint-order="stroke fill">S6</text>
+  <!-- Top highlight -->
+  <text x="16" y="22"
+    font-family="Impact,'Arial Black',Arial,sans-serif"
+    font-size="19" font-weight="900"
+    text-anchor="middle"
+    fill="none"
+    stroke="#EEE6D0" stroke-width="1" stroke-linejoin="round"
+    opacity="0.6">S6</text>
+</svg>

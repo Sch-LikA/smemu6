@@ -543,6 +543,13 @@ See [web/README.md](web/README.md) for build and serving instructions.
   styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
 
 ### Remaining work
+- **SDL launcher in browser** — `launcher_run()` is a blocking event loop and
+  cannot run as-is under Emscripten.  To enable it: refactor into
+  `launcher_init()` + `launcher_frame()` (called from `emscripten_set_main_loop`);
+  when the user clicks Start, cancel the launcher loop, apply the `LauncherConfig`,
+  and start the main emulator loop.  `tinyfiledialogs` would be replaced by an
+  HTML `<input type="file">` picker (already guarded).  Remove the
+  `no_launcher = 1` override in `main.c` for Emscripten once done.
 - **Hot-mount** — loading a disk image after the emulator has started currently
   requires a page reload; a `machine_hot_mount()` C export and JS wiring would
   allow live disk swapping without reset.

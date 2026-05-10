@@ -24,18 +24,18 @@
 #define WIN_W  460
 #define WIN_H  464
 
-/* Colours (ARGB) */
-#define COL_BG          0xFF1A1A2E   /* dark navy */
-#define COL_SECTION     0xFF16213E   /* slightly lighter navy for section headers */
-#define COL_ACCENT      0xFF00E700   /* green phosphor */
-#define COL_TEXT        0xFFD0D0D0   /* light grey text */
-#define COL_TEXT_DIM    0xFF808080   /* dimmed text */
-#define COL_BTN_BG      0xFF0F3460   /* button background */
-#define COL_BTN_HOVER   0xFF1A5276   /* button hover */
-#define COL_BTN_START   0xFF006633   /* Start button (green tint) */
-#define COL_BTN_START_H 0xFF009944
-#define COL_BORDER      0xFF2E4070   /* widget border */
-#define COL_DROPDOWN_BG 0xFF0F3460
+/* Colours (ARGB) — Smaky 6 palette: cream body, charcoal keys, green phosphor */
+#define COL_BG          0xFFCFC6A4   /* cream/beige machine body */
+#define COL_SECTION     0xFFC0B898   /* slightly darker beige for section headers */
+#define COL_ACCENT      0xFF2A6020   /* dark forest green — readable on beige */
+#define COL_TEXT        0xFF2A2520   /* dark charcoal text */
+#define COL_TEXT_DIM    0xFF7A7060   /* dimmed warm brown */
+#define COL_BTN_BG      0xFFD8D0B0   /* beige button background */
+#define COL_BTN_HOVER   0xFFEAE0C0   /* lighter beige on hover */
+#define COL_BTN_START   0xFF2A2018   /* dark charcoal Start key */
+#define COL_BTN_START_H 0xFF3A3028   /* slightly lighter on hover */
+#define COL_BORDER      0xFFA8A080   /* warm beige border */
+#define COL_DROPDOWN_BG 0xFFD8D0B0
 #define COL_WHITE       0xFFFFFFFF
 
 #define FONT_W  8
