@@ -355,6 +355,11 @@ including the key code returned and the FOUND flip-flop state.
 Log every write to **port 0x03** (buzzer bit-bang).  Each line shows the
 T-state timestamp and the new bit value, allowing exact frequency measurement.
 
+#### `-trace-win`
+Log every Winchester hard-disk controller command (RESTORE, READ, WRITE) to
+stderr.  Each line shows the drive number, cylinder, head, sector and LBA,
+allowing diagnosis of disk access patterns and CHS mapping issues.
+
 #### `-scrdump`
 After each frame, dump any changed alpha-plane rows to stderr as ASCII text.
 Useful for capturing screen output in headless / CI runs without a screen.

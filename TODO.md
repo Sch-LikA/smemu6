@@ -117,7 +117,7 @@ The status bar (14 logical px `VIDEO_LED_H`, scales with `-scale`) shows per dri
 Each slot auto-detects whether it holds a floppy or a harddisk image:
 
 - **Floppy** (amber LED): `T:nn S:nn` — current track and sector
-- **Harddisk** (orange-red LED): `C:nnn H:n` — last cylinder and head accessed
+- **Harddisk** (orange-red LED): `C:n H:n S:nn` — last cylinder, head and sector accessed
 - **Empty**: LED off, no info text
 
 The label (`DX0:` / `DX1:`) is rendered in green for floppies and cyan for harddisks.

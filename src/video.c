@@ -291,11 +291,12 @@ render_status_bar:
 
         /* Info text */
         if (mounted) {
-            char info[16];
+            char info[20];
             if (is_hd) {
-                snprintf(info, sizeof(info), "H:%u S:%02u",
+                snprintf(info, sizeof(info), "C:%u H:%u S:%02u",
+                         (unsigned)m->win.last_cyl[d],
                          (unsigned)m->win.last_head[d],
-                         (unsigned)m->win.image[d] ? (m->win.sector_num & 0x1Fu) : 0);
+                         (unsigned)(m->win.sector_num & 0x1Fu));
                 SDL_SetRenderDrawColor(ren, 0, 140, 140, 255);
             } else {
                 snprintf(info, sizeof(info), "T:%02d S:%02d",
