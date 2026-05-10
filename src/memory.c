@@ -42,11 +42,20 @@ int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base)
         return -1;
     }
 
-    fseek(f, 0, SEEK_END);
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fprintf(stderr, "memory: fseek failed on '%s'\n", path);
+        fclose(f);
+        return -1;
+    }
     long size = ftell(f);
+    if (size < 0) {
+        fprintf(stderr, "memory: ftell failed on '%s'\n", path);
+        fclose(f);
+        return -1;
+    }
     rewind(f);
 
-    if (base + (uint32_t)size > MEM_TOTAL) {
+    if (size > (long)(MEM_TOTAL - base)) {
         fprintf(stderr, "memory: '%s' (%ld bytes) overflows bus at 0x%04X\n",
                 path, size, base);
         fclose(f);
