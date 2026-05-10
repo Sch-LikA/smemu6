@@ -388,6 +388,7 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
             SDL_Texture *logo_tex = SDL_CreateTextureFromSurface(ren, logo_surf);
             SDL_FreeSurface(logo_surf);
             if (logo_tex) {
+                SDL_SetTextureBlendMode(logo_tex, SDL_BLENDMODE_BLEND);
                 SDL_Rect dst = {
                     (WIN_W - SMAKY6_LOGO_W) / 2, y,
                     SMAKY6_LOGO_W, SMAKY6_LOGO_H
