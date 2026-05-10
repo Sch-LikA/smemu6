@@ -1,0 +1,66 @@
+name: Deploy web build to GitHub Pages
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deployment at a time; cancel in-flight runs on new push.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Emscripten 3.1.6
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.6
+          actions-cache-folder: .emsdk-cache
+
+      - name: Configure (web preset)
+        run: cmake --preset web
+
+      - name: Build
+        run: cmake --build build-web --target smemu6 -j$(nproc)
+
+      - name: Copy web assets into build directory
+        run: |
+          cp web/favicon.ico         build-web/
+          cp web/favicon.svg         build-web/
+          cp web/smaky6-128.png      build-web/
+          cp web/smaky6-16.png       build-web/
+          cp web/smaky6-32.png       build-web/
+          cp web/smaky6-48.png       build-web/
+          cp web/smaky6-256.png      build-web/
+          cp web/smaky6-512.png      build-web/
+          cp web/smaky6-icon-512.png build-web/
+          cp web/smaky6-icon.png     build-web/
+          cp web/smaky6-logo-header.png build-web/
+          cp web/smaky6-logo.svg     build-web/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build-web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
