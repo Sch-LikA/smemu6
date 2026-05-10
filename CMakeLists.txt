@@ -69,7 +69,7 @@ endif()
 
 add_executable(smemu6
     src/main.c
-    src/launcher.c
+    $<$<NOT:$<BOOL:${EMSCRIPTEN}>>:src/launcher.c>
     ${TINYFD_SOURCES}
     src/machine.c
     src/memory.c

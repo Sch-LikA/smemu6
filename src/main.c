@@ -737,6 +737,7 @@ int main(int argc, char *argv[])
 
 
     /* ── Launcher ───────────────────────────────────────────────────────── */
+#ifndef __EMSCRIPTEN__
     if (!no_launcher) {
         /* Build hints from CLI so the launcher pre-populates its controls */
         LauncherHints hints = {
@@ -777,6 +778,7 @@ int main(int argc, char *argv[])
         /* Re-apply beeper setting now that launcher may have changed it */
         sound_set_beeper_enabled(enable_beeper);
     }
+#endif /* __EMSCRIPTEN__ */
 
     SDL_Window *win = SDL_CreateWindow(
         "Smemu6 - Smaky6 Emulator",
