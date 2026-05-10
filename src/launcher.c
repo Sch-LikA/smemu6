@@ -10,7 +10,9 @@
 #include "launcher.h"
 #include "chargen_rom.h"
 #include "icon_data.h"
-#include "logo_data.h"
+#ifndef __EMSCRIPTEN__
+#  include "logo_data.h"
+#endif
 
 #ifndef __EMSCRIPTEN__
 #  include "tinyfiledialogs.h"
@@ -379,6 +381,7 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
 
     /* ── Header: logo image ─────────────────────────────────────────────── */
     int y = 8;
+#ifndef __EMSCRIPTEN__
     {
         SDL_Surface *logo_surf = SDL_CreateRGBSurfaceFrom(
             (void *)smaky6_logo_rgba,
@@ -399,6 +402,7 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
         }
     }
     y += SMAKY6_LOGO_H + 8;
+#endif /* __EMSCRIPTEN__ */
 
     /* ── Storage ─────────────────────────────────────────────────────────── */
     y = draw_section(ren, y, "Storage");
