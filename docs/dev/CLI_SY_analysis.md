@@ -1,6 +1,6 @@
 # CLI.SY — Smaky 6 Command-Line Interface Analysis
 
-Reverse-engineered from `floppies/extracted/1 Systeme_1HComplet/CLI.SY`.
+Reverse-engineered from `private/extracted/1 Systeme_1HComplet/CLI.SY`.
 
 Analysis date: 2026-05-07 (Phase 1S, following full-boot confirmation in Phase 1Q/1R).
 
@@ -18,7 +18,7 @@ commands.
 | RAM load base    | `0x5600`                                       |
 | RAM end          | ~`0x6F1E` (load base + file size − 1)          |
 | Confirmed by     | All 40 command-handler addresses in file range |
-| File location    | `floppies/extracted/1 Systeme_1HComplet/CLI.SY`|
+| File location    | `private/extracted/1 Systeme_1HComplet/CLI.SY`|
 
 ---
 

@@ -264,7 +264,7 @@ Utilisez l'outil Python inclus dans `tools/` :
 
 ```bash
 python3 tools/smaky6_fuse.py ../floppies/sys.dsk --list
-python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out floppies/extracted/
+python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out private/extracted/
 ```
 
 ---

@@ -1,6 +1,6 @@
 # SYS.SY — Smaky 6 System File Analysis
 
-Reverse-engineered from `floppies/decoded/1 System 1H complet avec appli inconnue.img`
+Reverse-engineered from `private/decoded/1 System 1H complet avec appli inconnue.img`
 and extracted to `/tmp/SYS.SY` via `tools/smaky6_samos.py`.
 
 Analysis date: 2026-05 (Phase 1J / Phase 1K / Phase 1S of emulator project).
@@ -13,7 +13,7 @@ Error-code update: 2026-05-07.
 
 ## Error Code Decode (ER.SY)
 
-The extracted image [floppies/extracted/1 Systeme_1HComplet](floppies/extracted/1%20Systeme_1HComplet) includes
+The extracted image [private/extracted/1 Systeme_1HComplet](private/extracted/1%20Systeme_1HComplet) includes
 `ER.SY`, which stores the human-readable error table.
 
 ### Encoding format

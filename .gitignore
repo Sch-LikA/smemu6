@@ -6,12 +6,9 @@ dist/
 tmp/
 *.o
 *.d
-floppies/decoded/
-floppies/extracted/
 __pycache__/
 .venv/
 *.pyc
 smaky6_ram*.bin
-Partageables/
 private/
 tools/linuxdeploy-*.AppImage
