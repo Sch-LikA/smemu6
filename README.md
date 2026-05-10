@@ -33,6 +33,7 @@ Hardware reference: [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md)
 7. [Boot Sequence](#7-boot-sequence)
 8. [Disk Image Formats](#8-disk-image-formats)
 9. [ROM Extraction](#9-rom-extraction)
+10. [Documentation](#10-documentation)
 
 ---
 
@@ -538,6 +539,23 @@ The character generator ROM (`roms/chargen.rom`) is a standard 2716 EPROM
 image (2048 bytes, 16 bytes per glyph, 128 glyphs).  If the file is missing,
 the emulator falls back to a built-in synthetic table that covers the
 printable ASCII range.
+
+---
+
+## 10. Documentation
+
+Additional guides are available in the [`docs/`](docs/) folder:
+
+| Document | Language | Audience |
+|---|---|---|
+| [Emulator Guide](docs/EMULATOR_GUIDE_EN.md) | English | All users — full reference for the emulator CLI, keyboard, disk formats |
+| [Guide de l'émulateur](docs/EMULATOR_GUIDE_FR.md) | French | All users — version française du guide de référence |
+| [Smaky 6 User Guide](docs/SMAKY6_USER_GUIDE_EN.md) | English | Original Smaky 6 user manual |
+| [Guide utilisateur Smaky 6](docs/SMAKY6_USER_GUIDE_FR.md) | French | Manuel utilisateur original du Smaky 6 |
+| [Smaky 6 Funny Guide](docs/SMAKY6_FUNNY_GUIDE_EN.md) | English | Light-hearted introduction to the Smaky 6 |
+| [Guide amusant Smaky 6](docs/SMAKY6_FUNNY_GUIDE_FR.md) | French | Introduction ludique au Smaky 6 |
+| [Smaky 6 for Kids](docs/SMAKY6_KIDS_EN.md) | English | Simplified guide for younger users |
+| [Smaky 6 pour les enfants](docs/SMAKY6_KIDS_FR.md) | French | Guide simplifié pour les plus jeunes |
 
 ---
 
