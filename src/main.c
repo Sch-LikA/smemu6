@@ -211,7 +211,12 @@ static void main_loop_cleanup(void)
     machine_destroy(s_loop->m);
     SDL_DestroyRenderer(s_loop->ren);
     SDL_DestroyWindow(s_loop->win);
-    SDL_Quit();
+    /* Quit video+timer subsystems explicitly.  Do NOT call SDL_Quit() here:
+     * that would attempt to close the audio device on the main thread, which
+     * can block indefinitely on a broken PipeWire/PulseAudio session.
+     * sound_fini() already launched a detached thread for audio close; the
+     * audio subsystem (and that thread) will be reaped when the process exits. */
+    SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 }
 
 static void main_loop_iter(void)
@@ -231,6 +236,7 @@ static void main_loop_iter(void)
     check_timeouts(L);
 
     /* ── Events ─────────────────────────────────────────────────────── */
+    SDL_PumpEvents();   /* answer WM pings (_NET_WM_PING) every iteration */
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -282,12 +288,18 @@ static void main_loop_iter(void)
     L->last_tick   = now;
     L->accum_ms   += elapsed;
 
+    /* Cap accumulator to one frame to prevent catch-up storms that
+     * starve the event loop and make the WM consider the app frozen. */
+    if (L->accum_ms > 40.0)
+        L->accum_ms = 40.0;
+
     /* Enforce watchdog even if no frame is due yet. */
     check_timeouts(L);
 
     /* Run as many 50 Hz frames as the accumulated time allows */
     while (L->accum_ms >= 20.0) {
         if (check_timeouts(L)) break;
+        if (!L->running) break;   /* honour quit requests between frames */
 
         if (!L->freeze_cpu) {
         keyboard_frame_tick(L->m);

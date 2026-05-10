@@ -160,9 +160,9 @@ static int pick_thread(void *data)
 {
     PickCtx *ctx = (PickCtx *)data;
     ctx->result[0] = '\0';
-    static const char *patterns[] = { "*.dsk", "*.DSK" };
+    static const char *patterns[] = { "*.dsk", "*.DSK", "*.img", "*.IMG" };
     const char *p = tinyfd_openFileDialog(
-        "Select disk image", "", 2, patterns, "Disk images", 0);
+        "Select disk image", "", 4, patterns, "Disk images (*.dsk, *.img)", 0);
     if (p) {
         strncpy(ctx->result, p, sizeof(ctx->result) - 1);
         ctx->result[sizeof(ctx->result) - 1] = '\0';

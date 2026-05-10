@@ -269,24 +269,67 @@ void sound_init(struct Smaky6 *m)
 #endif
     want.callback = NULL;   /* push mode -- no callback thread */
 
-    g_audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &got, 0);
+    /* SDL_OpenAudioDevice can transiently fail on PulseAudio/PipeWire if the
+     * server is not yet ready.  Retry up to 5 times with a short delay. */
+    for (int attempt = 0; attempt < 5 && g_audio_dev == 0; attempt++) {
+        if (attempt > 0)
+            SDL_Delay(20);
+        g_audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &got, 0);
+    }
     if (g_audio_dev == 0) {
-        fprintf(stderr, "sound: SDL_OpenAudioDevice: %s\n", SDL_GetError());
+        fprintf(stderr, "[sound] DISABLED: SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
         return;
     }
     SDL_PauseAudioDevice(g_audio_dev, 0);
+
+    /* Smoke-test: queue a silent frame and verify the driver accepted it.
+     * On a broken PipeWire/PulseAudio session the device opens successfully
+     * but silently drops all data (GetQueuedAudioSize stays 0). */
+    {
+        int16_t silence[SAMPLES_PER_FRAME];
+        memset(silence, 0, sizeof(silence));
+        SDL_QueueAudio(g_audio_dev, silence, sizeof(silence));
+        SDL_Delay(2);  /* give the driver a moment to register the queue */
+        Uint32 queued = SDL_GetQueuedAudioSize(g_audio_dev);
+        if (queued == 0) {
+            fprintf(stderr, "[sound] WARNING: audio device opened but queue stays empty "
+                    "-- PipeWire/PulseAudio session may be broken; sound will be silent\n");
+        } else {
+            fprintf(stderr, "[sound] OK: device ready, %u bytes queued (driver: %s)\n",
+                    (unsigned)queued, SDL_GetCurrentAudioDriver());
+            SDL_ClearQueuedAudio(g_audio_dev);  /* discard the test frame */
+        }
+    }
 
     memset(g_frame_buf, 0, sizeof(g_frame_buf));
     g_last_sample = 0;
     g_level       = 0;
 }
 
+/* SDL_CloseAudioDevice can block indefinitely on a broken PipeWire/PulseAudio
+ * session.  Run it in a detached thread so shutdown never hangs.  The process
+ * will exit (and the OS will reap the thread) before the close completes in
+ * the worst case. */
+static int SDLCALL s_audio_close_thread(void *arg)
+{
+    SDL_CloseAudioDevice((SDL_AudioDeviceID)(uintptr_t)arg);
+    return 0;
+}
+
 void sound_fini(struct Smaky6 *m)
 {
     (void)m;
     if (g_audio_dev) {
-        SDL_CloseAudioDevice(g_audio_dev);
+        SDL_AudioDeviceID dev = g_audio_dev;
         g_audio_dev = 0;
+        SDL_PauseAudioDevice(dev, 1);
+        SDL_ClearQueuedAudio(dev);
+        SDL_Thread *t = SDL_CreateThread(s_audio_close_thread, "audio_close",
+                                         (void *)(uintptr_t)dev);
+        if (t)
+            SDL_DetachThread(t);  /* let it finish on its own; never join */
+        else
+            SDL_CloseAudioDevice(dev);  /* thread creation failed: risk the block */
     }
 }
 
