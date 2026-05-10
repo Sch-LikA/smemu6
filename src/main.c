@@ -18,6 +18,10 @@
 #include <errno.h>
 #include <unistd.h>
 
+#ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
+#endif
+
 /* ── Configuration ──────────────────────────────────────────────────────────*/
 /*
  * samos_sys17.rom = Phantom bootloader ROM (2 KB, from SYS17 TMS2716.HEX).
@@ -111,6 +115,391 @@ static void usage(const char *argv0)
         argv0);
 }
 
+/* ── Main-loop context (used to pass state into emscripten_set_main_loop) ───*/
+
+typedef struct {
+    /* Long-lived objects */
+    struct Smaky6 *m;
+    SDL_Window    *win;
+    SDL_Renderer  *ren;
+    const char    *dump_ram_path;
+    /* Config flags (copied from main locals) */
+    int  autoboot;
+    int  break_to_monitor;
+    int  autoboot2_code;
+    int  autoboot3_code;
+    uint8_t inject_codes[128];
+    int  inject_len;
+    int  inject_via_fifo;
+    int  trace;
+    /* Timing */
+    Uint64 last_tick;
+    Uint64 freq;
+    double accum_ms;
+    /* Per-frame state */
+    int    running;
+    int    frame_due;
+    int    frame_cnt;
+    int    stage1_pressed;
+    int    stage1_release_at;
+    int    stage2_pressed;
+    int    stage2_release_at;
+    int    stage3_pressed;
+    int    stage3_release_at;
+    int    inject_idx;
+    Uint64 boot_start_ms;
+    Uint64 global_timeout_ms;
+    Uint64 autoboot_timeout_ms;
+    int    timeout_reported;
+} MainLoopCtx;
+
+static MainLoopCtx *s_loop = NULL;
+
+static void main_loop_cleanup(void)
+{
+    if (!s_loop) return;
+    if (s_loop->dump_ram_path) {
+        FILE *f = fopen(s_loop->dump_ram_path, "wb");
+        if (!f) {
+            fprintf(stderr, "[dump] fopen(%s): %s\n",
+                    s_loop->dump_ram_path, strerror(errno));
+        } else {
+            if (fwrite(s_loop->m->bus, 1, 65536, f) != 65536)
+                fprintf(stderr, "[dump] short write to %s\n",
+                        s_loop->dump_ram_path);
+            else
+                fprintf(stderr, "[dump] RAM written to %s  (PC=%04X)\n",
+                        s_loop->dump_ram_path,
+                        (unsigned)machine_get_pc(s_loop->m));
+            fclose(f);
+        }
+    }
+    machine_destroy(s_loop->m);
+    SDL_DestroyRenderer(s_loop->ren);
+    SDL_DestroyWindow(s_loop->win);
+    SDL_Quit();
+}
+
+static void main_loop_iter(void)
+{
+    MainLoopCtx *L = s_loop;
+
+    if (g_terminate_requested) {
+        fprintf(stderr, "[main] termination signal received; exiting cleanly\n");
+        L->running = 0;
+    }
+
+    if (g_dump_ram_requested) {
+        g_dump_ram_requested = 0;
+        do_ram_dump(L->m);
+    }
+    if (L->global_timeout_ms > 0 && !L->timeout_reported) {
+        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+        if (elapsed_ms >= L->global_timeout_ms) {
+            fprintf(stderr,
+                    "[main] global timeout after %u.%03u s; exiting cleanly\n",
+                    (unsigned)(elapsed_ms / 1000ULL),
+                    (unsigned)(elapsed_ms % 1000ULL));
+            L->timeout_reported = 1;
+            L->running = 0;
+        }
+    }
+
+    /* ── Events ─────────────────────────────────────────────────────── */
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev)) {
+        switch (ev.type) {
+        case SDL_QUIT:
+            L->running = 0;
+            break;
+
+        case SDL_WINDOWEVENT:
+            if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
+                L->running = 0;
+            break;
+
+        case SDL_KEYDOWN:
+            if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
+                debug_toggle(L->m);
+            } else if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE ||
+                       ev.key.keysym.scancode == SDL_SCANCODE_F11) {
+                if (ev.key.keysym.mod & KMOD_SHIFT)
+                    machine_reset(L->m);   /* SHIFT+BREAK → hard reset */
+                else
+                    machine_nmi(L->m);     /* BREAK alone → NMI / monitor */
+            } else if (ev.key.keysym.scancode == SDL_SCANCODE_Q &&
+                       (ev.key.keysym.mod & KMOD_CTRL)) {
+                L->running = 0;
+            } else if (ev.key.keysym.scancode == SDL_SCANCODE_D &&
+                       (ev.key.keysym.mod & KMOD_CTRL)) {
+                do_ram_dump(L->m);
+            } else {
+                keyboard_event(L->m, &ev.key);
+            }
+            break;
+
+        case SDL_KEYUP:
+            keyboard_event(L->m, &ev.key);
+            break;
+
+        case SDL_TEXTINPUT:
+            keyboard_text_event(L->m, &ev.text);
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    /* ── Timing ─────────────────────────────────────────────────────── */
+    Uint64 now     = SDL_GetPerformanceCounter();
+    double elapsed = (double)(now - L->last_tick) * 1000.0 / (double)L->freq;
+    L->last_tick   = now;
+    L->accum_ms   += elapsed;
+
+    /* Enforce watchdog even if no frame is due yet. */
+    if (L->autoboot_timeout_ms > 0 && !L->timeout_reported) {
+        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+        if (elapsed_ms >= L->autoboot_timeout_ms) {
+            fprintf(stderr,
+                    "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
+                    (unsigned)(elapsed_ms / 1000ULL),
+                    (unsigned)(elapsed_ms % 1000ULL));
+            L->timeout_reported = 1;
+            L->running = 0;
+        }
+    }
+
+    if (L->global_timeout_ms > 0 && !L->timeout_reported) {
+        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+        if (elapsed_ms >= L->global_timeout_ms) {
+            fprintf(stderr,
+                    "[main] global timeout after %u.%03u s; exiting cleanly\n",
+                    (unsigned)(elapsed_ms / 1000ULL),
+                    (unsigned)(elapsed_ms % 1000ULL));
+            L->timeout_reported = 1;
+            L->running = 0;
+        }
+    }
+
+    /* Run as many 50 Hz frames as the accumulated time allows */
+    while (L->accum_ms >= 20.0) {
+        if (L->autoboot_timeout_ms > 0 && !L->timeout_reported) {
+            Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+            if (elapsed_ms >= L->autoboot_timeout_ms) {
+                fprintf(stderr,
+                        "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
+                        (unsigned)(elapsed_ms / 1000ULL),
+                        (unsigned)(elapsed_ms % 1000ULL));
+                L->timeout_reported = 1;
+                L->running = 0;
+                break;
+            }
+        }
+
+        if (L->global_timeout_ms > 0 && !L->timeout_reported) {
+            Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+            if (elapsed_ms >= L->global_timeout_ms) {
+                fprintf(stderr,
+                        "[main] global timeout after %u.%03u s; exiting cleanly\n",
+                        (unsigned)(elapsed_ms / 1000ULL),
+                        (unsigned)(elapsed_ms % 1000ULL));
+                L->timeout_reported = 1;
+                L->running = 0;
+                break;
+            }
+        }
+
+        keyboard_frame_tick(L->m);
+        machine_int(L->m);
+        machine_run_frame(L->m);
+        if (L->m->dbg.trace_kbd) {
+            uint16_t ptr = (uint16_t)L->m->bus[0x457Cu] | ((uint16_t)L->m->bus[0x457Du] << 8);
+            if (ptr != 0x4596u) {
+                fprintf(stderr, "[frame] end: circ ptr=0x%04X [ptr]=0x%02X"
+                        "  fifo head=%d tail=%d\n",
+                        ptr, (unsigned)L->m->bus[ptr],
+                        L->m->kbd.fifo_head, L->m->kbd.fifo_tail);
+            }
+        }
+        if (L->m->cpu_stalled) {
+            fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
+#ifndef __EMSCRIPTEN__
+            L->running = 0;
+            break;
+#else
+            /* In the browser keep the loop alive so the user can mount a
+             * floppy and click Reset without the main loop being dead. */
+            L->running = 0;   /* triggers cancel below; smemu6_reset restarts */
+            break;
+#endif
+        }
+        L->accum_ms -= 20.0;
+        L->frame_due = 1;
+        L->frame_cnt++;
+
+        if (L->break_to_monitor && !L->stage1_pressed && L->frame_cnt == 100) {
+            machine_inject_shift_break(L->m);
+            L->stage1_pressed = 1;
+            L->stage1_release_at = L->frame_cnt + 1;
+            if (L->trace)
+                fprintf(stderr,
+                        "[autoboot] injected SHIFT+BREAK at frame %d (monitor entry)\n",
+                        L->frame_cnt);
+        }
+
+        if (L->autoboot && !L->stage1_pressed && L->frame_cnt == 150) {
+            machine_inject_key(L->m, 0x00);
+            L->stage1_pressed = 1;
+            L->stage1_release_at = L->frame_cnt + 1;
+            if (L->trace)
+                fprintf(stderr, "[autoboot] injected Enter key at frame %d\n",
+                        L->frame_cnt);
+        }
+
+        if (L->autoboot && L->stage1_release_at == L->frame_cnt)
+            machine_release_key(L->m);
+
+        if (L->break_to_monitor && L->stage1_release_at == L->frame_cnt)
+            machine_release_key(L->m);
+
+        if (L->autoboot && !L->stage2_pressed && machine_in_posthandoff_keywait(L->m)) {
+            machine_inject_key(L->m, (uint8_t)L->autoboot2_code);
+            L->stage2_pressed = 1;
+            L->stage2_release_at = L->frame_cnt + 1;
+            if (L->trace)
+                fprintf(stderr,
+                        "[autoboot] injected stage2 key 0x%02X at frame %d (pc=%04X)\n",
+                        (unsigned)L->autoboot2_code, L->frame_cnt,
+                        machine_get_pc(L->m));
+        }
+
+        if (L->autoboot && L->stage2_release_at == L->frame_cnt)
+            machine_release_key(L->m);
+
+        if (L->autoboot && L->autoboot3_code >= 0 && L->stage2_pressed &&
+            !L->stage3_pressed && L->frame_cnt >= 360) {
+            machine_inject_key(L->m, (uint8_t)L->autoboot3_code);
+            L->stage3_pressed = 1;
+            L->stage3_release_at = L->frame_cnt + 5;
+            if (L->trace)
+                fprintf(stderr,
+                        "[autoboot] injected stage3 key 0x%02X at frame %d\n",
+                        (unsigned)L->autoboot3_code, L->frame_cnt);
+        }
+
+        if (L->autoboot && L->stage3_release_at == L->frame_cnt)
+            machine_release_key(L->m);
+
+        if (L->inject_len > 0 && L->inject_idx == 0 &&
+            L->stage2_pressed && machine_cli_prompt_visible(L->m)) {
+            if (L->trace)
+                fprintf(stderr,
+                        "[inject] CLI prompt detected at frame %d; "
+                        "writing %d char(s) via %s\n",
+                        L->frame_cnt, L->inject_len,
+                        L->inject_via_fifo ? "FIFO" : "circular buffer");
+            if (!L->inject_via_fifo) {
+                for (int _i = 0; _i < L->inject_len; _i++) {
+                    uint8_t kc = L->inject_codes[_i];
+                    machine_inject_to_circ_buf(L->m, kc);
+                    if (L->trace)
+                        fprintf(stderr,
+                                "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
+                                (unsigned)kc,
+                                (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
+                                _i + 1, L->inject_len);
+                }
+                L->inject_idx = L->inject_len;
+            } else {
+                L->inject_idx = 1;
+            }
+        }
+        if (L->inject_via_fifo && L->inject_idx > 0 &&
+            L->inject_idx <= L->inject_len) {
+            uint8_t kc = L->inject_codes[L->inject_idx - 1];
+            int next = (L->m->kbd.fifo_tail + 1) & 63;
+            if (next != L->m->kbd.fifo_head) {
+                L->m->kbd.fifo[L->m->kbd.fifo_tail] = kc;
+                L->m->kbd.fifo_tail = next;
+                if (L->trace)
+                    fprintf(stderr,
+                            "[inject-fifo] FIFO <- 0x%02X ('%c') "
+                            "(char %d/%d)\n",
+                            (unsigned)kc,
+                            (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
+                            L->inject_idx, L->inject_len);
+            }
+            L->inject_idx++;
+        }
+    }
+
+    /* ── Render ─────────────────────────────────────────────────────── */
+    if (L->frame_due) {
+        video_render(L->m);
+        L->frame_due = 0;
+#ifndef __EMSCRIPTEN__
+        SDL_Delay(1);
+#endif
+    } else {
+#ifndef __EMSCRIPTEN__
+        SDL_Delay(1);
+#endif
+    }
+
+#ifdef __EMSCRIPTEN__
+    if (!L->running)
+        emscripten_cancel_main_loop();
+#endif
+}
+
+/* ── Emscripten JS-callable exports ─────────────────────────────────────────*/
+#ifdef __EMSCRIPTEN__
+
+/* Called from JS to reset the machine (without reloading the page). */
+EMSCRIPTEN_KEEPALIVE
+void smemu6_reset(void)
+{
+    if (!s_loop || !s_loop->m) return;
+    machine_reset(s_loop->m);
+    /* Reset autoboot state so key injection fires again after frame 150 */
+    s_loop->frame_cnt          = 0;
+    s_loop->stage1_pressed     = 0;
+    s_loop->stage1_release_at  = -1;
+    s_loop->stage2_pressed     = 0;
+    s_loop->stage2_release_at  = -1;
+    s_loop->stage3_pressed     = 0;
+    s_loop->stage3_release_at  = -1;
+    s_loop->inject_idx         = 0;
+    s_loop->timeout_reported   = 0;
+    s_loop->boot_start_ms      = SDL_GetTicks64();
+    s_loop->running            = 1;
+    /* Cancel any existing main loop before setting a new one — Emscripten
+     * aborts if emscripten_set_main_loop is called while one is active. */
+    emscripten_cancel_main_loop();
+    emscripten_set_main_loop(main_loop_iter, 0, 0);
+}
+
+/* Called from JS after writing a .dsk file into the virtual FS. */
+EMSCRIPTEN_KEEPALIVE
+void smemu6_mount_dx0(const char *path)
+{
+    if (s_loop && s_loop->m)
+        floppy_mount(s_loop->m, 0, path);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void smemu6_mount_dx1(const char *path)
+{
+    if (s_loop && s_loop->m)
+        floppy_mount(s_loop->m, 1, path);
+}
+
+#endif /* __EMSCRIPTEN__ */
+
+#ifdef __EMSCRIPTEN__
+EMSCRIPTEN_KEEPALIVE
+#endif
 int main(int argc, char *argv[])
 {
     const char *disk_path  = NULL;
@@ -310,10 +699,23 @@ int main(int argc, char *argv[])
         global_timeout_sec = trace ? 45 : 0;
     }
 
+#ifdef __EMSCRIPTEN__
+    /* Emscripten: always skip the launcher (it uses blocking threads and
+     * tinyfiledialogs which don't work in the browser).  The web shell
+     * provides equivalent controls via HTML. */
+    no_launcher = 1;
+#endif
+
+#ifndef __EMSCRIPTEN__
     signal(SIGINT,  handle_terminate_signal);
     signal(SIGTERM, handle_terminate_signal);
     signal(SIGUSR1, handle_dump_signal);
-    fprintf(stderr, "[main] PID %d — send SIGUSR1 to dump RAM\n", (int)getpid());
+    fprintf(stderr, "[main] PID %d \xe2\x80\x94 send SIGUSR1 to dump RAM\n", (int)getpid());
+#else
+    (void)handle_terminate_signal;
+    (void)handle_dump_signal;
+    (void)main_loop_cleanup;
+#endif
 
     sound_set_beeper_enabled(enable_beeper);
     sound_set_drive_sound_enabled(enable_drive_sound);
@@ -327,6 +729,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
+
 
     /* ── Launcher ───────────────────────────────────────────────────────── */
     if (!no_launcher) {
@@ -478,331 +881,56 @@ int main(int argc, char *argv[])
      */
 
     /* Simpler approach: track elapsed time manually */
-    Uint64 last_tick  = SDL_GetPerformanceCounter();
-    Uint64 freq       = SDL_GetPerformanceFrequency();
-    double accum_ms   = 0.0;
+    static MainLoopCtx ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.m                  = m;
+    ctx.win                = win;
+    ctx.ren                = ren;
+    ctx.dump_ram_path      = dump_ram_path;
+    ctx.autoboot           = autoboot;
+    ctx.break_to_monitor   = break_to_monitor;
+    ctx.autoboot2_code     = autoboot2_code;
+    ctx.autoboot3_code     = autoboot3_code;
+    memcpy(ctx.inject_codes, inject_codes, sizeof(inject_codes));
+    ctx.inject_len         = inject_len;
+    ctx.inject_via_fifo    = inject_via_fifo;
+    ctx.trace              = trace;
+    ctx.last_tick          = SDL_GetPerformanceCounter();
+    ctx.freq               = SDL_GetPerformanceFrequency();
+    ctx.accum_ms           = 0.0;
+    ctx.running            = 1;
+    ctx.frame_due          = 0;
+    ctx.frame_cnt          = 0;
+    ctx.stage1_pressed     = 0;
+    ctx.stage1_release_at  = -1;
+    ctx.stage2_pressed     = 0;
+    ctx.stage2_release_at  = -1;
+    ctx.stage3_pressed     = 0;
+    ctx.stage3_release_at  = -1;
+    ctx.inject_idx         = 0;
+    ctx.boot_start_ms      = SDL_GetTicks64();
+    ctx.global_timeout_ms  = (Uint64)global_timeout_sec * 1000ULL;
+    ctx.autoboot_timeout_ms = 0;
+    ctx.timeout_reported   = 0;
 
-    int running    = 1;
-    int frame_due  = 0;
-    int frame_cnt  = 0;  /* counts 50Hz frames since reset; used for auto-boot */
-    int stage1_pressed = 0;
-    int stage1_release_at = -1;
-    int stage2_pressed = 0;
-    int stage2_release_at = -1;
-    int stage3_pressed = 0;
-    int stage3_release_at = -1;
-    /* String injection state */
-    int inject_idx          = 0;   /* next char index to inject */
-    Uint64 boot_start_ms = SDL_GetTicks64();
-    Uint64 global_timeout_ms = (Uint64)global_timeout_sec * 1000ULL;
-    Uint64 autoboot_timeout_ms = 0;
-    int timeout_reported = 0;
+    if (autoboot && autoboot_timeout_sec > 0)
+        ctx.autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
+    if (break_to_monitor && autoboot_timeout_sec > 0)
+        ctx.autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
 
-    if (autoboot) {
-        if (autoboot_timeout_sec > 0)
-            autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
-        /* no default timeout — use -autoboot-timeout N to set one */
-    }
+    s_loop = &ctx;
 
-    if (break_to_monitor) {
-        if (autoboot_timeout_sec > 0)
-            autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
-        /* no default timeout — use -autoboot-timeout N to set one */
-    }
-
-    while (running) {
-        if (g_terminate_requested) {
-            fprintf(stderr, "[main] termination signal received; exiting cleanly\n");
-            running = 0;
-        }
-
-        if (g_dump_ram_requested) {
-            g_dump_ram_requested = 0;
-            do_ram_dump(m);
-        }
-        if (global_timeout_ms > 0 && !timeout_reported) {
-            Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
-            if (elapsed_ms >= global_timeout_ms) {
-                fprintf(stderr,
-                        "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                        (unsigned)(elapsed_ms / 1000ULL),
-                        (unsigned)(elapsed_ms % 1000ULL));
-                timeout_reported = 1;
-                running = 0;
-            }
-        }
-
-        /* ── Events ─────────────────────────────────────────────────────── */
-        SDL_Event ev;
-        while (SDL_PollEvent(&ev)) {
-            switch (ev.type) {
-            case SDL_QUIT:
-                running = 0;
-                break;
-
-            case SDL_WINDOWEVENT:
-                if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
-                    running = 0;
-                break;
-
-            case SDL_KEYDOWN:
-                if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
-                    debug_toggle(m);
-                } else if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE ||
-                           ev.key.keysym.scancode == SDL_SCANCODE_F11) {
-                    if (ev.key.keysym.mod & KMOD_SHIFT)
-                        machine_reset(m);   /* SHIFT+BREAK → hard reset */
-                    else
-                        machine_nmi(m);     /* BREAK alone → NMI / monitor */
-                } else if (ev.key.keysym.scancode == SDL_SCANCODE_Q &&
-                           (ev.key.keysym.mod & KMOD_CTRL)) {
-                    /* Ctrl+Q: quit the emulator */
-                    running = 0;
-                } else if (ev.key.keysym.scancode == SDL_SCANCODE_D &&
-                           (ev.key.keysym.mod & KMOD_CTRL)) {
-                    /* Ctrl+D: dump full 64 KB RAM to file */
-                    do_ram_dump(m);
-                } else {
-                    keyboard_event(m, &ev.key);
-                }
-                break;
-
-            case SDL_KEYUP:
-                keyboard_event(m, &ev.key);
-                break;
-
-            case SDL_TEXTINPUT:
-                keyboard_text_event(m, &ev.text);
-                break;
-
-            default:
-                break;
-            }
-        }
-
-        /* ── Timing ─────────────────────────────────────────────────────── */
-        Uint64 now      = SDL_GetPerformanceCounter();
-        double elapsed  = (double)(now - last_tick) * 1000.0 / (double)freq;
-        last_tick       = now;
-        accum_ms       += elapsed;
-
-        /* Enforce watchdog even if no frame is due yet. */
-        if (autoboot_timeout_ms > 0 && !timeout_reported) {
-            Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
-            if (elapsed_ms >= autoboot_timeout_ms) {
-                fprintf(stderr,
-                        "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
-                        (unsigned)(elapsed_ms / 1000ULL),
-                        (unsigned)(elapsed_ms % 1000ULL));
-                timeout_reported = 1;
-                running = 0;
-            }
-        }
-
-        if (global_timeout_ms > 0 && !timeout_reported) {
-            Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
-            if (elapsed_ms >= global_timeout_ms) {
-                fprintf(stderr,
-                        "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                        (unsigned)(elapsed_ms / 1000ULL),
-                        (unsigned)(elapsed_ms % 1000ULL));
-                timeout_reported = 1;
-                running = 0;
-            }
-        }
-
-        /* Run as many 50 Hz frames as the accumulated time allows */
-        while (accum_ms >= 20.0) {
-            if (autoboot_timeout_ms > 0 && !timeout_reported) {
-                Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
-                if (elapsed_ms >= autoboot_timeout_ms) {
-                    fprintf(stderr,
-                            "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
-                            (unsigned)(elapsed_ms / 1000ULL),
-                            (unsigned)(elapsed_ms % 1000ULL));
-                    timeout_reported = 1;
-                    running = 0;
-                    break;
-                }
-            }
-
-            if (global_timeout_ms > 0 && !timeout_reported) {
-                Uint64 elapsed_ms = SDL_GetTicks64() - boot_start_ms;
-                if (elapsed_ms >= global_timeout_ms) {
-                    fprintf(stderr,
-                            "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                            (unsigned)(elapsed_ms / 1000ULL),
-                            (unsigned)(elapsed_ms % 1000ULL));
-                    timeout_reported = 1;
-                    running = 0;
-                    break;
-                }
-            }
-
-            keyboard_frame_tick(m);  /* drain FIFO into SAMOS buffer before Z80 runs */
-            machine_int(m);   /* assert 50 Hz display interrupt */
-            machine_run_frame(m);
-            /* After the frame: if tracing, log the circ-buf ptr so we can see
-             * whether SAMOS consumed any keys during this frame. */
-            if (m->dbg.trace_kbd) {
-                uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-                if (ptr != 0x4596u) {
-                    fprintf(stderr, "[frame] end: circ ptr=0x%04X [ptr]=0x%02X"
-                            "  fifo head=%d tail=%d\n",
-                            ptr, (unsigned)m->bus[ptr],
-                            m->kbd.fifo_head, m->kbd.fifo_tail);
-                }
-            }
-            if (m->cpu_stalled) {
-                fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
-                running = 0;
-                break;
-            }
-            accum_ms -= 20.0;
-            frame_due = 1;
-            frame_cnt++;
-
-            /* Monitor-mode entry: inject SHIFT+BREAK early (at 2 s / 100 frames)
-             * to trigger "ROM de chargement" banner and allow typing MON to enter SYSMON. */
-            if (break_to_monitor && !stage1_pressed && frame_cnt == 100) {
-                machine_inject_shift_break(m);
-                stage1_pressed = 1;
-                stage1_release_at = frame_cnt + 1;
-                if (trace)
-                    fprintf(stderr, "[autoboot] injected SHIFT+BREAK at frame %d (monitor entry)\n",
-                            frame_cnt);
-            }
-
-            /* Auto-boot stage 1: after 3 s (150 frames), inject Return (code 0)
-             * to select floppy boot from the boot-key menu if no key was pressed. */
-            if (autoboot && !stage1_pressed && frame_cnt == 150) {
-                machine_inject_key(m, 0x00); /* Return → floppy boot */
-                stage1_pressed = 1;
-                stage1_release_at = frame_cnt + 1;
-                if (trace)
-                    fprintf(stderr, "[autoboot] injected Enter key at frame %d\n",
-                            frame_cnt);
-            }
-
-            if (autoboot && stage1_release_at == frame_cnt) {
-                machine_release_key(m);
-            }
-
-            if (break_to_monitor && stage1_release_at == frame_cnt) {
-                machine_release_key(m);
-            }
-
-            /* Auto-boot stage 2: trigger when RAM monitor actually reaches
-             * its post-handoff key-wait loop, not at a fixed frame. */
-            if (autoboot && !stage2_pressed && machine_in_posthandoff_keywait(m)) {
-                machine_inject_key(m, (uint8_t)autoboot2_code);
-                stage2_pressed = 1;
-                stage2_release_at = frame_cnt + 1;
-                if (trace)
-                    fprintf(stderr,
-                            "[autoboot] injected stage2 key 0x%02X at frame %d (pc=%04X)\n",
-                            (unsigned)autoboot2_code, frame_cnt, machine_get_pc(m));
-            }
-
-            if (autoboot && stage2_release_at == frame_cnt) {
-                machine_release_key(m);
-            }
-
-            /* Auto-boot stage 3: many images appear to require an additional
-             * key acknowledge shortly after the SAMOS banner is shown. */
-            if (autoboot && autoboot3_code >= 0 && stage2_pressed && !stage3_pressed && frame_cnt >= 360) {
-                machine_inject_key(m, (uint8_t)autoboot3_code);
-                stage3_pressed = 1;
-                stage3_release_at = frame_cnt + 5; /* hold 5 frames so Stage 2 sees it */
-                if (trace)
-                    fprintf(stderr,
-                            "[autoboot] injected stage3 key 0x%02X at frame %d\n",
-                            (unsigned)autoboot3_code, frame_cnt);
-            }
-
-            if (autoboot && stage3_release_at == frame_cnt) {
-                machine_release_key(m);
-            }
-
-            /* ── CLI prompt detection: write all chars directly into the
-             *    circular buffer when "* -" appears, bypassing the ISR
-             *    pipeline (Stage 2 requires (0x4582)!=0x80, which is false
-             *    after a normal boot with no physical keys). ──
-             * With -inject-via-fifo: push chars through the software FIFO
-             * instead, which is the same path as physical keypresses, to
-             * verify the keyboard_frame_tick → circ_buf delivery chain. */
-            if (inject_len > 0 && inject_idx == 0 &&
-                stage2_pressed && machine_cli_prompt_visible(m)) {
-                if (trace)
-                    fprintf(stderr,
-                            "[inject] CLI prompt detected at frame %d; "
-                            "writing %d char(s) via %s\n",
-                            frame_cnt, inject_len,
-                            inject_via_fifo ? "FIFO" : "circular buffer");
-                if (!inject_via_fifo) {
-                    for (int _i = 0; _i < inject_len; _i++) {
-                        uint8_t kc = inject_codes[_i];
-                        machine_inject_to_circ_buf(m, kc);
-                        if (trace)
-                            fprintf(stderr,
-                                    "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
-                                    (unsigned)kc,
-                                    (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
-                                    _i + 1, inject_len);
-                    }
-                    inject_idx = inject_len; /* mark done */
-                } else {
-                    inject_idx = 1; /* mark that injection has started */
-                }
-            }
-            /* -inject-via-fifo: push one char per frame through the FIFO,
-             * mimicking real keyboard_event() calls so keyboard_frame_tick()
-             * drains them to the circ buf — same delivery path as physical keys. */
-            if (inject_via_fifo && inject_idx > 0 && inject_idx <= inject_len) {
-                uint8_t kc = inject_codes[inject_idx - 1];
-                int next = (m->kbd.fifo_tail + 1) & 63;
-                if (next != m->kbd.fifo_head) {
-                    m->kbd.fifo[m->kbd.fifo_tail] = kc;
-                    m->kbd.fifo_tail = next;
-                    if (trace)
-                        fprintf(stderr,
-                                "[inject-fifo] FIFO <- 0x%02X ('%c') "
-                                "(char %d/%d)\n",
-                                (unsigned)kc,
-                                (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
-                                inject_idx, inject_len);
-                }
-                inject_idx++;  /* advance; stops when inject_idx > inject_len */
-            }
-        }
-
-        /* ── Render ─────────────────────────────────────────────────────── */
-        if (frame_due) {
-            video_render(m);
-            frame_due = 0;
-            SDL_Delay(1);  /* yield to OS after render; prevents busy-spin without VSync */
-        } else {
-            SDL_Delay(1);  /* avoid busy-spin */
-        }
-    }
+#ifdef __EMSCRIPTEN__
+    fprintf(stderr, "Smemu6 WEB starting ... (floppy: %s)\n",
+            disk_path ? disk_path : "none");
+    emscripten_set_main_loop(main_loop_iter, 0, 1);
+    /* Never reached with simulate_infinite_loop=1 */
+#else
+    while (ctx.running)
+        main_loop_iter();
 
     /* ── Cleanup ────────────────────────────────────────────────────────── */
-    if (dump_ram_path) {
-        FILE *f = fopen(dump_ram_path, "wb");
-        if (!f) {
-            fprintf(stderr, "[dump] fopen(%s): %s\n", dump_ram_path, strerror(errno));
-        } else {
-            if (fwrite(m->bus, 1, 65536, f) != 65536)
-                fprintf(stderr, "[dump] short write to %s\n", dump_ram_path);
-            else
-                fprintf(stderr, "[dump] RAM written to %s  (PC=%04X)\n",
-                        dump_ram_path, (unsigned)machine_get_pc(m));
-            fclose(f);
-        }
-    }
-    machine_destroy(m);
-    SDL_DestroyRenderer(ren);
-    SDL_DestroyWindow(win);
-    SDL_Quit();
+    main_loop_cleanup();
+#endif
     return 0;
 }

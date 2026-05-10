@@ -3,10 +3,18 @@ project(smemu6 C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
+# EM_ASM requires GNU extensions; enable them for Emscripten builds.
+if(EMSCRIPTEN)
+    set(CMAKE_C_EXTENSIONS ON)
+else()
+    set(CMAKE_C_EXTENSIONS OFF)
+endif()
 
 # ── SDL2 ─────────────────────────────────────────────────────────────────────
-find_package(SDL2 REQUIRED)
+# Emscripten provides SDL2 as a built-in port; skip find_package for web builds.
+if(NOT EMSCRIPTEN)
+    find_package(SDL2 REQUIRED)
+endif()
 
 # ── redcode/Zeta (header-only; required by redcode/Z80) ───────────────────────
 include(FetchContent)
@@ -16,6 +24,11 @@ FetchContent_Declare(
     GIT_TAG        master
 )
 FetchContent_MakeAvailable(Zeta)
+
+# Tell Z80's FindZeta.cmake where the headers are.
+# Under Emscripten (and other cross-compile targets), find_path() won't search
+# FetchContent paths automatically, so we set the cache variable explicitly.
+set(Zeta_INCLUDE_DIR "${Zeta_SOURCE_DIR}/API" CACHE PATH "Zeta API include dir" FORCE)
 
 # ── redcode/Z80 (CPU core) ────────────────────────────────────────────────────
 include(FetchContent)
@@ -32,6 +45,8 @@ set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Z80)
 
 # ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
+# Not used for Emscripten builds (no native dialog API in the browser).
+if(NOT EMSCRIPTEN)
 FetchContent_Declare(
     tinyfiledialogs
     GIT_REPOSITORY https://git.code.sf.net/p/tinyfiledialogs/code
@@ -41,12 +56,21 @@ FetchContent_GetProperties(tinyfiledialogs)
 if(NOT tinyfiledialogs_POPULATED)
     FetchContent_Populate(tinyfiledialogs)
 endif()
+endif() # NOT EMSCRIPTEN
 
 # ── Sources ───────────────────────────────────────────────────────────────────
+if(EMSCRIPTEN)
+set(TINYFD_SOURCES "")
+set(TINYFD_INCLUDE "")
+else()
+set(TINYFD_SOURCES ${tinyfiledialogs_SOURCE_DIR}/tinyfiledialogs.c)
+set(TINYFD_INCLUDE ${tinyfiledialogs_SOURCE_DIR})
+endif()
+
 add_executable(smemu6
     src/main.c
     src/launcher.c
-    ${tinyfiledialogs_SOURCE_DIR}/tinyfiledialogs.c
+    ${TINYFD_SOURCES}
     src/machine.c
     src/memory.c
     src/video.c
@@ -60,13 +84,45 @@ add_executable(smemu6
     src/winchester.c
 )
 
-target_include_directories(smemu6 PRIVATE src ${tinyfiledialogs_SOURCE_DIR})
+target_include_directories(smemu6 PRIVATE src ${TINYFD_INCLUDE})
 
-target_link_libraries(smemu6 PRIVATE
-    SDL2::SDL2
-    Z80
-    m
-)
+if(EMSCRIPTEN)
+    # Emscripten provides SDL2 as a built-in port.
+    # We embed the ROMs into the virtual FS.
+    # Output .js (not .html) to avoid Emscripten 3.1.6 htmlmin bug;
+    # web/index.html loads the generated smemu6.js directly.
+    set_target_properties(smemu6 PROPERTIES SUFFIX ".js")
+
+    target_compile_options(smemu6 PRIVATE -s USE_SDL=2)
+
+    # Build link flags as a string (target_link_options mis-parses -s KEY=VAL)
+    set(EM_LINK_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,FS] -s EXPORTED_FUNCTIONS=[_main,_smemu6_reset,_smemu6_mount_dx0,_smemu6_mount_dx1] -s MODULARIZE=0 -s FORCE_FILESYSTEM=1")
+    # Only preload the Phantom boot ROM; chargen is built into the emulator.
+    foreach(_rom samos_sys17.rom)
+        if(EXISTS "${CMAKE_SOURCE_DIR}/roms/${_rom}")
+            string(APPEND EM_LINK_FLAGS " --preload-file \"${CMAKE_SOURCE_DIR}/roms/${_rom}@/roms/${_rom}\"")
+        endif()
+    endforeach()
+    # Floppies and hard-disk images are NOT preloaded; the user uploads them
+    # via the browser UI and they are written into the virtual FS at runtime.
+    set_target_properties(smemu6 PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS}")
+
+    # Copy web/index.html into the build directory after linking.
+    add_custom_command(TARGET smemu6 POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/index.html"
+            "${CMAKE_BINARY_DIR}/index.html"
+        COMMENT "Copying web/index.html to build directory"
+    )
+
+    target_link_libraries(smemu6 PRIVATE Z80 m)
+else()
+    target_link_libraries(smemu6 PRIVATE
+        SDL2::SDL2
+        Z80
+        m
+    )
+endif()
 
 # ── Compiler warnings ─────────────────────────────────────────────────────────
 if(MSVC)

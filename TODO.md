@@ -519,52 +519,35 @@ This gives sample-accurate buzzer reproduction: a software loop toggling port
 
 ---
 
-## Web / Emscripten
+## ~~Web / Emscripten~~ ✅ Done
 
-Provide a browser-playable build of the emulator via Emscripten.
+Browser-playable build of the emulator via Emscripten/WebAssembly.
+See [web/README.md](web/README.md) for build and serving instructions.
 
-### What already works
-- **SDL2** — Emscripten ships it as a built-in port (`-s USE_SDL=2`); no source changes needed.
+### What works
+- **SDL2** — Emscripten built-in port (`-s USE_SDL=2`); no source changes needed.
 - **Z80 / Zeta** — pure C, no platform deps; compiles as-is.
+- **`tinyfiledialogs` guarded** — `#ifdef __EMSCRIPTEN__` skips the native dialog;
+  replaced by JS `<input type="file">` + `FileReader` callback into the virtual FS.
+  `EMSCRIPTEN_KEEPALIVE` C functions `smemu6_pick_done()` / `smemu6_pick_cancel()`
+  receive the result from JS.  No SDL thread needed on the web.
+- **Main loop** — extracted into `main_loop_iter()` with a `MainLoopCtx` struct;
+  `emscripten_set_main_loop(main_loop_iter, 0, 1)` replaces `while (running)`.
+- **Launcher skipped** — `-no-launcher` is forced on Emscripten; the HTML shell
+  provides equivalent controls.
+- **ROM preloading** — `--preload-file roms@/roms` (and optionally `floppies`)
+  embedded into `smemu6.data` at build time.
+- **CMake integration** — `cmake/Emscripten.cmake` toolchain + `CMakePresets.json`
+  "web" preset.  Build with `cmake --preset web && cmake --build build-web`.
+- **HTML shell** — `web/shell.html` custom Emscripten shell with green-phosphor
+  styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
 
-### Issues to resolve
+### Remaining work
+- **Hot-mount** — loading a disk image after the emulator has started currently
+  requires a page reload; a `machine_hot_mount()` C export and JS wiring would
+  allow live disk swapping without reset.
+- **COOP/COEP headers** — hosting requires `Cross-Origin-Opener-Policy: same-origin`
+  + `Cross-Origin-Embedder-Policy: require-corp` for `SharedArrayBuffer` (not
+  needed for sound or the CPU loop; only needed if SDL threads are ever used).
+- **Floppy write support** — see Floppy section above; same gap applies to web.
 
-#### File picker
-`tinyfiledialogs` does not support Emscripten (no native dialog API in the browser).
-Replace the `pick_thread` / `tinyfd_openFileDialog` call with an `#ifdef __EMSCRIPTEN__`
-branch that:
-1. Uses `EM_ASM` to programmatically click a hidden `<input type="file" accept=".dsk">` element in the HTML shell.
-2. Attaches a JS `FileReader` `onchange` handler that reads the file into the Emscripten virtual FS (e.g. under `/tmp/`).
-3. Calls back into C via `EM_ASM` / `emscripten_run_script` (or a proper `EMSCRIPTEN_KEEPALIVE` C callback) with the virtual path once the read is complete.
-4. Because the JS side is already async/callback-based, **no SDL thread is needed** for the web build — `pick_ctx.state` can be set to `PICK_DONE` directly from the JS callback.
-
-The `SDL_CreateThread` wrapper is kept unchanged for native builds; WASM skips it entirely under `#ifndef __EMSCRIPTEN__`.
-
-#### Main loop
-The `while (running)` loops in `launcher_run()` and `machine_run()` must yield to the browser between frames.
-Wrap with:
-```c
-#ifdef __EMSCRIPTEN__
-    emscripten_set_main_loop(loop_iter_fn, 0, 1);
-#else
-    while (running) { loop_iter_fn(); }
-#endif
-```
-Extract per-frame logic into a static callback `loop_iter_fn` (receives state via a file-static or heap struct).
-
-#### Threading
-`SDL_CreateThread` requires `SharedArrayBuffer`, which needs `Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp` headers.
-For the file picker this is moot (replaced by JS callback).
-For any other threads (sound is push-mode, no thread; CPU runs on main loop) — check at integration time.
-
-#### ROM / floppy preloading
-The virtual FS must be pre-populated with the ROMs at build time using `--preload-file roms@/roms` (and optionally `--preload-file floppies@/floppies`).
-CLI args become query-string params or a JS config object passed to `Module.arguments`.
-
-### CMake integration
-Add a `cmake/Emscripten.cmake` toolchain file (or a separate `CMakePresets.json` entry) that:
-- Sets `CMAKE_TOOLCHAIN_FILE` to the Emscripten toolchain
-- Adds `-s USE_SDL=2 -s ASYNCIFY` (or `-s WASM=1`) link flags
-- Adds `--preload-file` entries for ROMs
-- Sets output suffix to `.html` / `.js` / `.wasm`
-- Skips `tinyfiledialogs` (replace with stub or `#ifdef` guard in `CMakeLists.txt`)

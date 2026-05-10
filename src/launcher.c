@@ -8,7 +8,12 @@
 #include "launcher.h"
 #include "chargen_rom.h"
 
-#include "tinyfiledialogs.h"
+#ifndef __EMSCRIPTEN__
+#  include "tinyfiledialogs.h"
+#endif
+#ifdef __EMSCRIPTEN__
+#  include <emscripten.h>
+#endif
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +148,7 @@ typedef struct PickCtx {
     char               result[1024]; /* heap-free: fixed buffer is enough */
 } PickCtx;
 
+#ifndef __EMSCRIPTEN__
 /* Thread entry: runs the native file dialog and deposits the result. */
 static int pick_thread(void *data)
 {
@@ -172,6 +178,86 @@ static SDL_Thread *pick_file_async(PickCtx *ctx)
     SDL_DetachThread(t);   /* we poll ctx->state; no need to join */
     return t;
 }
+#else /* __EMSCRIPTEN__ */
+/*
+ * Emscripten file picker.
+ *
+ * We trigger a hidden <input type="file"> element defined in shell.html.
+ * A JS FileReader onchange handler reads the chosen file into the Emscripten
+ * virtual FS under /tmp/picked.dsk and then calls back into C via
+ * smemu6_pick_done() (exported with EMSCRIPTEN_KEEPALIVE).
+ *
+ * No SDL thread needed — the JS callback sets pick_ctx->state directly.
+ */
+
+/* Global pointer to the currently-active pick context, set before triggering
+ * the JS picker.  Only one pick can be in flight at a time (enforced by the
+ * PICK_IDLE guard in the event loop). */
+static PickCtx *g_active_pick_ctx = NULL;
+
+/* Called from JS (FileReader onload) once the file has been written to /tmp. */
+EMSCRIPTEN_KEEPALIVE
+void smemu6_pick_done(const char *virtual_path)
+{
+    if (!g_active_pick_ctx) return;
+    if (virtual_path && virtual_path[0]) {
+        strncpy(g_active_pick_ctx->result, virtual_path,
+                sizeof(g_active_pick_ctx->result) - 1);
+        g_active_pick_ctx->result[sizeof(g_active_pick_ctx->result) - 1] = '\0';
+    }
+    g_active_pick_ctx->state = PICK_DONE;
+    g_active_pick_ctx = NULL;
+}
+
+/* Called from JS if the user cancels the file picker. */
+EMSCRIPTEN_KEEPALIVE
+void smemu6_pick_cancel(void)
+{
+    if (!g_active_pick_ctx) return;
+    g_active_pick_ctx->result[0] = '\0';
+    g_active_pick_ctx->state = PICK_DONE;  /* DONE with empty result = cancelled */
+    g_active_pick_ctx = NULL;
+}
+
+/* Launch an async pick via the browser <input type="file"> element. */
+static SDL_Thread *pick_file_async(PickCtx *ctx)
+{
+    ctx->result[0] = '\0';
+    ctx->state = PICK_RUNNING;
+    g_active_pick_ctx = ctx;
+    /* Trigger the hidden file-input element defined in web/shell.html. */
+    EM_ASM({
+        var inp = document.getElementById('smemu6-file-input');
+        if (inp) {
+            inp.onchange = function(e) {
+                var file = e.target.files[0];
+                if (!file) { Module._smemu6_pick_cancel(); return; }
+                var path = '/tmp/' + file.name;
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    var buf = new Uint8Array(ev.target.result);
+                    try {
+                        FS.unlink(path);
+                    } catch(ex) {}
+                    FS.writeFile(path, buf);
+                    var pathPtr = allocate(intArrayFromString(path), ALLOC_NORMAL);
+                    Module._smemu6_pick_done(pathPtr);
+                    _free(pathPtr);
+                };
+                reader.onerror = function() { Module._smemu6_pick_cancel(); };
+                reader.readAsArrayBuffer(file);
+                /* reset so the same file can be picked again */
+                inp.value = '';
+            };
+            inp.click();
+        } else {
+            console.warn('smemu6: #smemu6-file-input element not found in shell.html');
+            Module._smemu6_pick_cancel();
+        }
+    });
+    return NULL;  /* no thread; result arrives via JS callback */
+}
+#endif /* __EMSCRIPTEN__ */
 
 /* Truncate a path to at most 38 visible chars, prepending "..." if needed. */
 static void truncate_path(const char *path, char *out, int out_len)

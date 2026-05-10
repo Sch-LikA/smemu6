@@ -59,6 +59,24 @@ cmake --build build -j$(nproc)
 The binary is `build/smemu6`.  Run all commands from the repository root
 or from inside `build/` (paths below use `build/` as the working directory).
 
+### Web / Emscripten build
+
+A browser-playable WebAssembly build is supported via Emscripten.
+See [web/README.md](web/README.md) for full instructions.  Quick summary:
+
+```bash
+# Install and activate emsdk (one-time)
+source /path/to/emsdk/emsdk_env.sh
+
+# Configure and build
+cmake --preset web
+cmake --build build-web
+
+# Serve locally
+cd build-web && python3 -m http.server 8080
+# Open http://localhost:8080/smemu6.html
+```
+
 ---
 
 ## 2. Required Files

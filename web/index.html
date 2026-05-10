@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smemu6 — Smaky 6 Emulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d1a;
+      color: #d0d0d0;
+      font-family: 'Courier New', Courier, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    h1 {
+      color: #00e700;
+      font-size: 1.1em;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    #canvas-container {
+      position: relative;
+      display: inline-block;
+      border: 2px solid #003300;
+      box-shadow: 0 0 24px #00e70044;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Loading/status overlay */
+    #status-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0d0d1acc;
+      color: #00e700;
+      font-size: 0.9em;
+      gap: 8px;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+    #status-overlay.hidden { opacity: 0; }
+
+    #spinner {
+      width: 32px; height: 32px;
+      border: 3px solid #003300;
+      border-top-color: #00e700;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Controls panel */
+    #controls {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: center;
+      max-width: 600px;
+    }
+
+    button {
+      background: #0f3460;
+      color: #d0d0d0;
+      border: 1px solid #1a5276;
+      border-radius: 4px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85em;
+      transition: background 0.15s;
+    }
+    button:hover { background: #1a5276; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    label.file-label {
+      background: #0f3460;
+      color: #d0d0d0;
+      border: 1px solid #1a5276;
+      border-radius: 4px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    label.file-label:hover { background: #1a5276; }
+
+    #dx0-name, #dx1-name {
+      font-size: 0.8em;
+      color: #808080;
+      min-width: 140px;
+    }
+
+    /* Output / stderr log */
+    #output {
+      margin-top: 12px;
+      width: 100%;
+      max-width: 600px;
+      height: 80px;
+      background: #080808;
+      border: 1px solid #1a1a2e;
+      border-radius: 4px;
+      padding: 6px;
+      font-size: 0.75em;
+      color: #607060;
+      overflow-y: auto;
+      resize: vertical;
+    }
+
+    /* Hidden file inputs — triggered programmatically */
+    input[type=file] { display: none; }
+  </style>
+</head>
+<body>
+
+<h1>Smemu6 &mdash; Smaky&nbsp;6 Emulator</h1>
+
+<div id="canvas-container">
+  <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="status-overlay">
+    <div id="spinner"></div>
+    <span id="status-text">Loading…</span>
+  </div>
+</div>
+
+<!-- Hidden file inputs: smemu6_pick_done() / smemu6_pick_cancel() are called
+     from JS once the file has been written to the virtual FS. -->
+<input type="file" id="smemu6-file-input" accept=".dsk,.DSK">
+
+<!-- Manual disk-load controls (always visible) -->
+<div id="controls">
+  <label class="file-label" for="dx0-file">📂 Load DX0 (.dsk)</label>
+  <input type="file" id="dx0-file" accept=".dsk,.DSK">
+  <span id="dx0-name">no image</span>
+
+  <label class="file-label" for="dx1-file">📂 Load DX1 (.dsk)</label>
+  <input type="file" id="dx1-file" accept=".dsk,.DSK">
+  <span id="dx1-name">no image</span>
+
+  <button id="btn-reset" disabled>Reset</button>
+  <button id="btn-fullscreen">⛶ Fullscreen</button>
+</div>
+
+<pre id="output"></pre>
+
+<script>
+// ── Emscripten module boilerplate ────────────────────────────────────────────
+var statusOverlay = document.getElementById('status-overlay');
+var statusText    = document.getElementById('status-text');
+var output        = document.getElementById('output');
+
+function appendOutput(text) {
+  output.textContent += text;
+  output.scrollTop = output.scrollHeight;
+}
+
+var Module = {
+  canvas: (function() { return document.getElementById('canvas'); })(),
+
+  print: function(text) {
+    console.log('[stdout] ' + text);
+    appendOutput(text + '\n');
+  },
+  printErr: function(text) {
+    console.warn('[stderr] ' + text);
+    appendOutput(text + '\n');
+  },
+
+  onRuntimeInitialized: function() {
+    console.log('[smemu6] onRuntimeInitialized fired');
+    appendOutput('[web] Runtime initialized.\n');
+    // Create virtual directories the emulator expects at runtime.
+    try { Module.FS.mkdir('/floppies'); } catch(e) {}
+    statusOverlay.classList.add('hidden');
+    document.getElementById('btn-reset').disabled = false;
+  },
+
+  onAbort: function(reason) {
+    console.error('[smemu6] ABORT: ' + reason);
+    appendOutput('[web] ABORT: ' + reason + '\n');
+  },
+
+  quit: function(status, toThrow) {
+    console.log('[smemu6] quit called, status=' + status);
+    appendOutput('[web] Emulator exited (status=' + status + ').\n');
+    throw toThrow;
+  },
+
+  setStatus: function(text) {
+    console.log('[smemu6] setStatus: ' + text);
+    if (text) {
+      statusText.textContent = text;
+      statusOverlay.classList.remove('hidden');
+    }
+  },
+
+  monitorRunDependencies: function(left) {
+    console.log('[smemu6] dependencies remaining: ' + left);
+    if (left === 0) {
+      statusText.textContent = 'Starting…';
+    } else {
+      statusText.textContent = 'Loading… (' + left + ' remaining)';
+    }
+  },
+
+  // Pass CLI args: autoboot is always on for the web build; launcher is skipped.
+  // Audio (beeper) is disabled because the Web Audio API requires power-of-two
+  // buffer sizes but SDL's default (882 = 44100/50) is not.
+  arguments: ['-no-launcher', '-no-display-off', '-autoboot', '-no-beeper'],
+};
+
+// ── Manual disk-load helpers ─────────────────────────────────────────────────
+// These allow the user to load a .dsk at any time via the control panel.
+// They write the file into the virtual FS and call floppy_hot_mount via ccall
+// (if/when that export is added).  For now, they write to /tmp/dxN.dsk and
+// print a message; a full hot-mount call requires a C export.
+
+function loadDiskFile(file, drive, nameSpanId) {
+  if (!file) return;
+  document.getElementById(nameSpanId).textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var buf = new Uint8Array(e.target.result);
+    var path = '/floppies/user_' + drive + '.dsk';
+    try { Module.FS.unlink(path); } catch(ex) {}
+    Module.FS.writeFile(path, buf);
+    appendOutput('[web] Loaded ' + file.name + ' → ' + path + '\n');
+    // Hot-mount into the running machine
+    Module.ccall('smemu6_mount_' + drive, null, ['string'], [path]);
+    appendOutput('[web] Mounted ' + drive.toUpperCase() + ': ' + file.name +
+                 ' (click Reset to reboot from it)\n');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById('dx0-file').addEventListener('change', function(e) {
+  loadDiskFile(e.target.files[0], 'dx0', 'dx0-name');
+});
+document.getElementById('dx1-file').addEventListener('change', function(e) {
+  loadDiskFile(e.target.files[0], 'dx1', 'dx1-name');
+});
+
+// ── Reset button ─────────────────────────────────────────────────────────────
+document.getElementById('btn-reset').addEventListener('click', function(e) {
+  e.preventDefault();
+  Module.ccall('smemu6_reset', null, [], []);
+  appendOutput('[web] Machine reset.\n');
+});
+
+// ── Fullscreen ───────────────────────────────────────────────────────────────
+document.getElementById('btn-fullscreen').addEventListener('click', function() {
+  var c = document.getElementById('canvas-container');
+  if (c.requestFullscreen)       c.requestFullscreen();
+  else if (c.webkitRequestFullscreen) c.webkitRequestFullscreen();
+});
+
+// ── Keyboard focus ───────────────────────────────────────────────────────────
+// Keep the canvas focused so SDL keyboard events are received.
+document.getElementById('canvas').addEventListener('click', function() {
+  this.focus();
+});
+window.addEventListener('load', function() {
+  document.getElementById('canvas').focus();
+});
+</script>
+
+<script src="smemu6.js"></script>
+
+</body>
+</html>

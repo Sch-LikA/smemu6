@@ -1,0 +1,51 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "default",
+            "displayName": "Default (native)",
+            "description": "Native build using system SDL2",
+            "binaryDir": "${sourceDir}/build",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "web",
+            "displayName": "Web (Emscripten)",
+            "description": "WebAssembly build via Emscripten — requires emsdk_env.sh to be sourced",
+            "binaryDir": "${sourceDir}/build-web",
+            "generator": "Unix Makefiles",
+            "toolchainFile": "${sourceDir}/cmake/Emscripten.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "web-debug",
+            "displayName": "Web Debug (Emscripten)",
+            "description": "Debug WebAssembly build — source maps, assertions, no optimisation",
+            "binaryDir": "${sourceDir}/build-web-debug",
+            "generator": "Unix Makefiles",
+            "toolchainFile": "${sourceDir}/cmake/Emscripten.cmake",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "default",
+            "configurePreset": "default"
+        },
+        {
+            "name": "web",
+            "configurePreset": "web"
+        },
+        {
+            "name": "web-debug",
+            "configurePreset": "web-debug"
+        }
+    ]
+}
