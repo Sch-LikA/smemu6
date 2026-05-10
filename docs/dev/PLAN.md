@@ -125,7 +125,7 @@ Ports confirmed by `roms/samos_sys17.rom` disassembly (z80dasm, 2025); prior ent
 | 0x06  | CAS       | R/W   | ✓ Schem   | **8251 USART data** — cassette reader interface                                |
 | 0x07  | SCAS      | R/W   | ✓ Schem   | **8251 USART command/status** — cassette reader control                         |
 | 0x08  | RTC       | R/W   | ✓ Schem   | **E405/08 RTC serial interface** (extension board, "Horloge absolue"). Confirmed by extension board schematic (R. Forster, Oct 1979): 3-wire serial — bit 3 = CK (clock), bit 2 = MOSI / I/O-out, bit 0 = MISO / I/O-in. `OUT (0x08),0` resets/deselects; protocol sends 4 control bits then clocks 8×7 bytes. Called RZ50/RZ59 in SAMOS OS source. Backed by 32.768 kHz crystal + 1.5 V battery on extension board. |
-| 0x19  | —         | R/W   | ✓ ROM     | **Floppy control register (IC7 LS475, Plan F5)**. **Write** bit layout: bit1=WRTMOD, bit2=INTON (NMI arm), bit3=MOTORON, bit4=STPDIRIN (step direction toward track 0), bit5=DRISEL1 (select DX0 when MOTORON set), bit6=DRISEL2 (select DX1 when MOTORON set), bit7=DRISEL3. Common values: `0x2C` arms DX0 (DRISEL1\|MOTORON\|INTON), `0x4C` arms DX1 (DRISEL2\|MOTORON\|INTON), `0x00` stops motor/disarms NMI. **Read** bits: [3:0] = current hard-sector index (0–15); bit 5 = 0 → head at track 0 (setup_sector exits when bit5=0); bit 6 = 0 → seek settled (floppy_seek_sys exits when bit6=0). |
+| 0x19  | —         | R/W   | ✓ ROM     | **Floppy control register (IC7 LS475, Plan F5)**. **Write** bit layout: bit1=WRTMOD, bit2=INTON (NMI arm), bit3=MOTORON, bit4=STPDIRIN (step direction toward track 0), bit5=DRISEL1 (select DX0), bit6=DRISEL2 (select DX1), bit7=DRISEL3. Drive selection takes effect whenever any DRISEL bit is written, regardless of MOTORON — the Phantom ROM always writes DRISEL+MOTORON together (`0x2C`/`0x4C`), but SAMOS probes drive presence by writing DRISEL alone (e.g. `0x40` = DX1, no motor) before reading status. Common values: `0x2C` arms DX0 (DRISEL1\|MOTORON\|INTON), `0x4C` arms DX1 (DRISEL2\|MOTORON\|INTON), `0x40` DX1 presence probe (DRISEL2 only), `0x00` stops motor/disarms NMI. **Read** bits: [3:0] = current hard-sector index (0–15); bit 5 = 0 → head at track 0 (setup_sector exits when bit5=0); bit 6 = 0 → seek settled (floppy_seek_sys exits when bit6=0). |
 | 0x1A  | CONT      | R/W   | ✓ ROM     | **Write**: floppy control / Winchester data byte. **Read** (via `IN F,(C)` with C=0x1A): tests bit 7 as a ready/request flag without storing value. |
 | 0x1B  | STAT      | Read  | ✓ ROM     | Floppy controller status (4 direct reads); bits 4, 7 tested. Also: data byte read then compared (checksum / ID match logic). |
 | 0x21  | —         | R/W   | ✓ ROM     | Winchester WD-style base+0: auxiliary status (IN) / data (OUT)               |
@@ -990,8 +990,41 @@ smaky6emu/
 77. **Minimal reproducible boot command**:
     ```
     SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-      ./build/smaky6emu -floppy "floppies/1 Systeme_1HComplet.dsk" -autoboot -timeout 35
+      ./build/smaky6emu -floppy "floppies/1 Systeme_1HComplet.dsk" -timeout 35
     ```
+    `-autoboot` is no longer required for basic boot (see Phase 1S item 78).
+    It is still needed when `-inject-str` must fire after SAMOS loads.
+
+### Phase 1S — Hardware-accuracy fixes ✅ DONE
+
+78. **Keyboard power-on FOUND=1 (automatic DX0 boot)** (commit 4c938ee):
+    - **Problem**: `keyboard_init()` initialised `found=0`, so `keyboard_read_cla()` returned
+      `0x80` (no-key) indefinitely.  The Phantom ROM boot menu at `0x003E` calls `kbd_wait`
+      (`0x00FD`), which loops until bit 7 = 0 (FOUND=1).  Machine never advanced past the
+      boot-device prompt without `-autoboot`.
+    - **Root cause**: On real hardware the FOUND latch (4013 FF2) powers up asserted.  The
+      emulator was initialising it deasserted.
+    - **Fix**: `keyboard_init()` now sets `found=1, key_code=0x00` (Enter → boot DX0).
+      The latch is consumed on the first CLA read, exactly as on hardware.
+    - **Effect**: Machine boots from DX0 automatically without `-autoboot`.  The flag is
+      still needed to wait for SAMOS and fire `-inject-str`.
+
+79. **DX1 drive-select in floppy.c** (commit 4168505):
+    - **Problem**: Several paths in `floppy.c` (`floppy_write_cont`, `floppy_read_stat`,
+      `floppy_read_sector19`, `floppy_read_data`) used a hard-coded drive index instead of
+      `m->fdc.selected_drive`, so DX1 reads/writes always hit DX0.
+    - **Fix**: All paths now derive the drive index from `m->fdc.selected_drive`.
+
+80. **DX1 detection with `-harddisk` + `-floppy2`** (commit 57025a1):
+    - **Problem**: Port 0x19 write handler conditioned the `selected_drive` update on
+      `data & 0x08u` (MOTORON).  SAMOS probes drive presence by writing `0x40` (DRISEL2,
+      no MOTORON) to port 0x19 before reading status.  The probe left `selected_drive=0`,
+      so `floppy_read_stat()` returned DX0 (Winchester/empty) status — SAMOS reported
+      `NO DX1`.
+    - **Fix**: Condition changed from `data & 0x08u` to `data & 0x60u` (any DRISEL bit).
+      The Phantom ROM always sets MOTORON alongside DRISEL, so its behaviour is unchanged.
+    - **Verified**: `LIST DX1:` after booting from Winchester correctly lists the floppy
+      directory and reports `R p DX1  Blocs libres …`.
 
 ### Phase 2 — MAME
 
