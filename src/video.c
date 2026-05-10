@@ -250,55 +250,66 @@ render_status_bar:
      *
      * Row 1 (y=VIDEO_ASPECT_H+2):  floppy drives DX0 / DX1
      * Row 2 (y=VIDEO_ASPECT_H+16): Winchester drives HD0 / HD1 */
-    static const char *floppy_label[2] = { "DX0:", "DX1:" };
-    const int ly_floppy = VIDEO_ASPECT_H + 2;   /* glyph y */
+    static const char *dx_label[2] = { "DX0:", "DX1:" };
+    const int ly = VIDEO_ASPECT_H + 2;   /* glyph y */
     for (int d = 0; d < 2; d++) {
         int lx = 4 + d * 256;   /* slot left edge; two 256-px halves */
 
-        /* ── Floppy row ── */
-        {
-            int mounted = m->fdc.image[d] != NULL;
-            int active  = m->fdc.disk_active[d] > 0;
-            SDL_Rect led = { lx, ly_floppy, 8, 8 };
-            if (active) {
-                SDL_SetRenderDrawColor(ren, 255, 140, 0, 255);  /* amber (active) */
-            } else if (mounted) {
-                SDL_SetRenderDrawColor(ren, 55, 30, 0, 255);    /* dim amber (idle) */
-            } else {
-                SDL_SetRenderDrawColor(ren, 20, 20, 20, 255);   /* off */
-            }
-            SDL_RenderFillRect(ren, &led);
-            SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
-            SDL_RenderDrawRect(ren, &led);
+        int is_hd     = m->win.image[d] != NULL;
+        int mounted   = is_hd ? 1 : (m->fdc.image[d] != NULL);
+        int active    = is_hd ? (m->win.disk_active[d] > 0)
+                               : (m->fdc.disk_active[d] > 0);
 
-            int tx = lx + 12;
-            SDL_SetRenderDrawColor(ren, 0, 200, 0, 255);
-            for (int ci = 0; floppy_label[d][ci]; ci++) {
-                uint8_t code = (uint8_t)floppy_label[d][ci];
-                for (int sl = 0; sl < 8; sl++) {
-                    uint8_t bits = m->vid.chargen[code * 16 + sl];
-                    for (int b = 0; b < 8; b++) {
-                        if (bits & (1u << b))
-                            SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ly_floppy + sl);
-                    }
+        /* LED */
+        SDL_Rect led = { lx, ly, 8, 8 };
+        if (is_hd) {
+            if (active)       SDL_SetRenderDrawColor(ren, 255,  80,   0, 255); /* orange-red */
+            else if (mounted) SDL_SetRenderDrawColor(ren,  60,  20,   0, 255); /* dim red */
+            else              SDL_SetRenderDrawColor(ren,  20,  20,  20, 255); /* off */
+        } else {
+            if (active)       SDL_SetRenderDrawColor(ren, 255, 140,   0, 255); /* amber */
+            else if (mounted) SDL_SetRenderDrawColor(ren,  55,  30,   0, 255); /* dim amber */
+            else              SDL_SetRenderDrawColor(ren,  20,  20,  20, 255); /* off */
+        }
+        SDL_RenderFillRect(ren, &led);
+        SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
+        SDL_RenderDrawRect(ren, &led);
+
+        /* Label (DX0: / DX1:) */
+        int tx = lx + 12;
+        SDL_SetRenderDrawColor(ren, is_hd ? 0 : 0, is_hd ? 180 : 200, is_hd ? 180 : 0, 255);
+        for (int ci = 0; dx_label[d][ci]; ci++) {
+            uint8_t code = (uint8_t)dx_label[d][ci];
+            for (int sl = 0; sl < 8; sl++) {
+                uint8_t bits = m->vid.chargen[code * 16 + sl];
+                for (int b = 0; b < 8; b++) {
+                    if (bits & (1u << b))
+                        SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ly + sl);
                 }
             }
+        }
 
-            if (mounted) {
-                char info[12];
-                int trk = m->fdc.track[d];
-                int sec = m->fdc.phased_sector[d];
-                snprintf(info, sizeof(info), "T:%02d S:%02d", trk, sec);
-                int ix = tx + 38;
+        /* Info text */
+        if (mounted) {
+            char info[16];
+            if (is_hd) {
+                snprintf(info, sizeof(info), "C:%03u H:%u",
+                         (unsigned)m->win.last_cyl[d],
+                         (unsigned)m->win.last_head[d]);
+                SDL_SetRenderDrawColor(ren, 0, 140, 140, 255);
+            } else {
+                snprintf(info, sizeof(info), "T:%02d S:%02d",
+                         m->fdc.track[d], m->fdc.phased_sector[d]);
                 SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);
-                for (int ci = 0; info[ci]; ci++) {
-                    uint8_t gc = (uint8_t)info[ci];
-                    for (int sl = 0; sl < 8; sl++) {
-                        uint8_t bits = m->vid.chargen[gc * 16 + sl];
-                        for (int b = 0; b < 8; b++) {
-                            if (bits & (1u << b))
-                                SDL_RenderDrawPoint(ren, ix + ci * 9 + b, ly_floppy + sl);
-                        }
+            }
+            int ix = tx + 38;
+            for (int ci = 0; info[ci]; ci++) {
+                uint8_t gc = (uint8_t)info[ci];
+                for (int sl = 0; sl < 8; sl++) {
+                    uint8_t bits = m->vid.chargen[gc * 16 + sl];
+                    for (int b = 0; b < 8; b++) {
+                        if (bits & (1u << b))
+                            SDL_RenderDrawPoint(ren, ix + ci * 9 + b, ly + sl);
                     }
                 }
             }

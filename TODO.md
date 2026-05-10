@@ -113,14 +113,14 @@ the window is 1024 × 520 (240+20 status bar × 2).  SDL logical size stays fixe
 
 ### ~~Live floppy track/sector visualisation~~ ✅ Done
 
-The status bar (14 logical px `VIDEO_LED_H`, scales with `-scale`) shows per floppy drive:
-- Amber LED (bright = active transfer, dim = mounted idle, off = no image)
-- Drive label glyph (`DX0:` / `DX1:`, from chargen ROM, rendered as 1px-per-bit)
-- `T:nn S:nn` — current track and sector from `m->fdc.track[d]` / `m->fdc.phased_sector[d]`
+The status bar (14 logical px `VIDEO_LED_H`, scales with `-scale`) shows per drive slot (DX0 / DX1).
+Each slot auto-detects whether it holds a floppy or a harddisk image:
 
-Only the two floppy drives are shown.  The Winchester (HD0/HD1) row that was
-previously displayed below was removed — SAMOS only exposes DX0 and DX1 to
-the user, so the extra row added clutter without value.
+- **Floppy** (amber LED): `T:nn S:nn` — current track and sector
+- **Harddisk** (orange-red LED): `C:nnn H:n` — last cylinder and head accessed
+- **Empty**: LED off, no info text
+
+The label (`DX0:` / `DX1:`) is rendered in green for floppies and cyan for harddisks.
 ---
 
 ## Keyboard
