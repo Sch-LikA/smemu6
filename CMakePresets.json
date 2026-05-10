@@ -36,13 +36,13 @@
         {
             "name": "win64",
             "displayName": "Windows x86-64 (MinGW-w64 cross)",
-            "description": "Cross-compile a Windows .exe from Linux using MinGW-w64. Requires: sudo apt install mingw-w64 and SDL2 MinGW dev package at deps/SDL2-mingw/",
+            "description": "Cross-compile a Windows .exe from Linux using MinGW-w64. Requires: sudo apt install mingw-w64 and SDL2 MinGW dev package at ~/dev/windows/SDL2-2.30.3/",
             "binaryDir": "${sourceDir}/build-win",
             "generator": "Unix Makefiles",
             "toolchainFile": "${sourceDir}/cmake/MinGW-w64.cmake",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
-                "SDL2_DIR": "${sourceDir}/deps/SDL2-mingw/x86_64-w64-mingw32/lib/cmake/SDL2"
+                "SDL2_DIR": "$env{HOME}/dev/windows/SDL2-2.30.3/x86_64-w64-mingw32/lib/cmake/SDL2"
             }
         }
     ],
