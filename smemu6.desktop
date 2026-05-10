@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Smaky 6 Emulator
+GenericName=Emulator
+Comment=Emulator for the 1978 Swiss Smaky 6 Z80 computer
+Exec=smemu6
+Icon=smaky6
+Categories=Game;Emulator;
+Keywords=smaky;smaky6;z80;emulator;retro;
