@@ -1,7 +1,9 @@
 /* rtc.h – Smaky 6 real-time clock emulation (E405/08, extension board)
  *
  * Hardware (confirmed from R. Forster schematic, Oct 1979):
- *   Chip   : E405/08 (IC5)
+ *   Chip   : E405/08 (IC5)  — custom RTC ASIC manufactured by Micro Electronic
+ *            Marin (MEM), a Swiss company; one of the earliest RTC chips made
+ *            for personal computers.  (Information courtesy M. Pierre-Yves Rochat.)
  *   Port   : 0x08  R/W
  *   bit 3  : CK   – serial clock (rising edge latches MOSI; falling pre-loads MISO)
  *   bit 2  : DIR/CS – held high during a transaction

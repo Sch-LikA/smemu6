@@ -307,7 +307,7 @@ int main(int argc, char *argv[])
     }
 
     SDL_Window *win = SDL_CreateWindow(
-        "Smaky 6 Emulator",
+        "Smemu6 — Smart Emulator of the Smart Keyboard",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         VIDEO_WIN_W * display_scale, VIDEO_WIN_H * display_scale,
         SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);

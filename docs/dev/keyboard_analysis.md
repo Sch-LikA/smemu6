@@ -415,7 +415,7 @@ After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR d
 When `SDL_VIDEODRIVER=dummy` is set (CI / automated test mode), SDL delivers **no real keyboard events**.  Only the autoboot key injection path (`machine_inject_key()`) works.  Interactive keyboard testing requires a real display:
 
 ```sh
-DISPLAY=:0 ./build/smaky6emu -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot
+DISPLAY=:0 ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot
 ```
 
 Autoboot stage3 keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase only).

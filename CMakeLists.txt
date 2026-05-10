@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(smaky6emu C)
+project(smemu6 C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -32,7 +32,7 @@ set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Z80)
 
 # ── Sources ───────────────────────────────────────────────────────────────────
-add_executable(smaky6emu
+add_executable(smemu6
     src/main.c
     src/machine.c
     src/memory.c
@@ -47,9 +47,9 @@ add_executable(smaky6emu
     src/winchester.c
 )
 
-target_include_directories(smaky6emu PRIVATE src)
+target_include_directories(smemu6 PRIVATE src)
 
-target_link_libraries(smaky6emu PRIVATE
+target_link_libraries(smemu6 PRIVATE
     SDL2::SDL2
     Z80
     m
@@ -57,9 +57,9 @@ target_link_libraries(smaky6emu PRIVATE
 
 # ── Compiler warnings ─────────────────────────────────────────────────────────
 if(MSVC)
-    target_compile_options(smaky6emu PRIVATE /W3)
+    target_compile_options(smemu6 PRIVATE /W3)
 else()
-    target_compile_options(smaky6emu PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(smemu6 PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # ── ROM directory ─────────────────────────────────────────────────────────────

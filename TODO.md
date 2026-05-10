@@ -1,4 +1,4 @@
-# Smaky 6 Emulator — TODO / Known Gaps
+# Smemu6 — TODO / Known Gaps
 
 Items are grouped by subsystem.  Entries marked **[confirmed]** have been verified
 against disassembly or hardware documentation.
@@ -21,7 +21,7 @@ existing `machine_config` fields and continues with the normal startup path.
 
 **Header**
 - Project name + two-line description:  
-  *"Smaky 6 Emulator — Swiss Z80 computer (EPFL, 1978)"*  
+  *"Smemu6 — Smart Emulator of the Smart Keyboard"*  
   *"Z80 @ 2.5 MHz · 512×240 green-phosphor display · SAMOS OS"*
 
 **Storage section**
@@ -364,6 +364,27 @@ the FIFO unchanged, and the chargen renders it correctly.
 Writing `0x00` to port `0x00` now blanks the machine area (black pixels).
 Port writes with bit 0 = 1 re-enable the display.  The status bar remains
 visible in both states.  Implemented via `vid.display_on` flag.
+
+### CRT phosphor colour option
+
+Add a `-phosphor <colour>` CLI option (and a matching control in the launcher)
+to select the screen palette:
+
+| Value   | Lit colour | Background  | Real-world CRT |
+|---------|-----------|-------------|----------------|
+| `green` | `#00E700` | `#000800`   | **Default** — P31 green phosphor (current) |
+| `white` | `#E8E8E8` | `#080808`   | White phosphor — some Smaky 6 units shipped with this |
+
+**Implementation:**
+1. Add two `uint32_t` constants to `video.h` for the white palette
+   (`VIDEO_COLOR_LIT_WHITE`, `VIDEO_COLOR_BG_WHITE`), keeping the existing
+   green constants as-is.
+2. Add a `phosphor` field (enum or int) to `struct vid` in `machine_internal.h`.
+3. In `video_render_frame()`, select `LIT`/`BG` based on `m->vid.phosphor`.
+4. Add `machine_set_phosphor(m, phosphor)` in `machine.c` / `machine.h`.
+5. Parse `-phosphor green|white` in `main.c`; call `machine_set_phosphor()`.
+6. Wire to the **Phosphor colour** drop-down in the launcher (already stubbed
+   in the launcher TODO above).
 
 ---
 

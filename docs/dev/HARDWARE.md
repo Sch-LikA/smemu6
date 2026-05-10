@@ -735,4 +735,4 @@ doc-230 CARACTÈRES, doc-231 CLAVIER), one extension board schematic by Ronald
 Forster (doc-230-memext, October 1979), one micro-floppy controller schematic
 (doc-189-191, 3 sheets), and two interface documentation documents (doc-211-212
 keyboard text, doc-219-225 parallel interface 7 pp.); the SAMOS 2-8 / Phantom
-ROM disassembly; and the Smaky6emu emulator source.*
+ROM disassembly; and the Smemu6 emulator source.*

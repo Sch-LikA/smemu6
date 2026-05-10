@@ -1,4 +1,4 @@
-# Smaky 6 Emulator — User Guide
+# Smemu6 — User Guide
 
 This guide covers how to build, run, and use the **Smaky 6 emulator**.
 For documentation about the Smaky 6 computer itself (commands, OS, hardware),
@@ -44,8 +44,8 @@ Optional (for PDF generation only):
 ## 2. Building
 
 ```bash
-git clone https://github.com/your-username/smaky6emu
-cd smaky6emu
+git clone https://github.com/your-username/smemu6
+cd smemu6
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
@@ -57,7 +57,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-The resulting binary is `build/smaky6emu`.
+The resulting binary is `build/smemu6`.
 
 ---
 
@@ -86,25 +86,25 @@ The build system copies them automatically into `build/roms/`.
 
 ```bash
 cd build
-./smaky6emu
+./smemu6
 ```
 
 **Boot from a floppy image (starts automatically):**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img
+./smemu6 -floppy ../floppies/sys.img
 ```
 
 **Boot with two floppy drives:**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
+./smemu6 -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
 ```
 
 **Boot from Winchester (DX0) with a floppy accessible as DX1:**
 
 ```bash
-./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
 ```
 
 > On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
@@ -115,7 +115,7 @@ cd build
 **Boot and wait at the SAMOS `>` prompt (for `-inject-str`):**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img -autoboot
+./smemu6 -floppy ../floppies/sys.img -autoboot
 ```
 
 ---
@@ -167,7 +167,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 **Example — run `LIST` automatically:**
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
+./smemu6 -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
 ```
 
 ### Display
@@ -300,13 +300,13 @@ work-in-progress; real samples will be added later). Enable with
 **Example — boot with beeper and drive sounds:**
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -drive-sound
+./smemu6 -floppy sys.img -autoboot -drive-sound
 ```
 
 **Example — mute everything:**
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -no-beeper
+./smemu6 -floppy sys.img -autoboot -no-beeper
 ```
 
 ---
@@ -319,7 +319,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 **Run a command and capture screen output:**
 
 ```bash
-./smaky6emu \
+./smemu6 \
     -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "LIST\n" \
@@ -330,7 +330,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 **Run with tracing for debugging:**
 
 ```bash
-./smaky6emu \
+./smemu6 \
     -floppy ../floppies/sys.img \
     -autoboot \
     -trace \
@@ -340,7 +340,7 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 **Dump RAM at the end of a run:**
 
 ```bash
-./smaky6emu \
+./smemu6 \
     -floppy ../floppies/sys.img \
     -autoboot \
     -inject-str "BASIC\n" \
@@ -372,7 +372,7 @@ They produce output on **stderr**.
 them with emulator output:
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -tracekbd 2>kbd.log
+./smemu6 -floppy sys.img -autoboot -tracekbd 2>kbd.log
 ```
 
 ---
@@ -382,7 +382,7 @@ them with emulator output:
 **Automatic dump on exit:**
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+./smemu6 -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Interactive dump during a running session:**
@@ -390,7 +390,7 @@ them with emulator output:
 Press `Ctrl+D` in the terminal, or send `SIGUSR1` to the process:
 
 ```bash
-kill -SIGUSR1 $(pgrep smaky6emu)
+kill -SIGUSR1 $(pgrep smemu6)
 ```
 
 This writes a file named `smaky6_ram_NNNN_pcXXXX.bin` in the current
@@ -413,7 +413,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Try forcing a video mode:
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -vmode alpha
+./smemu6 -floppy sys.img -autoboot -vmode alpha
 ```
 
 **Graphics appear inverted or garbled**
@@ -421,7 +421,7 @@ Try forcing a video mode:
 Try toggling the bitmap bit order:
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -gfxbits msb
+./smemu6 -floppy sys.img -autoboot -gfxbits msb
 ```
 
 **Emulator exits immediately with error 043**
@@ -443,7 +443,7 @@ processes keyboard events when its window is focused.
 Some floppy images require more time to load. Increase the injection delay:
 
 ```bash
-./smaky6emu -floppy sys.img -autoboot -inject-delay 100
+./smemu6 -floppy sys.img -autoboot -inject-delay 100
 ```
 
 **How to generate / update the PDF manuals**

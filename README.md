@@ -1,4 +1,6 @@
-# Smaky 6 Emulator
+# Smemu6 — Smart Emulator of the Smart Keyboard
+
+*The Smart Machine deserves a smart emulator.*
 
 Emulator for the **Smaky 6**, a 1978 Swiss Z80-based personal computer
 developed at EPFL (Lausanne) by Jean-Daniel Nicoud and commercialized by
@@ -48,13 +50,13 @@ brew install cmake sdl2
 ```
 
 ```bash
-git clone https://github.com/your-username/smaky6emu
-cd smaky6emu
+git clone https://github.com/your-username/smemu6
+cd smemu6
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 ```
 
-The binary is `build/smaky6emu`.  Run all commands from the repository root
+The binary is `build/smemu6`.  Run all commands from the repository root
 or from inside `build/` (paths below use `build/` as the working directory).
 
 ---
@@ -80,19 +82,19 @@ will report a warning but continue.
 cd build
 
 # Boot SAMOS from floppy (machine boots DX0 automatically)
-./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk"
+./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk"
 
 # Boot from Winchester (DX0) with floppy accessible as DX1
-./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK \
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK \
             -floppy2 "../floppies/1 Systeme_1HComplet.dsk"
 
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-    ./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" \
+    ./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" \
                 -autoboot -inject-str "LIST\n" -timeout 20
 
 # Scale the window up 3× and add CRT scanline effect
-./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3 -scanlines
+./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3 -scanlines
 ```
 
 ---
@@ -106,14 +108,14 @@ Mount a floppy disk image on **DX0:** (the primary floppy drive).  The image
 is opened read-only; no writes are flushed back to the file.
 
 ```bash
-./smaky6emu -floppy ../floppies/sys.dsk
+./smemu6 -floppy ../floppies/sys.dsk
 ```
 
 #### `-floppy2 <path>`
 Mount a floppy disk image on **DX1:** (the secondary floppy drive).
 
 ```bash
-./smaky6emu -floppy sys.dsk -floppy2 data.dsk
+./smemu6 -floppy sys.dsk -floppy2 data.dsk
 ```
 
 #### `-harddisk <path>`
@@ -122,7 +124,7 @@ The WD1000/WD1001/WD1002-compatible controller is emulated at ports `0x20–0x27
 Geometry: 6 heads, 32 sectors/track, 256 bytes/sector, up to 255 cylinders.
 
 ```bash
-./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
 ```
 
 > **Note:** On a Winchester-equipped Smaky 6 the hard disk is DX0 and the
@@ -140,7 +142,7 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 > expect it to appear as a second named device in the SAMOS CLI.
 
 ```bash
-./smaky6emu -floppy sys.dsk -harddisk SM6WIN0.DSK -harddisk2 SM6WIN1.DSK
+./smemu6 -floppy sys.dsk -harddisk SM6WIN0.DSK -harddisk2 SM6WIN1.DSK
 ```
 
 ---
@@ -157,7 +159,7 @@ drive with `-autoboot2`.
 
 ```bash
 # Gate for string injection (machine would boot anyway without -autoboot)
-./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n"
+./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n"
 ```
 
 #### `-autoboot2 <code>`
@@ -169,7 +171,7 @@ The Phantom ROM boot menu accepts:
 - `0x20` / Space — boot from DX0: (same as Enter in most ROM versions)
 
 ```bash
-./smaky6emu -floppy sys.dsk -autoboot -autoboot2 0x00
+./smemu6 -floppy sys.dsk -autoboot -autoboot2 0x00
 ```
 
 #### `-autoboot3 <code>`
@@ -193,7 +195,7 @@ on screen.  The string is converted to uppercase Smaky key codes:
 
 ```bash
 # Run the LIST command automatically after boot
-./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n"
+./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n"
 ```
 
 #### `-inject-via-fifo`
@@ -223,7 +225,7 @@ vertical stretch + 26 px status bar).  The physical window is `n × 512` by
 | 4     | 2048 × 2024    | 4K screens              |
 
 ```bash
-./smaky6emu -floppy sys.dsk -scale 2
+./smemu6 -floppy sys.dsk -scale 2
 ```
 
 #### `-scanlines`
@@ -231,7 +233,7 @@ Draw a CRT-style scanline overlay: every other output row is darkened,
 simulating the dark gaps between phosphor scan lines on a real monitor.
 
 ```bash
-./smaky6emu -floppy sys.dsk -scale 2 -scanlines
+./smemu6 -floppy sys.dsk -scale 2 -scanlines
 ```
 
 #### `-vmode <mode>`
@@ -245,7 +247,7 @@ writes to port `0x00`.  One of:
 | `super`   | Superimposed (alpha + graphic)            |
 
 ```bash
-./smaky6emu -floppy sys.dsk -vmode alpha
+./smemu6 -floppy sys.dsk -vmode alpha
 ```
 
 #### `-gfxbits <order>`
@@ -263,7 +265,7 @@ the screen stays visible at all times.  Useful when software briefly blanks
 the display during a mode switch and you want to keep the window live.
 
 ```bash
-./smaky6emu -floppy sys.dsk -no-display-off
+./smemu6 -floppy sys.dsk -no-display-off
 ```
 
 ---
@@ -276,7 +278,7 @@ sample-accurate square-wave tones through SDL audio.  Use this flag when
 running headless or when audio is unavailable.
 
 ```bash
-SDL_AUDIODRIVER=dummy ./smaky6emu -floppy sys.dsk -no-beeper
+SDL_AUDIODRIVER=dummy ./smemu6 -floppy sys.dsk -no-beeper
 ```
 
 #### `-drive-sound`
@@ -284,7 +286,7 @@ Enable floppy drive sound effects: motor whir, head-step clicks, and
 sector-hole ticks.  Off by default.
 
 ```bash
-./smaky6emu -floppy sys.dsk -drive-sound
+./smemu6 -floppy sys.dsk -drive-sound
 ```
 
 ---
@@ -301,7 +303,7 @@ Default policy (when this option is omitted):
 Useful in CI pipelines combined with `-autoboot` and `-inject-str`.
 
 ```bash
-./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n" -timeout 30
+./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n" -timeout 30
 ```
 
 #### `-autoboot-timeout <seconds>`
@@ -461,7 +463,7 @@ or to choose a non-default drive via `-autoboot2`.
 Winchester) automatically.
 
 ```
-./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
 ```
 
 ---

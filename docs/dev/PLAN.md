@@ -1,4 +1,4 @@
-# Smaky 6 Emulator — Project Plan
+# Smemu6 — Project Plan
 
 ## Overview
 
@@ -503,7 +503,7 @@ https://www.pf-soft.ch/ascalm.php) runs under DOSBox. Will NOT be reimplemented.
 ## Project Structure
 
 ```
-smaky6emu/
+smemu6/
 ├── CMakeLists.txt              Top-level; FetchContent for redcode/Z80 and SDL2
 ├── PLAN.md                     This file
 ├── src/
@@ -628,7 +628,7 @@ smaky6emu/
       boot (0x046D). A **non-zero key** (e.g. Space=0x20) triggers the LDIR stub copy + JP 0x5500.
       This is by design: Enter → re-select boot device; any other key → load OS from floppy.
     - **Removed diagnostic `fprintf` calls** in `floppy_read_sector19` and port 0x19 write handler.
-    - **`pkill -9 -x smaky6emu`** is the reliable way to kill the emulator (plain `kill $(pgrep ...)`
+    - **`pkill -9 -x smemu6`** is the reliable way to kill the emulator (plain `kill $(pgrep ...)`
       fails when SIGTERM is ignored by SDL event loop).
 
 19. **Two-keypress sequence for floppy boot:**
@@ -990,7 +990,7 @@ smaky6emu/
 77. **Minimal reproducible boot command**:
     ```
     SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-      ./build/smaky6emu -floppy "floppies/1 Systeme_1HComplet.dsk" -timeout 35
+      ./build/smemu6 -floppy "floppies/1 Systeme_1HComplet.dsk" -timeout 35
     ```
     `-autoboot` is no longer required for basic boot (see Phase 1S item 78).
     It is still needed when `-inject-str` must fire after SAMOS loads.

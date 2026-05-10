@@ -466,4 +466,4 @@ Les erreurs sont affichées sous la forme `ERROR nnn` où `nnn` est le code en *
 ---
 
 *Document établi à partir du manuel original Smaky 6 rev 2-8 (EPFL/Epsitec),
-de l'analyse de CLI.SY et SYS.SY par rétro-ingénierie, et de l'émulateur Smaky6emu.*
+de l'analyse de CLI.SY et SYS.SY par rétro-ingénierie, et de l'émulateur Smemu6.*

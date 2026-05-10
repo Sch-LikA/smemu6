@@ -463,4 +463,4 @@ Errors are displayed as `ERROR nnn` where `nnn` is the code in **octal**.
 ---
 
 *Document based on: original Smaky 6 rev 2-8 manual (EPFL/Epsitec), reverse-engineering
-of CLI.SY and SYS.SY, and the Smaky6emu emulator.*
+of CLI.SY and SYS.SY, and the Smemu6 emulator.*
