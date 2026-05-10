@@ -189,7 +189,26 @@ if(NOT EMSCRIPTEN)
     set(CPACK_PACKAGE_VENDOR          "Marcel Prisi")
     set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
         "Emulator for the 1978 Swiss Smaky 6 Z80 computer")
-    set(CPACK_PACKAGE_VERSION         "0.1.0")
+    # Derive version from git describe (e.g. v1.2-3-gabcdef → 1.2-3-gabcdef).
+    # Debian version fields must not contain hyphens in the upstream part, so
+    # we replace the first hyphen (between tag and commit count) with a tilde
+    # which sorts correctly as a pre-release in dpkg version comparison.
+    find_package(Git QUIET)
+    if(Git_FOUND)
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            OUTPUT_VARIABLE GIT_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        # Strip leading 'v'
+        string(REGEX REPLACE "^v" "" GIT_VERSION "${GIT_VERSION}")
+        # Replace first hyphen (tag-count separator) with ~ for deb compat
+        string(REGEX REPLACE "^([^-]+)-([0-9]+)-" "\\1~\\2~" GIT_VERSION "${GIT_VERSION}")
+    else()
+        set(GIT_VERSION "0.0.0")
+    endif()
+    set(CPACK_PACKAGE_VERSION "${GIT_VERSION}")
     set(CPACK_PACKAGE_CONTACT         "Marcel Prisi")
     set(CPACK_RESOURCE_FILE_LICENSE   "${CMAKE_SOURCE_DIR}/LICENSE")
     set(CPACK_STRIP_FILES             TRUE)
