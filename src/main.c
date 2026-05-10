@@ -158,6 +158,34 @@ typedef struct {
 
 static MainLoopCtx *s_loop = NULL;
 
+/* Check both timeout watchdogs.  Sets L->running=0 and returns 1 if either
+ * threshold was exceeded; otherwise returns 0.  Safe to call multiple times
+ * per iteration — the timeout_reported flag prevents duplicate messages. */
+static int check_timeouts(MainLoopCtx *L)
+{
+    if (L->timeout_reported) return 0;
+
+    Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
+
+    if (L->autoboot_timeout_ms > 0 && elapsed_ms >= L->autoboot_timeout_ms) {
+        fprintf(stderr, "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
+                (unsigned)(elapsed_ms / 1000ULL), (unsigned)(elapsed_ms % 1000ULL));
+        L->timeout_reported = 1;
+        L->running = 0;
+        return 1;
+    }
+
+    if (L->global_timeout_ms > 0 && elapsed_ms >= L->global_timeout_ms) {
+        fprintf(stderr, "[main] global timeout after %u.%03u s; exiting cleanly\n",
+                (unsigned)(elapsed_ms / 1000ULL), (unsigned)(elapsed_ms % 1000ULL));
+        L->timeout_reported = 1;
+        L->running = 0;
+        return 1;
+    }
+
+    return 0;
+}
+
 static void main_loop_cleanup(void)
 {
     if (!s_loop) return;
@@ -196,17 +224,8 @@ static void main_loop_iter(void)
         g_dump_ram_requested = 0;
         do_ram_dump(L->m);
     }
-    if (L->global_timeout_ms > 0 && !L->timeout_reported) {
-        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-        if (elapsed_ms >= L->global_timeout_ms) {
-            fprintf(stderr,
-                    "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                    (unsigned)(elapsed_ms / 1000ULL),
-                    (unsigned)(elapsed_ms % 1000ULL));
-            L->timeout_reported = 1;
-            L->running = 0;
-        }
-    }
+
+    check_timeouts(L);
 
     /* ── Events ─────────────────────────────────────────────────────── */
     SDL_Event ev;
@@ -261,57 +280,11 @@ static void main_loop_iter(void)
     L->accum_ms   += elapsed;
 
     /* Enforce watchdog even if no frame is due yet. */
-    if (L->autoboot_timeout_ms > 0 && !L->timeout_reported) {
-        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-        if (elapsed_ms >= L->autoboot_timeout_ms) {
-            fprintf(stderr,
-                    "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
-                    (unsigned)(elapsed_ms / 1000ULL),
-                    (unsigned)(elapsed_ms % 1000ULL));
-            L->timeout_reported = 1;
-            L->running = 0;
-        }
-    }
-
-    if (L->global_timeout_ms > 0 && !L->timeout_reported) {
-        Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-        if (elapsed_ms >= L->global_timeout_ms) {
-            fprintf(stderr,
-                    "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                    (unsigned)(elapsed_ms / 1000ULL),
-                    (unsigned)(elapsed_ms % 1000ULL));
-            L->timeout_reported = 1;
-            L->running = 0;
-        }
-    }
+    check_timeouts(L);
 
     /* Run as many 50 Hz frames as the accumulated time allows */
     while (L->accum_ms >= 20.0) {
-        if (L->autoboot_timeout_ms > 0 && !L->timeout_reported) {
-            Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-            if (elapsed_ms >= L->autoboot_timeout_ms) {
-                fprintf(stderr,
-                        "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
-                        (unsigned)(elapsed_ms / 1000ULL),
-                        (unsigned)(elapsed_ms % 1000ULL));
-                L->timeout_reported = 1;
-                L->running = 0;
-                break;
-            }
-        }
-
-        if (L->global_timeout_ms > 0 && !L->timeout_reported) {
-            Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-            if (elapsed_ms >= L->global_timeout_ms) {
-                fprintf(stderr,
-                        "[main] global timeout after %u.%03u s; exiting cleanly\n",
-                        (unsigned)(elapsed_ms / 1000ULL),
-                        (unsigned)(elapsed_ms % 1000ULL));
-                L->timeout_reported = 1;
-                L->running = 0;
-                break;
-            }
-        }
+        if (check_timeouts(L)) break;
 
         keyboard_frame_tick(L->m);
         machine_int(L->m);
@@ -327,15 +300,8 @@ static void main_loop_iter(void)
         }
         if (L->m->cpu_stalled) {
             fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
-#ifndef __EMSCRIPTEN__
             L->running = 0;
             break;
-#else
-            /* In the browser keep the loop alive so the user can mount a
-             * floppy and click Reset without the main loop being dead. */
-            L->running = 0;   /* triggers cancel below; smemu6_reset restarts */
-            break;
-#endif
         }
         L->accum_ms -= 20.0;
         L->frame_due = 1;
@@ -360,10 +326,7 @@ static void main_loop_iter(void)
                         L->frame_cnt);
         }
 
-        if (L->autoboot && L->stage1_release_at == L->frame_cnt)
-            machine_release_key(L->m);
-
-        if (L->break_to_monitor && L->stage1_release_at == L->frame_cnt)
+        if ((L->autoboot || L->break_to_monitor) && L->stage1_release_at == L->frame_cnt)
             machine_release_key(L->m);
 
         if (L->autoboot && !L->stage2_pressed && machine_in_posthandoff_keywait(L->m)) {
@@ -403,15 +366,15 @@ static void main_loop_iter(void)
                         L->frame_cnt, L->inject_len,
                         L->inject_via_fifo ? "FIFO" : "circular buffer");
             if (!L->inject_via_fifo) {
-                for (int _i = 0; _i < L->inject_len; _i++) {
-                    uint8_t kc = L->inject_codes[_i];
+                for (int i = 0; i < L->inject_len; i++) {
+                    uint8_t kc = L->inject_codes[i];
                     machine_inject_to_circ_buf(L->m, kc);
                     if (L->trace)
                         fprintf(stderr,
                                 "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
                                 (unsigned)kc,
                                 (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
-                                _i + 1, L->inject_len);
+                                i + 1, L->inject_len);
                 }
                 L->inject_idx = L->inject_len;
             } else {
@@ -441,14 +404,10 @@ static void main_loop_iter(void)
     if (L->frame_due) {
         video_render(L->m);
         L->frame_due = 0;
-#ifndef __EMSCRIPTEN__
-        SDL_Delay(1);
-#endif
-    } else {
-#ifndef __EMSCRIPTEN__
-        SDL_Delay(1);
-#endif
     }
+#ifndef __EMSCRIPTEN__
+    SDL_Delay(1);
+#endif
 
 #ifdef __EMSCRIPTEN__
     if (!L->running)
