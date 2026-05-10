@@ -83,20 +83,18 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
     case 0x20: return winchester_read_data(&m->win);   /* data register       */
     case 0x21: return winchester_read_error(&m->win);  /* error register      */
     case 0x27: return winchester_read_status(&m->win); /* status register     */
-        /* Port 0x11: unknown I/O device. Stub for now. */
-        case 0x11:
-            if (m->dbg.trace_port11) {
-                fprintf(stderr, "[io11] IN  pc=%04X -> 0x00\n",
-                        (unsigned)Z80_PC(m->cpu));
-            }
-            return 0x00u;
-        /* Port 0xCD: Winchester DMA or status (UNDOCUMENTED). Critical for boot! */
-        case 0x0D:  /* 0xCD & 0x3F = 0x0D */
-            if (m->dbg.trace_port_cd) {
-                fprintf(stderr, "[ioCD] IN  pc=%04X -> 0x00 (Winchester status?)\n",
-                        (unsigned)Z80_PC(m->cpu));
-            }
-            return 0x00u;  /* Return 0 = ready/idle (was 0xFF before!) */
+    /* Port 0x11: unknown I/O device. Stub for now. */
+    case 0x11:
+        if (m->dbg.trace_port11)
+            fprintf(stderr, "[io11] IN  pc=%04X -> 0x00\n",
+                    (unsigned)Z80_PC(m->cpu));
+        return 0x00u;
+    /* Port 0xCD: Winchester DMA or status (UNDOCUMENTED). Critical for boot! */
+    case 0x0D:  /* 0xCD & 0x3F = 0x0D */
+        if (m->dbg.trace_port_cd)
+            fprintf(stderr, "[ioCD] IN  pc=%04X -> 0x00 (Winchester status?)\n",
+                    (unsigned)Z80_PC(m->cpu));
+        return 0x00u;  /* Return 0 = ready/idle (was 0xFF before!) */
     default:
         return 0xFFu;
     }
@@ -366,22 +364,22 @@ void machine_run_frame(struct Smaky6 *m)
              * Neither is a true stall. */
             m->dbg.stall_frames = 0;
         } else {
-        m->dbg.stall_frames++;
-        if (m->dbg.stall_frames >= STALL_THRESHOLD) {
-            fprintf(stderr,
-                "[stall] PC %04X stuck for %d frames (~%.1f sec); "
-                "iff1=%u iff2=%u int_line=%u irq=%d nmi_armed=%d ctrl=%02X; exiting\n",
-                pc_now, m->dbg.stall_frames, m->dbg.stall_frames / 50.0,
-                (unsigned)m->cpu.iff1,
-                (unsigned)m->cpu.iff2,
-                (unsigned)m->cpu.int_line,
-                m->irq_pending,
-                m->fdc.nmi_armed,
-                m->fdc.ctrl);
-            m->cpu_stalled = 1;  /* Signal main loop to exit */
-            floppy_tick(m);
-            return;  /* Break out of infinite loop */
-        }
+            m->dbg.stall_frames++;
+            if (m->dbg.stall_frames >= STALL_THRESHOLD) {
+                fprintf(stderr,
+                    "[stall] PC %04X stuck for %d frames (~%.1f sec); "
+                    "iff1=%u iff2=%u int_line=%u irq=%d nmi_armed=%d ctrl=%02X; exiting\n",
+                    pc_now, m->dbg.stall_frames, m->dbg.stall_frames / 50.0,
+                    (unsigned)m->cpu.iff1,
+                    (unsigned)m->cpu.iff2,
+                    (unsigned)m->cpu.int_line,
+                    m->irq_pending,
+                    m->fdc.nmi_armed,
+                    m->fdc.ctrl);
+                m->cpu_stalled = 1;
+                floppy_tick(m);
+                return;
+            }
         }
     } else {
         m->dbg.stall_frames = 0;  /* PC changed, reset stall counter */
