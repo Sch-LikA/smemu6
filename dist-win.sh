@@ -22,7 +22,10 @@ cd "$SCRIPT_DIR"
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-SDL2_BIN="$HOME/dev/windows/SDL2-2.30.3/x86_64-w64-mingw32/bin"
+# SDL2_ROOT can be overridden via the environment (useful in CI).
+# Default: ~/dev/windows/SDL2-2.30.3/x86_64-w64-mingw32
+SDL2_ROOT="${SDL2_ROOT:-$HOME/dev/windows/SDL2-2.30.3/x86_64-w64-mingw32}"
+SDL2_BIN="$SDL2_ROOT/bin"
 BUILD_DIR="$SCRIPT_DIR/build-win"
 DIST_ROOT="$SCRIPT_DIR/dist"
 
@@ -47,7 +50,7 @@ done
 # ---------------------------------------------------------------------------
 if [[ $SKIP_BUILD -eq 0 ]]; then
     echo "==> Configuring (win64 preset)…"
-    cmake --preset win64
+    cmake --preset win64 -DSDL2_DIR="$SDL2_ROOT/lib/cmake/SDL2"
 
     echo "==> Building…"
     cmake --build "$BUILD_DIR" -j"$(nproc)"

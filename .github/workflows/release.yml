@@ -1,0 +1,105 @@
+name: Build and publish release
+
+# Triggered by pushing a version tag, e.g.:  git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # create the GitHub Release and upload assets
+
+env:
+  SDL2_VERSION: "2.30.3"
+
+jobs:
+  # ── Linux AppImage ────────────────────────────────────────────────────────
+  build-appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for git describe --tags
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libsdl2-dev cmake make file wget
+
+      - name: Build AppImage
+        run: APPIMAGE_EXTRACT_AND_RUN=1 ./dist-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/*.AppImage
+
+  # ── Debian package ────────────────────────────────────────────────────────
+  build-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y libsdl2-dev cmake make
+
+      - name: Build .deb
+        run: ./dist-deb.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/*.deb
+
+  # ── Windows zip (MinGW-w64 cross-compile) ────────────────────────────────
+  build-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install cross-compile tools
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y mingw-w64 cmake make zip wget
+
+      - name: Download SDL2 MinGW dev package
+        run: |
+          wget -q "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VERSION}/SDL2-devel-${SDL2_VERSION}-mingw.tar.gz"
+          tar xf "SDL2-devel-${SDL2_VERSION}-mingw.tar.gz"
+          echo "SDL2_ROOT=$PWD/SDL2-${SDL2_VERSION}/x86_64-w64-mingw32" >> "$GITHUB_ENV"
+
+      - name: Build Windows zip
+        run: ./dist-win.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*.zip
+
+  # ── Create GitHub Release and upload all assets ───────────────────────────
+  release:
+    needs: [build-appimage, build-deb, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          gh release create "$TAG" \
+            --title "Smaky 6 Emulator $TAG" \
+            --generate-notes \
+            artifacts/*.AppImage artifacts/*.deb artifacts/*.zip
