@@ -336,7 +336,7 @@ int main(int argc, char *argv[])
             .dx0_path        = harddisk_path ? harddisk_path : disk_path,
             .dx1_path        = disk2_path,
             .autoboot        = autoboot ? 1 : -1,
-            .scale           = display_scale > 1 ? display_scale : -1,
+            .scale           = display_scale,        /* always pass; launcher uses it as-is */
             .phosphor_white  = phosphor_white ? 1 : -1,
             .scanlines       = scanlines ? 1 : -1,
             .no_display_off  = no_display_off ? 1 : -1,
@@ -349,30 +349,23 @@ int main(int argc, char *argv[])
             SDL_Quit();
             return 0;
         }
-        /* Apply launcher config — only where CLI did not already provide a value */
-        if (lc.dx0_is_harddisk >= 0 && !disk_path && !harddisk_path) {
-            /* launcher chose drive type but no path yet — type remembered below */
+        /* Apply launcher config — launcher result is authoritative (it was
+         * pre-populated from CLI, so the user saw and confirmed every value) */
+        if (lc.dx0_path) {
+            if (lc.dx0_is_harddisk == 1) { harddisk_path = lc.dx0_path; disk_path = NULL; }
+            else                          { disk_path = lc.dx0_path;     harddisk_path = NULL; }
+        } else if (lc.dx0_is_harddisk >= 0 && lc.dx0_is_harddisk != (harddisk_path ? 1 : 0)) {
+            /* Type changed but no new path — clear old path of wrong type */
+            if (lc.dx0_is_harddisk == 1) { harddisk_path = NULL; }
+            else                          { disk_path = NULL; }
         }
-        if (lc.dx0_path && !disk_path && !harddisk_path) {
-            if (lc.dx0_is_harddisk == 1)
-                harddisk_path = lc.dx0_path;
-            else
-                disk_path = lc.dx0_path;
-        }
-        if (lc.dx1_path && !disk2_path)
-            disk2_path = lc.dx1_path;
-        if (lc.autoboot >= 0 && !autoboot)
-            autoboot = lc.autoboot;
-        if (lc.scale >= 1 && display_scale == 1)
-            display_scale = lc.scale;
-        if (lc.phosphor_white >= 0 && !phosphor_white)
-            phosphor_white = lc.phosphor_white;
-        if (lc.scanlines >= 0 && !scanlines)
-            scanlines = lc.scanlines;
-        if (lc.no_display_off >= 0 && !no_display_off)
-            no_display_off = lc.no_display_off;
-        if (lc.beeper >= 0)
-            enable_beeper = lc.beeper;
+        if (lc.dx1_path)        disk2_path     = lc.dx1_path;
+        if (lc.autoboot >= 0)   autoboot       = lc.autoboot;
+        if (lc.scale >= 1)      display_scale  = lc.scale;
+        if (lc.phosphor_white >= 0) phosphor_white = lc.phosphor_white;
+        if (lc.scanlines >= 0)  scanlines      = lc.scanlines;
+        if (lc.no_display_off >= 0) no_display_off = lc.no_display_off;
+        if (lc.beeper >= 0)     enable_beeper  = lc.beeper;
         /* Re-apply beeper setting now that launcher may have changed it */
         sound_set_beeper_enabled(enable_beeper);
     }
