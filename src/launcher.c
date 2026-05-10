@@ -10,6 +10,7 @@
 #include "launcher.h"
 #include "chargen_rom.h"
 #include "icon_data.h"
+#include "logo_data.h"
 
 #ifndef __EMSCRIPTEN__
 #  include "tinyfiledialogs.h"
@@ -25,7 +26,7 @@
 /* ── Geometry ────────────────────────────────────────────────────────────── */
 
 #define WIN_W  460
-#define WIN_H  464
+#define WIN_H  505
 
 /* Colours (ARGB) — Smaky 6 palette: cream body, charcoal keys, green phosphor */
 #define COL_BG          0xFFCFC6A4   /* cream/beige machine body */
@@ -376,11 +377,27 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     /* Clear */
     draw_rect_filled(ren, 0, 0, WIN_W, WIN_H, COL_BG);
 
-    /* ── Header ──────────────────────────────────────────────────────────── */
-    int y = 10;
-    static const char *hdr1 = "Smemu6 -- Smart Emulator of the Smart Keyboard";
-    draw_text(ren, (WIN_W - text_width(hdr1)) / 2, y, hdr1, COL_ACCENT);
-    y += FONT_H * FONT_SCALE + 10;
+    /* ── Header: logo image ─────────────────────────────────────────────── */
+    int y = 8;
+    {
+        SDL_Surface *logo_surf = SDL_CreateRGBSurfaceFrom(
+            (void *)smaky6_logo_rgba,
+            SMAKY6_LOGO_W, SMAKY6_LOGO_H, 32, SMAKY6_LOGO_W * 4,
+            0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+        if (logo_surf) {
+            SDL_Texture *logo_tex = SDL_CreateTextureFromSurface(ren, logo_surf);
+            SDL_FreeSurface(logo_surf);
+            if (logo_tex) {
+                SDL_Rect dst = {
+                    (WIN_W - SMAKY6_LOGO_W) / 2, y,
+                    SMAKY6_LOGO_W, SMAKY6_LOGO_H
+                };
+                SDL_RenderCopy(ren, logo_tex, NULL, &dst);
+                SDL_DestroyTexture(logo_tex);
+            }
+        }
+    }
+    y += SMAKY6_LOGO_H + 8;
 
     /* ── Storage ─────────────────────────────────────────────────────────── */
     y = draw_section(ren, y, "Storage");
