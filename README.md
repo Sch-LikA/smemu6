@@ -13,6 +13,8 @@ system from floppy.
 
 Hardware reference: [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md)
 
+**Try it in your browser:** [sch-lika.github.io/smemu6](https://sch-lika.github.io/smemu6/)
+
 ---
 
 ## Table of Contents
