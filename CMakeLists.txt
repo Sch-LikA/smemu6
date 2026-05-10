@@ -173,14 +173,18 @@ endif()
 # ── Install rules (used by AppImage packaging) ────────────────────────────────
 if(NOT EMSCRIPTEN)
     include(GNUInstallDirs)
-    install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR}
+            COMPONENT smemu6)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/smemu6/roms)
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/smemu6/roms
+            COMPONENT smemu6)
     install(FILES ${CMAKE_SOURCE_DIR}/smemu6.desktop
-            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
+            COMPONENT smemu6)
     install(FILES ${CMAKE_SOURCE_DIR}/web/smaky6-256.png
             DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
-            RENAME smaky6.png)
+            RENAME smaky6.png
+            COMPONENT smemu6)
 endif()
 
 # ── CPack / .deb packaging ────────────────────────────────────────────────────
@@ -219,6 +223,9 @@ if(NOT EMSCRIPTEN)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS  "libsdl2-2.0-0 (>= 2.0.0)")
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/mprisi/smemu6")
     set(CPACK_DEBIAN_FILE_NAME        DEB-DEFAULT)  # smemu6_0.1.0_amd64.deb
+    set(CPACK_COMPONENTS_ALL          smemu6)
+    set(CPACK_DEB_COMPONENT_INSTALL   ON)
+    set(CPACK_DEBIAN_SMEMU6_PACKAGE_NAME "smemu6")  # suppress component suffix in filename
 
     include(CPack)
 endif()
