@@ -525,22 +525,11 @@
       </label>
 
       <label class="lnch-opt" for="lnch-nodispoff">
-        <input type="checkbox" id="lnch-nodispoff" checked>
+        <input type="checkbox" id="lnch-nodispoff">
         <span class="toggle-track"></span>
         <span class="opt-label">No display-off</span>
       </label>
 
-    </div>
-  </div>
-
-  <div class="lnch-section">
-    <div class="lnch-section-title">Boot</div>
-    <div class="lnch-opts">
-      <label class="lnch-opt" for="lnch-autoboot">
-        <input type="checkbox" id="lnch-autoboot" checked>
-        <span class="toggle-track"></span>
-        <span class="opt-label">Autoboot</span>
-      </label>
     </div>
   </div>
 
@@ -637,7 +626,6 @@ document.getElementById('btn-start').addEventListener('click', function() {
   var args = ['-no-launcher'];
 
   if (document.getElementById('lnch-nodispoff').checked)  args.push('-no-display-off');
-  if (document.getElementById('lnch-autoboot').checked)   args.push('-autoboot');
   if (document.getElementById('lnch-scanlines').checked)  args.push('-scanlines');
 
   var phosphor = document.getElementById('lnch-phosphor').value;

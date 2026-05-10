@@ -749,7 +749,6 @@ int main(int argc, char *argv[])
             .dx0_is_harddisk = harddisk_path ? 1 : (disk_path ? 0 : -1),
             .dx0_path        = harddisk_path ? harddisk_path : disk_path,
             .dx1_path        = disk2_path,
-            .autoboot        = autoboot ? 1 : -1,
             .scale           = display_scale,        /* always pass; launcher uses it as-is */
             .phosphor_white  = phosphor_white ? 1 : -1,
             .scanlines       = scanlines ? 1 : -1,
@@ -774,7 +773,6 @@ int main(int argc, char *argv[])
             else                          { disk_path = NULL; }
         }
         if (lc.dx1_path)        disk2_path     = lc.dx1_path;
-        if (lc.autoboot >= 0)   autoboot       = lc.autoboot;
         if (lc.scale >= 1)      display_scale  = lc.scale;
         if (lc.phosphor_white >= 0) phosphor_white = lc.phosphor_white;
         if (lc.scanlines >= 0)  scanlines      = lc.scanlines;

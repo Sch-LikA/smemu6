@@ -14,7 +14,6 @@ typedef struct {
     int         dx0_is_harddisk;   /* 0=floppy, 1=harddisk; -1=not set */
     const char *dx0_path;          /* NULL = not provided */
     const char *dx1_path;          /* NULL = not provided */
-    int         autoboot;          /* 0/1; -1 = not set */
     int         scale;             /* 1..4; -1 = not set */
     int         phosphor_white;    /* 0=green, 1=white; -1 = not set */
     int         scanlines;         /* 0/1; -1 = not set */
@@ -37,7 +36,6 @@ typedef struct {
     int         dx0_is_harddisk;   /* 0=floppy, 1=harddisk; -1=not set */
     char       *dx0_path;          /* NULL = not set */
     char       *dx1_path;          /* NULL = not set (always floppy) */
-    int         autoboot;          /* 0/1; -1 = not set */
 
     /* Screen */
     int         scale;             /* 1..4; -1 = not set */

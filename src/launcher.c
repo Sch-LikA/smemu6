@@ -28,7 +28,7 @@
 /* ── Geometry ────────────────────────────────────────────────────────────── */
 
 #define WIN_W  460
-#define WIN_H  529
+#define WIN_H  505
 
 /* Colours (ARGB) — Smaky 6 palette: cream body, charcoal keys, green phosphor */
 #define COL_BG          0xFFCFC6A4   /* cream/beige machine body */
@@ -306,7 +306,6 @@ typedef struct {
     int   dx0_is_harddisk;   /* 0=floppy, 1=harddisk */
     char *dx0_path;
     char *dx1_path;
-    int   autoboot;          /* 0/1 */
 
     /* Screen */
     int   scale;             /* 0..3 → 1×..4× */
@@ -325,7 +324,6 @@ typedef struct {
     SDL_Rect dx0_clear;
     SDL_Rect dx1_browse;
     SDL_Rect dx1_clear;
-    SDL_Rect autoboot_dd;
     SDL_Rect scale_dd;
     SDL_Rect phosphor_dd;
     SDL_Rect scanlines_dd;
@@ -445,14 +443,7 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     }
     y += ROW_H + PATH_ROW_H;
 
-    /* Autoboot row */
-    draw_text(ren, LABEL_X, y + 5, "Autoboot:", COL_TEXT);
-    {
-        const char *lbl = s->autoboot ? "On" : "Off";
-        draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H, lbl, mx, my);
-        ha->autoboot_dd = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
-    }
-    y += ROW_H + 6;
+    y += 6;
 
     /* ── Screen ──────────────────────────────────────────────────────────── */
     y = draw_section(ren, y, "Screen");
@@ -528,7 +519,6 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     cfg->dx0_is_harddisk = -1;
     cfg->dx0_path        = NULL;
     cfg->dx1_path        = NULL;
-    cfg->autoboot        = -1;
     cfg->scale           = -1;
     cfg->phosphor_white  = -1;
     cfg->scanlines       = -1;
@@ -546,7 +536,6 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     if (driver && strcmp(driver, "dummy") == 0) {
         /* Headless: fill in sensible defaults and return immediately */
         cfg->dx0_is_harddisk = 0;
-        cfg->autoboot        = 0;
         cfg->scale           = 1;   /* 2× */
         cfg->phosphor_white  = 0;
         cfg->scanlines       = 1;
@@ -598,11 +587,10 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         .dx0_is_harddisk = 0,
         .dx0_path        = NULL,
         .dx1_path        = NULL,
-        .autoboot        = 1,
         .scale           = 0,   /* index 0 → 1× */
         .phosphor        = 0,   /* green */
         .scanlines       = 1,   /* on */
-        .no_display_off  = 1,   /* on */
+        .no_display_off  = 0,   /* off by default */
         .beeper          = 1,   /* on */
     };
 
@@ -614,8 +602,6 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
             s.dx0_path = SDL_strdup(hints->dx0_path);
         if (hints->dx1_path)
             s.dx1_path = SDL_strdup(hints->dx1_path);
-        if (hints->autoboot >= 0)
-            s.autoboot = hints->autoboot;
         if (hints->scale >= 1 && hints->scale <= 4)
             s.scale = hints->scale - 1;   /* factor → index */
         if (hints->phosphor_white >= 0)
@@ -676,7 +662,6 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
                     break;
                 }
                 if (rect_hit(&ha.dx1_clear,   mx, my)) { free(s.dx1_path); s.dx1_path = NULL; break; }
-                if (rect_hit(&ha.autoboot_dd, mx, my)) { s.autoboot ^= 1; break; }
                 if (rect_hit(&ha.scale_dd,    mx, my)) { s.scale = (s.scale + 1) % 4; break; }
                 if (rect_hit(&ha.phosphor_dd, mx, my)) { s.phosphor ^= 1; break; }
                 if (rect_hit(&ha.scanlines_dd,mx, my)) { s.scanlines ^= 1; break; }
@@ -720,7 +705,6 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         cfg->dx0_is_harddisk = s.dx0_is_harddisk;
         cfg->dx0_path        = s.dx0_path;   /* transfer ownership */
         cfg->dx1_path        = s.dx1_path;
-        cfg->autoboot        = s.autoboot;
         cfg->scale           = s.scale + 1;  /* index → actual scale factor (1..4) */
         cfg->phosphor_white  = s.phosphor;
         cfg->scanlines       = s.scanlines;
