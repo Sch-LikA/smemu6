@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
     int tracefdc = 0;
     int tracekbd = 0;
     int tracesnd = 0;
+    int tracewin = 0;
     int scrdump = 0;
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
@@ -269,6 +270,8 @@ int main(int argc, char *argv[])
             tracekbd = 1;
         } else if (strcmp(argv[i], "-tracesnd") == 0) {
             tracesnd = 1;
+        } else if (strcmp(argv[i], "-trace-win") == 0) {
+            tracewin = 1;
         } else if (strcmp(argv[i], "-scrdump") == 0) {
             scrdump = 1;
         } else if (strcmp(argv[i], "-no-beeper") == 0) {
@@ -450,6 +453,8 @@ int main(int argc, char *argv[])
         machine_set_trace_fdc(m, 1);
     if (tracesnd)
         machine_set_trace_snd(m, 1);
+    if (tracewin)
+        m->win.trace = 1;
     if (scrdump)
         machine_set_trace_scr(m, 1);
     if (tracekbd)
