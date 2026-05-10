@@ -712,8 +712,10 @@ int main(int argc, char *argv[])
 #ifndef __EMSCRIPTEN__
     signal(SIGINT,  handle_terminate_signal);
     signal(SIGTERM, handle_terminate_signal);
+#ifdef SIGUSR1
     signal(SIGUSR1, handle_dump_signal);
     fprintf(stderr, "[main] PID %d \xe2\x80\x94 send SIGUSR1 to dump RAM\n", (int)getpid());
+#endif
 #else
     (void)handle_terminate_signal;
     (void)handle_dump_signal;

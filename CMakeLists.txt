@@ -106,6 +106,12 @@ endif()
 
 target_include_directories(smemu6 PRIVATE src ${TINYFD_INCLUDE})
 
+if(NOT EMSCRIPTEN AND DEFINED SDL2_INCLUDE_DIRS)
+    # The SDL2 cmake config's imported target only exports include/SDL2,
+    # but sources use <SDL2/SDL.h> so we need the parent include/ too.
+    target_include_directories(smemu6 PRIVATE ${SDL2_INCLUDE_DIRS})
+endif()
+
 if(EMSCRIPTEN)
     # Emscripten provides SDL2 as a built-in port.
     # We embed the ROMs into the virtual FS.
@@ -137,6 +143,10 @@ if(EMSCRIPTEN)
 
     target_link_libraries(smemu6 PRIVATE Z80 m)
 else()
+    # SDL2main provides WinMain→SDL_main on Windows; harmless on other platforms.
+    if(TARGET SDL2::SDL2main)
+        target_link_libraries(smemu6 PRIVATE SDL2::SDL2main)
+    endif()
     target_link_libraries(smemu6 PRIVATE
         SDL2::SDL2
         Z80
