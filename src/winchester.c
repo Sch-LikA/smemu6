@@ -2,6 +2,7 @@
 // Copyright (C) 2024-2026 Marcel Prisi
 /* winchester.c – Smaky 6 Winchester hard-disk controller emulation */
 #include "winchester.h"
+#include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,9 +52,27 @@ static int read_sector(WinState *w, uint32_t lba)
         return -1;
     }
 
-    long off = (long)lba * (long)WIN_SECTOR_SIZE;
-    if (fseek(w->image[drv], off, SEEK_SET) != 0) {
-        fprintf(stderr, "[win] fseek(%u, %lu): error\n", (unsigned)lba, off);
+    /* Validate LBA against the maximum geometry before seeking.
+     * The LBA is derived from Z80 registers written by emulated code loaded
+     * from the disk image; a crafted image could produce an out-of-range LBA
+     * and drive fseek far beyond the image.
+     * Max cylinders = 255 (cyl_hi is always 0 per ROM disassembly). */
+    static const uint32_t WIN_MAX_LBA =
+        255u * WIN_HEADS_PER_CYL * WIN_SECTORS_PER_TRK;
+    if (lba >= WIN_MAX_LBA) {
+        fprintf(stderr, "[win] LBA %u out of range (max %u)\n",
+                (unsigned)lba, (unsigned)(WIN_MAX_LBA - 1u));
+        return -1;
+    }
+
+    /* Use int64_t for the offset so the multiplication cannot overflow on
+     * 32-bit platforms where sizeof(long)==4.  After the bounds check above,
+     * the maximum offset is (255*6*32-1)*256 = 12,533,504 bytes — well within
+     * int32_t, but the int64_t cast makes the intent explicit. */
+    int64_t off = (int64_t)lba * (int64_t)WIN_SECTOR_SIZE;
+    if (fseek(w->image[drv], (long)off, SEEK_SET) != 0) {
+        fprintf(stderr, "[win] fseek(lba=%u, off=0x%llX): error\n",
+                (unsigned)lba, (unsigned long long)off);
         return -1;
     }
     size_t n = fread(w->sector_buf, 1, WIN_SECTOR_SIZE, w->image[drv]);
@@ -63,9 +82,10 @@ static int read_sector(WinState *w, uint32_t lba)
 
     if (w->trace) {
         uint16_t cyl  = ((uint16_t)w->cyl_hi << 8) | w->cyl_lo;
-        fprintf(stderr, "[win] READ drv=%d cyl=%u head=%u sec=%u  lba=%u  off=0x%06lX\n",
+        fprintf(stderr, "[win] READ drv=%d cyl=%u head=%u sec=%u  lba=%u  off=0x%llX\n",
                 drv, (unsigned)cyl, (unsigned)(w->sdh & 7u),
-                (unsigned)(w->sector_num & 0x1Fu), (unsigned)lba, off);
+                (unsigned)(w->sector_num & 0x1Fu), (unsigned)lba,
+                (unsigned long long)off);
     }
     return 0;
 }
