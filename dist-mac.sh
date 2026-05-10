@@ -63,33 +63,41 @@ echo "==> Installing ROMs into bundle…"
 cmake --install "$BUILD_DIR" --prefix "$BUILD_DIR" --component smemu6
 
 # ---------------------------------------------------------------------------
-# Run macdeployqt replacement: macOS SDK's dylibbundler / install_name_tool
-# We use macdeployqt-equivalent via dylibbundler to bundle SDL2 dylib.
-# Prefer create-dmg if available, fall back to hdiutil.
+# Bundle SDL2 dylib into the .app
 # ---------------------------------------------------------------------------
 echo "==> Bundling SDL2 dylib into ${APP_BUNDLE}…"
 FRAMEWORKS="$APP_BUNDLE/Contents/Frameworks"
 mkdir -p "$FRAMEWORKS"
 
-# Find SDL2 dylib (Homebrew typical paths)
-SDL2_DYLIB="$(find /opt/homebrew /usr/local -name 'libSDL2*.dylib' 2>/dev/null | grep -v devel | head -1 || true)"
+# Find the SDL2 dylib on disk (Homebrew arm64 or x86_64)
+SDL2_DYLIB="$(find /opt/homebrew /usr/local -name 'libSDL2-2.0.0.dylib' 2>/dev/null | head -1 || true)"
 if [[ -z "$SDL2_DYLIB" ]]; then
-    echo "ERROR: libSDL2 dylib not found. Install it with: brew install sdl2"
+    echo "ERROR: libSDL2-2.0.0.dylib not found. Install it with: brew install sdl2"
     exit 1
 fi
-echo "    SDL2 → $SDL2_DYLIB"
+echo "    SDL2 on disk → $SDL2_DYLIB"
+
+# Find what the binary actually references (may be @rpath/… or an abs path)
+SDL2_REF="$(otool -L "$APP_BUNDLE/Contents/MacOS/$APP_NAME" \
+    | awk '/libSDL2/{print $1}' | head -1)"
+if [[ -z "$SDL2_REF" ]]; then
+    echo "ERROR: could not find SDL2 reference in binary via otool."
+    exit 1
+fi
+echo "    SDL2 in binary → $SDL2_REF"
 
 # Copy SDL2 into the bundle
-cp "$SDL2_DYLIB" "$FRAMEWORKS/"
 DYLIB_BASENAME="$(basename "$SDL2_DYLIB")"
+cp "$SDL2_DYLIB" "$FRAMEWORKS/$DYLIB_BASENAME"
 
-# Rewrite the embedded rpath in the executable to point inside the bundle
+# Rewrite the binary's SDL2 reference to point inside the bundle
 install_name_tool \
-    -change "$SDL2_DYLIB" "@executable_path/../Frameworks/$DYLIB_BASENAME" \
+    -change "$SDL2_REF" "@executable_path/../Frameworks/$DYLIB_BASENAME" \
     "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-# Give the copied dylib a self-referential id
-install_name_tool -id "@executable_path/../Frameworks/$DYLIB_BASENAME" \
+# Give the bundled dylib a self-referential id
+install_name_tool \
+    -id "@executable_path/../Frameworks/$DYLIB_BASENAME" \
     "$FRAMEWORKS/$DYLIB_BASENAME"
 
 # ---------------------------------------------------------------------------
