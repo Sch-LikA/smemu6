@@ -93,6 +93,16 @@ install_name_tool -id "@executable_path/../Frameworks/$DYLIB_BASENAME" \
     "$FRAMEWORKS/$DYLIB_BASENAME"
 
 # ---------------------------------------------------------------------------
+# Ad-hoc code signing
+# ---------------------------------------------------------------------------
+# A proper Apple-notarized signature requires a paid Apple Developer account.
+# Ad-hoc signing (-) removes the "damaged app" Gatekeeper error for most
+# users.  Without notarization, macOS will still warn on first launch; users
+# can clear the quarantine flag with:  xattr -cr smemu6.app
+echo "==> Ad-hoc signing bundle…"
+codesign --force --deep --sign - "$APP_BUNDLE"
+
+# ---------------------------------------------------------------------------
 # Create .dmg
 # ---------------------------------------------------------------------------
 mkdir -p "$DIST_ROOT"
