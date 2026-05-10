@@ -213,6 +213,18 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
         }
         break;
 
+    case 0x70u:  /* SEEK — position heads to cylinder in CHS registers */
+        w->phase = WD_IDLE;
+        w->last_cyl[drv]  = ((uint16_t)w->cyl_hi << 8) | w->cyl_lo;
+        w->last_head[drv] = w->sdh & 0x07u;
+        w->disk_active[drv] = 3;
+        if (w->trace)
+            fprintf(stderr, "[win] CMD SEEK drv=%d cyl=%u head=%u\n",
+                    drv,
+                    (unsigned)w->last_cyl[drv],
+                    (unsigned)w->last_head[drv]);
+        break;
+
     default:
         if (w->trace)
             fprintf(stderr, "[win] CMD 0x%02X unrecognised (ignored)\n", cmd);

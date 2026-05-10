@@ -443,7 +443,7 @@ Port map (ports `0x20–0x27`, `0x2B`; 6-bit mask `port & 0x3F`):
 | `0x25` | W   | Cylinder high byte                                                    |
 | `0x26` | W   | SDH — bits[2:0]=head (0–5), bit[3]=drive select (0/1)                 |
 | `0x27` | R   | Status — `0xFF`=no image, `0x50`=RDY+SC, `0x58`=RDY+SC+DRQ           |
-| `0x27` | W   | Command — `0x1n`=RESTORE, `0x2n`=READ SECTOR, `0x3n`=WRITE(stub)     |
+| `0x27` | W   | Command — `0x1n`=RESTORE, `0x2n`=READ SECTOR, `0x3n`=WRITE(stub), `0x7n`=SEEK |
 | `0x2B` | W   | Unknown — no-op                                                       |
 
 Geometry (confirmed from Phantom ROM disassembly at `0x0370–0x0398`):

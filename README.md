@@ -356,7 +356,7 @@ Log every write to **port 0x03** (buzzer bit-bang).  Each line shows the
 T-state timestamp and the new bit value, allowing exact frequency measurement.
 
 #### `-trace-win`
-Log every Winchester hard-disk controller command (RESTORE, READ, WRITE) to
+Log every Winchester hard-disk controller command (RESTORE, SEEK, READ, WRITE) to
 stderr.  Each line shows the drive number, cylinder, head, sector and LBA,
 allowing diagnosis of disk access patterns and CHS mapping issues.
 
