@@ -136,13 +136,13 @@ struct Smaky6 {
     struct {
         int stepping;
         int trace;       /* 1 = log Z80 PC at boot milestones to stderr */
-        int trace_port08;/* 1 = log port 0x08 IN/OUT traffic */
-        int trace_kbd;   /* 1 = log every CLA / status port read */
-            int trace_port11;  /* 1 = log port 0x11 IN/OUT */
-            int trace_port_cd;  /* 1 = log port 0xCD IN/OUT */
-            int trace_port19;  /* 1 = log port 0x19 writes */
-            int trace_fdc;     /* 1 = log focused floppy ID/checksum stream events */
-        int trace_flow;  /* 1 = log dense post-handoff control flow */
+        int trace_port08; /* 1 = log port 0x08 IN/OUT traffic */
+        int trace_kbd;    /* 1 = log every CLA / status port read */
+        int trace_port11; /* 1 = log port 0x11 IN/OUT */
+        int trace_port_cd;/* 1 = log port 0xCD IN/OUT */
+        int trace_port19; /* 1 = log port 0x19 writes */
+        int trace_fdc;    /* 1 = log focused floppy ID/checksum stream events */
+        int trace_flow;   /* 1 = log dense post-handoff control flow */
         int trace_snd;   /* 1 = log every port 0x03 write (buzzer) */
         int trace_scr;   /* 1 = dump changed screen rows to stderr (opt-in via -scrdump) */
         int flow_budget; /* max flow log lines per run */
