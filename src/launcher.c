@@ -9,6 +9,7 @@
 
 #include "launcher.h"
 #include "chargen_rom.h"
+#include "icon_data.h"
 
 #ifndef __EMSCRIPTEN__
 #  include "tinyfiledialogs.h"
@@ -544,6 +545,16 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     if (!win) {
         fprintf(stderr, "[launcher] SDL_CreateWindow: %s\n", SDL_GetError());
         return 0;
+    }
+
+    /* Set window icon from embedded RGBA pixel data */
+    {
+        SDL_Surface *icon = SDL_CreateRGBSurfaceFrom(
+            (void *)smaky6_icon_rgba,
+            SMAKY6_ICON_W, SMAKY6_ICON_H,
+            32, SMAKY6_ICON_W * 4,
+            0x000000FFu, 0x0000FF00u, 0x00FF0000u, 0xFF000000u);
+        if (icon) { SDL_SetWindowIcon(win, icon); SDL_FreeSurface(icon); }
     }
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1,

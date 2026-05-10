@@ -8,6 +8,7 @@
 #include "keyboard.h"
 #include "debug.h"
 #include "floppy.h"
+#include "icon_data.h"
 #include "winchester.h"
 #include "sound.h"
 #include "launcher.h"
@@ -784,6 +785,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "SDL_CreateWindow: %s\n", SDL_GetError());
         SDL_Quit();
         return 1;
+    }
+
+    /* Set window icon from embedded RGBA pixel data */
+    {
+        /* cast away const: SDL_CreateRGBSurfaceFrom takes void*, data is read-only */
+        SDL_Surface *icon = SDL_CreateRGBSurfaceFrom(
+            (void *)smaky6_icon_rgba,
+            SMAKY6_ICON_W, SMAKY6_ICON_H,
+            32, SMAKY6_ICON_W * 4,
+            0x000000FFu, 0x0000FF00u, 0x00FF0000u, 0xFF000000u);
+        if (icon) { SDL_SetWindowIcon(win, icon); SDL_FreeSurface(icon); }
     }
 
     SDL_Renderer *ren = SDL_CreateRenderer(win, -1,

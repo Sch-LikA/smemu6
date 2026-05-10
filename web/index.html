@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smaky 6 — Emulator</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="icon" href="smaky6-256.png" type="image/png" sizes="256x256">
+  <link rel="apple-touch-icon" href="smaky6-128.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -31,11 +33,10 @@
       margin-bottom: 22px;
     }
     #title-plate img.logo-img {
-      width: 280px;
-      height: auto;
+      width: 200px;
+      height: 200px;
       display: block;
-      /* subtle drop shadow under the logo */
-      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.25));
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.35));
     }
     .model {
       font-size: 0.72em;
@@ -474,15 +475,14 @@
 <body>
 
 <div id="title-plate">
-  <img src="smaky6-logo.svg" alt="SMAKY6" class="logo-img">
-  <span class="model">Emulator</span>
+  <img src="smaky6-icon.png" alt="SMAKY6" class="logo-img">
 </div>
 
 <!-- ── Launcher config panel ─────────────────────────────────────────────── -->
 <div id="launcher" class="machine-body">
 
   <div class="badge-strip">
-    <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
+    <img src="smaky6-32.png" alt="SMAKY6" style="height:28px;width:28px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
     <span class="badge-right">smemu6</span>
   </div>
 
@@ -562,7 +562,7 @@
 <div id="machine" class="machine-body">
 
   <div class="badge-strip">
-    <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
+    <img src="smaky6-32.png" alt="SMAKY6" style="height:28px;width:28px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
     <span class="badge-right">smemu6</span>
   </div>
 

@@ -1,0 +1,4 @@
+// Windows resource file — application icon for smemu6.exe
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
+IDI_ICON1 ICON "smaky6.ico"
