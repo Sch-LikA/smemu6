@@ -133,7 +133,7 @@
 ;         a. LD SP,0x4600; CALL 0x56F5 (beep); clear alpha plane; clear workspace.
 ;         b. OUT(0x01),A — bank-switch Phantom ROM OUT (RAM 0x0000-0x07FF accessible).
 ;         c. OUT(0x00),4 — write 4 to keyboard port (unknown purpose).
-;         d. CALL 0x55C9 (draw_glyph_list) — draw boot logo on GRAPHIC plane (0x4500+).
+;         d. CALL 0x55C9 (draw_glyph_list) — draw boot logo on GRAPHIC plane (0x4600+).
 ;         e. RAM test loop × 4 banks (0x4000, 0x8000, 0xC000, 0x0000):
 ;              CALL 0x55AB (IX-table-driven pattern test AA/55/00/FF/01);
 ;              CALL 0x56B7 — display pass/fail result on screen;
@@ -166,8 +166,8 @@
 ;   0x0000–0x07FF  This ROM (write-protected)
 ;   0x0800–0x3FFF  Lower RAM
 ;   0x4000–0x44FF  Alpha screen buffer (20×64 chars)
-;   0x4500–0x80FF  Graphic bitmap (240×64 bytes)
-;   0x4500–0x4FFF  OS workspace / variables (see table below)
+;   0x4500–0x45FF  OS workspace / variables (see table below)
+;   0x4600–0x54FF  Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×)
 ;   0x4600         Stack pointer at cold reset
 ;   0x5500–0x583E  OS-loader stub (LDIR'd from ROM 0x04C2; ~830 bytes of ROM code
 ;                   then zeros to wrap BC=0xB300 ending around 0xFF00)
@@ -252,7 +252,7 @@
 ;   bit-serial SPI peripheral interface, not a display-mode register.
 ;   Port 0x0B is a serial shift-clock, not a display latch.
 ;   Video mode switching (VMODE_ALPHA ↔ VMODE_SUPER) may be:
-;     a) Triggered by a write to an address in the graphic plane range (0x4500+)
+;     a) Triggered by a write to an address in the graphic plane range (0x4600+)
 ;        rather than an I/O port;
 ;     b) Controlled by a dedicated latch not exercised by this ROM/OS binary;
 ;     c) Always on in hardware (both planes active simultaneously, with priority).

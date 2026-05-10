@@ -111,8 +111,8 @@ void video_render(struct Smaky6 *m)
         pixels[i] = BG;
 
     /* Respect the selected display mode. Unconditionally compositing the
-     * bitmap plane makes the OS workspace at 0x4500 look like random screen
-     * corruption while the machine is in text mode. */
+     * graphic plane (0x4600–0x54FF) in alpha mode shows uninitialised RAM
+     * as pixel noise while the machine is in text-only operation. */
 
     if (mode != VMODE_GRAPHIC) {
         /* ── Alpha plane ─────────────────────────────────────────────────── */

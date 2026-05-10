@@ -39,7 +39,8 @@ extracted to `/tmp/smaky6.txt` via `pdftotext`.
 | 0x0000–0x0FFF | 000000–007777  | SYSMON ROM (4 KB, 2×2708 or 1×2716 EPROM)               |
 | 0x1000–0x1FFF | 010000–017777  | SAMOS ROM (4 KB, floppy OS, optional)                    |
 | 0x4000–0x44FF | 040000–042377  | Alphanumeric screen buffer (20 rows × 64 cols = 1280 B)  |
-| 0x4500–0x80FF | 042400–100377  | Graphic bitmap (240 scan lines × 64 bytes = 15 360 B)    |
+| 0x4500–0x45FF | 042400–042777  | OS workspace / variables (256 B)                         |
+| 0x4600–0x54FF | 043000–052377  | Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×) |
 | 0x4600        | 043000         | Initial stack pointer (SP=0x4600 at boot)                |
 | 0x0000–0x7FFF | —              | 32 KB RAM configuration                                  |
 | 0x0000–0xBFFF | —              | 48 KB RAM configuration (per doc page 0.1-1)             |
@@ -59,8 +60,8 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 | 0x0800–0x22FF | 004000–021377  | SAMOS OS from SYS.SY (loaded from disk, ~7 KB)           |
 | 0x0800–0x3FFF | 004000–037777  | Lower RAM (available after SAMOS OS)                     |
 | 0x4000–0x44FF | 040000–042377  | Alphanumeric screen buffer (20 rows × 64 cols = 1280 B)  |
-| 0x4500–0x4FFF | 042400–047777  | OS workspace / variables (overlaps graphic plane base)   |
-| 0x4500–0x80FF | 042400–100377  | Graphic bitmap (240 scan lines × 64 bytes = 15 360 B)    |
+| 0x4500–0x45FF | 042400–042777  | OS workspace / variables (256 B)                         |
+| 0x4600–0x54FF | 043000–052377  | Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×) |
 | 0x4600        | 043000         | Initial stack pointer (SP=0x4600 at Phantom cold-start)  |
 | 0x5500–0x5558 | 052400–052530  | OS-loader self-test stub (copied from Phantom ROM 0x04C2)|
 | 0x8100–0xFFFF | 100400–177777  | Upper RAM (~32 KB)                                       |
@@ -671,7 +672,7 @@ smemu6/
        That's why "first 2 chars rapidly change" = test patterns in alpha plane at 0x4000.
 
     b. **Video mode never switches to SUPER**: The stub at 0x55C9 (`draw_glyph_list`) draws the
-       self-test boot logo on the **graphic plane** (0x4500+). Our emulator stays in `VMODE_ALPHA`
+       self-test boot logo on the **graphic plane** (0x4600+). Our emulator stays in `VMODE_ALPHA`
        permanently — `video_set_mode()` is never called from machine.c, so the graphic overlay
        is invisible. The "4 dots" and animated boot logo are on the graphic plane we can't see.
 
@@ -732,8 +733,8 @@ smemu6/
 33. **NATHALIE.IM** — confirmed as genuine bitmap content on the floppy disk.
   Directory entry: load=`0x4601`, size=`3840` bytes = `60 × 64` bytes = `512 × 60` raw pixels,
   with an aspect-corrected presentation of roughly `512 × 240` on the original display.
-  The load address is `0x101` bytes past the graphic base `0x4500`, so if interpreted literally it
-  starts at row 4 plus one byte of horizontal offset rather than at the exact top-left corner.
+  The load address is `0x4601` — 1 byte past the graphic base `0x4600` — so the image
+  starts 8 pixels (one byte) from the left edge of the first row.
   Direct rendering shows a recognizable portrait, so IM files are definitely 1bpp graphic-plane
   assets rather than encoded text/resources. The earlier assumption that this proved the machine
   always overlays graphics was too strong: after fixing the alpha-mode corruption bug, NATHALIE.IM
