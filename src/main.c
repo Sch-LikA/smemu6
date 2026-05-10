@@ -476,7 +476,7 @@ int main(int argc, char *argv[])
     uint8_t inject_codes[128];  /* key sequence to inject at OS prompt */
     int inject_len = 0;
     int forced_vmode = -1;
-    int gfx_msb_first = 0;
+    int gfx_msb_first = -1;  /* -1 = use video_init() default (msb) */
     int trace08 = 0;
     int traceflow = 0;
     int trace11 = 0;
@@ -809,7 +809,8 @@ int main(int argc, char *argv[])
     /* Init video (after machine so chargen ROM path is available) */
     video_init(m, win, ren);
     video_load_chargen(m, ROM_CHARGEN);
-    video_set_gfx_msb_first(m, gfx_msb_first);
+    if (gfx_msb_first >= 0)
+        video_set_gfx_msb_first(m, gfx_msb_first);
     if (forced_vmode >= 0)
         video_set_mode(m, (VideoMode)forced_vmode);
 
