@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* memory.c – Smaky 6 address bus and memory subsystem */
 #include "machine_internal.h"
 #include "memory.h"

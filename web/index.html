@@ -98,6 +98,18 @@
     }
     .badge-right { color: #7a7060; font-size: 0.65em; letter-spacing: 0.1em; }
 
+    /* ── Attribution footer ────────────────────────────────────────────── */
+    #attribution {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.68em;
+      color: #7a7060;
+      line-height: 1.7;
+      max-width: 460px;
+    }
+    #attribution a { color: #5a5040; text-decoration: underline; }
+    #attribution a:hover { color: #2a2520; }
+
     /* ── Launcher panel ─────────────────────────────────────────────────── */
     #launcher { width: 400px; }
 
@@ -471,7 +483,7 @@
 
   <div class="badge-strip">
     <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
-    <span class="badge-right">EPSITEC SA</span>
+    <span class="badge-right">smemu6</span>
   </div>
 
   <div class="lnch-section" style="border-top:none; padding-top:0; margin-top:0;">
@@ -551,7 +563,7 @@
 
   <div class="badge-strip">
     <img src="smaky6-logo.svg" alt="SMAKY6" style="height:28px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
-    <span class="badge-right">EPSITEC SA</span>
+    <span class="badge-right">smemu6</span>
   </div>
 
   <div id="bezel">
@@ -599,6 +611,16 @@
 
 <!-- hidden file input for emscripten pick_file_async -->
 <input type="file" id="smemu6-file-input" accept=".dsk,.DSK">
+
+<p id="attribution">
+  Emulator vibe-coded by Marcel Prisi &mdash; GPL&nbsp;v3.<br>
+  The Smaky&nbsp;6 was designed by <strong>Jean-Daniel Nicoud</strong> and his team at EPFL
+  and commercialized by <a href="https://www.epsitec.ch" target="_blank" rel="noopener">Epsitec&nbsp;SA</a>.<br>
+  Some ROM content used with permission from Epsitec&nbsp;SA.<br>
+  Built with <a href="https://github.com/redcode/Z80" target="_blank" rel="noopener">redcode/Z80</a> (LGPL&nbsp;v3),
+  <a href="https://www.libsdl.org" target="_blank" rel="noopener">SDL2</a> (zlib),
+  <a href="https://sourceforge.net/projects/tinyfiledialogs/" target="_blank" rel="noopener">tinyfiledialogs</a> (zlib).
+</p>
 
 <script>
 // ── Launcher disk staging ────────────────────────────────────────────────────

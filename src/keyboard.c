@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* keyboard.c – Smaky 6 keyboard controller (SDL2 → Smaky key codes) */
 #include "machine_internal.h"
 #include "keyboard.h"

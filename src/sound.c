@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* sound.c – Smaky 6 1-bit buzzer emulation via SDL2 push-audio (QueueAudio).
  *
  * Hardware: the Smaky 6 buzzer is driven by an active-high pulse.  The ROM

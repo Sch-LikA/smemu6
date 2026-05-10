@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* usart.h – Generic 8251-compatible USART model (Smaky 6 has two) */
 #ifndef USART_H
 #define USART_H

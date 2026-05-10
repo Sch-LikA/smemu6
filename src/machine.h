@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* machine.h – Top-level Smaky 6 machine state */
 #ifndef MACHINE_H
 #define MACHINE_H

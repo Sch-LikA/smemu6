@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* parallel.h – Smaky 6 parallel interface (ports 0x02/0x03) */
 #ifndef PARALLEL_H
 #define PARALLEL_H

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* rtc.c – Smaky 6 E405/08 real-time clock emulation */
 #include "rtc.h"
 #include <time.h>

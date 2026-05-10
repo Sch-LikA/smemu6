@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* launcher.c – Smaky 6 SDL2 startup configuration dialog
  *
  * Rendered entirely with SDL2 primitives (no SDL_ttf dependency).

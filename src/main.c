@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* main.c – Smaky 6 emulator entry point */
 #include "machine_internal.h"  /* For access to cpu_stalled field */
 #include "machine.h"

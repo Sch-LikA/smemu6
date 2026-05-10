@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* winchester.h – Smaky 6 Winchester hard-disk controller emulation
  *
  * Hardware: WD1000/WD1001/WD1002-compatible register set, base I/O address 0x20.

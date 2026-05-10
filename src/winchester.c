@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* winchester.c – Smaky 6 Winchester hard-disk controller emulation */
 #include "winchester.h"
 #include <string.h>

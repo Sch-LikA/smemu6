@@ -542,4 +542,21 @@ printable ASCII range.
 
 ## License
 
-Hardware design by Jean-Daniel Nicoud / EPFL / Epsitec.  Emulator source TBD.
+Emulator source code copyright © 2024–2026 Marcel Prisi —
+released under the **GNU General Public License v3** (see [LICENSE](LICENSE)).
+
+### Acknowledgements
+
+The Smaky 6 was designed by **Jean-Daniel Nicoud** and his team at
+[EPFL](https://www.epfl.ch) (Lausanne, Switzerland) and commercialized by
+**Epsitec SA**.  Some ROM content is used with their kind permission for
+emulation and preservation purposes.
+
+### Third-party libraries
+
+| Library | License |
+|---|---|
+| [redcode/Z80](https://github.com/redcode/Z80) | LGPL v3 |
+| [redcode/Zeta](https://github.com/redcode/Zeta) | LGPL v3 |
+| [SDL2](https://www.libsdl.org) | zlib |
+| [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/) | zlib |

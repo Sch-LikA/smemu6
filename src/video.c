@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* video.c – Smaky 6 display: alpha + graphic planes, SDL2 render */
 #include "machine_internal.h"
 #include "video.h"

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* floppy.c – Micropolis hard-sectored floppy controller (discrete logic) */
 #include "machine_internal.h"
 #include "floppy.h"

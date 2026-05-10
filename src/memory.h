@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* memory.h – Smaky 6 address bus */
 #ifndef MEMORY_H
 #define MEMORY_H

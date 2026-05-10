@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2024-2026 Marcel Prisi
 /* machine.c – Top-level Smaky 6 machine: wires CPU, memory and all I/O */
 #include "machine_internal.h"  /* full struct Smaky6 definition */
 #include "machine.h"
