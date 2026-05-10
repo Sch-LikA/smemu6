@@ -25,7 +25,7 @@ void video_load_chargen(struct Smaky6 *m, const char *path);
 /* Set display mode from emulated I/O port write */
 void video_set_mode(struct Smaky6 *m, VideoMode mode);
 
-/* Configure bitmap byte bit order: 0=LSB-left, 1=MSB-left. */
+/* Override graphic nibble bit order: 0=LSB-left, 1=MSB-left (default: MSB). */
 void video_set_gfx_msb_first(struct Smaky6 *m, int on);
 
 /* Render one frame to the SDL2 window */
@@ -33,7 +33,12 @@ void video_render(struct Smaky6 *m);
 
 /*
  * Display geometry
- *   Graphic plane : 512 × 240 px (1 bpp), 64 bytes/row
+ *   Graphic plane : nibble-interleaved, native 256×120 px (1 bpp).
+ *     Each byte: high nibble (bits 7–4) → 4 pixels on even scan line (pair*2)
+ *                low  nibble (bits 3–0) → 4 pixels on odd  scan line (pair*2+1)
+ *     Within each nibble: bit 3 (MSB) = leftmost pixel.
+ *     64 bytes × 4 px/nibble = 256 native px wide; 60 pairs × 2 = 120 lines.
+ *     Rendered 2× wide, 4× tall → 512 × 480 output.
  *   Alpha plane   : 64 cols × 20 rows, each char 8 px wide × 12 px tall
  *                   20 rows × 12 px = 240 raw lines = VIDEO_PX_H exactly.
  *   Chargen ROM   : TMS2716 / 2716 EPROM, 2048 bytes.
@@ -42,9 +47,8 @@ void video_render(struct Smaky6 *m);
  *
  * Pixel aspect ratio:
  *   The pixel buffer is rendered at 512 × VIDEO_ASPECT_H = 512 × 480.
- *   480 = 240 × 2 exactly, so every raw scan line maps to exactly 2 output
- *   lines and every character row maps to exactly 24 output lines — perfectly
- *   uniform with no banding at any integer display_scale factor.
+ *   Each native gfx pixel is 2 output px wide × 4 output px tall.
+ *   480 = 120 × 4 exactly; every character row maps to 24 output lines.
  *   SDL_RenderCopy is a 1:1 blit; SDL_RenderSetLogicalSize handles window scaling.
  *   AR = 512:480 ≈ 1.067:1 (slightly wider than square).
  *   At display_scale=1: physical window = 512 × (480+12) = 512 × 492 px.
@@ -52,10 +56,10 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_COLS_CHAR    64
 #define VIDEO_ROWS_CHAR    20
 #define VIDEO_CHAR_H       12   /* scan lines per character cell: 20×12 = 240 = VIDEO_PX_H */
-#define VIDEO_SCAN_LINES   60    /* lores rows in graphic framebuffer; each row × 4 display lines = 240 */
+#define VIDEO_SCAN_LINES   60    /* byte-pairs in graphic framebuffer (60 pairs × 2 scan lines = 120 native lines) */
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
-#define VIDEO_ASPECT_H     480                  /* 2× vertical: 240×2=480; every scan line → 2 output lines, every char row → 24 lines */
+#define VIDEO_ASPECT_H     480                  /* native 120 lines × 4 = 480 output lines; each char row → 24 output lines */
 #define VIDEO_LED_H        14                  /* status-bar height: 1 floppy row */
 #define VIDEO_WIN_W        VIDEO_PX_W
 #define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)

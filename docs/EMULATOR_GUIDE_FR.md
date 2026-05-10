@@ -430,10 +430,11 @@ Essayez de forcer un mode vidéo :
 
 **Les graphiques apparaissent inversés ou brouillés**
 
-Essayez de changer l'ordre des bits du bitmap :
+Le plan graphique utilise un encodage nibble-entrelacé avec MSB à gauche par défaut
+(vérifié sur le matériel réel). Pour forcer l'ordre inverse :
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -gfxbits msb
+./smemu6 -floppy sys.img -autoboot -gfxbits lsb
 ```
 
 **L'émulateur quitte immédiatement avec l'erreur 043**

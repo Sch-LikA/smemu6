@@ -289,14 +289,16 @@ in French) but is not used by SAMOS 2-8 and is not emulated.
 | Logical rows     | **60** (stored rows in RAM)                                    |
 | Bytes per row    | 64                                                             |
 | Total bytes      | 3840 (60 × 64) at 0x4600–0x54FF                               |
-| Pixel encoding   | 1 bit per pixel; **bit 0 = leftmost pixel** (LSB-first)        |
-| Vertical stretch | Each stored row is displayed as **4 identical scan lines**     |
-| Display size     | 512 × 240 pixels (60 × 4 = 240 display lines, 64 × 8 = 512 px wide) |
-| Pixel aspect     | ~1:1.6 (CRT was ~4:3; 512 px wide ÷ 240 px tall × 4/3 = 1.6×) |
+| Pixel encoding   | **Nibble-interleaved**: high nibble → even scan line, low nibble → odd scan line |
+| Bit order        | Bit 3 of nibble = leftmost pixel (**MSB-first** within nibble) |
+| Native size      | 256 × 120 px (64 bytes × 4 px/nibble = 256 wide; 60 pairs × 2 lines = 120 tall) |
+| Display size     | 512 × 480 (2× horizontal, 4× vertical stretch) |
+| Pixel aspect     | ~1:1 on output (square pixels at 2× stretch match original CRT ~4:3 frame) |
 
-**Why 60 rows?**  The AFFICHAGE scan counter counts 240 active lines.  The DMA
-address counter increments once every 4 lines, giving 60 unique row addresses.
-The same 64-byte row is read four consecutive display times.
+**Why 60 byte-pairs?**  The AFFICHAGE scan counter counts 240 active lines.  The DMA
+address counter increments once every 2 lines (not 4), giving 120 unique line addresses
+but only 60 unique RAM addresses (each address feeds both an even and an odd line via
+the nibble split). Each 64-byte row is read twice (high nibble, then low nibble).
 
 **Superimpose**: when both planes are active (SUPER mode), the graphic pixel
 takes priority over the alpha character where the graphic bit = 1; the alpha

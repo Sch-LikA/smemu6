@@ -175,7 +175,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | Option | Description |
 |--------|-------------|
 | `-vmode <m>` | Force video mode: `alpha` (text only), `graphic` (graphics only), `super` (text + graphics) |
-| `-gfxbits <b>` | Bitmap bit order: `lsb` (default) or `msb` |
+| `-gfxbits <b>` | Nibble bit order: `msb` (default, hardware-correct) or `lsb` |
 | `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 494 pixels) |
 | `-scanlines` | Draw CRT-style scanline overlay (darkens every other output row) |
 | `-phosphor <c>` | Screen phosphor colour: `green` (default, P31 `#00E700`) or `white` (`#E8E8E8`) |
@@ -426,10 +426,11 @@ Try forcing a video mode:
 
 **Graphics appear inverted or garbled**
 
-Try toggling the bitmap bit order:
+The graphic plane uses nibble-interleaved encoding with MSB-left by default
+(hardware-verified). If images still look wrong, you can force the bit order:
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -gfxbits msb
+./smemu6 -floppy sys.img -autoboot -gfxbits lsb
 ```
 
 **Emulator exits immediately with error 043**

@@ -167,7 +167,8 @@
 ;   0x0800–0x3FFF  Lower RAM
 ;   0x4000–0x44FF  Alpha screen buffer (20×64 chars)
 ;   0x4500–0x45FF  OS workspace / variables (see table below)
-;   0x4600–0x54FF  Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×)
+;   0x4600–0x54FF  Graphic bitmap (nibble-interleaved: 60 pairs × 64 bytes = 3840 B;
+;                  high nibble → even scan line, low nibble → odd; native 256×120)
 ;   0x4600         Stack pointer at cold reset
 ;   0x5500–0x583E  OS-loader stub (LDIR'd from ROM 0x04C2; ~830 bytes of ROM code
 ;                   then zeros to wrap BC=0xB300 ending around 0xFF00)

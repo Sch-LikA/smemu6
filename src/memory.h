@@ -31,8 +31,9 @@ void memory_unprotect_rom(struct Smaky6 *m, uint16_t base, uint16_t len);
  *   0x4000 – 0x44FF  Alpha screen buffer (20 rows × 64 cols = 1280 bytes)
  *                    Display DMA (HOLD cycles) reads this region each frame.
  *   0x4500 – 0x45FF  SAMOS OS workspace / variables (256 bytes)
- *   0x4600 – 0x54FF  Graphic bitmap (60 rows × 64 bytes = 3840 bytes)
- *                    Each byte rendered 8 px wide × 4 px tall → 512×240 display.
+ *   0x4600 – 0x54FF  Graphic bitmap (nibble-interleaved, 60 pairs × 64 bytes = 3840 bytes)
+ *                    Each byte: high nibble → 4 px on even line, low nibble → 4 px on odd line.
+ *                    Native 256×120, displayed 512×480 (2× wide, 4× tall).
  *                    Addresses confirmed in octal on MÉMOIRE schematic (J. Zuba,
  *                    Nov 1978): 040000=0x4000, 046000=0x4600, 100000=0x8000.
  *   0x5500 – 0x77FF  SYS.SY loaded here by Phantom (~8960 bytes)

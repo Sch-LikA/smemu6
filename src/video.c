@@ -21,11 +21,10 @@ void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
     m->vid.ren        = ren;
     m->vid.mode       = VMODE_ALPHA;
     m->vid.display_on  = 1;
-    /* Graphic plane: LS165 shift register clocks D7 (pin H) out first → MSB-first.
-     * The chargen shift register has the ROM data bus wired in reverse (D0→H),
-     * giving LSB-first for the alpha plane — but the graphic plane uses natural
-     * wiring (D7→H) and must be rendered MSB-first. */
-    m->vid.gfx_msb_first = 1;
+    /* Graphic plane: nibble-interleaved. Each byte high nibble → even scan line,
+     * low nibble → odd scan line. Within each nibble bit 3 (MSB) = leftmost pixel.
+     * Confirmed from NATHALIE.IM (real hardware image file). */
+    m->vid.gfx_msb_first = 1;  /* MSB of nibble = leftmost pixel */
 
     SDL_Texture *tex = SDL_CreateTexture(ren,
         SDL_PIXELFORMAT_ARGB8888,
@@ -152,20 +151,34 @@ void video_render(struct Smaky6 *m)
 
     if (mode != VMODE_ALPHA) {
         /* ── Graphic plane ───────────────────────────────────────────────── *
-         * 60 lores rows × 4 raw scan lines = 240 raw lines → 480 output lines.
-         * Each lores row maps to exactly 8 output lines (480/60=8, exact). */
-        for (int row = 0; row < VIDEO_SCAN_LINES; row++) {
-            /* Each lores row spans 4 raw scan lines → exactly 8 output lines. */
-            int y0 = row * 4 * VIDEO_ASPECT_H / VIDEO_PX_H;
-            int y1 = (row * 4 + 4) * VIDEO_ASPECT_H / VIDEO_PX_H;
+         * Nibble-interleaved layout (confirmed from NATHALIE.IM + hardware hint):
+         *   Each byte: high nibble → 4 pixels on even scan line (pair*2)
+         *              low  nibble → 4 pixels on odd  scan line (pair*2+1)
+         * Native resolution: 256×120 (64 bytes × 4 px/nibble, 60 pairs × 2 lines)
+         * Output: 512×480 — each native pixel 2× wide, each scan line 4× tall. */
+        for (int pair = 0; pair < VIDEO_SCAN_LINES; pair++) {
+            int y_even0 = pair * 8;       /* output rows for even scan line */
+            int y_odd0  = pair * 8 + 4;   /* output rows for odd  scan line */
             for (int col = 0; col < 64; col++) {
-                uint16_t addr = (uint16_t)(MEM_GFX_BASE + row * 64 + col);
+                uint16_t addr = (uint16_t)(MEM_GFX_BASE + pair * 64 + col);
                 uint8_t  byte = memory_read(m, addr);
-                for (int bit = 0; bit < 8; bit++) {
-                    int px = col * 8 + (m->vid.gfx_msb_first ? (7 - bit) : bit);
-                    if ((byte & (1u << bit)) && px < VIDEO_PX_W) {
-                        for (int y = y0; y < y1; y++)
-                            pixels[y * VIDEO_PX_W + px] = LIT;
+                uint8_t  hi   = byte >> 4;
+                uint8_t  lo   = byte & 0x0Fu;
+                for (int bit = 0; bit < 4; bit++) {
+                    int px_nat = col * 4 + (m->vid.gfx_msb_first ? (3 - bit) : bit);
+                    int ox0    = px_nat * 2;   /* 2× horizontal stretch */
+                    if (ox0 + 1 >= VIDEO_PX_W) continue;
+                    if ((hi >> bit) & 1u) {
+                        for (int y = y_even0; y < y_even0 + 4; y++) {
+                            pixels[y * VIDEO_PX_W + ox0]     = LIT;
+                            pixels[y * VIDEO_PX_W + ox0 + 1] = LIT;
+                        }
+                    }
+                    if ((lo >> bit) & 1u) {
+                        for (int y = y_odd0; y < y_odd0 + 4; y++) {
+                            pixels[y * VIDEO_PX_W + ox0]     = LIT;
+                            pixels[y * VIDEO_PX_W + ox0 + 1] = LIT;
+                        }
                     }
                 }
             }
