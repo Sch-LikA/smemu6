@@ -81,24 +81,23 @@
     /* ── Badge / logo strip ─────────────────────────────────────────────── */
     .badge-strip {
       width: 100%;
+      text-align: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #b8b094;
+    }
+    .badge-tagline {
+      font-size: 0.72em;
+      color: #7a7060;
+      letter-spacing: 0.08em;
+      font-style: italic;
+    }
+    .badge-strip-machine {
+      width: 100%;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding-bottom: 8px;
       border-bottom: 1px solid #b8b094;
-    }
-    .badge {
-      background: linear-gradient(180deg, #c8c0a0 0%, #b8b090 100%);
-      border: 1px solid #a8a080;
-      border-radius: 3px;
-      padding: 3px 10px;
-      font-size: 0.75em;
-      font-weight: bold;
-      letter-spacing: 0.18em;
-      color: #2a2520;
-      text-shadow: 0 1px 0 #ffffff55;
-      box-shadow: 0 1px 2px #00000033, inset 0 1px 0 #ddd4b0;
-      text-transform: uppercase;
     }
     .badge-right { color: #7a7060; font-size: 0.65em; letter-spacing: 0.1em; }
 
@@ -485,8 +484,7 @@
 <div id="launcher" class="machine-body">
 
   <div class="badge-strip">
-    <img src="smaky6-32.png" alt="SMAKY6" style="height:28px;width:28px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
-    <span class="badge-right">smemu6</span>
+    <span class="badge-tagline">Reliving 1978, one Z80 cycle at a time</span>
   </div>
 
   <div class="lnch-section" style="border-top:none; padding-top:0; margin-top:0;">
@@ -564,7 +562,7 @@
 <!-- ── Emulator machine view ─────────────────────────────────────────────── -->
 <div id="machine" class="machine-body">
 
-  <div class="badge-strip">
+  <div class="badge-strip-machine">
     <img src="smaky6-32.png" alt="SMAKY6" style="height:28px;width:28px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">
     <span class="badge-right">smemu6</span>
   </div>
