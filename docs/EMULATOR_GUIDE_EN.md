@@ -44,7 +44,7 @@ Optional (for PDF generation only):
 ## 2. Building
 
 ```bash
-git clone https://github.com/your-username/smemu6
+git clone https://github.com/Sch-LikA/smemu6
 cd smemu6
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
@@ -161,7 +161,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
-| `-inject-delay <f>` | Frames to wait after `>` prompt before injecting (default: 2) |
+| `-inject-delay <f>` | Accepted for backward compatibility; no longer has any effect. |
 | `-inject-via-fifo` | Route `-inject-str` through the hardware keyboard FIFO instead of the fast path |
 
 **Example — run `LIST` automatically:**
@@ -176,15 +176,16 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 |--------|-------------|
 | `-vmode <m>` | Force video mode: `alpha` (text only), `graphic` (graphics only), `super` (text + graphics) |
 | `-gfxbits <b>` | Bitmap bit order: `lsb` (default) or `msb` |
-| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 506 pixels) |
+| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 494 pixels) |
 | `-scanlines` | Draw CRT-style scanline overlay (darkens every other output row) |
+| `-phosphor <c>` | Screen phosphor colour: `green` (default, P31 `#00E700`) or `white` (`#E8E8E8`) |
 | `-no-display-off` | Ignore display-blank writes to port `0x00`; screen stays visible at all times |
 
 ### Timing and timeouts
 
 | Option | Description |
 |--------|-------------|
-| `-timeout <s>` | Global wall-clock timeout in seconds (`0` = off; default 30 s when `-trace` is active) |
+| `-timeout <s>` | Global wall-clock timeout in seconds (`0` = off; default 45 s when `-trace` is active) |
 
 ### Sound
 
@@ -204,13 +205,13 @@ The emulator maps them to standard PC keys as follows.
 
 | PC key | Smaky 6 function |
 |--------|-----------------|
-| `F1` | CHANGE function key |
-| `F2` | SEARCH function key |
-| `F3` | SHOW function key |
-| `F4` | COPY function key |
-| `F5` | CURSOR function key |
-| `F6` | PROGRA function key |
-| `F7` | KILL function key |
+| `Right Ctrl` | **CHANGE** function key |
+| `Menu` / `App` | **SEARCH** function key |
+| `F10` | **SHOW** function key |
+| `Left Alt` | **COPY** function key |
+| `Left Ctrl` | **CURSOR** function key |
+| `AltGr` (Right Alt) | **PROGRA** function key |
+| `Left Windows` / `Super` | **KILL** function key |
 | `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** — triggers NMI → drops into SYSMON monitor |
@@ -241,8 +242,8 @@ The `-vmode` flag controls which layers are rendered:
 | `graphic` | Graphics layer only |
 | `super` | Both layers overlaid (normal operation) |
 
-The `-scale` flag sets the integer zoom level. The default is 1 (512 × 506);
-scale 2 gives a 1024 × 1012 window, comfortable on most monitors.  Add
+The `-scale` flag sets the integer zoom level. The default is 1 (512 × 494);
+scale 2 gives a 1024 × 988 window, comfortable on most monitors.  Add
 `-scanlines` for a CRT-style scanline overlay at any scale.
 
 ---
@@ -251,8 +252,14 @@ scale 2 gives a 1024 × 1012 window, comfortable on most monitors.  Add
 
 ### Supported format
 
-The emulator reads **Micropolis raw sector images**: 77 tracks × 16 sectors ×
-256 bytes = 315 392 bytes per disk.
+The emulator reads **Micropolis raw sector images** in two sizes:
+
+| Image size    | Geometry                  | Notes                        |
+|---------------|---------------------------|------------------------------|
+| 163 840 bytes | 40 tracks × 16 × 256 B    | Standard single-sided 5.25" |
+| 315 392 bytes | 77 tracks × 16 × 256 B    | Extended (77-track drives)   |
+
+Track count is auto-detected from the image size.
 
 Place image files anywhere and pass the path to `-floppy` / `-floppy2`.
 The `floppies/` directory in the repository is the conventional location.
@@ -364,7 +371,8 @@ They produce output on **stderr**.
 | `-trace08` | All `IN`/`OUT` traffic on port `0x08` |
 | `-trace11` | All reads from port `0x11` |
 | `-trace19` | All writes to port `0x19` (floppy control) |
-| `-tracecd` | All reads from port `0xCD` (Winchester interface) |
+| `-tracecd` | All reads from port `0xCD` (Winchester DMA/status register) |
+| `-trace-win` | Every Winchester controller command (RESTORE, SEEK, READ, WRITE) with CHS and LBA |
 | `-tracefdc` | Focused floppy ID/checksum stream events |
 | `-scrdump` | Changed screen rows printed to stderr each frame |
 
@@ -427,7 +435,7 @@ Try toggling the bitmap bit order:
 **Emulator exits immediately with error 043**
 
 The floppy image may be unreadable or in the wrong format.
-Check the file size: a valid image is exactly 315 392 bytes.
+Check the file size: a valid image is 163 840 bytes (40-track) or 315 392 bytes (77-track).
 
 ```bash
 wc -c myimage.dsk
@@ -440,10 +448,11 @@ processes keyboard events when its window is focused.
 
 **Autoboot does not reach the `>` prompt**
 
-Some floppy images require more time to load. Increase the injection delay:
+Some floppy images require more time to load. Try increasing the autoboot
+timeout:
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -inject-delay 100
+./smemu6 -floppy sys.img -autoboot -autoboot-timeout 60
 ```
 
 **How to generate / update the PDF manuals**

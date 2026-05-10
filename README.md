@@ -50,7 +50,7 @@ brew install cmake sdl2
 ```
 
 ```bash
-git clone https://github.com/your-username/smemu6
+git clone https://github.com/Sch-LikA/smemu6
 cd smemu6
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
@@ -122,8 +122,9 @@ SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
 ### 4.1 Storage
 
 #### `-floppy <path>`
-Mount a floppy disk image on **DX0:** (the primary floppy drive).  The image
-is opened read-only; no writes are flushed back to the file.
+Mount a floppy disk image on **DX0:** (the primary floppy drive).  Floppy
+write support is not yet implemented — OUT writes to the controller are
+silently ignored; the image file is never modified.
 
 ```bash
 ./smemu6 -floppy ../floppies/sys.dsk
@@ -231,16 +232,16 @@ Accepted for backward compatibility; no longer has any effect.
 #### `-scale <n>`
 Integer pixel-doubling factor for the SDL window.  Range: 1–8.  Default: **1**.
 
-The logical resolution is 512 × 506 (512 wide; 480 px machine area with 2:1
-vertical stretch + 26 px status bar).  The physical window is `n × 512` by
-`n × 506`.
+The logical resolution is 512 × 494 (512 wide; 480 px machine area with 2:1
+vertical stretch + 14 px status bar).  The physical window is `n × 512` by
+`n × 494`.
 
 | Scale | Window size    | Typical use             |
 |-------|----------------|-------------------------|
-| 1     | 512 × 506      | Default / CI            |
-| 2     | 1024 × 1012    | Comfortable on 1080p    |
-| 3     | 1536 × 1518    | HiDPI / 1440p           |
-| 4     | 2048 × 2024    | 4K screens              |
+| 1     | 512 × 494      | Default / CI            |
+| 2     | 1024 × 988     | Comfortable on 1080p    |
+| 3     | 1536 × 1482    | HiDPI / 1440p           |
+| 4     | 2048 × 1976    | 4K screens              |
 
 ```bash
 ./smemu6 -floppy sys.dsk -scale 2

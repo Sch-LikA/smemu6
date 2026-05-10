@@ -44,7 +44,7 @@ Optionnel (uniquement pour générer les PDF) :
 ## 2. Compilation
 
 ```bash
-git clone https://github.com/your-username/smemu6
+git clone https://github.com/Sch-LikA/smemu6
 cd smemu6
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
@@ -162,7 +162,7 @@ valides sont :
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
-| `-inject-delay <f>` | Images à attendre après la détection de `>` avant l'injection (défaut : 2) |
+| `-inject-delay <f>` | Accepté pour compatibilité ascendante ; n'a plus aucun effet. |
 | `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
 
 **Exemple — exécuter `LIST` automatiquement :**
@@ -177,15 +177,16 @@ valides sont :
 |--------|-------------|
 | `-vmode <m>` | Forcer le mode vidéo : `alpha` (texte seul), `graphic` (graphique seul), `super` (texte + graphique) |
 | `-gfxbits <b>` | Ordre des bits du bitmap : `lsb` (défaut) ou `msb` |
-| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 506 pixels) |
+| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 494 pixels) |
 | `-scanlines` | Superpose un effet de lignes de balayage CRT (assombrit une ligne sur deux) |
+| `-phosphor <c>` | Couleur du phosphore : `green` (défaut, P31 `#00E700`) ou `white` (`#E8E8E8`) |
 | `-no-display-off` | Ignore les écritures d'extinction d'écran sur le port `0x00` ; l'écran reste visible en permanence |
 
 ### Timing et timeouts
 
 | Option | Description |
 |--------|-------------|
-| `-timeout <s>` | Timeout global en secondes (`0` = désactivé ; défaut 30 s quand `-trace` est actif) |
+| `-timeout <s>` | Timeout global en secondes (`0` = désactivé ; défaut 45 s quand `-trace` est actif) |
 
 ### Son
 
@@ -205,13 +206,13 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 
 | Touche PC | Fonction Smaky 6 |
 |-----------|-----------------|
-| `F1` | Touche de fonction CHANGE |
-| `F2` | Touche de fonction SEARCH |
-| `F3` | Touche de fonction SHOW |
-| `F4` | Touche de fonction COPY |
-| `F5` | Touche de fonction CURSOR |
-| `F6` | Touche de fonction PROGRA |
-| `F7` | Touche de fonction KILL |
+| `Ctrl droit` | Touche de fonction **CHANGE** |
+| `Menu` / `App` | Touche de fonction **SEARCH** |
+| `F10` | Touche de fonction **SHOW** |
+| `Alt gauche` | Touche de fonction **COPY** |
+| `Ctrl gauche` | Touche de fonction **CURSOR** |
+| `AltGr` (Alt droit) | Touche de fonction **PROGRA** |
+| `Windows gauche` / `Super` | Touche de fonction **KILL** |
 | `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** — déclenche une NMI → entre dans le moniteur SYSMON |
@@ -242,8 +243,8 @@ L'option `-vmode` contrôle les couches affichées :
 | `graphic` | Couche graphique seule |
 | `super` | Les deux couches superposées (fonctionnement normal) |
 
-L'option `-scale` définit le niveau de zoom entier. Le défaut est 1 (512 × 506) ;
-le zoom 2 donne une fenêtre de 1024 × 1012 pixels, confortable sur la plupart
+L'option `-scale` définit le niveau de zoom entier. Le défaut est 1 (512 × 494) ;
+le zoom 2 donne une fenêtre de 1024 × 988 pixels, confortable sur la plupart
 des moniteurs. Ajoutez `-scanlines` pour un effet de lignes de balayage CRT.
 
 ---
@@ -252,8 +253,14 @@ des moniteurs. Ajoutez `-scanlines` pour un effet de lignes de balayage CRT.
 
 ### Format supporté
 
-L'émulateur lit les **images de secteurs bruts Micropolis** : 77 pistes ×
-16 secteurs × 256 octets = 315 392 octets par disque.
+L'émulateur lit les **images de secteurs bruts Micropolis** en deux tailles :
+
+| Taille de l'image | Géométrie                  | Notes                        |
+|-------------------|----------------------------|------------------------------|
+| 163 840 octets    | 40 pistes × 16 × 256 o     | Simple face standard 5,25"  |
+| 315 392 octets    | 77 pistes × 16 × 256 o     | Étendu (lecteurs 77 pistes)  |
+
+Le nombre de pistes est auto-détecté à partir de la taille de l'image.
 
 Placez les fichiers image n'importe où et passez le chemin à `-floppy` / `-floppy2`.
 Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
@@ -367,7 +374,8 @@ rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
 | `-trace08` | Tout le trafic `IN`/`OUT` sur le port `0x08` |
 | `-trace11` | Toutes les lectures du port `0x11` |
 | `-trace19` | Toutes les écritures sur le port `0x19` (contrôle disquette) |
-| `-tracecd` | Toutes les lectures du port `0xCD` (interface Winchester) |
+| `-tracecd` | Toutes les lectures du port `0xCD` (registre DMA/statut Winchester) |
+| `-trace-win` | Chaque commande du contrôleur Winchester (RESTORE, SEEK, READ, WRITE) avec CHS et LBA |
 | `-tracefdc` | Événements ciblés du flux ID/checksum disquette |
 | `-scrdump` | Lignes d'écran modifiées affichées sur stderr à chaque image |
 
@@ -431,7 +439,7 @@ Essayez de changer l'ordre des bits du bitmap :
 **L'émulateur quitte immédiatement avec l'erreur 043**
 
 L'image disquette est peut-être illisible ou dans le mauvais format.
-Vérifiez la taille du fichier : une image valide fait exactement 315 392 octets.
+Vérifiez la taille du fichier : une image valide fait 163 840 octets (40 pistes) ou 315 392 octets (77 pistes).
 
 ```bash
 wc -c monimage.dsk
@@ -445,10 +453,10 @@ ne traite les événements clavier que lorsque sa fenêtre est au premier plan.
 **L'autoboot n'atteint pas l'invite `>`**
 
 Certaines images disquette nécessitent plus de temps pour se charger.
-Augmentez le délai d'injection :
+Augmentez le timeout d'autoboot :
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -inject-delay 100
+./smemu6 -floppy sys.img -autoboot -autoboot-timeout 60
 ```
 
 **Comment générer / mettre à jour les PDF des manuels**
