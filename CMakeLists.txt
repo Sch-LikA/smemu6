@@ -182,3 +182,24 @@ if(NOT EMSCRIPTEN)
             DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/256x256/apps
             RENAME smaky6.png)
 endif()
+
+# ── CPack / .deb packaging ────────────────────────────────────────────────────
+if(NOT EMSCRIPTEN)
+    set(CPACK_PACKAGE_NAME            "smemu6")
+    set(CPACK_PACKAGE_VENDOR          "Marcel Prisi")
+    set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+        "Emulator for the 1978 Swiss Smaky 6 Z80 computer")
+    set(CPACK_PACKAGE_VERSION         "0.1.0")
+    set(CPACK_PACKAGE_CONTACT         "Marcel Prisi")
+    set(CPACK_RESOURCE_FILE_LICENSE   "${CMAKE_SOURCE_DIR}/LICENSE")
+    set(CPACK_STRIP_FILES             TRUE)
+
+    # Debian-specific
+    set(CPACK_GENERATOR               "DEB")
+    set(CPACK_DEBIAN_PACKAGE_SECTION  "games")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS  "libsdl2-2.0-0 (>= 2.0.0)")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/mprisi/smemu6")
+    set(CPACK_DEBIAN_FILE_NAME        DEB-DEFAULT)  # smemu6_0.1.0_amd64.deb
+
+    include(CPack)
+endif()
