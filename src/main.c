@@ -828,7 +828,7 @@ int main(int argc, char *argv[])
 
     /* Load Phantom bootloader ROM (2 KB at 0x0000–0x07FF).  Everything else
      * in the 64 KB address space is RAM — Phantom loads SYS.SY from disk. */
-    if (machine_load_rom(m, ROM_PHANTOM, MEM_SYSMON_BASE, MEM_SYSMON_SIZE) != 0) {
+    if (machine_load_rom(m, ROM_PHANTOM, MEM_SYSMON_BASE) != 0) {
         fprintf(stderr, "WARNING: Phantom ROM (%s) not found; CPU will execute garbage\n",
                 ROM_PHANTOM);
     }

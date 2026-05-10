@@ -336,9 +336,8 @@ void machine_destroy(struct Smaky6 *m)
     free(m);
 }
 
-int machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base, uint16_t size)
+int machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base)
 {
-    (void)size;  /* memory_load_file uses file size; size param reserved */
     return memory_load_file(m, path, base);
 }
 

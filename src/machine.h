@@ -14,7 +14,7 @@ struct Smaky6 *machine_create(void);
 void           machine_destroy(struct Smaky6 *m);
 
 /* Load ROM image into the machine; returns 0 on success */
-int  machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base, uint16_t size);
+int  machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base);
 
 /* Run one full 50 Hz frame (~50 000 T-states at 2.5 MHz) */
 void machine_run_frame(struct Smaky6 *m);
