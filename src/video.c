@@ -293,9 +293,9 @@ render_status_bar:
         if (mounted) {
             char info[16];
             if (is_hd) {
-                snprintf(info, sizeof(info), "C:%03u H:%u",
-                         (unsigned)m->win.last_cyl[d],
-                         (unsigned)m->win.last_head[d]);
+                snprintf(info, sizeof(info), "H:%u S:%02u",
+                         (unsigned)m->win.last_head[d],
+                         (unsigned)m->win.image[d] ? (m->win.sector_num & 0x1Fu) : 0);
                 SDL_SetRenderDrawColor(ren, 0, 140, 140, 255);
             } else {
                 snprintf(info, sizeof(info), "T:%02d S:%02d",
