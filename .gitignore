@@ -14,3 +14,4 @@ __pycache__/
 smaky6_ram*.bin
 Partageables/
 private/
+tools/linuxdeploy-*.AppImage
