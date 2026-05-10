@@ -22,10 +22,8 @@ NOTE ON ROM FILES
 -----------------
 The ROM images in the roms/ directory (samos_sys17.rom, chargen.rom, and any
 other .rom files) are NOT covered by this license.  They are original firmware
-of the Smaky 6 computer, copyright Epsitec SA, and are included here with
-permission for emulation and preservation purposes only.  You may not
-redistribute them separately or use them outside of this emulator without
-explicit permission from Epsitec SA.
+of the Smaky 6 computer, copyright Epsitec SA, and are made freely available
+by Epsitec SA for anyone to use.
 
 THIRD-PARTY LIBRARIES
 ---------------------

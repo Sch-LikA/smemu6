@@ -549,8 +549,7 @@ released under the **GNU General Public License v3** (see [LICENSE](LICENSE)).
 
 The Smaky 6 was designed by **Jean-Daniel Nicoud** and his team at
 [EPFL](https://www.epfl.ch) (Lausanne, Switzerland) and commercialized by
-**Epsitec SA**.  Some ROM content is used with their kind permission for
-emulation and preservation purposes.
+**Epsitec SA**.  The ROM content has been made freely available by Epsitec SA for anyone to use.
 
 ### Third-party libraries
 
