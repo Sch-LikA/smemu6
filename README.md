@@ -79,20 +79,20 @@ will report a warning but continue.
 ```bash
 cd build
 
-# Boot SAMOS from floppy, auto-select floppy boot after 3 s
-./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -autoboot
+# Boot SAMOS from floppy (machine boots DX0 automatically)
+./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk"
 
-# Boot with a Winchester hard disk attached
-./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" \
-            -harddisk ../harddisks/SM6WIN0.DSK
+# Boot from Winchester (DX0) with floppy accessible as DX1
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK \
+            -floppy2 "../floppies/1 Systeme_1HComplet.dsk"
 
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
     ./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" \
                 -autoboot -inject-str "LIST\n" -timeout 20
 
-# Scale the window up 3× (useful on HiDPI screens)
-./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3
+# Scale the window up 3× and add CRT scanline effect
+./smaky6emu -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3 -scanlines
 ```
 
 ---
@@ -122,8 +122,11 @@ The WD1000/WD1001/WD1002-compatible controller is emulated at ports `0x20–0x27
 Geometry: 6 heads, 32 sectors/track, 256 bytes/sector, up to 255 cylinders.
 
 ```bash
-./smaky6emu -floppy sys.dsk -harddisk ../harddisks/SM6WIN0.DSK
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
 ```
+
+> **Note:** On a Winchester-equipped Smaky 6 the hard disk is DX0 and the
+> floppy (if fitted) is DX1.  Use `-harddisk` with `-floppy2`, not `-floppy`.
 
 #### `-harddisk2 <path>`
 Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
@@ -145,13 +148,16 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 ### 4.2 Boot Automation
 
 #### `-autoboot`
-After approximately 3 seconds (150 frames at 50 Hz), inject an **Enter** key
-(`0x00`) to automatically select the floppy-boot option from the Phantom ROM
-boot menu.  Combine with `-autoboot2` to choose a different boot target, or
-with `-inject-str` to type a command once SAMOS is running.
+Wait for the SAMOS `>` prompt and then inject an **Enter** key so that
+`-inject-str` can fire.  The machine already boots from DX0 automatically
+(the FOUND latch powers up asserted, causing the Phantom ROM boot menu to
+self-select DX0 on the first CLA read).  `-autoboot` is therefore mainly
+needed as a gate for `-inject-str` or when you want to override the boot
+drive with `-autoboot2`.
 
 ```bash
-./smaky6emu -floppy sys.dsk -autoboot
+# Gate for string injection (machine would boot anyway without -autoboot)
+./smaky6emu -floppy sys.dsk -autoboot -inject-str "LIST\n"
 ```
 
 #### `-autoboot2 <code>`
@@ -203,20 +209,29 @@ Accepted for backward compatibility; no longer has any effect.
 ### 4.3 Display
 
 #### `-scale <n>`
-Integer pixel-doubling factor for the SDL window.  Range: 1–8.  Default: **2**.
+Integer pixel-doubling factor for the SDL window.  Range: 1–8.  Default: **1**.
 
-The logical resolution is always 512×252 (512×240 machine pixels + 12 px status
-bar); the physical window is `n × 512` by `n × 252`.
+The logical resolution is 512 × 506 (512 wide; 480 px machine area with 2:1
+vertical stretch + 26 px status bar).  The physical window is `n × 512` by
+`n × 506`.
 
-| Scale | Window size   | Typical use          |
-|-------|---------------|----------------------|
-| 1     | 512 × 252     | Compact / CI         |
-| 2     | 1024 × 504    | Default (1080p screens) |
-| 3     | 1536 × 756    | HiDPI / 1440p        |
-| 4     | 2048 × 1008   | 4K screens           |
+| Scale | Window size    | Typical use             |
+|-------|----------------|-------------------------|
+| 1     | 512 × 506      | Default / CI            |
+| 2     | 1024 × 1012    | Comfortable on 1080p    |
+| 3     | 1536 × 1518    | HiDPI / 1440p           |
+| 4     | 2048 × 2024    | 4K screens              |
 
 ```bash
-./smaky6emu -floppy sys.dsk -scale 3
+./smaky6emu -floppy sys.dsk -scale 2
+```
+
+#### `-scanlines`
+Draw a CRT-style scanline overlay: every other output row is darkened,
+simulating the dark gaps between phosphor scan lines on a real monitor.
+
+```bash
+./smaky6emu -floppy sys.dsk -scale 2 -scanlines
 ```
 
 #### `-vmode <mode>`
@@ -434,13 +449,20 @@ JP 0x0105  →  SAMOS OS init
 Load CLI.SY  →  "SAMOS rev 2-8 / DX0: / >" prompt
 ```
 
-**With `-autoboot`**: the emulator injects Enter (~3 s after power-on) to skip
-the boot-key wait.  The timeout is long enough to cover the floppy seek and
-load; `-autoboot-timeout` can cap the total run time.
+**Automatic boot:** The FOUND latch on the keyboard controller powers up
+asserted on real hardware.  The emulator replicates this: the Phantom ROM
+boot menu receives an Enter key on the very first CLA read and immediately
+proceeds to boot from DX0.  No flag is needed for a normal floppy or
+Winchester boot.  `-autoboot` is only needed as a gate for `-inject-str`
+or to choose a non-default drive via `-autoboot2`.
 
-**With `-harddisk`**: the Winchester drive is available after SAMOS has loaded.
-The Phantom ROM does not boot directly from Winchester; a floppy with
-`SYS.SY` is still required for the initial boot.
+**With `-harddisk`:** Mount the Winchester image as DX0 and the floppy
+(if any) as DX1 using `-floppy2`.  The Phantom ROM boots from DX0 (the
+Winchester) automatically.
+
+```
+./smaky6emu -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
+```
 
 ---
 

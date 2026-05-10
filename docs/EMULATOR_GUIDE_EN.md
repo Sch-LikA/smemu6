@@ -176,7 +176,9 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 |--------|-------------|
 | `-vmode <m>` | Force video mode: `alpha` (text only), `graphic` (graphics only), `super` (text + graphics) |
 | `-gfxbits <b>` | Bitmap bit order: `lsb` (default) or `msb` |
-| `-scale <n>` | Integer window scale 1–8 (default `2` → 1024 × 496 pixels) |
+| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 506 pixels) |
+| `-scanlines` | Draw CRT-style scanline overlay (darkens every other output row) |
+| `-no-display-off` | Ignore display-blank writes to port `0x00`; screen stays visible at all times |
 
 ### Timing and timeouts
 
@@ -239,8 +241,9 @@ The `-vmode` flag controls which layers are rendered:
 | `graphic` | Graphics layer only |
 | `super` | Both layers overlaid (normal operation) |
 
-The `-scale` flag sets the integer zoom level. Scale 2 (the default) gives
-a 1024 × 496 window, comfortable on most monitors.
+The `-scale` flag sets the integer zoom level. The default is 1 (512 × 506);
+scale 2 gives a 1024 × 1012 window, comfortable on most monitors.  Add
+`-scanlines` for a CRT-style scanline overlay at any scale.
 
 ---
 

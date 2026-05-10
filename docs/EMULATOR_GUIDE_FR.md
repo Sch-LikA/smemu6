@@ -177,7 +177,9 @@ valides sont :
 |--------|-------------|
 | `-vmode <m>` | Forcer le mode vidéo : `alpha` (texte seul), `graphic` (graphique seul), `super` (texte + graphique) |
 | `-gfxbits <b>` | Ordre des bits du bitmap : `lsb` (défaut) ou `msb` |
-| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `2` → 1024 × 496 pixels) |
+| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 506 pixels) |
+| `-scanlines` | Superpose un effet de lignes de balayage CRT (assombrit une ligne sur deux) |
+| `-no-display-off` | Ignore les écritures d'extinction d'écran sur le port `0x00` ; l'écran reste visible en permanence |
 
 ### Timing et timeouts
 
@@ -240,8 +242,9 @@ L'option `-vmode` contrôle les couches affichées :
 | `graphic` | Couche graphique seule |
 | `super` | Les deux couches superposées (fonctionnement normal) |
 
-L'option `-scale` définit le niveau de zoom entier. Scale 2 (défaut) donne
-une fenêtre de 1024 × 496 pixels, confortable sur la plupart des moniteurs.
+L'option `-scale` définit le niveau de zoom entier. Le défaut est 1 (512 × 506) ;
+le zoom 2 donne une fenêtre de 1024 × 1012 pixels, confortable sur la plupart
+des moniteurs. Ajoutez `-scanlines` pour un effet de lignes de balayage CRT.
 
 ---
 

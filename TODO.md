@@ -7,6 +7,92 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
+### Startup launcher window (SDL configuration dialog)
+
+Before the emulator window opens, show a small SDL launcher that lets users
+configure common options without touching the CLI.  This is a new source file
+(e.g. `src/launcher.c` / `src/launcher.h`) that renders directly into an SDL
+window using the same SDL2 renderer already present in the project, plus
+`SDL_ttf` for text.  `main.c` calls `launcher_run()` first; it fills a
+`LauncherConfig` struct and returns; `main()` then maps the struct back to the
+existing `machine_config` fields and continues with the normal startup path.
+
+#### Window layout (top to bottom)
+
+**Header**
+- Project name + two-line description:  
+  *"Smaky 6 Emulator — Swiss Z80 computer (EPFL, 1978)"*  
+  *"Z80 @ 2.5 MHz · 512×240 green-phosphor display · SAMOS OS"*
+
+**Storage section**
+
+| Label | Control | Emulator option |
+|-------|---------|-----------------|
+| `DX0:` | Drop-down: **Floppy** / **Harddisk** | `-floppy` / `-harddisk` |
+| *(DX0 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
+| `DX1:` | Static label: **Floppy** (no second harddisk) | `-floppy2` |
+| *(DX1 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
+
+File paths are shown truncated (last 40 chars with `…` prefix) next to each
+picker button.  A small `×` button clears the selection.
+
+**Screen section**
+
+| Label | Control | Emulator option | Default |
+|-------|---------|-----------------|---------|
+| Scaling | Drop-down: **1×** / **2×** / **3×** / **4×** | `-scale N` | 2× |
+| Phosphor colour | Drop-down: **Green** / **White** | *(new `-phosphor white` option)* | Green |
+| Scanlines | Drop-down: **Off** / **On** | `-scanlines` | On |
+| Disable screen blanking | Toggle: **On** / **Off** | `-no-display-off` | On |
+
+> **Note:** "White phosphor" requires a new `-phosphor white` CLI option and a
+> second set of `VIDEO_COLOR_LIT` / `VIDEO_COLOR_BG` constants in `video.h`
+> (`#E0E0E0` / `#080808` or similar).  This option is surfaced in the launcher
+> but the underlying rendering change must be implemented separately.
+
+> **Note:** `-scanlines` is implemented and tested. The launcher control is wired directly.
+
+**Sound section**
+
+| Label | Control | Emulator option | Default |
+|-------|---------|-----------------|---------|
+| Beeper | Toggle: **On** / **Off** | `-no-beeper` when Off | On |
+| Drive sounds | Static label: **Off** *(coming soon)* | `-drive-sound` (stub) | Off |
+
+**Button row (bottom)**
+
+- **Help** — opens a second SDL window (or overlaid panel) showing:
+  - Two-paragraph summary of SAMOS usage (LIST, COPY, INIT, TAB shortcut)
+  - Keyboard mapping table (host key → Smaky 6 key, same content as
+    `docs/EMULATOR_GUIDE_EN.md` §5 Keyboard Controls)
+- **Start** — closes the launcher window and starts the emulator with the
+  chosen settings.  If a required ROM (`roms/samos_sys17.rom`) is missing,
+  show an SDL_ShowSimpleMessageBox warning before starting.
+
+#### Implementation notes
+
+- Render using SDL2 primitives + `SDL_ttf` (a small embedded bitmap font is an
+  alternative if we want zero extra dependencies — the chargen ROM covers only
+  uppercase ASCII so a second font is needed for mixed-case labels).
+- File picker: use `SDL_ShowOpenFileDialog` (SDL 3) or fall back to a
+  `popen("zenity …")` / `popen("osascript …")` shim on Linux/macOS.  On SDL 2
+  (current dep) the shim approach is the only portable option.
+- The launcher must work in headless mode (`SDL_VIDEODRIVER=dummy`): detect the
+  dummy driver and skip the launcher, reading config from CLI only.
+- All launcher settings are additive: CLI options passed alongside the binary
+  override the launcher defaults (launcher only sets options not provided on CLI).
+- Window size: ~480 × 560 logical pixels at 1:1; no scaling needed.
+
+#### New options to add to main.c / README / guides
+
+| New flag | Purpose | Default |
+|----------|---------|---------|
+| `-phosphor white` | Use white-phosphor palette instead of green | green |
+| ~~`-scanlines`~~ | ~~Draw alternating dim lines over the framebuffer (CRT effect)~~ | ✅ Done |
+| `-no-launcher` | Skip the launcher and go straight to the emulator | *(launcher shown)* |
+
+---
+
 ### ~~Period-correct green-phosphor look~~ ✅ Done
 
 The SDL renderer now draws lit pixels as `#00E700` (P31 green phosphor) on a near-black
