@@ -468,6 +468,149 @@ nmi_handler (0x0066)  — triggered by BREAK key only:
 
 ---
 
+## SAMOS Init: RST Dispatch, kbd_wait Autoboot, and Runtime Code Patching
+
+### RST Dispatch Table (SYSMON 0x0000–0x003D)
+
+All eight RST instructions use an identical 6-byte trampoline:
+```
+PUSH HL
+LD HL,(0x45xx)   ; load a function pointer from OS workspace
+EX (SP),HL       ; swap: target on stack, saved HL back in register
+RET              ; jump to target — caller's return address is on the stack below
+```
+This makes every RST a **1-byte indirect syscall** whose destination is a live RAM word.
+Swapping RST targets at runtime changes which function fires for that syscall number.
+
+| RST   | Workspace ptr | Initial target | Purpose                      |
+|-------|--------------|----------------|------------------------------|
+| RST 08h | `(0x4562)` | –              | Floppy stream / sector INT   |
+| RST 10h | `(0x4564)` | –              | (reserved)                   |
+| RST 18h | `(0x454C)` | –              | Screen / display call        |
+| RST 20h | `(0x455C)` | `0x012D`       | General OS call (installed at 0x00D6) |
+| RST 28h | `(0x4568)` | –              | Floppy / block-copy call     |
+| RST 30h | `(0x456A)` | –              | Jump via (0x57C0) handoff    |
+| RST 38h | `(0x4566)` | `0x003E`       | **50 Hz ISR** (installed at 0x00D0) |
+
+### SAMOS Init Sequence (0x0095–0x0104)
+
+This subroutine is called from the main SYSMON entry at `JP 0x0105 → CALL 0x0095`
+with interrupts still **disabled** (DI from the 12-byte handoff stub).
+
+```asm
+; ── Workspace zero-fill ────────────────────────────────────────────
+0095  LD HL,0x454A
+0098  LD B,0xB0         ; 176 bytes
+009A  XOR A
+009B  LD (HL),A         ; zero 0x454A..0x45F9
+009C  INC HL
+009D  DJNZ 0x009B
+
+; ── Sentinel installation ──────────────────────────────────────────
+009F  LD A,0x80
+00A1  LD (0x458A),A     ; ISR control byte = 0x80 (blocks Stage-2 circ-buf write)
+00A4  LD (0x4595),A     ; circular-buf guard sentinel
+00A7  LD (0x45B6),A     ; end-of-circ-buf guard sentinel
+00AA  LD (0x45FF),A     ; workspace tail guard
+
+; ── Circular-buffer write pointer ─────────────────────────────────
+00AD  LD HL,0x4596
+00B0  LD (0x457C),HL    ; circ-buf write ptr ← start of buffer
+                        ; B=0 after the fill loop above
+
+; ── Boot-menu keyboard wait ────────────────────────────────────────
+;   DJNZ acts as a ~1 ms inter-poll delay (256 iterations at 2.5 MHz).
+;   IN A,(0x00) reads the CLA (keyboard data) port.
+;   Bit 7 encodes FOUND: 0 = key present, 1 = no key.
+;   JR NZ loops while bit7=1 (no key); exits when bit7=0 (key).
+00B3  DJNZ 0x00B3       ; inner delay: spin B times (B=0 → 256 iters)
+00B5  IN A,(0x00)       ; read CLA
+00B7  AND 0x80          ; test FOUND bit
+00B9  JR NZ,0x00B3      ; no key → delay and retry
+
+; ── Hardware-init calls (USART/port setup) ─────────────────────────
+;   CALL 0x056A: OTIR — outputs 6 bytes from 0x0564 to port C=5 then C=7.
+;   These configure the USART (8251 or equivalent).
+00BB  LD C,5
+00BD  CALL 0x056A
+00C0  LD C,7
+00C2  CALL 0x056A
+
+; ── Runtime code patching: install RET stubs ──────────────────────
+;   0x45B9 and 0x45BC are workspace slots used as pluggable ISR stage hooks.
+;   Writing 0xC9 (RET opcode) turns them into safe no-ops that can later be
+;   replaced with real handler code (e.g. CALL xxx; RET) by device drivers.
+;   This is SAMOS's standard "configurable handler" pattern — the same
+;   technique used for the RST dispatch table, but at byte granularity.
+00C5  LD A,0xC9          ; A = RET opcode
+00C7  LD (0x45B9),A      ; patch workspace slot 1 → RET stub
+00CA  LD (0x45BC),A      ; patch workspace slot 2 → RET stub
+
+; ── ISR vector installation ────────────────────────────────────────
+;   RST 38h dispatches via (0x4566); writing 0x003E there installs the 50 Hz ISR.
+;   This is the trigger the emulator uses to detect "SAMOS is now running"
+;   (keyboard_frame_tick checks bus[0x4566..7] == 0x003E).
+00CD  LD HL,0x003E
+00D0  LD (0x4566),HL     ; *** ISR vector installed — samos_loaded fires here ***
+
+; ── RST 20h target + display-on ───────────────────────────────────
+00D3  LD HL,0x012D
+00D6  LD (0x455C),HL     ; RST 20h → 0x012D
+00D9  LD A,0x44
+00DB  RST 20h            ; (display init call)
+00DC  LD A,0x0E
+00DE  ...
+00E1  LD A,0x01
+00E3  OUT (0x00),A       ; video mode = alpha ON
+00E5  LD (0x457F),A      ; update video shadow register
+
+; ── RAM bank test ─────────────────────────────────────────────────
+00E8  LD DE,0x4000
+00EB  XOR A              ; HL = 0
+00EC  LD L,A
+00ED  LD H,A
+00EE  LD B,4             ; test 4 offsets: 0x00, 0x10, 0x20, 0x30
+00F0  ADD HL,DE          ; HL += 0x4000 → 0x4000, 0x4010, 0x4020, 0x4030
+00F1  LD C,(HL)          ; save original byte
+00F2  LD (HL),A          ; write 0
+00F3  CP (HL)            ; read back
+00F4  LD (HL),C          ; restore
+00F5  JR NZ,0x00FB       ; mismatch → stop (first bad bank)
+00F7  ADD A,0x10         ; next offset
+00F9  DJNZ 0x00F0
+00FB  PUSH HL
+00FC  LD H,0x00
+00FE  LD L,A             ; HL = highest-passing offset (0x00, 0x10, 0x20, or 0x30)
+00FF  RST 20h            ; report result / set stack base
+0104  RET
+```
+
+### kbd_wait Autoboot Behaviour
+
+**Confirmed on real hardware**: the Smaky 6 boots to the CLI with no keypress.
+
+The hardware keyboard controller continuously asserts FOUND=1 with code `0x00`
+("null / Enter") whenever no physical key is held — this is the controller's
+**idle resting state**, not a latched event.  Both kbd_waits therefore exit
+immediately:
+
+| Wait site | Who calls it | Returns A= | Effect |
+|-----------|-------------|-----------|--------|
+| Phantom ROM `0x00FD` | `boot_main` | `0x00` | Select DX0 floppy boot (default) |
+| SAMOS init `0x00B5`  | `0x0095`    | `0x00` | Proceed with default USART/boot config |
+
+Any key pressed during either wait overrides the default (e.g. pressing a
+non-null key at `0x00FD` selects double-sided / Winchester path).
+
+**Emulator note**: `keyboard_read_cla()` returns `0x00` (FOUND asserted,
+code=0x00) when `iff1=0` and no physical key is in the FIFO and
+`samos_loaded=0`.  This mirrors the hardware idle state and makes both waits
+exit without a keypress.  Once `samos_loaded=1` the `iff1=0` guard stops
+applying this idle-return (since `iff1=0` then means "inside the ISR", not
+"Phantom ROM polling").
+
+---
+
 ## Video Mode (Phase 1S — confirmed)
 
 **I/O port `0x00` is the Smaky 6 video mode control register.** This was

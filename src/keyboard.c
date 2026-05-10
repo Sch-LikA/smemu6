@@ -310,6 +310,16 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
             m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
             return code & 0x7Fu;  /* bit 7 = 0 → key present */
         }
+        /* Hardware idle state: the keyboard scanner continuously asserts FOUND=1
+         * with code 0x00 ("null / Enter") when no physical key is held.
+         * This is why both kbd_waits (Phantom ROM 0x00FD and SAMOS init 0x00B5)
+         * exit immediately with A=0x00 on real hardware without any keypress —
+         * the machine autoboots to CLI by default.
+         * Returning 0x00 here (bit7=0 = FOUND asserted, code=0x00) mirrors that
+         * idle-state behaviour in the iff1=0 / pre-SAMOS polling path only.
+         * The ISR path (iff1=1 branch below) is unaffected. */
+        if (!m->kbd.samos_loaded)
+            return 0x00u;  /* idle: FOUND=1, code=0x00 → kbd_waits exit immediately */
         return 0x80u | m->kbd.fonct_bits;  /* no key; function bits in 0-6 (may be 0) */
     }
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
