@@ -111,6 +111,8 @@ static void usage(const char *argv0)
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
         "  -no-launcher   Skip the startup configuration dialog\n"
+        "  -loadbin <addr> <file>  Load raw binary into RAM at hex address (e.g. -loadbin 0x4600 test.bin)\n"
+        "  -freeze        Do not run the CPU; display static RAM contents (use with -loadbin)\n"
         "  -help          Show this help\n"
         "  Pause / F11          BREAK key (NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
@@ -126,6 +128,7 @@ typedef struct {
     SDL_Window    *win;
     SDL_Renderer  *ren;
     const char    *dump_ram_path;
+    int            freeze_cpu;  /* if 1: skip CPU execution, just render */
     /* Config flags (copied from main locals) */
     int  autoboot;
     int  break_to_monitor;
@@ -286,6 +289,7 @@ static void main_loop_iter(void)
     while (L->accum_ms >= 20.0) {
         if (check_timeouts(L)) break;
 
+        if (!L->freeze_cpu) {
         keyboard_frame_tick(L->m);
         machine_int(L->m);
         machine_run_frame(L->m);
@@ -303,6 +307,7 @@ static void main_loop_iter(void)
             L->running = 0;
             break;
         }
+        } /* !freeze_cpu */
         L->accum_ms -= 20.0;
         L->frame_due = 1;
         L->frame_cnt++;
@@ -477,6 +482,9 @@ int main(int argc, char *argv[])
     int inject_len = 0;
     int forced_vmode = -1;
     int gfx_msb_first = -1;  /* -1 = use video_init() default (msb) */
+    const char *loadbin_file = NULL;   /* -loadbin <addr> <file> */
+    uint16_t    loadbin_addr = 0;
+    int freeze_cpu = 0;  /* -freeze: don't execute CPU; just render static RAM */
     int trace08 = 0;
     int traceflow = 0;
     int trace11 = 0;
@@ -647,6 +655,18 @@ int main(int argc, char *argv[])
             inject_via_fifo = 1;
         } else if (strcmp(argv[i], "-no-launcher") == 0) {
             no_launcher = 1;
+        } else if (strcmp(argv[i], "-loadbin") == 0 && i + 2 < argc) {
+            char *end = NULL;
+            unsigned long addr = strtoul(argv[i + 1], &end, 16);
+            if (!end || *end != '\0' || addr > 0xFFFF) {
+                fprintf(stderr, "Invalid -loadbin address: %s\n", argv[i + 1]);
+                return 1;
+            }
+            loadbin_addr = (uint16_t)addr;
+            loadbin_file = argv[i + 2];
+            i += 2;
+        } else if (strcmp(argv[i], "-freeze") == 0) {
+            freeze_cpu = 1;
         } else if (strcmp(argv[i], "-help") == 0) {
             usage(argv[0]);
             return 0;
@@ -814,6 +834,26 @@ int main(int argc, char *argv[])
     if (forced_vmode >= 0)
         video_set_mode(m, (VideoMode)forced_vmode);
 
+    /* Pre-load raw binary into RAM (e.g. for graphic plane test patterns) */
+    if (loadbin_file) {
+        FILE *f = fopen(loadbin_file, "rb");
+        if (!f) {
+            fprintf(stderr, "WARNING: -loadbin: cannot open '%s': %s\n",
+                    loadbin_file, strerror(errno));
+        } else {
+            uint16_t addr = loadbin_addr;
+            int c;
+            size_t n = 0;
+            while ((c = fgetc(f)) != EOF && addr + n <= 0xFFFF) {
+                m->bus[addr + n] = (uint8_t)c;
+                n++;
+            }
+            fclose(f);
+            fprintf(stderr, "[loadbin] loaded %zu bytes from '%s' at 0x%04X\n",
+                    n, loadbin_file, (unsigned)addr);
+        }
+    }
+
     /* Mount floppies if specified */
     if (disk_path) {
         if (floppy_mount(m, 0, disk_path) != 0) {
@@ -879,6 +919,7 @@ int main(int argc, char *argv[])
     ctx.win                = win;
     ctx.ren                = ren;
     ctx.dump_ram_path      = dump_ram_path;
+    ctx.freeze_cpu         = freeze_cpu;
     ctx.autoboot           = autoboot;
     ctx.break_to_monitor   = break_to_monitor;
     ctx.autoboot2_code     = autoboot2_code;
