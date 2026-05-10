@@ -28,7 +28,7 @@
 /* ── Geometry ────────────────────────────────────────────────────────────── */
 
 #define WIN_W  460
-#define WIN_H  505
+#define WIN_H  529
 
 /* Colours (ARGB) — Smaky 6 palette: cream body, charcoal keys, green phosphor */
 #define COL_BG          0xFFCFC6A4   /* cream/beige machine body */
@@ -401,7 +401,12 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
             }
         }
     }
-    y += SMAKY6_LOGO_H + 8;
+    y += SMAKY6_LOGO_H + 4;
+    {
+        static const char *tagline = "Reliving 1978, one Z80 cycle at a time";
+        draw_text(ren, (WIN_W - text_width(tagline)) / 2, y, tagline, COL_TEXT_DIM);
+    }
+    y += FONT_H * FONT_SCALE + 8;
 #endif /* __EMSCRIPTEN__ */
 
     /* ── Storage ─────────────────────────────────────────────────────────── */
