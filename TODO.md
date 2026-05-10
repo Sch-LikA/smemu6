@@ -79,7 +79,8 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 - The launcher must work in headless mode (`SDL_VIDEODRIVER=dummy`): detect the
   dummy driver and skip the launcher, reading config from CLI only.
 - All launcher settings are additive: CLI options passed alongside the binary
-  override the launcher defaults (launcher only sets options not provided on CLI).
+  pre-populate the launcher controls so the user can review and adjust them.
+  After clicking Start the launcher values take precedence over CLI values.
 - Window size: 460 × 464 logical pixels at 1:1; no scaling needed.
 
 #### New options to add to main.c / README / guides

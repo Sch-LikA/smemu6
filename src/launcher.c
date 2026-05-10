@@ -406,7 +406,7 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
 
 /* ── launcher_run ────────────────────────────────────────────────────────── */
 
-int launcher_run(LauncherConfig *cfg)
+int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 {
     /* Sentinel defaults — means "not set, let main() keep CLI/default" */
     cfg->dx0_is_harddisk = -1;
@@ -479,6 +479,28 @@ int launcher_run(LauncherConfig *cfg)
         .no_display_off  = 1,   /* on */
         .beeper          = 1,   /* on */
     };
+
+    /* Pre-populate from CLI hints */
+    if (hints) {
+        if (hints->dx0_is_harddisk >= 0)
+            s.dx0_is_harddisk = hints->dx0_is_harddisk;
+        if (hints->dx0_path)
+            s.dx0_path = SDL_strdup(hints->dx0_path);
+        if (hints->dx1_path)
+            s.dx1_path = SDL_strdup(hints->dx1_path);
+        if (hints->autoboot >= 0)
+            s.autoboot = hints->autoboot;
+        if (hints->scale >= 1 && hints->scale <= 4)
+            s.scale = hints->scale - 1;   /* factor → index */
+        if (hints->phosphor_white >= 0)
+            s.phosphor = hints->phosphor_white;
+        if (hints->scanlines >= 0)
+            s.scanlines = hints->scanlines;
+        if (hints->no_display_off >= 0)
+            s.no_display_off = hints->no_display_off;
+        if (hints->beeper >= 0)
+            s.beeper = hints->beeper;
+    }
 
     HitAreas ha;
     memset(&ha, 0, sizeof(ha));

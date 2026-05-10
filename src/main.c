@@ -330,8 +330,20 @@ int main(int argc, char *argv[])
 
     /* ── Launcher ───────────────────────────────────────────────────────── */
     if (!no_launcher) {
+        /* Build hints from CLI so the launcher pre-populates its controls */
+        LauncherHints hints = {
+            .dx0_is_harddisk = harddisk_path ? 1 : (disk_path ? 0 : -1),
+            .dx0_path        = harddisk_path ? harddisk_path : disk_path,
+            .dx1_path        = disk2_path,
+            .autoboot        = autoboot ? 1 : -1,
+            .scale           = display_scale > 1 ? display_scale : -1,
+            .phosphor_white  = phosphor_white ? 1 : -1,
+            .scanlines       = scanlines ? 1 : -1,
+            .no_display_off  = no_display_off ? 1 : -1,
+            .beeper          = enable_beeper ? -1 : 0,  /* -1=default(on), 0=off */
+        };
         LauncherConfig lc;
-        int lresult = launcher_run(&lc);
+        int lresult = launcher_run(&lc, &hints);
         if (lresult != 0) {
             /* User closed the launcher without clicking Start */
             SDL_Quit();
