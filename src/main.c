@@ -510,6 +510,7 @@ int main(int argc, char *argv[])
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
+    float phosphor_decay   = PHOSPHOR_DECAY_DEFAULT; /* -phosphor-decay <v>: persistence per frame */
     int scanlines          = 0;  /* -scanlines: draw CRT scanline overlay */
     int phosphor_white     = 0;  /* -phosphor white: use white phosphor palette */
     int no_launcher        = 0;  /* -no-launcher: skip startup dialog */
@@ -651,6 +652,15 @@ int main(int argc, char *argv[])
             enable_drive_sound = 1;
         } else if (strcmp(argv[i], "-no-display-off") == 0) {
             no_display_off = 1;
+        } else if (strcmp(argv[i], "-no-phosphor") == 0) {
+            phosphor_decay = 0.0f;
+        } else if (strcmp(argv[i], "-phosphor-decay") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            float v = strtof(argv[++i], &end);
+            if (!end || *end != '\0' || v < 0.0f || v > 0.99f) {
+                fprintf(stderr, "-phosphor-decay requires a value 0.0..0.99\n"); return 1;
+            }
+            phosphor_decay = v;
         } else if (strcmp(argv[i], "-scanlines") == 0) {
             scanlines = 1;
         } else if (strcmp(argv[i], "-phosphor") == 0) {
@@ -911,6 +921,8 @@ int main(int argc, char *argv[])
         machine_set_trace_kbd(m, 1);
     if (no_display_off)
         machine_set_no_display_off(m, 1);
+    if (phosphor_decay != PHOSPHOR_DECAY_DEFAULT)
+        machine_set_phosphor_decay(m, phosphor_decay);
     if (scanlines)
         machine_set_scanlines(m, 1);
     if (phosphor_white)

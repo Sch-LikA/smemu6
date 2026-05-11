@@ -52,6 +52,7 @@ void machine_set_trace_scr(struct Smaky6 *m, int on);
 void machine_set_no_display_off(struct Smaky6 *m, int on);
 void machine_set_scanlines(struct Smaky6 *m, int on);
 void machine_set_phosphor(struct Smaky6 *m, int white); /* 0=green (default), 1=white */
+void machine_set_phosphor_decay(struct Smaky6 *m, float decay); /* 0.0=instant, ~0.7=P31 */
 
 /* Inject a key into the keyboard buffer (code=0 → Return/floppy-boot) */
 void machine_inject_key(struct Smaky6 *m, uint8_t code);

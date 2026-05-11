@@ -74,4 +74,13 @@ void video_render(struct Smaky6 *m);
 
 typedef enum { PHOSPHOR_GREEN = 0, PHOSPHOR_WHITE = 1 } PhosphorColour;
 
+/* Default per-frame phosphor decay factor.
+ * Approximates P31 medium-persistence green phosphor (~25 ms to 10% decay):
+ * after one blank 20 ms frame, a previously-lit pixel retains ~70% brightness.
+ * Adjust with -phosphor-decay; set to 0.0 to disable persistence entirely. */
+#define PHOSPHOR_DECAY_DEFAULT  0.70f
+
+/* Override the per-frame phosphor decay at runtime (0.0 = instant, 1.0 = infinite). */
+void video_set_phosphor_decay(struct Smaky6 *m, float decay);
+
 #endif /* VIDEO_H */

@@ -614,6 +614,11 @@ void machine_set_phosphor(struct Smaky6 *m, int white)
     m->vid.phosphor = white ? PHOSPHOR_WHITE : PHOSPHOR_GREEN;
 }
 
+void machine_set_phosphor_decay(struct Smaky6 *m, float decay)
+{
+    video_set_phosphor_decay(m, decay);
+}
+
 /* ── Internal accessor helpers (used by subsystem .c files) ─────────────── */
 /* NOTE: All subsystem .c files now include machine_internal.h and access
  * fields directly.  These helpers are kept only for external callers that

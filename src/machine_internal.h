@@ -70,6 +70,13 @@ struct Smaky6 {
         int           scanlines;          /* 1 = draw semi-transparent dark lines on every other output row */
         PhosphorColour phosphor;        /* PHOSPHOR_GREEN (default) or PHOSPHOR_WHITE */
         int           gfx_msb_first;
+        /* Phosphor persistence: heap buffer [VIDEO_PX_W × VIDEO_ASPECT_H] floats.
+         * NULL = disabled (allocated by video_init; freed by video_fini).
+         * Each element holds the current glow level [0.0, 1.0] for one output pixel.
+         * Lit pixels snap to 1.0; dark pixels multiply by phosphor_decay each frame.
+         * Skipped when no_display_off is set (display never actually blanks). */
+        float        *phosphor_buf;
+        float         phosphor_decay; /* per-frame decay: 0=instant, ~0.7≈P31 medium */
         uint8_t       chargen[2048];
         /* Shadow copy of the alpha plane for change-detection / stderr dump */
         uint8_t       shadow_alpha[VIDEO_COLS_CHAR * VIDEO_ROWS_CHAR];
