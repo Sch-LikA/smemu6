@@ -636,6 +636,13 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
                 if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
                     running = 0;
                 break;
+            case SDL_KEYDOWN:
+                if (ev.key.keysym.scancode == SDL_SCANCODE_RETURN ||
+                    ev.key.keysym.scancode == SDL_SCANCODE_KP_ENTER) {
+                    result = 0;
+                    running = 0;
+                }
+                break;
             case SDL_MOUSEMOTION:
                 mx = ev.motion.x;
                 my = ev.motion.y;
