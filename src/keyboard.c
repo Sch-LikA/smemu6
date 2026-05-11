@@ -22,17 +22,17 @@
  * correct shift / Caps Lock / dead-key state, giving lowercase by default.
  *
  * ESC key — smart dual-behaviour:
- *   The SAMOS line editor uses two distinct key codes for ESC-related actions:
+ *   The SAMOS line editor dispatches two distinct codes for ESC-related actions:
  *     0x04 — cancel/clear the current command line (EFFACE / CLR)
- *     0x05 — recall previous command into the line editor (UNDO / recall)
+ *     0x05 — recall previous command (native SAMOS recall; NOT used here)
  *   Per the SAMOS manual: "BREAK (ESC) = cancels current line; if empty,
- *   recalls last command."  keyboard_event() implements this by checking the
- *   SAMOS line-buffer-length byte at 0x454B and sending 0x05 when empty,
- *   0x04 when the line contains characters.
- * NOTE: 0x1B is the Smaky control-code table entry for "ESC" (printer/serial
- * escape prefix) — it is NOT the keyboard code.
- * The BREAK key (top-right, NMI/RESET) fires the Z80 NMI line; it does NOT
- * put a byte in the keyboard buffer.  Use Pause / F11 for that path.
+ *   recalls last command."  keyboard_event() implements this via emulator-side
+ *   history:
+ *     • ESC on non-empty line → send 0x04 (SAMOS cancels the line)
+ *     • ESC on empty line → re-inject kbd.prev_cmd chars into the FIFO
+ *   kbd.prev_cmd is captured when Return is pressed (snapshot of m->bus[0x45C0]
+ *   up to the cursor at (0x7014)).  SAMOS's native 0x05 recall is broken because
+ *   the line editor overwrites the buffer with the cursor '-' before recall runs.
  */
 static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_RETURN,    0x0D },
@@ -60,6 +60,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
     m->kbd.samos_loaded    = 0;
+    m->kbd.prev_cmd_len    = 0;
 
     /* Simulate real hardware power-on state: the FOUND latch is undefined at
      * power-on and typically powers up asserted.  The Phantom ROM keyboard wait
@@ -136,22 +137,32 @@ void keyboard_frame_tick(struct Smaky6 *m)
                 fprintf(stderr, "[kbd_tick] guard sentinel at 0x%04X — buffer full\n", wr);
             break;
         }
-        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
+        uint8_t raw  = m->kbd.fifo[m->kbd.fifo_head];
+        uint8_t physical = raw & 0x80u;   /* set by keyboard_event() for real keys */
+        uint8_t code = raw & 0x7Fu;
         m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-        m->bus[wr] = code & 0x7Fu;
+        m->bus[wr] = code;
         wr++;
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
         /* Arm SAMOS ISR Stage 4 auto-repeat (0x01DF–0x0206):
          *   0x4558 = initial-delay countdown (0x23 = 35 frames = 700 ms)
          *   0x4577 = key code to re-inject when countdown reaches zero
-         * Cleared by KEYUP in keyboard_event() when the held key is released. */
-        m->bus[0x4558u] = 0x23u;
-        m->bus[0x4577u] = code & 0x7Fu;
+         * Rules:
+         *   - Only arm for PHYSICAL keystrokes (bit 7 marker set by keyboard_event).
+         *     Injected chars (inject-str, ESC-recall replay) must not arm repeat.
+         *   - Enter (0x0D) must not arm repeat even for physical keys: a spurious
+         *     Enter re-injected 35 frames later would trigger the SAMOS line editor
+         *     on an empty line, causing a null-termination loop.
+         * Cleared by KEYUP in keyboard_event() when the held physical key is released. */
+        if (physical && code != 0x0Du) {
+            m->bus[0x4558u] = 0x23u;
+            m->bus[0x4577u] = code;
+        }
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd_tick] circ[0x%04X] <- 0x%02X ('%c')  ptr now 0x%04X  [ptr]=0x%02X\n",
-                    (unsigned)(wr-1), (unsigned)(code & 0x7Fu),
-                    (code >= 0x20 && code < 0x7F) ? (char)(code & 0x7Fu) : '?',
+                    (unsigned)(wr-1), (unsigned)code,
+                    (code >= 0x20 && code < 0x7F) ? (char)code : '?',
                     (unsigned)wr, (unsigned)m->bus[wr]);
     }
 }
@@ -217,17 +228,31 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
      * We implement this by examining the SAMOS line-buffer-length byte at
      * 0x454B: if 0 (empty) send 0x05 (recall); if non-zero send 0x04 (cancel). */
     if (scan == SDL_SCANCODE_ESCAPE) {
-        /* Send 0x05 (recall) when at an empty CLI prompt (video row starts
-         * "* -"), or 0x04 (cancel) when the line contains typed text. */
-        uint8_t code = machine_cli_prompt_visible(m) ? 0x05u : 0x04u;
-        int next = (m->kbd.fifo_tail + 1) & 63;
-        if (next != m->kbd.fifo_head) {
-            m->kbd.fifo[m->kbd.fifo_tail] = code;
-            m->kbd.fifo_tail = next;
+        if (machine_cli_prompt_visible(m)) {
+            /* Empty CLI prompt: recall previous command by re-injecting it
+             * character-by-character into the FIFO.  SAMOS will echo each
+             * character and leave the cursor at the end of the line for editing.
+             * If there is no history yet, do nothing. */
+            for (int i = 0; i < m->kbd.prev_cmd_len; i++) {
+                int next = (m->kbd.fifo_tail + 1) & 63;
+                if (next == m->kbd.fifo_head) break;  /* FIFO full */
+                m->kbd.fifo[m->kbd.fifo_tail] = m->kbd.prev_cmd[i];
+                m->kbd.fifo_tail = next;
+            }
             if (m->dbg.trace_kbd)
-                fprintf(stderr, "[kbd_event] ESC → 0x%02X (line len=%u) FIFO[%d]\n",
-                        (unsigned)code, (unsigned)m->bus[0x454Bu],
-                        m->kbd.fifo_tail - 1);
+                fprintf(stderr,
+                        "[kbd_event] ESC-recall: injected %d chars of history\n",
+                        m->kbd.prev_cmd_len);
+        } else {
+            /* Non-empty line: send 0x04 (EFFACE/cancel) to clear it. */
+            int next = (m->kbd.fifo_tail + 1) & 63;
+            if (next != m->kbd.fifo_head) {
+                m->kbd.fifo[m->kbd.fifo_tail] = 0x04u;
+                m->kbd.fifo_tail = next;
+                if (m->dbg.trace_kbd)
+                    fprintf(stderr, "[kbd_event] ESC → 0x04 (cancel non-empty line)"
+                            "  FIFO[%d]\n", m->kbd.fifo_tail - 1);
+            }
         }
         return;
     }
@@ -235,6 +260,28 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     for (int i = 0; i < KEY_TABLE_LEN; i++) {
         if (KEY_TABLE[i].scan == scan) {
             uint8_t code = KEY_TABLE[i].code;
+            /* When the user presses Return on a non-empty line, snapshot the SAMOS
+             * line buffer (0x45C0 … (0x7014)-1) as history for ESC recall.
+             * The cursor variable (0x7014:0x7015, little-endian) points one past
+             * the last typed character, so the typed content lives in
+             * m->bus[0x45C0 .. cursor-1].
+             * This must run BEFORE the Enter code is delivered to the FIFO so that
+             * the line buffer is still intact (SAMOS null-terminates it only after
+             * processing the Enter from circ_buf). */
+            if (code == 0x0Du && !machine_cli_prompt_visible(m)) {
+                uint16_t cursor = (uint16_t)m->bus[0x7014u]
+                                | ((uint16_t)m->bus[0x7015u] << 8);
+                uint16_t start  = 0x45C0u;
+                if (cursor > start && cursor <= start + 127u) {
+                    int len = (int)(cursor - start);
+                    memcpy(m->kbd.prev_cmd, &m->bus[start], len);
+                    m->kbd.prev_cmd_len = len;
+                    if (m->dbg.trace_kbd)
+                        fprintf(stderr,
+                                "[kbd_event] history captured: \"%.*s\" (%d chars)\n",
+                                len, (char *)m->kbd.prev_cmd, len);
+                }
+            }
             /* Physical keyboard uses FIFO-only delivery.  Do NOT touch the CLA
              * fields (key_code / found / physically_held / key_hold_frames) here —
              * those are reserved for machine_inject_key() / the CLA inject path.
@@ -243,7 +290,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
              * Enter and drops intermediate characters. */
             int next = (m->kbd.fifo_tail + 1) & 63;
             if (next != m->kbd.fifo_head) {   /* not full */
-                m->kbd.fifo[m->kbd.fifo_tail] = code;
+                /* Bit 7 = "physical key" marker: keyboard_frame_tick() uses it
+                 * to arm the SAMOS ISR auto-repeat only for physical keystrokes
+                 * (not for injected or programmatic codes). */
+                m->kbd.fifo[m->kbd.fifo_tail] = code | 0x80u;
                 m->kbd.fifo_tail = next;
                 if (m->dbg.trace_kbd)
                     fprintf(stderr, "[kbd_event] pushed 0x%02X ('%c') to FIFO[%d]"
@@ -331,7 +381,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
             if (b0 < 0x20 || b0 > 0x7E) continue;  /* skip control / DEL */
             int next = (m->kbd.fifo_tail + 1) & 63;
             if (next != m->kbd.fifo_head) {
-                m->kbd.fifo[m->kbd.fifo_tail] = b0;
+                m->kbd.fifo[m->kbd.fifo_tail] = b0 | 0x80u;  /* bit 7 = physical */
                 m->kbd.fifo_tail = next;
                 if (m->dbg.trace_kbd)
                     fprintf(stderr, "[kbd_text] pushed 0x%02X ('%c') to FIFO\n",
@@ -355,7 +405,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
             if (smaky_code == 0) continue;  /* unmapped codepoint */
             int next = (m->kbd.fifo_tail + 1) & 63;
             if (next != m->kbd.fifo_head) {
-                m->kbd.fifo[m->kbd.fifo_tail] = smaky_code;
+                m->kbd.fifo[m->kbd.fifo_tail] = smaky_code | 0x80u;  /* bit 7 = physical */
                 m->kbd.fifo_tail = next;
                 if (m->dbg.trace_kbd)
                     fprintf(stderr, "[kbd_text] accent U+%04X → 0x%02X pushed to FIFO\n",
