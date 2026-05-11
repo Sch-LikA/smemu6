@@ -4,8 +4,13 @@ tools/gen_smaky6_font.py — Smaky 6 Linux console font generator
 
 Produces tools/Smaky6-8x16.psf: an 8×16 PSF2 font for Linux virtual console
 and most terminal emulators (e.g. xterm -fn, konsole, st).
-Optionally also produces tools/Smaky6-8x16.bdf and tools/Smaky6-8x16.pcf
-for use with X11 (xterm, rxvt, etc.) and any font-manager that reads PCF.
+Optionally also produces:
+  • tools/Smaky6-8x16.bdf and tools/Smaky6-8x16.pcf  — X11 bitmap font
+  • tools/Smaky6-8x16.ttf                            — TrueType font for modern
+    terminals (kitty, alacritty, wezterm, foot, GNOME Terminal, etc.)
+    Glyphs are pixel-perfect outlines: each bitmap pixel becomes a filled
+    64×64-unit rectangle (UPM=1024).  Renders crisply at 16 px or any
+    integer multiple; scales smoothly at arbitrary sizes.
 
 Sources
 -------
@@ -42,6 +47,7 @@ Usage
   python3 tools/gen_smaky6_font.py              # generate PSF2 (console)
   python3 tools/gen_smaky6_font.py --pcf         # generate PSF2 + BDF + PCF (X11)
   python3 tools/gen_smaky6_font.py --bdf         # generate PSF2 + BDF only
+  python3 tools/gen_smaky6_font.py --ttf         # generate PSF2 + TTF (modern terminals)
   python3 tools/gen_smaky6_font.py --preview     # ASCII-art preview of chargen glyphs
   python3 tools/gen_smaky6_font.py --output /tmp/test.psf
 
@@ -57,6 +63,11 @@ Usage
   xterm -fa Smaky6 -fs 16 &
   # or with the legacy bitmap font name:
   xterm -fn "-misc-smaky6-medium-r-normal--16-120-100-100-c-80-iso10646-1"
+
+  # Install TTF for modern terminals:
+  cp tools/Smaky6-8x16.ttf ~/.local/share/fonts/
+  fc-cache -f ~/.local/share/fonts/
+  # Then select "Smaky6" in your terminal's font settings at size 16.
 """
 
 import argparse
@@ -74,6 +85,7 @@ TERMINUS_GZ  = Path("/usr/share/consolefonts/Uni2-Terminus16.psf.gz")
 DEFAULT_OUT     = ROOT / "tools" / "Smaky6-8x16.psf"
 DEFAULT_OUT_BDF = ROOT / "tools" / "Smaky6-8x16.bdf"
 DEFAULT_OUT_PCF = ROOT / "tools" / "Smaky6-8x16.pcf"
+DEFAULT_OUT_TTF = ROOT / "tools" / "Smaky6-8x16.ttf"
 
 # BDF baseline metrics (8×16 cell, baseline after 12 rows of ascent)
 BDF_ASCENT   = 12   # rows above baseline (rows 0–11)
@@ -237,6 +249,100 @@ def write_psf2(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
     print(f"[gen_smaky6_font] Wrote {n} glyphs to {path}")
 
 
+def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
+    """
+    Write a TrueType font from bitmap entries.
+
+    Each bitmap pixel becomes a 64×64-unit filled rectangle (UPM=1024, so
+    1 pixel = 64 units).  Horizontal pixel runs in each row are merged into
+    single rectangles to minimise contour count.
+
+    Glyph metrics:
+      advance width = 512  (8 px × 64)
+      ascent        = 768  (12 px × 64)
+      descent       = -256 (4 px × 64)
+    """
+    try:
+        from fontTools.fontBuilder import FontBuilder
+        from fontTools.pens.ttGlyphPen import TTGlyphPen
+        from fontTools.ttLib.tables._g_l_y_f import Glyph as _TTGlyph
+    except ImportError:
+        sys.exit(
+            "[gen_smaky6_font] ERROR: fonttools not installed.\n"
+            "  pip install fonttools"
+        )
+
+    PX        = 64                      # font units per pixel
+    UPM       = CELL_H * PX             # 1024
+    ADVANCE   = CELL_W * PX             # 512
+    ASCENT_U  = BDF_ASCENT  * PX        # 768
+    DESCENT_U = BDF_DESCENT * PX        # 256 (positive; negated where sign matters)
+
+    def _bitmap_to_glyph(bitmap: bytes):
+        """Return a TTGlyphPen glyph for the bitmap, or None if all blank."""
+        pen = TTGlyphPen(None)
+        drew = False
+        for r, byte in enumerate(bitmap):
+            if not byte:
+                continue
+            y_top = (BDF_ASCENT - r) * PX   # top edge of row in font units (y-up)
+            y_bot = y_top - PX               # bottom edge
+            c = 0
+            while c < CELL_W:
+                if not ((byte >> (7 - c)) & 1):
+                    c += 1
+                    continue
+                run_start = c
+                while c < CELL_W and ((byte >> (7 - c)) & 1):
+                    c += 1
+                x1, x2 = run_start * PX, c * PX
+                # Clockwise contour = outer fill in TrueType (y-up coordinates)
+                pen.moveTo((x1, y_bot))
+                pen.lineTo((x2, y_bot))
+                pen.lineTo((x2, y_top))
+                pen.lineTo((x1, y_top))
+                pen.closePath()
+                drew = True
+        return pen.glyph() if drew else _TTGlyph()
+
+    glyph_order = [".notdef"]
+    cmap: dict[int, str] = {}
+    glyph_map: dict[str, object] = {".notdef": _TTGlyph()}
+    metrics: dict[str, tuple[int, int]] = {".notdef": (ADVANCE, 0)}
+
+    for bitmap, cps in entries:
+        cp   = cps[0]
+        name = f"uni{cp:04X}"
+        glyph_order.append(name)
+        cmap[cp]       = name
+        glyph_map[name] = _bitmap_to_glyph(bitmap)
+        metrics[name]  = (ADVANCE, 0)
+
+    fb = FontBuilder(UPM, isTTF=True)
+    fb.setupGlyphOrder(glyph_order)
+    fb.setupCharacterMap(cmap)
+    fb.setupGlyf(glyph_map)
+    fb.setupHorizontalMetrics(metrics)
+    fb.setupHorizontalHeader(ascent=ASCENT_U, descent=-DESCENT_U)
+    fb.setupNameTable({
+        "familyName": "Smaky6",
+        "styleName":  "Regular",
+    })
+    fb.setupOS2(
+        sTypoAscender=ASCENT_U,
+        sTypoDescender=-DESCENT_U,
+        sTypoLineGap=0,
+        usWinAscent=ASCENT_U,
+        usWinDescent=DESCENT_U,
+        sxHeight=5 * PX,    # approximate x-height
+        sCapHeight=8 * PX,  # approximate cap height
+        fsType=0,           # installable embedding
+    )
+    fb.setupPost(isFixedPitch=1)
+    fb.font.save(str(path))
+    print(f"[gen_smaky6_font] Wrote {len(glyph_order)} glyphs to {path}")
+
+
 def write_bdf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
     """
     Write an X11 BDF (Bitmap Distribution Format) font file.
@@ -328,6 +434,17 @@ def main() -> None:
         default=str(DEFAULT_OUT),
         metavar="PATH",
         help=f"Output PSF2 path (default: {DEFAULT_OUT})",
+    )
+    ap.add_argument(
+        "--ttf",
+        action="store_true",
+        help="Also write a TrueType (.ttf) font for modern terminal emulators",
+    )
+    ap.add_argument(
+        "--ttf-output",
+        default=str(DEFAULT_OUT_TTF),
+        metavar="PATH",
+        help=f"TTF output path (default: {DEFAULT_OUT_TTF})",
     )
     ap.add_argument(
         "--bdf",
@@ -451,14 +568,20 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     write_psf2(out, entries)
 
-    # ── 6. Optional BDF output ─────────────────────────────────────────────
+    # ── 6. Optional TTF output ────────────────────────────────────────────────
+    ttf_path = Path(args.ttf_output)
+    if args.ttf:
+        ttf_path.parent.mkdir(parents=True, exist_ok=True)
+        write_ttf(ttf_path, entries)
+
+    # ── 7. Optional BDF output ─────────────────────────────────────────────
     bdf_path = Path(args.bdf_output)
     pcf_path = Path(args.pcf_output)
     if args.bdf:
         bdf_path.parent.mkdir(parents=True, exist_ok=True)
         write_bdf(bdf_path, entries)
 
-    # ── 7. Optional PCF compilation ───────────────────────────────────────
+    # ── 8. Optional PCF compilation ───────────────────────────────────────
     if args.pcf:
         import shutil, subprocess
         if not shutil.which("bdftopcf"):
@@ -478,7 +601,7 @@ def main() -> None:
                     f"[gen_smaky6_font] ERROR: bdftopcf failed:\n{result.stderr}"
                 )
 
-    # ── 8. Usage hint ──────────────────────────────────────────────────────────
+    # ── 9. Usage hint ──────────────────────────────────────────────────────────
     print()
     print("To activate in the current virtual console:")
     print(f"  sudo setfont {out}")
@@ -494,6 +617,12 @@ def main() -> None:
         print()
         print(f"BDF written to {bdf_path}")
         print(f"  Compile to PCF: bdftopcf -t -o {pcf_path} {bdf_path}")
+    if args.ttf:
+        print()
+        print("To install the TTF for modern terminals:")
+        print(f"  cp {ttf_path} ~/.local/share/fonts/")
+        print("  fc-cache -f ~/.local/share/fonts/")
+        print("  Then select 'Smaky6' at size 16 in your terminal's font settings.")
 
 
 if __name__ == "__main__":
