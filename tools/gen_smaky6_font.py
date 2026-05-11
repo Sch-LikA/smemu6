@@ -253,14 +253,20 @@ def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
     """
     Write a TrueType font from bitmap entries.
 
-    Each bitmap pixel becomes a 64×64-unit filled rectangle (UPM=1024, so
-    1 pixel = 64 units).  Horizontal pixel runs in each row are merged into
-    single rectangles to minimise contour count.
+    Uses separate horizontal and vertical pixel sizes so that the advance
+    equals the UPM.  This avoids the "double spacing" seen in terminals
+    (GNOME Terminal, etc.) that allocate cell width from the em square:
+
+      PX_H = 64 u/px (vertical)  → UPM  = 16 × 64 = 1024
+      PX_W = 128 u/px (horizontal) → ADVANCE = 8 × 128 = 1024 = UPM
+
+    At 16 px each original pixel renders as 2px wide × 1px tall — the
+    standard trade-off when converting an 8×16 bitmap to a square-cell TTF.
 
     Glyph metrics:
-      advance width = 512  (8 px × 64)
-      ascent        = 768  (12 px × 64)
-      descent       = -256 (4 px × 64)
+      advance width = 1024  (= UPM)
+      ascent        = 768   (12 px × 64 u/px vertical)
+      descent       = -256  (4 px × 64 u/px vertical)
     """
     try:
         from fontTools.fontBuilder import FontBuilder
@@ -272,11 +278,12 @@ def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
             "  pip install fonttools"
         )
 
-    PX        = 64                      # font units per pixel
-    UPM       = CELL_H * PX             # 1024
-    ADVANCE   = CELL_W * PX             # 512
-    ASCENT_U  = BDF_ASCENT  * PX        # 768
-    DESCENT_U = BDF_DESCENT * PX        # 256 (positive; negated where sign matters)
+    PX_H      = 64                      # font units per pixel (vertical)
+    PX_W      = 128                     # font units per pixel (horizontal, 2×PX_H)
+    UPM       = CELL_H * PX_H          # 1024
+    ADVANCE   = CELL_W * PX_W          # 1024 = UPM  → no gap in any terminal
+    ASCENT_U  = BDF_ASCENT  * PX_H     # 768
+    DESCENT_U = BDF_DESCENT * PX_H     # 256 (positive; negated where sign matters)
 
     def _bitmap_to_glyph(bitmap: bytes):
         """Return a TTGlyphPen glyph for the bitmap, or None if all blank."""
@@ -285,8 +292,8 @@ def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
         for r, byte in enumerate(bitmap):
             if not byte:
                 continue
-            y_top = (BDF_ASCENT - r) * PX   # top edge of row in font units (y-up)
-            y_bot = y_top - PX               # bottom edge
+            y_top = (BDF_ASCENT - r) * PX_H   # top edge of row in font units (y-up)
+            y_bot = y_top - PX_H               # bottom edge
             c = 0
             while c < CELL_W:
                 if not ((byte >> (7 - c)) & 1):
@@ -295,7 +302,7 @@ def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
                 run_start = c
                 while c < CELL_W and ((byte >> (7 - c)) & 1):
                     c += 1
-                x1, x2 = run_start * PX, c * PX
+                x1, x2 = run_start * PX_W, c * PX_W
                 # Clockwise contour = outer fill in TrueType (y-up coordinates)
                 pen.moveTo((x1, y_bot))
                 pen.lineTo((x2, y_bot))
@@ -334,8 +341,8 @@ def write_ttf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
         sTypoLineGap=0,
         usWinAscent=ASCENT_U,
         usWinDescent=DESCENT_U,
-        sxHeight=5 * PX,    # approximate x-height
-        sCapHeight=8 * PX,  # approximate cap height
+        sxHeight=5 * PX_H,    # approximate x-height
+        sCapHeight=8 * PX_H,  # approximate cap height
         fsType=0,           # installable embedding
     )
     fb.setupPost(isFixedPitch=1)
