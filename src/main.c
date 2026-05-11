@@ -305,10 +305,16 @@ static void main_loop_iter(void)
                     int by = VIDEO_FKEY_Y + 1;
                     if (lx >= bx && lx < bx + VIDEO_FKEY_BTN_W &&
                         ly >= by && ly < by + VIDEO_FKEY_BTN_H) {
-                        if (ev.type == SDL_MOUSEBUTTONDOWN)
+                        if (ev.type == SDL_MOUSEBUTTONDOWN) {
                             L->m->kbd.fonct_bits |=  FKEY_BITS[i];
-                        else
+                        } else {
                             L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
+                            /* Clear SAMOS auto-repeat in case Stage 2 wrote the
+                             * fonct_bits value as a character before this fix.
+                             * Zeroing the countdown stops any pending repeat. */
+                            if (L->m->kbd.samos_loaded)
+                                L->m->bus[0x4558u] = 0u;
+                        }
                         break;
                     }
                 }
