@@ -157,6 +157,10 @@ typedef struct {
     Uint64 global_timeout_ms;
     Uint64 autoboot_timeout_ms;
     int    timeout_reported;
+    /* Set to 1 when a SDL_KEYDOWN with repeat=1 is seen; cleared after the
+     * paired SDL_TEXTINPUT is suppressed.  Prevents host-OS key-repeat from
+     * doubling characters on top of SAMOS's own repeat mechanism. */
+    int    suppress_text_next;
 } MainLoopCtx;
 
 static MainLoopCtx *s_loop = NULL;
@@ -250,6 +254,9 @@ static void main_loop_iter(void)
             break;
 
         case SDL_KEYDOWN:
+            /* Track whether this is a host OS key-repeat event so the paired
+             * SDL_TEXTINPUT can be suppressed (SAMOS handles repeat itself). */
+            L->suppress_text_next = ev.key.repeat ? 1 : 0;
             if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
                 debug_toggle(L->m);
             } else if (ev.key.keysym.scancode == SDL_SCANCODE_PAUSE ||
@@ -274,7 +281,11 @@ static void main_loop_iter(void)
             break;
 
         case SDL_TEXTINPUT:
-            keyboard_text_event(L->m, &ev.text);
+            /* Suppress if paired with a host OS key-repeat KEYDOWN; SAMOS
+             * manages its own repeat via the 0x4558 countdown. */
+            if (!L->suppress_text_next)
+                keyboard_text_event(L->m, &ev.text);
+            L->suppress_text_next = 0;
             break;
 
         case SDL_MOUSEBUTTONDOWN:
