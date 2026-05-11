@@ -272,11 +272,27 @@ The `floppies/` directory in the repository is the conventional location.
 
 ### Extracting files from a floppy
 
-Use the Python tool included in `tools/`:
+Use the tools from the companion project `../smaky6-tools/`:
 
 ```bash
-python3 tools/smaky6_fuse.py ../floppies/sys.dsk --list
-python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk list
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all private/extracted/
+```
+
+### Subdirectories (`.DR` files)
+
+SAMOS supports nested directories stored as files with the `.DR` extension.
+The CLI command `CDIR NAME.DR` enters a subdirectory; `CDIR` alone lists
+the current directory; `CLEAR` returns to the root.
+
+Inside the emulator, subdirectories work transparently — the floppy image
+contains all sectors and no special handling is required.  When listing a
+disk image with `smaky6_samos.py`, sub-entries are shown indented with `> `:
+
+```
+17  U          DR  Directory   509  609 …
+    > EDISK    SM  SMILE prog  512  525 …
+    > TDISK    SM  SMILE prog  525  531 …
 ```
 
 ---

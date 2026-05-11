@@ -304,11 +304,28 @@ Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
 
 ### Extraire des fichiers d'une disquette
 
-Utilisez l'outil Python inclus dans `tools/` :
+Utilisez les outils du projet compagnon `../smaky6-tools/` :
 
 ```bash
-python3 tools/smaky6_fuse.py ../floppies/sys.dsk --list
-python3 tools/smaky6_fuse.py ../floppies/sys.dsk --extract-all --out private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk list
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all private/extracted/
+```
+
+### Sous-répertoires (fichiers `.DR`)
+
+SAMOS supporte les répertoires imbriqués stockés comme fichiers avec l'extension `.DR`.
+La commande CLI `CDIR NOM.DR` entre dans un sous-répertoire ; `CDIR` seul
+affiche le répertoire courant ; `CLEAR` revient à la racine.
+
+Dans l'émulateur, les sous-répertoires fonctionnent de manière transparente —
+l'image disquette contient tous les secteurs et aucun traitement spécial n'est
+nécessaire.  Lors du listage d'une image avec `smaky6_samos.py`, les entrées
+enfants sont affichées avec un préfixe `> ` :
+
+```
+17  U          DR  Directory   509  609 …
+    > EDISK    SM  SMILE prog  512  525 …
+    > TDISK    SM  SMILE prog  525  531 …
 ```
 
 ---

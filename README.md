@@ -558,7 +558,7 @@ If you have the original PDF documentation with hex listings:
 pdftotext -layout Smaky6-doc.pdf /tmp/smaky6.txt
 
 # Extract Phantom ROM (SYS17, 2 KB)
-python3 tools/smaky6_rom_extract.py /tmp/smaky6.txt \
+python3 ../smaky6-tools/smaky6_rom_extract.py /tmp/smaky6.txt \
     --start 0 --end 7777 \
     --output roms/samos_sys17.rom \
     --report sysmon_report.txt

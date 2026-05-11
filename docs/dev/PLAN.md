@@ -386,8 +386,19 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
 - **SAMOS access**: RST 20 = software API; RST 10 = hardware-level access
 - **Practical tooling split**:
   - **FluxEngine**: one-time decode path from KryoFlux / real-drive capture to flat Smaky disk image
-  - **`tools/smaky6_samos.py`**: primary day-to-day tool for listing, extracting, creating, compacting,
+  - **`../smaky6-tools/smaky6_samos.py`**: primary day-to-day tool for listing, extracting, creating, compacting,
     and rendering contents of decoded Smaky floppy / Winchester images
+
+- **Nested directories (`.DR` files)**:
+  SAMOS supports subdirectories stored as `.DR` entries.  Each `.DR` entry's
+  first 3 sectors (768 bytes) hold up to 32 sub-directory entries in the same
+  24-byte format as the root directory.  Sector addresses inside a sub-directory
+  are **relative to the `.DR` entry's own start sector** (not absolute disk
+  sectors).  The CLI command `CDIR NAME.DR` enters the subdirectory; `CDIR`
+  alone lists the current directory; `CLEAR` returns to the root.  The emulator
+  transparently serves all sectors from the flat image regardless of filesystem
+  structure — no emulator-side changes are required for `.DR` support.
+  `../smaky6-tools/smaky6_samos.py list` shows sub-entries indented with `> `.
 
 ### Winchester Hard Disk
 
@@ -434,7 +445,7 @@ delay loops and `RR C` shift patterns), likely for clocking or synchronisation w
 controller; it may overlap with the display-interrupt acknowledge function already
 listed for that port.
 
-**Tooling**: `tools/smaky6_samos.py` and `tools/smaky6_fuse.py` fully support Winchester
+**Tooling**: `../smaky6-tools/smaky6_samos.py` and `../smaky6-tools/smaky6_fuse.py` fully support Winchester
 images — the 16 MB size is now a recognised geometry (no warning). Create a blank Winchester
 image with `smaky6_samos.py create <out.dsk> --winchester`.
 
@@ -477,7 +488,7 @@ into RAM. The CPU then runs entirely from RAM — no ROM exists at any address.
 | SYS.SY (disk)   | —               | 8960 B  | SYSMON (0x0000–0x07FF) + SAMOS OS (0x0800–0x22FF); loaded into RAM at boot | **Available** on floppy images; extracted to `/tmp/SYS.SY` |
 
 **ROM reconstruction (32 KB / 48 KB machines only):** SYSMON and SAMOS assembly listings
-are fully printed in the PDF (octal address + opcode columns). `tools/smaky6_rom_extract.py`
+are fully printed in the PDF (octal address + opcode columns). `../smaky6-tools/smaky6_rom_extract.py`
 parses these to reconstruct binaries with OCR error correction. Not needed for the
 64 KB Phantom emulation — SYS.SY on disk serves the equivalent purpose.
 
@@ -1041,19 +1052,19 @@ smemu6/
 
 ## ROM Extraction Tool
 
-**File:** `tools/smaky6_rom_extract.py`
+**File:** `../smaky6-tools/smaky6_rom_extract.py`
 
 ```bash
 # SYSMON (4 KB)
-python3 tools/smaky6_rom_extract.py /tmp/smaky6.txt \
+python3 ../smaky6-tools/smaky6_rom_extract.py /tmp/smaky6.txt \
     --start 0 --end 7777 --output roms/sysmon.rom --report sysmon_report.txt
 
 # SAMOS (4 KB)
-python3 tools/smaky6_rom_extract.py /tmp/smaky6.txt \
+python3 ../smaky6-tools/smaky6_rom_extract.py /tmp/smaky6.txt \
     --start 10000 --end 17777 --output roms/samos.rom --report samos_report.txt
 
 # Full scan
-python3 tools/smaky6_rom_extract.py /tmp/smaky6.txt \
+python3 ../smaky6-tools/smaky6_rom_extract.py /tmp/smaky6.txt \
     --all --output roms/full.rom --report full_report.txt
 
 # Compare reconstructed vs physical
@@ -1064,11 +1075,14 @@ diff <(xxd roms/sysmon.rom) <(xxd roms/sysmon_physical.rom)
 
 ## Disk Image Tooling
 
-Use the project-local tools as the normal workflow once you already have a decoded disk image.
-`tools/smaky6_samos.py` is the more useful day-to-day tool for this repository: it understands the
-Smaky directory structure, can list/extract/add/delete files, create blank images, compact images,
-and render IM graphics directly from `.dsk` / flat sector dumps. `tools/smaky6_fuse.py` is the
-mountable companion when filesystem-style access is more convenient.
+The Smaky 6 disk tools live in the companion project `../smaky6-tools/`.
+Use them as the normal workflow once you already have a decoded disk image.
+`smaky6_samos.py` is the more useful day-to-day tool: it understands the
+Smaky directory structure including nested `.DR` subdirectories, and can
+list/extract/add/delete files, create blank images, compact images,
+and render IM graphics directly from `.dsk` / flat sector dumps.
+`smaky6_fuse.py` is the mountable companion when filesystem-style access is
+more convenient.
 
 FluxEngine remains useful, but only for the earlier capture/decoding step from physical media or
 KryoFlux dumps. It should be treated as the ingest tool, not the main analysis/manipulation tool.
@@ -1089,10 +1103,10 @@ FLUXENGINE=/home/mrp/dev/fluxengine/fluxengine
 $FLUXENGINE read -c smaky6 -s drive:0 -o smaky6.img
 # Result: 315,392-byte flat image (77 × 16 × 256)
 
-# Day-to-day work should then switch to the local Smaky tools:
-python3 tools/smaky6_samos.py disk smaky6.img list
-python3 tools/smaky6_samos.py disk smaky6.img extract SYS /tmp/SYS.SY
-python3 tools/smaky6_samos.py disk smaky6.img image NATHALIE.IM /tmp/nathalie.png
+# Day-to-day work should then switch to the Smaky tools:
+python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img list
+python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img extract SYS /tmp/SYS.SY
+python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img image NATHALIE.IM /tmp/nathalie.png
 
 # Capture to a flux file first (for archival / re-reading without the drive):
 $FLUXENGINE read -c smaky6 -s drive:0 --copy-flux-to capture.flux -o smaky6.img

@@ -1,7 +1,7 @@
 # SYS.SY — Smaky 6 System File Analysis
 
 Reverse-engineered from `private/decoded/1 System 1H complet avec appli inconnue.img`
-and extracted to `/tmp/SYS.SY` via `tools/smaky6_samos.py`.
+and extracted to `/tmp/SYS.SY` via `../smaky6-tools/smaky6_samos.py`.
 
 Analysis date: 2026-05 (Phase 1J / Phase 1K / Phase 1S of emulator project).
 
