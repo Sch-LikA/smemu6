@@ -208,13 +208,13 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 
 | Touche PC | Fonction Smaky 6 |
 |-----------|------------------|
-| `Ctrl droit` | Touche de fonction **CHANGE** |
-| `Menu` / `App` | Touche de fonction **SEARCH** |
-| `F10` | Touche de fonction **SHOW** |
-| `Alt gauche` | Touche de fonction **COPY** |
 | `Ctrl gauche` | Touche de fonction **CURSOR** |
-| `AltGr` (Alt droit) | Touche de fonction **PROGRA** |
+| `Alt gauche` | Touche de fonction **COPY** |
 | `Windows gauche` / `Super` | Touche de fonction **KILL** |
+| `AltGr` (Alt droit) | Touche de fonction **PROGRA** |
+| `F10` | Touche de fonction **SHOW** |
+| `Menu` / `App` | Touche de fonction **SEARCH** |
+| `Ctrl droit` | Touche de fonction **CHANGE** |
 | `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** — déclenche une NMI → entre dans le moniteur SYSMON |
@@ -246,8 +246,8 @@ traduit vers les codes chargen Smaky 6 correspondants :
 ### Barre de touches de fonction
 
 La bande inférieure de la fenêtre de l'émulateur contient 7 boutons
-cliquables rouge foncé, un par touche de fonction Smaky 6 (CHANGE, SEARCH,
-SHOW, COPY, CURSOR, PROGRA, KILL).  Cliquez et maintenez pour activer ;
+cliquables rouge foncé, un par touche de fonction Smaky 6 (CURSOR, COPY, KILL,
+PROGRA, SHOW, SEARCH, CHANGE).  Cliquez et maintenez pour activer ;
 relâcher désactive.  Ces touches sont **exclusivement des modificateurs** —
 aucun caractère n'est écrit à l'écran, conformément au comportement du
 matériel réel.

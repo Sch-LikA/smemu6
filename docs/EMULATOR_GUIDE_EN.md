@@ -207,13 +207,13 @@ The emulator maps them to standard PC keys as follows.
 
 | PC key | Smaky 6 function |
 |--------|-----------------|
-| `Right Ctrl` | **CHANGE** function key |
-| `Menu` / `App` | **SEARCH** function key |
-| `F10` | **SHOW** function key |
-| `Left Alt` | **COPY** function key |
 | `Left Ctrl` | **CURSOR** function key |
-| `AltGr` (Right Alt) | **PROGRA** function key |
+| `Left Alt` | **COPY** function key |
 | `Left Windows` / `Super` | **KILL** function key |
+| `AltGr` (Right Alt) | **PROGRA** function key |
+| `F10` | **SHOW** function key |
+| `Menu` / `App` | **SEARCH** function key |
+| `Right Ctrl` | **CHANGE** function key |
 | `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** — triggers NMI → drops into SYSMON monitor |

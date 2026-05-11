@@ -433,13 +433,13 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **F9**                      | **DEFINE** — record a keystroke sequence (`»` `0x1F`)    |
 | **F11** / **Pause**         | **BREAK** — fires NMI, drops into SAMOS monitor           |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
-| **Right Ctrl**              | CHANGE function key (modifier only, no character echoed)  |
-| **Menu / App**              | SEARCH function key                                       |
-| **F10**                     | SHOW function key                                         |
-| **Left Alt**                | COPY function key                                         |
 | **Left Ctrl**               | CURSOR function key                                       |
-| **AltGr** (Right Alt)       | PROGRA function key                                       |
+| **Left Alt**                | COPY function key                                         |
 | **Left Windows / Super**    | KILL function key                                         |
+| **AltGr** (Right Alt)       | PROGRA function key                                       |
+| **F10**                     | SHOW function key                                         |
+| **Menu / App**              | SEARCH function key                                       |
+| **Right Ctrl**              | CHANGE function key (modifier only, no character echoed)  |
 | **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
 
 Accented Swiss-French characters are fully mapped: typing é, è, à, ü, ö, ç,
@@ -448,8 +448,8 @@ layout is translated to the correct Smaky 6 chargen codes via UTF-8
 `SDL_TEXTINPUT` events.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
-7 clickable red buttons — one per Smaky function key (CHANGE, SEARCH, SHOW,
-COPY, CURSOR, PROGRA, KILL).  Click and hold to activate a function key;
+7 clickable red buttons — one per Smaky function key (CURSOR, COPY, KILL,
+PROGRA, SHOW, SEARCH, CHANGE).  Click and hold to activate a function key;
 release to deactivate.  These are modifier-only keys: no character appears on
 screen when they are pressed, matching real hardware behaviour.
 
