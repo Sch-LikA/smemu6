@@ -26,6 +26,7 @@
 static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_RETURN,    0x0D },
     { SDL_SCANCODE_BACKSPACE, 0x08 },
+    { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */

@@ -230,7 +230,7 @@ to the ü glyph when used as a display character (see table below).
 |-----|--------|-------|----------------------------------|
 | 000 | `0x00` | NUL   | null (also listed under "Special") |
 | 007 | `0x07` | BEL   | bell — triggers the speaker (also "Special") |
-| 011 | `0x09` | TAB   | horizontal tab                   |
+| 011 | `0x09` | TAB   | horizontal tab — mapped to `SDL_SCANCODE_TAB` ✅ |
 | 012 | `0x0A` | LF    | line feed                        |
 | 013 | `0x0B` | VT    | vertical tab                     |
 | 014 | `0x0C` | FF    | form feed                        |
@@ -387,6 +387,27 @@ to select the screen palette:
 5. ~~Parse `-phosphor green|white` in `main.c`; call `machine_set_phosphor()`.~~ ✅
 6. Wire to the **Phosphor colour** drop-down in the launcher (already stubbed
    in the launcher TODO above).
+
+### ~~CRT phosphor remanence (P31 persistence)~~ ✅ Done
+
+The SAMOS 50 Hz ISR turns the display off for one full frame each second frame
+(25 Hz blink), causing a visible flicker.  A per-pixel float persistence buffer
+now simulates P31 phosphor decay, blending between the current lit state and
+the previous frame value with a configurable decay factor.
+
+**CLI options:**
+
+| Flag | Effect | Default |
+|------|--------|---------|
+| `-phosphor-decay <0.0..0.99>` | Set per-frame decay factor (0=instant, ~0.70≈P31 medium) | `0.70` |
+| `-no-phosphor` | Disable persistence buffer entirely | — |
+
+**Implementation:** `vid.phosphor_buf` (heap float array, `VIDEO_PX_W × VIDEO_ASPECT_H`)
+allocated in `video_init()`, freed in `video_fini()`.  `video_render()` runs a
+post-processing pass: lit pixels → `pb[i]=1.0f`; unlit → `pb[i] *= decay`;
+output colour interpolated between BG and LIT.  `video_set_phosphor_decay()` /
+`machine_set_phosphor_decay()` API added.  `PHOSPHOR_DECAY_DEFAULT = 0.70f`
+defined in `video.h`.
 
 ---
 
@@ -562,165 +583,27 @@ See [web/README.md](web/README.md) for build and serving instructions.
 
 ## Distribution / CI
 
-### macOS binary via GitHub Actions
+### ~~macOS .dmg via GitHub Actions~~ ✅ Done
 
-Cross-compiling macOS binaries from Linux requires osxcross + Apple's SDK (needs
-a free Apple Developer account and ~10 GB Xcode download) and is impractical.
-The recommended approach is a **GitHub Actions** workflow on a `macos-latest`
-runner, which builds natively in ~2 minutes at no cost:
+`release.yml` builds a `.dmg` on `macos-latest` using `brew install sdl2 create-dmg` and `dist-mac.sh`, triggered on version tag push.
 
-```yaml
-# .github/workflows/build-macos.yml
-jobs:
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: brew install sdl2
-      - run: cmake --preset default && cmake --build build -j$(sysctl -n hw.ncpu)
-      - uses: actions/upload-artifact@v4
-        with:
-          name: smemu6-macos
-          path: build/smemu6
-```
+### ~~Windows zip via GitHub Actions~~ ✅ Done
 
-**Code signing / Gatekeeper note:** Without an Apple Developer certificate
-(free tier for local use, **$99/year** for distribution), macOS will block the
-app on first launch with *"smemu6 can't be opened because it is from an
-unidentified developer"*.  Users can bypass it via
-*System Settings → Privacy & Security → Open Anyway* or:
-```bash
-xattr -d com.apple.quarantine smemu6
-```
-For a seamless install experience, **notarization** (uploading to Apple's
-servers for malware scanning, then stapling a ticket to the binary) is required;
-this needs the paid Developer account.
-
-**Architecture:** `macos-latest` builds x86_64.  Add an `aarch64` build and
-combine with `lipo -create` for a universal binary that runs natively on both
-Intel and Apple Silicon Macs.
+`release.yml` cross-compiles on `ubuntu-latest` with MinGW-w64, downloads the SDL2 MinGW dev package, runs `dist-win.sh`, and produces a `.zip` artifact.
 
 **Remaining work:**
-- Create `.github/workflows/build-macos.yml`
-- Optionally add a `dist-mac.sh` script that wraps the binary in a `.app`
-  bundle (using `macdeployqt`-style steps or a hand-crafted `Info.plist`)
-- Investigate free code-signing / notarization options (e.g. signing with a
-  self-signed cert, or using GitHub's own signing infrastructure)
+- Create a Windows installer (e.g. NSIS or Inno Setup) in addition to the plain zip, so users get a proper install/uninstall experience
 
-### Windows binary via GitHub Actions
+### ~~Linux AppImage + Debian package via GitHub Actions~~ ✅ Done
 
-Use a `windows-latest` runner with the MinGW-w64 toolchain already available
-on GitHub-hosted runners.  SDL2 is downloaded from the SDL GitHub releases
-and cached to avoid re-downloading on every run.
+`release.yml` builds both an `.AppImage` (via `dist-linux.sh` / linuxdeploy) and a `.deb` (via `dist-deb.sh`) on `ubuntu-latest`.
 
-```yaml
-# .github/workflows/build-windows.yml
-jobs:
-  windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-SDL2
-            make
-      - run: cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -B build-win .
-      - run: cmake --build build-win -j4
-      - uses: actions/upload-artifact@v4
-        with:
-          name: smemu6-windows
-          path: |
-            build-win/smemu6.exe
-            /mingw64/bin/SDL2.dll
-```
+### ~~GitHub Release asset upload~~ ✅ Done
 
-This avoids the cross-compile complexity entirely by building natively inside
-MSYS2/MinGW64 on a Windows runner.  The `SDL2_DIR` preset variable is not
-needed here since MSYS2's SDL2 package installs to the standard MINGW64 prefix.
+The `release` job in `release.yml` collects all platform artifacts and creates a GitHub Release with `gh release create --generate-notes`, attaching `.AppImage`, `.deb`, `.zip`, and `.dmg`.
 
-**Remaining work:**
-- Create `.github/workflows/build-windows.yml`
-- Optionally combine with the macOS workflow into a single
-  `.github/workflows/release.yml` that runs on tag push and attaches all
-  platform zips as GitHub Release assets
+### ~~Web / GitHub Pages deployment~~ ✅ Done
 
-### Linux AppImage via GitHub Actions (x86-64 + ARM)
+`pages.yml` builds the Emscripten web target on every push to `master` using `mymindstorm/setup-emsdk@v14` (SDK 3.1.6) and deploys to GitHub Pages. Live at <https://sch-lika.github.io/smemu6/>.
 
-AppImage bundles the binary and its dependencies (including SDL2) into a
-single portable executable that runs on any modern Linux distro without
-installation.  Build both `x86_64` and `aarch64` on GitHub-hosted runners
-using [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) with its
-SDL2 plugin.
-
-```yaml
-# .github/workflows/build-linux.yml
-jobs:
-  appimage:
-    strategy:
-      matrix:
-        include:
-          - runner: ubuntu-22.04
-            arch: x86_64
-          - runner: ubuntu-22.04-arm
-            arch: aarch64
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libsdl2-dev cmake make fuse libfuse2
-
-      - name: Build
-        run: |
-          cmake --preset default -DCMAKE_INSTALL_PREFIX=/usr
-          cmake --build build -j$(nproc)
-          DESTDIR=AppDir cmake --install build
-
-      - name: Download linuxdeploy
-        run: |
-          wget -q "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage"
-          chmod +x linuxdeploy-${{ matrix.arch }}.AppImage
-
-      - name: Build AppImage
-        run: |
-          ./linuxdeploy-${{ matrix.arch }}.AppImage \
-            --appdir AppDir \
-            --executable build/smemu6 \
-            --desktop-file smaky6.desktop \
-            --icon-file web/smaky6-256.png \
-            --output appimage
-        env:
-          ARCH: ${{ matrix.arch }}
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: smemu6-linux-${{ matrix.arch }}
-          path: "*.AppImage"
-```
-
-**Notes:**
-- `ubuntu-22.04-arm` is a GitHub-hosted ARM64 runner (available on free tier
-  for public repos as of 2025).
-- A `CMakeLists.txt` install target (`install(TARGETS smemu6 ...)`) and a
-  `smaky6.desktop` file are required for linuxdeploy to work correctly.
-- `smaky6.desktop` already exists in the repo root (currently untracked —
-  needs to be committed).
-- linuxdeploy's `--library` flag can be used to bundle additional `.so` files
-  if needed (e.g. `libSDL2-2.0.so.0`).
-
-**Remaining work:**
-- Commit `smaky6.desktop` (currently untracked)
-- Add `install(TARGETS smemu6 DESTINATION bin)` +
-  `install(DIRECTORY roms/ DESTINATION share/smemu6/roms)` to `CMakeLists.txt`
-- Create `.github/workflows/build-linux.yml`
-- Test AppImage on a clean Ubuntu VM and on a Raspberry Pi / ARM board
 
