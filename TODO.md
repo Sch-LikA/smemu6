@@ -342,12 +342,25 @@ The Motorola 6571 and 74S262 are substantially different — do not use them as 
 reference for the emulator.  The `roms/chargen.rom` image should correspond to the
 Prom 2716 layout documented above.
 
-**SDL mapping for accented keys:** On a standard PC keyboard, the host OS delivers
-these as UTF-8 `SDL_TEXTINPUT` events rather than scancodes.  The cleanest approach
-is to add a `SDL_TEXTINPUT` handler in `keyboard_event()` alongside the existing
-`SDL_KEYDOWN` handler: scan the Unicode codepoint against a lookup table and push
-the corresponding Smaky code to the FIFO.  This avoids layout-specific scancode
-assumptions and works for any OS input method.
+**SDL mapping for accented keys:** Implemented in `keyboard_text_event()`. ✅
+The function now decodes 2-byte UTF-8 sequences and looks them up in `ACCENT_TABLE[]`
+(Unicode codepoint → Smaky 7-bit code).  Single-byte printable ASCII (0x20–0x7E) is
+handled as before; 3+ byte sequences are skipped gracefully.  Both lowercase and
+uppercase Unicode variants map to the same Smaky code (keyboard is uppercase-only).
+
+Mapped accents (doc §10.4 p.214):
+
+| Unicode | Smaky | Char | | Unicode | Smaky | Char |
+|---------|-------|------|-|---------|-------|------|
+| U+00FC  | 0x0F  | ü    | | U+00F4  | 0x18  | ô    |
+| U+00E0  | 0x10  | à    | | U+00F9  | 0x19  | ù    |
+| U+00E2  | 0x11  | â    | | U+00FB  | 0x1A  | û    |
+| U+00E9  | 0x12  | é    | | U+00E4  | 0x1B  | ä    |
+| U+00E8  | 0x13  | è    | | U+00F6  | 0x1C  | ö    |
+| U+00EB  | 0x14  | ë    | | U+00E7  | 0x1D  | ç    |
+| U+00EA  | 0x15  | ê    | | | | |
+| U+00EF  | 0x16  | ï    | | | | |
+| U+00EE  | 0x17  | î    | | | | |
 
 ---
 
