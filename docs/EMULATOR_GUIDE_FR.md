@@ -112,13 +112,7 @@ cd build
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
 > seul `-harddisk` + `-floppy2` correspond à la configuration matérielle réelle.
 
-**Démarrage jusqu'à l'invite `>` de SAMOS (pour `-inject-str`) :**
 
-```bash
-./smemu6 -floppy ../floppies/sys.img -autoboot
-```
-
----
 
 ## 5. Référence des options
 
@@ -151,11 +145,7 @@ valides sont :
 
 | Option | Description |
 |--------|-------------|
-| `-autoboot` | Injecte Entrée une fois SAMOS chargé, pour atteindre l'invite `>` (nécessaire pour `-inject-str`). La machine démarre depuis DX0 automatiquement ; `-autoboot` sert principalement à attendre SAMOS et déclencher l'injection. Utiliser `-autoboot2` pour démarrer depuis un autre lecteur. |
 | `-break-to-monitor` | Injecte SHIFT+BREAK pour entrer dans le moniteur SYSMON au démarrage |
-| `-autoboot2 <n>` | Code de touche de sélection du démarrage (décimal ou `0xHH`) : `0x00`=Entrée/DX0, `0x40`=DX1, `0x60`=Winchester (défaut `0x20` = Espace → DX0) |
-| `-autoboot3 <n>` | Troisième code de touche optionnel (désactivé par défaut) |
-| `-autoboot-timeout <s>` | Timeout horloge murale en mode autoboot (`0` = désactivé) |
 
 ### Injection de chaîne
 
@@ -168,7 +158,7 @@ valides sont :
 **Exemple — exécuter `LIST` automatiquement :**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
+./smemu6 -floppy ../floppies/sys.img -inject-str "LIST\n"
 ```
 
 ### Affichage
@@ -364,13 +354,13 @@ Activez avec `-drive-sound`.
 **Exemple — démarrer avec buzzer et sons du lecteur :**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -drive-sound
+./smemu6 -floppy sys.img -drive-sound
 ```
 
 **Exemple — tout couper :**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -no-beeper
+./smemu6 -floppy sys.img -no-beeper
 ```
 
 ---
@@ -378,14 +368,13 @@ Activez avec `-drive-sound`.
 ## 10. Automatisation et scripts
 
 L'émulateur peut être piloté de manière non interactive en combinant
-`-autoboot`, `-inject-str` et `-timeout`.
+`-inject-str` et `-timeout`.
 
 **Exécuter une commande et capturer la sortie écran :**
 
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>ecran.txt
@@ -396,7 +385,6 @@ L'émulateur peut être piloté de manière non interactive en combinant
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -trace \
     -timeout 15 2>trace.log
 ```
@@ -406,7 +394,6 @@ L'émulateur peut être piloté de manière non interactive en combinant
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -inject-str "BASIC\n" \
     -timeout 30 \
     -dump-ram basic_init.bin
@@ -437,7 +424,7 @@ rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
 sans les mélanger à la sortie de l'émulateur :
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -tracekbd 2>clavier.log
+./smemu6 -floppy sys.img -tracekbd 2>clavier.log
 ```
 
 ---
@@ -447,7 +434,7 @@ sans les mélanger à la sortie de l'émulateur :
 **Dump automatique à la fin :**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+./smemu6 -floppy sys.img -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Dump interactif pendant une session en cours :**
@@ -479,7 +466,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Essayez de forcer un mode vidéo :
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -vmode alpha
+./smemu6 -floppy sys.img -vmode alpha
 ```
 
 **Les graphiques apparaissent inversés ou brouillés**
@@ -488,7 +475,7 @@ Le plan graphique utilise un encodage nibble-entrelacé avec MSB à gauche par d
 (vérifié sur le matériel réel). Pour forcer l'ordre inverse :
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -gfxbits lsb
+./smemu6 -floppy sys.img -gfxbits lsb
 ```
 
 **L'émulateur quitte immédiatement avec l'erreur 043**
@@ -505,14 +492,11 @@ wc -c monimage.dsk
 Assurez-vous que la fenêtre SDL a le focus (cliquez dessus). L'émulateur
 ne traite les événements clavier que lorsque sa fenêtre est au premier plan.
 
-**L'autoboot n'atteint pas l'invite `>`**
+**`-inject-str` ne se déclenche pas**
 
-Certaines images disquette nécessitent plus de temps pour se charger.
-Augmentez le timeout d'autoboot :
-
-```bash
-./smemu6 -floppy sys.img -autoboot -autoboot-timeout 60
-```
+Vérifiez que l'invite `>` de SAMOS est bien visible au moment attendu.
+L'émulateur n'injecte que lorsque `machine_cli_prompt_visible()` détecte
+l'invite dans la mémoire vidéo.
 
 **Comment générer / mettre à jour les PDF des manuels**
 

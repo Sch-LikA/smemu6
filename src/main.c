@@ -83,14 +83,11 @@ static void usage(const char *argv0)
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
-        "  -autoboot      Inject Enter key after 3 s to auto-select floppy boot\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
-        "  -autoboot2 <n> Stage2 key code (decimal or 0xHH), default 0x20\n"
-        "  -autoboot3 <n> Optional stage3 key code (decimal or 0xHH), default disabled\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
         "  -inject-delay <f> Frames after CLI prompt detected before injection (default 2)\n"
         "  -timeout <s>   Global wall-clock timeout (0=off, default 30s with -trace)\n"
-        "  -autoboot-timeout <s> Wall-clock timeout in autoboot mode (0=off)\n"
+
         "  -vmode <m>     Force video mode: alpha|graphic|super\n"
         "  -gfxbits <b>   Bitmap bit order: lsb|msb (default: msb — hardware-verified)\n"
         "  -scale <n>     Integer display scale (1..8, default 2 = 1024x496 window)\n"
@@ -131,10 +128,7 @@ typedef struct {
     const char    *dump_ram_path;
     int            freeze_cpu;  /* if 1: skip CPU execution, just render */
     /* Config flags (copied from main locals) */
-    int  autoboot;
     int  break_to_monitor;
-    int  autoboot2_code;
-    int  autoboot3_code;
     uint8_t inject_codes[128];
     int  inject_len;
     int  inject_via_fifo;
@@ -149,14 +143,9 @@ typedef struct {
     int    frame_cnt;
     int    stage1_pressed;
     int    stage1_release_at;
-    int    stage2_pressed;
-    int    stage2_release_at;
-    int    stage3_pressed;
-    int    stage3_release_at;
     int    inject_idx;
     Uint64 boot_start_ms;
     Uint64 global_timeout_ms;
-    Uint64 autoboot_timeout_ms;
     int    timeout_reported;
     /* Set to 1 when a SDL_KEYDOWN with repeat=1 is seen; cleared after the
      * paired SDL_TEXTINPUT is suppressed.  Prevents host-OS key-repeat from
@@ -174,14 +163,6 @@ static int check_timeouts(MainLoopCtx *L)
     if (L->timeout_reported) return 0;
 
     Uint64 elapsed_ms = SDL_GetTicks64() - L->boot_start_ms;
-
-    if (L->autoboot_timeout_ms > 0 && elapsed_ms >= L->autoboot_timeout_ms) {
-        fprintf(stderr, "[main] autoboot timeout after %u.%03u s; exiting cleanly\n",
-                (unsigned)(elapsed_ms / 1000ULL), (unsigned)(elapsed_ms % 1000ULL));
-        L->timeout_reported = 1;
-        L->running = 0;
-        return 1;
-    }
 
     if (L->global_timeout_ms > 0 && elapsed_ms >= L->global_timeout_ms) {
         fprintf(stderr, "[main] global timeout after %u.%03u s; exiting cleanly\n",
@@ -383,52 +364,15 @@ static void main_loop_iter(void)
             L->stage1_release_at = L->frame_cnt + 1;
             if (L->trace)
                 fprintf(stderr,
-                        "[autoboot] injected SHIFT+BREAK at frame %d (monitor entry)\n",
+                        "[break-to-monitor] injected SHIFT+BREAK at frame %d\n",
                         L->frame_cnt);
         }
 
-        if (L->autoboot && !L->stage1_pressed && L->frame_cnt == 150) {
-            machine_inject_key(L->m, 0x00);
-            L->stage1_pressed = 1;
-            L->stage1_release_at = L->frame_cnt + 1;
-            if (L->trace)
-                fprintf(stderr, "[autoboot] injected Enter key at frame %d\n",
-                        L->frame_cnt);
-        }
-
-        if ((L->autoboot || L->break_to_monitor) && L->stage1_release_at == L->frame_cnt)
-            machine_release_key(L->m);
-
-        if (L->autoboot && !L->stage2_pressed && machine_in_posthandoff_keywait(L->m)) {
-            machine_inject_key(L->m, (uint8_t)L->autoboot2_code);
-            L->stage2_pressed = 1;
-            L->stage2_release_at = L->frame_cnt + 1;
-            if (L->trace)
-                fprintf(stderr,
-                        "[autoboot] injected stage2 key 0x%02X at frame %d (pc=%04X)\n",
-                        (unsigned)L->autoboot2_code, L->frame_cnt,
-                        machine_get_pc(L->m));
-        }
-
-        if (L->autoboot && L->stage2_release_at == L->frame_cnt)
-            machine_release_key(L->m);
-
-        if (L->autoboot && L->autoboot3_code >= 0 && L->stage2_pressed &&
-            !L->stage3_pressed && L->frame_cnt >= 360) {
-            machine_inject_key(L->m, (uint8_t)L->autoboot3_code);
-            L->stage3_pressed = 1;
-            L->stage3_release_at = L->frame_cnt + 5;
-            if (L->trace)
-                fprintf(stderr,
-                        "[autoboot] injected stage3 key 0x%02X at frame %d\n",
-                        (unsigned)L->autoboot3_code, L->frame_cnt);
-        }
-
-        if (L->autoboot && L->stage3_release_at == L->frame_cnt)
+        if (L->break_to_monitor && L->stage1_release_at == L->frame_cnt)
             machine_release_key(L->m);
 
         if (L->inject_len > 0 && L->inject_idx == 0 &&
-            L->stage2_pressed && machine_cli_prompt_visible(L->m)) {
+            machine_cli_prompt_visible(L->m)) {
             if (L->trace)
                 fprintf(stderr,
                         "[inject] CLI prompt detected at frame %d; "
@@ -494,14 +438,10 @@ void smemu6_reset(void)
 {
     if (!s_loop || !s_loop->m) return;
     machine_reset(s_loop->m);
-    /* Reset autoboot state so key injection fires again after frame 150 */
+    /* Reset state so key injection fires again on next CLI prompt */
     s_loop->frame_cnt          = 0;
     s_loop->stage1_pressed     = 0;
     s_loop->stage1_release_at  = -1;
-    s_loop->stage2_pressed     = 0;
-    s_loop->stage2_release_at  = -1;
-    s_loop->stage3_pressed     = 0;
-    s_loop->stage3_release_at  = -1;
     s_loop->inject_idx         = 0;
     s_loop->timeout_reported   = 0;
     s_loop->boot_start_ms      = SDL_GetTicks64();
@@ -539,10 +479,7 @@ int main(int argc, char *argv[])
     const char *harddisk_path  = NULL;
     const char *harddisk2_path = NULL;
     int trace    = 0;
-    int autoboot = 0;
     int break_to_monitor = 0;  /* SHIFT+BREAK for monitor entry */
-    int autoboot2_code = 0x20;
-    int autoboot3_code = -1;   /* disabled by default */
     uint8_t inject_codes[128];  /* key sequence to inject at OS prompt */
     int inject_len = 0;
     int forced_vmode = -1;
@@ -571,7 +508,6 @@ int main(int argc, char *argv[])
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
-    int autoboot_timeout_sec = -1;  /* -1 = default when autoboot is enabled */
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
@@ -584,26 +520,8 @@ int main(int argc, char *argv[])
             harddisk2_path = argv[++i];
         } else if (strcmp(argv[i], "-trace") == 0) {
             trace = 1;
-        } else if (strcmp(argv[i], "-autoboot") == 0) {
-            autoboot = 1;
         } else if (strcmp(argv[i], "-break-to-monitor") == 0) {
             break_to_monitor = 1;
-        } else if (strcmp(argv[i], "-autoboot2") == 0 && i + 1 < argc) {
-            char *end = NULL;
-            long v = strtol(argv[++i], &end, 0);
-            if (!end || *end != '\0' || v < 0 || v > 0x7F) {
-                fprintf(stderr, "Invalid -autoboot2 value: %s (expected 0..127 or 0x00..0x7F)\n", argv[i]);
-                return 1;
-            }
-            autoboot2_code = (int)v;
-        } else if (strcmp(argv[i], "-autoboot3") == 0 && i + 1 < argc) {
-            char *end = NULL;
-            long v = strtol(argv[++i], &end, 0);
-            if (!end || *end != '\0' || v < 0 || v > 0x7F) {
-                fprintf(stderr, "Invalid -autoboot3 value: %s (expected 0..127 or 0x00..0x7F)\n", argv[i]);
-                return 1;
-            }
-            autoboot3_code = (int)v;
         } else if (strcmp(argv[i], "-inject-str") == 0 && i + 1 < argc) {
             const char *s = argv[++i];
             inject_len = 0;
@@ -622,8 +540,10 @@ int main(int argc, char *argv[])
                     inject_codes[inject_len++] = 0x20;
                 } else if (c == '\n' || c == '\r') {
                     inject_codes[inject_len++] = 0x0D;
+                } else if (c < 0x20 || c >= 0x80) {
+                    inject_codes[inject_len++] = c; /* raw control/high byte */
                 }
-                /* unknown chars: skip */
+                /* unknown printable: skip */
             }
         } else if (strcmp(argv[i], "-inject-delay") == 0 && i + 1 < argc) {
             char *end = NULL;
@@ -641,14 +561,6 @@ int main(int argc, char *argv[])
                 return 1;
             }
             global_timeout_sec = (int)v;
-        } else if (strcmp(argv[i], "-autoboot-timeout") == 0 && i + 1 < argc) {
-            char *end = NULL;
-            long v = strtol(argv[++i], &end, 0);
-            if (!end || *end != '\0' || v < 0 || v > 24 * 60 * 60) {
-                fprintf(stderr, "Invalid -autoboot-timeout value: %s (expected 0..86400)\n", argv[i]);
-                return 1;
-            }
-            autoboot_timeout_sec = (int)v;
         } else if (strcmp(argv[i], "-vmode") == 0 && i + 1 < argc) {
             const char *m = argv[++i];
             if (strcmp(m, "alpha") == 0) {
@@ -995,10 +907,7 @@ int main(int argc, char *argv[])
     ctx.ren                = ren;
     ctx.dump_ram_path      = dump_ram_path;
     ctx.freeze_cpu         = freeze_cpu;
-    ctx.autoboot           = autoboot;
     ctx.break_to_monitor   = break_to_monitor;
-    ctx.autoboot2_code     = autoboot2_code;
-    ctx.autoboot3_code     = autoboot3_code;
     memcpy(ctx.inject_codes, inject_codes, sizeof(inject_codes));
     ctx.inject_len         = inject_len;
     ctx.inject_via_fifo    = inject_via_fifo;
@@ -1011,20 +920,10 @@ int main(int argc, char *argv[])
     ctx.frame_cnt          = 0;
     ctx.stage1_pressed     = 0;
     ctx.stage1_release_at  = -1;
-    ctx.stage2_pressed     = 0;
-    ctx.stage2_release_at  = -1;
-    ctx.stage3_pressed     = 0;
-    ctx.stage3_release_at  = -1;
     ctx.inject_idx         = 0;
     ctx.boot_start_ms      = SDL_GetTicks64();
     ctx.global_timeout_ms  = (Uint64)global_timeout_sec * 1000ULL;
-    ctx.autoboot_timeout_ms = 0;
     ctx.timeout_reported   = 0;
-
-    if (autoboot && autoboot_timeout_sec > 0)
-        ctx.autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
-    if (break_to_monitor && autoboot_timeout_sec > 0)
-        ctx.autoboot_timeout_ms = (Uint64)autoboot_timeout_sec * 1000ULL;
 
     s_loop = &ctx;
 

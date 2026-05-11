@@ -57,16 +57,12 @@ The emulator replicates this by initialising `found=1` and `key_code=0x00` in
 `keyboard_init()`.  The latch is consumed (found→0) on the first CLA read and does not
 interfere with subsequent user input once SAMOS is running.
 
-Consequence for `-autoboot`: the machine now boots from DX0 automatically without
-`-autoboot`.  The flag remains useful for:
-- Reaching the SAMOS `>` prompt before firing `-inject-str` (it injects an Enter once
-  SAMOS loads)
-- Selecting a non-default boot drive via `-autoboot2`: `0x40`=DX1, `0x60`=Winchester
+Consequence: the machine boots from DX0 automatically without any extra flag.
 
-### Emulator keyboard flags (autoboot/inject path only)
+### Emulator keyboard flags (inject path only)
 
 Physical keyboard input bypasses all CLA machinery (see "Emulator Implementation" section below).
-The following flags are used **only** by `machine_inject_key()` and the autoboot stages:
+The following flags are used **only** by `machine_inject_key()` and the inject stages:
 
 - **`found`** — "new key event" latch.  Set by `machine_inject_key()`.  Cleared by `keyboard_read_cla()` on the first call that returns a key code — **matching the hardware behavior** (CLA read clears FOUND).
 - **`physically_held`** — injected key-down state.  Set by `machine_inject_key()`, cleared when `key_hold_frames` countdown reaches 0.
@@ -262,7 +258,7 @@ repeat events are redundant and dropped entirely via the `ev->repeat` check in
 ```c
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    /* key_hold_frames countdown (autoboot / inject path) */
+    /* key_hold_frames countdown (inject path) */
     if (m->kbd.key_hold_frames > 0) {
         if (--m->kbd.key_hold_frames == 0 && !m->kbd.physically_held)
             m->kbd.cla_seen = 0;
@@ -307,7 +303,7 @@ Draining one entry per frame would impose a minimum 20 ms inter-character floor 
 
 ### Autoboot / inject: CLA-based delivery
 
-`machine_inject_key()` (used only by autoboot stages and `-inject-str`) sets:
+`machine_inject_key()` (used only by `-break-to-monitor` and `-inject-str`) sets:
 
 ```c
 m->kbd.key_code        = code;
@@ -319,7 +315,7 @@ m->kbd.key_hold_frames = 5;   /* hold for 5 frames so Stage 2 fires */
 These flow through `keyboard_read_cla()` → ISR Stage 1 → `0x457E`, or
 through Stage 2 → circular buffer, depending on the boot phase.
 
-### `keyboard_read_cla()` — used by autoboot path
+### `keyboard_read_cla()` — used by inject path
 
 The hardware splits CLA reads into two cases based on FOUND state. When FOUND=1 a regular
 key code is returned (bit 7=0). When FOUND=0 the function key bitmask is returned (bit 7=1).
@@ -350,7 +346,7 @@ This branch handles two distinct situations that both produce `iff1=0`:
 
 ```c
 if (!m->cpu.iff1) {
-    /* CLA fields first — serve machine_inject_key() / autoboot path */
+    /* CLA fields first — serve machine_inject_key() / inject path */
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
     m->kbd.cla_seen = 1;
@@ -450,13 +446,13 @@ After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR d
 
 ## Notes on `SDL_VIDEODRIVER=dummy`
 
-When `SDL_VIDEODRIVER=dummy` is set (CI / automated test mode), SDL delivers **no real keyboard events**.  Only the autoboot key injection path (`machine_inject_key()`) works.  Interactive keyboard testing requires a real display:
+When `SDL_VIDEODRIVER=dummy` is set (CI / automated test mode), SDL delivers **no real keyboard events**.  Only the key injection path (`machine_inject_key()`) works.  Interactive keyboard testing requires a real display:
 
 ```sh
-DISPLAY=:0 ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot
+DISPLAY=:0 ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk"
 ```
 
-Autoboot stage3 keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase only).
+Injected keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase only).
 
 ---
 

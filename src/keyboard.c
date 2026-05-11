@@ -112,7 +112,7 @@ void keyboard_frame_tick(struct Smaky6 *m)
      *
      * Drain the entire FIFO each frame (not just one entry per frame).
      * The guard sentinel at ~0x45B6 prevents overflow.  Draining all pending
-     * keys matches how machine_inject_to_circ_buf() works for autoboot.
+     * keys matches how machine_inject_to_circ_buf() works for key injection.
      * Writing one-per-frame would require SAMOS to read and consume a key
      * within a single 20ms frame before the next key can enter — which is
      * fine at human typing speed but creates an unnecessary 20ms floor
@@ -208,7 +208,7 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
             uint8_t code = KEY_TABLE[i].code;
             /* Physical keyboard uses FIFO-only delivery.  Do NOT touch the CLA
              * fields (key_code / found / physically_held / key_hold_frames) here —
-             * those are reserved for machine_inject_key() / the autoboot ISR path.
+             * those are reserved for machine_inject_key() / the CLA inject path.
              * Setting them here causes ISR Stage 2 to re-write the key to the
              * circular buffer every frame (for key_hold_frames frames), which loops
              * Enter and drops intermediate characters. */
@@ -367,8 +367,8 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      */
     if (!m->cpu.iff1) {
         /* Phantom ROM / monitor context (kbd_wait, iff1=0):
-         * Serve machine_inject_key() CLA fields first, so injected keys (autoboot
-         * Enter at stage1) are visible to the Phantom ROM kbd_wait polling loop.
+         * Serve machine_inject_key() CLA fields first, so injected keys
+         * are visible to the Phantom ROM kbd_wait polling loop.
          * Fall through to FIFO for physical keys (monitor mode, post-handoff).
          * Hardware: CLA read itself clears FOUND; if key still held, reasserts
          * within 200µs.  We mirror that by clearing found=0 here. */
@@ -440,6 +440,6 @@ int keyboard_shift_break_pressed(struct Smaky6 *m)
     /* SHIFT+BREAK at boot: NMI fires and the Phantom ROM kbd_wait returns any
      * nonzero key code to take the non-PDP11 path.  machine_inject_shift_break()
      * supplies 0x04 (physical ESC key code) alongside the NMI for the
-     * -break-to-monitor autoboot path; SHIFT state is tracked here only. */
+     * -break-to-monitor path; SHIFT state is tracked here only. */
     return m->kbd.shift_pressed;
 }

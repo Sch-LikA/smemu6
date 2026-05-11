@@ -128,7 +128,7 @@ cd build
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
     ./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" \
-                -autoboot -inject-str "LIST\n" -timeout 20
+                -inject-str "LIST\n" -timeout 20
 
 # Scale the window up 3× and add CRT scanline effect
 ./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3 -scanlines
@@ -185,36 +185,7 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 
 ---
 
-### 4.2 Boot Automation
-
-#### `-autoboot`
-Wait for the SAMOS `>` prompt and then inject an **Enter** key so that
-`-inject-str` can fire.  The machine already boots from DX0 automatically
-(the FOUND latch powers up asserted, causing the Phantom ROM boot menu to
-self-select DX0 on the first CLA read).  `-autoboot` is therefore mainly
-needed as a gate for `-inject-str` or when you want to override the boot
-drive with `-autoboot2`.
-
-```bash
-# Gate for string injection (machine would boot anyway without -autoboot)
-./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n"
-```
-
-#### `-autoboot2 <code>`
-Override the key code injected by `-autoboot` for the **second stage** of the
-boot selection.  Accepts decimal or `0xHH` hex.  Default: `0x20` (Space).
-
-The Phantom ROM boot menu accepts:
-- `0x00` / Enter — boot from DX0:
-- `0x20` / Space — boot from DX0: (same as Enter in most ROM versions)
-
-```bash
-./smemu6 -floppy sys.dsk -autoboot -autoboot2 0x00
-```
-
-#### `-autoboot3 <code>`
-Inject an optional **third stage** key code after the second stage.  Disabled
-by default.  Use when a three-step boot sequence is required.
+### 4.2 Boot Control
 
 #### `-break-to-monitor`
 Inject a **SHIFT+BREAK** combination shortly after startup to enter the SAMOS
@@ -233,7 +204,7 @@ on screen.  The string is converted to uppercase Smaky key codes:
 
 ```bash
 # Run the LIST command automatically after boot
-./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n"
+./smemu6 -floppy sys.dsk -inject-str "LIST\n"
 ```
 
 #### `-inject-via-fifo`
@@ -338,15 +309,11 @@ Default policy (when this option is omitted):
 - With `-trace`: 45 seconds.
 - Without `-trace`: run forever.
 
-Useful in CI pipelines combined with `-autoboot` and `-inject-str`.
+Useful in CI pipelines combined with `-inject-str`.
 
 ```bash
-./smemu6 -floppy sys.dsk -autoboot -inject-str "LIST\n" -timeout 30
+./smemu6 -floppy sys.dsk -inject-str "LIST\n" -timeout 30
 ```
-
-#### `-autoboot-timeout <seconds>`
-A separate timeout that applies only in `-autoboot` mode.  `0` = disabled.
-When specified, overrides the general `-timeout` policy for autoboot runs.
 
 ---
 
@@ -510,8 +477,7 @@ Load CLI.SY  →  "SAMOS rev 2-8 / DX0: / >" prompt
 asserted on real hardware.  The emulator replicates this: the Phantom ROM
 boot menu receives an Enter key on the very first CLA read and immediately
 proceeds to boot from DX0.  No flag is needed for a normal floppy or
-Winchester boot.  `-autoboot` is only needed as a gate for `-inject-str`
-or to choose a non-default drive via `-autoboot2`.
+Winchester boot.
 
 **With `-harddisk`:** Mount the Winchester image as DX0 and the floppy
 (if any) as DX1 using `-floppy2`.  The Phantom ROM boots from DX0 (the

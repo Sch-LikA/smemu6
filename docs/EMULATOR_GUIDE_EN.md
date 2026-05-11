@@ -112,13 +112,7 @@ cd build
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
 > configuration; only `-harddisk` + `-floppy2` matches real hardware.
 
-**Boot and wait at the SAMOS `>` prompt (for `-inject-str`):**
 
-```bash
-./smemu6 -floppy ../floppies/sys.img -autoboot
-```
-
----
 
 ## 5. Command-Line Reference
 
@@ -150,11 +144,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
 | Option | Description |
 |--------|-------------|
-| `-autoboot` | Inject Enter once SAMOS loads, to reach the `>` prompt (needed for `-inject-str`). The machine boots from DX0 automatically; `-autoboot` is mainly needed to wait for SAMOS and fire string injection. Use `-autoboot2` to boot from a non-default drive. |
 | `-break-to-monitor` | Inject SHIFT+BREAK to enter the SYSMON monitor at startup |
-| `-autoboot2 <n>` | Boot-selection key code (decimal or `0xHH`): `0x00`=Enter/DX0, `0x40`=DX1, `0x60`=Winchester (default `0x20` = Space → DX0) |
-| `-autoboot3 <n>` | Optional third key code (default: disabled) |
-| `-autoboot-timeout <s>` | Wall-clock timeout in autoboot mode (`0` = off) |
 
 ### String injection
 
@@ -167,7 +157,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 **Example — run `LIST` automatically:**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -autoboot -inject-str "LIST\n"
+./smemu6 -floppy ../floppies/sys.img -inject-str "LIST\n"
 ```
 
 ### Display
@@ -329,28 +319,26 @@ work-in-progress; real samples will be added later). Enable with
 **Example — boot with beeper and drive sounds:**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -drive-sound
+./smemu6 -floppy sys.img -drive-sound
 ```
 
 **Example — mute everything:**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -no-beeper
+./smemu6 -floppy sys.img -no-beeper
 ```
 
 ---
 
 ## 10. Automation and Scripting
 
-The emulator can be driven non-interactively by combining `-autoboot`,
-`-inject-str`, and `-timeout`.
+The emulator can be driven non-interactively by combining `-inject-str` and `-timeout`.
 
 **Run a command and capture screen output:**
 
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>screen.txt
@@ -361,7 +349,6 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -trace \
     -timeout 15 2>trace.log
 ```
@@ -371,7 +358,6 @@ The emulator can be driven non-interactively by combining `-autoboot`,
 ```bash
 ./smemu6 \
     -floppy ../floppies/sys.img \
-    -autoboot \
     -inject-str "BASIC\n" \
     -timeout 30 \
     -dump-ram basic_init.bin
@@ -402,7 +388,7 @@ They produce output on **stderr**.
 them with emulator output:
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -tracekbd 2>kbd.log
+./smemu6 -floppy sys.img -tracekbd 2>kbd.log
 ```
 
 ---
@@ -412,7 +398,7 @@ them with emulator output:
 **Automatic dump on exit:**
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -timeout 10 -dump-ram snapshot.bin
+./smemu6 -floppy sys.img -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Interactive dump during a running session:**
@@ -443,7 +429,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Try forcing a video mode:
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -vmode alpha
+./smemu6 -floppy sys.img -vmode alpha
 ```
 
 **Graphics appear inverted or garbled**
@@ -452,7 +438,7 @@ The graphic plane uses nibble-interleaved encoding with MSB-left by default
 (hardware-verified). If images still look wrong, you can force the bit order:
 
 ```bash
-./smemu6 -floppy sys.img -autoboot -gfxbits lsb
+./smemu6 -floppy sys.img -gfxbits lsb
 ```
 
 **Emulator exits immediately with error 043**
@@ -469,14 +455,11 @@ wc -c myimage.dsk
 Make sure the SDL window has focus (click on it). The emulator only
 processes keyboard events when its window is focused.
 
-**Autoboot does not reach the `>` prompt**
+**`-inject-str` never fires**
 
-Some floppy images require more time to load. Try increasing the autoboot
-timeout:
-
-```bash
-./smemu6 -floppy sys.img -autoboot -autoboot-timeout 60
-```
+Check that the SAMOS `>` prompt is actually visible when you expect injection to
+happen. The emulator only injects when `machine_cli_prompt_visible()` detects
+the prompt in video RAM.
 
 **How to generate / update the PDF manuals**
 

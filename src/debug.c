@@ -63,6 +63,22 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     if (pc == m->dbg.last_pc) return;
     m->dbg.last_pc = pc;
 
+    /* CLI ESC handler trace: 0x6F80–0x7070
+     * Logs every new PC in this range with registers + byte-at-PC so
+     * self-modifying code changes are visible at runtime. */
+    if (pc >= 0x6F80 && pc <= 0x7070) {
+        static uint16_t last_esc_pc = 0xFFFF;
+        if (pc != last_esc_pc) {
+            last_esc_pc = pc;
+            fprintf(stderr,
+                    "[esc] pc=%04X [%02X] af=%04X bc=%04X de=%04X hl=%04X sp=%04X\n",
+                    pc, m->bus[pc],
+                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    (unsigned)Z80_SP(m->cpu));
+        }
+    }
+
     /* After Phantom ROM is banked out, trace early low-RAM control flow once. */
     if (m->rom_mask[0x0000] == 0 && pc < 0x0800 && ram_pc_printed < 64) {
         if (!ram_pc_seen[pc]) {

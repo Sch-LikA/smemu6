@@ -29,7 +29,6 @@ Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 | *(DX0 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
 | `DX1:` | Static label: **Floppy** (no second harddisk) | `-floppy2` |
 | *(DX1 path)* | File-picker button → opens OS file dialog filtered to `*.dsk *.DSK` | path argument |
-| Autoboot | Toggle: **On** / **Off** — injects Enter after 3 s to auto-select floppy boot | `-autoboot` | **On** |
 
 File paths are shown truncated (last 46 chars with `…` prefix) on a sub-row
 directly below each disk row (Browse + Clear buttons).  A small `×` button clears the selection.
@@ -81,7 +80,7 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 - All launcher settings are additive: CLI options passed alongside the binary
   pre-populate the launcher controls so the user can review and adjust them.
   After clicking Start the launcher values are authoritative for all settings
-  (disk paths, type, scale, phosphor, scanlines, autoboot, beeper).
+  (disk paths, type, scale, phosphor, scanlines, beeper).
 - Window size: 460 × 464 logical pixels at 1:1; no scaling needed.
 
 #### New options to add to main.c / README / guides

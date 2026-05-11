@@ -712,7 +712,7 @@ CCOPY.SM, etc.
 Minimal reproducible boot command:
 ```
 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-  ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk" -autoboot -timeout 35
+  ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk" -timeout 35
 ```
 
 ### Root cause of former ERROR 033 — two FDC bugs fixed in `src/floppy.c`

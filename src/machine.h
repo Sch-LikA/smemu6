@@ -63,7 +63,7 @@ void machine_release_key(struct Smaky6 *m);
 /* Inject SHIFT + BREAK (Escape 0x1B) for monitor mode entry on boot */
 void machine_inject_shift_break(struct Smaky6 *m);
 
-/* Current Z80 program counter (for debug/autoboot coordination). */
+/* Current Z80 program counter (for debug/trace coordination). */
 uint16_t machine_get_pc(const struct Smaky6 *m);
 
 /* True when running from RAM and sitting in early key-wait loop post-handoff. */
