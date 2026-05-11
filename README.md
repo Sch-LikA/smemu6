@@ -235,16 +235,16 @@ Accepted for backward compatibility; no longer has any effect.
 #### `-scale <n>`
 Integer pixel-doubling factor for the SDL window.  Range: 1–8.  Default: **1**.
 
-The logical resolution is 512 × 494 (512 wide; 480 px machine area with 2:1
-vertical stretch + 14 px status bar).  The physical window is `n × 512` by
-`n × 494`.
+The logical resolution is 512 × 508 (512 wide; 480 px machine area with 2:1
+vertical stretch + 14 px disk-activity bar + 14 px function-key bar).  The
+physical window is `n × 512` by `n × 508`.
 
 | Scale | Window size    | Typical use             |
 |-------|----------------|-------------------------|
-| 1     | 512 × 494      | Default / CI            |
-| 2     | 1024 × 988     | Comfortable on 1080p    |
-| 3     | 1536 × 1482    | HiDPI / 1440p           |
-| 4     | 2048 × 1976    | 4K screens              |
+| 1     | 512 × 508      | Default / CI            |
+| 2     | 1024 × 1016    | Comfortable on 1080p    |
+| 3     | 1536 × 1524    | HiDPI / 1440p           |
+| 4     | 2048 × 2032    | 4K screens              |
 
 ```bash
 ./smemu6 -floppy sys.dsk -scale 2
@@ -410,10 +410,14 @@ physical hardware, so lowercase letters are automatically uppercased.
 |-----------------------------|-----------------------------------------------------------|
 | **A–Z**, **0–9**, space      | Direct character (uppercased)                            |
 | **Backspace**               | Smaky BS (`0x08`)                                        |
+| **Delete**                  | Smaky DEL (`0x7F`)                                       |
+| **Tab**                     | Inserts `DX1:` at the CLI prompt (`0x09`)                |
 | **Enter / Return**          | Smaky CR (`0x0D`)                                        |
+| **F8**                      | **MACRO** — replay recorded keystroke sequence (`«` `0x1E`) |
+| **F9**                      | **DEFINE** — record a keystroke sequence (`»` `0x1F`)    |
 | **F11** / **Pause**         | **BREAK** — fires NMI, drops into SAMOS monitor           |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
-| **Right Ctrl**              | CHANGE function key                                       |
+| **Right Ctrl**              | CHANGE function key (modifier only, no character echoed)  |
 | **Menu / App**              | SEARCH function key                                       |
 | **F10**                     | SHOW function key                                         |
 | **Left Alt**                | COPY function key                                         |
@@ -422,9 +426,16 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **Left Windows / Super**    | KILL function key                                         |
 | **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
 
-Accented Swiss-French characters (é, è, à, ü, ö, …) are accepted from the
-host as UTF-8 `SDL_TEXTINPUT` events and translated to the Smaky 6 chargen
-code table.
+Accented Swiss-French characters are fully mapped: typing é, è, à, ü, ö, ç,
+â, ê, î, ô, û, ë, ï, ä and their uppercase variants on any host keyboard
+layout is translated to the correct Smaky 6 chargen codes via UTF-8
+`SDL_TEXTINPUT` events.
+
+**Function-key status bar:** The bottom strip of the emulator window shows
+7 clickable red buttons — one per Smaky function key (CHANGE, SEARCH, SHOW,
+COPY, CURSOR, PROGRA, KILL).  Click and hold to activate a function key;
+release to deactivate.  These are modifier-only keys: no character appears on
+screen when they are pressed, matching real hardware behaviour.
 
 ---
 

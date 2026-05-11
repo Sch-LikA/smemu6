@@ -176,9 +176,11 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 |--------|-------------|
 | `-vmode <m>` | Force video mode: `alpha` (text only), `graphic` (graphics only), `super` (text + graphics) |
 | `-gfxbits <b>` | Nibble bit order: `msb` (default, hardware-correct) or `lsb` |
-| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 494 pixels) |
+| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 508 pixels) |
 | `-scanlines` | Draw CRT-style scanline overlay (darkens every other output row) |
 | `-phosphor <c>` | Screen phosphor colour: `green` (default, P31 `#00E700`) or `white` (`#E8E8E8`) |
+| `-phosphor-decay <f>` | Per-frame persistence decay `0.0`–0.99 (default `0.70` ≈ P31); simulates phosphor remanence between display-off frames |
+| `-no-phosphor` | Disable phosphor persistence (instant pixel decay) |
 | `-no-display-off` | Ignore display-blank writes to port `0x00`; screen stays visible at all times |
 
 ### Timing and timeouts
@@ -242,9 +244,13 @@ The `-vmode` flag controls which layers are rendered:
 | `graphic` | Graphics layer only |
 | `super` | Both layers overlaid (normal operation) |
 
-The `-scale` flag sets the integer zoom level. The default is 1 (512 × 494);
-scale 2 gives a 1024 × 988 window, comfortable on most monitors.  Add
+The `-scale` flag sets the integer zoom level. The default is 1 (512 × 508);
+scale 2 gives a 1024 × 1016 window, comfortable on most monitors.  Add
 `-scanlines` for a CRT-style scanline overlay at any scale.
+
+Phosphor persistence (P31 green display) is simulated by default with a
+per-frame decay factor of 0.70.  Use `-phosphor-decay <0.0..0.99>` to
+adjust the persistence strength, or `-no-phosphor` to disable it entirely.
 
 ---
 

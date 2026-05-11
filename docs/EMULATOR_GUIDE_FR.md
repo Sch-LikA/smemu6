@@ -177,9 +177,11 @@ valides sont :
 |--------|-------------|
 | `-vmode <m>` | Forcer le mode vidéo : `alpha` (texte seul), `graphic` (graphique seul), `super` (texte + graphique) |
 | `-gfxbits <b>` | Ordre des bits du bitmap : `lsb` (défaut) ou `msb` |
-| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 494 pixels) |
+| `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 508 pixels) |
 | `-scanlines` | Superpose un effet de lignes de balayage CRT (assombrit une ligne sur deux) |
 | `-phosphor <c>` | Couleur du phosphore : `green` (défaut, P31 `#00E700`) ou `white` (`#E8E8E8`) |
+| `-phosphor-decay <f>` | Facteur de décroissance de la persistance par trame `0.0`–0.99 (défaut `0.70` ≈ P31) ; simule la rémanence du phosphore entre les trames d'extinction d'écran |
+| `-no-phosphor` | Désactive la persistance du phosphore (décroissance instantanée) |
 | `-no-display-off` | Ignore les écritures d'extinction d'écran sur le port `0x00` ; l'écran reste visible en permanence |
 
 ### Timing et timeouts
@@ -205,7 +207,7 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 ### Touches spéciales
 
 | Touche PC | Fonction Smaky 6 |
-|-----------|-----------------|
+|-----------|------------------|
 | `Ctrl droit` | Touche de fonction **CHANGE** |
 | `Menu` / `App` | Touche de fonction **SEARCH** |
 | `F10` | Touche de fonction **SHOW** |
@@ -218,7 +220,37 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 | `F11` ou `Pause` | **BREAK** — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
 | `Escape` | ESC Smaky / annulation de ligne |
-| `Tab` | Insère `DX1:` dans la ligne de commande CLI |
+| `Tab` | Insère `DX1:` dans la ligne de commande CLI (`0x09`) |
+| `Backspace` | Smaky BS (`0x08`) |
+| `Delete` | Smaky DEL (`0x7F`) |
+
+### Caractères accentués franco-suisses
+
+Les 15 caractères accentués franco-suisses sont intégralement supportés.
+Saisissez-les avec les méthodes habituelles de votre OS (touches mortes,
+touche de composition, etc.) ; l'émulateur les reçoit en UTF-8 et les
+traduit vers les codes chargen Smaky 6 correspondants :
+
+| Caractère | Code Smaky | | Caractère | Code Smaky |
+|-----------|------------|--|-----------|------------|
+| ü / Ü | `0x0F` | | ô / Ô | `0x18` |
+| à / À | `0x10` | | ù / Ù | `0x19` |
+| â / Â | `0x11` | | û / Û | `0x1A` |
+| é / É | `0x12` | | ä / Ä | `0x1B` |
+| è / È | `0x13` | | ö / Ö | `0x1C` |
+| ë / Ë | `0x14` | | ç / Ç | `0x1D` |
+| ê / Ê | `0x15` | | | |
+| ï / Ï | `0x16` | | | |
+| î / Î | `0x17` | | | |
+
+### Barre de touches de fonction
+
+La bande inférieure de la fenêtre de l'émulateur contient 7 boutons
+cliquables rouge foncé, un par touche de fonction Smaky 6 (CHANGE, SEARCH,
+SHOW, COPY, CURSOR, PROGRA, KILL).  Cliquez et maintenez pour activer ;
+relâcher désactive.  Ces touches sont **exclusivement des modificateurs** —
+aucun caractère n'est écrit à l'écran, conformément au comportement du
+matériel réel.
 
 ### Touches standard
 
@@ -243,9 +275,14 @@ L'option `-vmode` contrôle les couches affichées :
 | `graphic` | Couche graphique seule |
 | `super` | Les deux couches superposées (fonctionnement normal) |
 
-L'option `-scale` définit le niveau de zoom entier. Le défaut est 1 (512 × 494) ;
-le zoom 2 donne une fenêtre de 1024 × 988 pixels, confortable sur la plupart
+L'option `-scale` définit le niveau de zoom entier. Le défaut est 1 (512 × 508) ;
+le zoom 2 donne une fenêtre de 1024 × 1016 pixels, confortable sur la plupart
 des moniteurs. Ajoutez `-scanlines` pour un effet de lignes de balayage CRT.
+
+La persistance du phosphore (affichage vert P31) est simulée par défaut avec
+un facteur de décroissance de 0.70 par trame.  Utilisez
+`-phosphor-decay <0.0..0.99>` pour ajuster l'intensité de la persistance,
+ou `-no-phosphor` pour la désactiver complètement.
 
 ---
 
