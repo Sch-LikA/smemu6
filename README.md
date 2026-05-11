@@ -11,6 +11,22 @@ Micropolis hard-sectored 5.25" floppy drive, and an optional WD1000/WD1001/WD100
 Winchester hard disk.  The Phantom ROM (2 KB) bootstraps the SAMOS operating
 system from floppy.
 
+### A machine worth remembering
+
+The Smaky 6 was a genuinely groundbreaking design for its era: a fully integrated
+personal workstation with a custom operating system, a coherent human-interface
+philosophy, and hardware capabilities that compared favourably with systems costing
+far more.  Jean-Daniel Nicoud's team at EPFL created it years before "personal
+computing" became mainstream in Europe, and the ~450 units that were built had an
+outsized influence on Swiss computer science education and research.
+
+Today very few working Smaky 6 machines survive.  **smemu6** is a work of love — an
+attempt to preserve and document this little-known but important piece of computing
+history so that the machine's software, design decisions, and spirit remain
+accessible long after the last physical unit stops working.  If you care about
+vintage computing, digital preservation, or simply great engineering from an
+unlikely corner of the world, this project is for you.
+
 Hardware reference: [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md)
 
 **Try it in your browser:** [sch-lika.github.io/smemu6](https://sch-lika.github.io/smemu6/)
