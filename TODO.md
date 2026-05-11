@@ -619,4 +619,86 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 `pages.yml` builds the Emscripten web target on every push to `master` using `mymindstorm/setup-emsdk@v14` (SDK 3.1.6) and deploys to GitHub Pages. Live at <https://sch-lika.github.io/smemu6/>.
 
+---
+
+## Known Bugs
+
+### Function key buttons write characters to screen  [confirmed against real hardware]
+
+Clicking any of the 7 function-key buttons on the status bar causes SAMOS to write a
+character to the screen (KILL → `@`, COPY → backspace, CHANGE → `–`, etc.).
+On real hardware, pressing a function key at the CLI produces **no visible output**
+— the OS reads the bitmask via the GETFON syscall but does not echo anything.
+
+Root cause is not yet identified.  Candidates:
+- Stage 1 returns `0x80|fonct_bits`; SAMOS may be writing `fonct_bits` to `0x4580`
+  (last-key-code cache) and some CLI path echoes it.
+- ISR Stage 1 at `0x0166` stores to `0x457E`; if the CLI reads this for display,
+  any non-zero lower 7 bits would be printed.
+- `cla_seen` is set to 1 after Stage 1 returns; if `physically_held` is incorrectly
+  non-zero, Stage 2 could still be reached despite `0x4582=0x80`.
+
+**To fix:** trace a real SAMOS run with a function key pressed and compare what
+`0x4580`, `0x457E`, and `0x4582` contain vs what the emulator produces.
+Stage 1 may need to return plain `0x80` (not `0x80|fonct_bits`) for the ISR path,
+with the GETFON syscall reading `fonct_bits` from a dedicated emulator register
+instead of `0x4580`.
+
+---
+
+## Debugger
+
+### Live CPU register window
+
+An optional secondary SDL window (toggled with a key, e.g. F12 / Ctrl+D) showing
+all Z80 registers updated every frame:
+
+| Column 1 | Column 2 |
+|---|---|
+| AF / AF' | BC / BC' |
+| DE / DE' | HL / HL' |
+| IX | IY |
+| SP | PC |
+| I / R | IFF1 / IFF2 / IM |
+| T-states this frame | Frame count |
+
+Should also show the current disassembly around PC (5 lines back, 10 ahead)
+using a simple Z80 disassembler (the `z80` / `zeta` dep may already expose one;
+otherwise a minimal standalone table is ~200 lines of C).
+
+### Memory editor
+
+Hex editor panel (or a second region of the debug window) showing a 256-byte
+view of any address range, with the ability to:
+- Navigate with arrow keys / Page Up / Page Down
+- Jump to an arbitrary address (hex input)
+- Edit individual bytes in place (single keypress replaces nibble)
+- Highlight ROM-protected ranges differently from writable RAM
+- Show the alpha-plane or graphic-plane at a known offset for quick inspection
+
+### Pause and single-step execution
+
+- **Pause** (e.g. `Space` in debug window, or `F11` if not used for BREAK):
+  suspends the Z80 between frames; the display keeps rendering (phosphor decays
+  naturally while paused).
+- **Step instruction** (`F6` or `S`): execute exactly one Z80 instruction, update
+  registers, redraw debug window.
+- **Step frame** (`F7`): run until the next 50 Hz frame boundary (one ISR cycle).
+- **Run to cursor** (`F8`): execute until PC reaches the address highlighted in
+  the disassembly view.
+- **Breakpoints**: set/clear a breakpoint on any address; execution halts
+  automatically when PC reaches it.  Store as a small fixed-size array
+  (e.g. 16 breakpoints) in the debug struct.
+
+### Implementation notes
+
+- The existing `debug.c` / `debug.h` files already have `debug_toggle()` and
+  `trace_kbd` / `trace_regs` flags.  Extend rather than replace.
+- The debug window can be a second `SDL_Window` + `SDL_Renderer` created on demand;
+  no extra dependencies needed beyond SDL2 + chargen ROM font.
+- All breakpoint and step state lives in `struct dbg` (in `machine_internal.h`).
+- The main loop already has a `freeze_cpu` flag; pause can reuse it.
+- Single-step requires a new `step_pending` flag checked in `machine_run_frame()`:
+  execute exactly one instruction then set `freeze_cpu=1` again.
+
 
