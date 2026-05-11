@@ -219,21 +219,33 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 ### Physical keyboard: FIFO-based delivery
 
 `keyboard_event()` pushes one key code per `SDL_KEYDOWN` into a 64-slot software FIFO.
-SDL key-repeat events (`ev->repeat != 0`) are **discarded** — Stage 4 auto-repeat is not yet
-wired up for the FIFO path (see [TODO.md](../../TODO.md)).
+SDL key-repeat events (`ev->repeat != 0`) are **discarded** — Stage 4 auto-repeat is
+managed by the emulator (see below).
 The CLA fields (`found`, `key_code`, `physically_held`, `key_hold_frames`) are **not touched** by
 `keyboard_event()`.  Touching them would cause ISR Stage 2 (if ever un-blocked) to re-inject
 keys each frame, creating loops.
 
+**Physical-key bit-7 marker:** `keyboard_event()` and `keyboard_text_event()` set **bit 7** in
+each FIFO byte to mark it as a physical keystroke.  `keyboard_frame_tick()` strips bit 7 before
+writing to the circular buffer, and only arms SAMOS Stage 4 auto-repeat (`0x4558`/`0x4577`)
+when bit 7 was set.  Injected keys (from `-inject-str` or ESC-recall re-injection) do not set
+bit 7, so they never arm auto-repeat.  This prevents injected sequences from triggering
+spurious key repetition at the next prompt.
+
+**Enter auto-repeat exclusion:** Even for physical keystrokes, Enter (`0x0D`) never arms
+auto-repeat.  Arming it would cause the SAMOS ISR to re-inject `0x0D` 35 frames later,
+making the line editor process an empty command and null-terminate `0x45C0`, erasing any
+history content.
+
 ```c
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 {
-    if (ev->type == SDL_KEYUP) return;          /* FIFO-based: nothing to do on key-up */
+    if (ev->type == SDL_KEYUP) return;
     if (ev->type != SDL_KEYDOWN) return;
-    if (ev->repeat) return;                     /* discard SDL auto-repeat */
+    if (ev->repeat) return;   /* discard SDL auto-repeat; SAMOS Stage 4 handles it */
 
-    /* Look up key in table, push to FIFO only: */
-    m->kbd.fifo[m->kbd.fifo_tail] = code;
+    /* Look up key in table; set bit 7 to mark as physical keystroke: */
+    m->kbd.fifo[m->kbd.fifo_tail] = code | 0x80u;
     m->kbd.fifo_tail = (m->kbd.fifo_tail + 1) & 63;
 }
 ```
@@ -283,12 +295,19 @@ void keyboard_frame_tick(struct Smaky6 *m)
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
         if (wr < 0x4596u || wr > 0x45B6u) break;   /* SAMOS workspace not ready */
         if (m->bus[wr] == 0x80u) break;             /* guard sentinel: buffer full */
-        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
+        uint8_t raw      = m->kbd.fifo[m->kbd.fifo_head];
+        uint8_t physical = raw & 0x80u;             /* set by keyboard_event() for real keys */
+        uint8_t code     = raw & 0x7Fu;
         m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-        m->bus[wr] = code & 0x7Fu;
+        m->bus[wr] = code;
         wr++;
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
+        /* Arm Stage 4 auto-repeat only for physical keys, never for Enter */
+        if (physical && code != 0x0Du) {
+            m->bus[0x4558u] = 0x23u;
+            m->bus[0x4577u] = code;
+        }
     }
 }
 ```
@@ -300,6 +319,56 @@ Writing stops when `bus[wr] == 0x80` — not when `wr == 0x4596` (base address).
 **Why drain all FIFO entries, not just one per frame?**
 
 Draining one entry per frame would impose a minimum 20 ms inter-character floor — i.e., keys typed at normal human speed could be dropped or delayed by a full frame.  Draining all pending entries each frame matches `machine_inject_to_circ_buf()` behaviour and means SAMOS sees the full burst of typed characters without artificial throttling.
+
+### ESC key: emulator-side dual behaviour
+
+The host `Escape` key maps to two distinct behaviours depending on whether the CLI
+prompt is currently on an empty line:
+
+| Situation | Emulator action | SAMOS receives |
+|-----------|----------------|----------------|
+| Non-empty CLI line | Send `0x04` (`<` EOT, EFFACE) | SAMOS clears the current line |
+| Empty CLI prompt | Re-inject `kbd.prev_cmd` into FIFO | Characters typed char-by-char |
+
+**Why SAMOS native recall (`0x05`) is not used:**  The SAMOS line editor at `0x5A8A`
+writes the cursor character `'-'` (0x2D) directly to `m->bus[0x45C0]` (the first byte
+of the line buffer) as part of display initialization at the start of each new input
+session.  By the time `0x05` (recall) would run, the previous command's first character
+has been overwritten — so recall displays nothing.
+
+**History capture:**  `keyboard_event()` captures the current typed line whenever the
+Return key is pressed and the line is non-empty.  The capture reads
+`m->bus[0x45C0 .. (0x7014)-1]` (line buffer start up to the cursor pointer) and stores
+it in `kbd.prev_cmd[128]` / `kbd.prev_cmd_len`.  This runs *before* the Enter code is
+delivered to the FIFO, so the buffer is still intact.
+
+**Recall re-injection:**  When ESC is pressed on an empty CLI prompt (detected by
+`machine_cli_prompt_visible()`), `keyboard_event()` pushes each byte of `kbd.prev_cmd`
+into the FIFO **without** bit 7 set (treated as injected, not physical).  SAMOS echoes
+each character and leaves the cursor at the end of the line, ready for editing.
+No Enter is appended — the user can modify the recalled line before pressing Return.
+
+```c
+/* On Return press (non-empty line): capture history */
+uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
+if (cursor > 0x45C0u && cursor <= 0x45C0u + 127u) {
+    int len = (int)(cursor - 0x45C0u);
+    memcpy(m->kbd.prev_cmd, &m->bus[0x45C0u], len);
+    m->kbd.prev_cmd_len = len;
+}
+
+/* On ESC press (empty line): re-inject history */
+for (int i = 0; i < m->kbd.prev_cmd_len; i++) {
+    m->kbd.fifo[m->kbd.fifo_tail] = m->kbd.prev_cmd[i];  /* no bit 7 → no auto-repeat */
+    m->kbd.fifo_tail = (m->kbd.fifo_tail + 1) & 63;
+}
+```
+
+**Empty-line detection** uses `machine_cli_prompt_visible()` (in `machine.c`), which
+scans all 20 video rows for the pattern `*` ` ` `-` (with bit 7 stripped).  A row
+matching this pattern indicates the prompt is at the start of a new empty line.
+
+---
 
 ### Autoboot / inject: CLA-based delivery
 
@@ -470,6 +539,8 @@ Injected keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase o
 | `0x4595` | SAMOS init sentinel (written to `0x80` at `0x00A4`, **before** kbd_wait — cannot be used as `samos_loaded` trigger) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
+| `0x45C0` | **CLI line buffer start** — typed characters stored here; overwritten by `-` cursor at start of each new input session (used for ESC history capture) |
+| `0x7014:0x7015` | **Cursor pointer** (little-endian) — points one past the last typed character in the line buffer; used by ESC history capture to determine line length |
 
 ---
 
