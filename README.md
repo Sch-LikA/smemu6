@@ -431,8 +431,9 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **Enter / Return**          | Smaky CR (`0x0D`)                                        |
 | **F8**                      | **MACRO** — replay recorded keystroke sequence (`«` `0x1E`) |
 | **F9**                      | **DEFINE** — record a keystroke sequence (`»` `0x1F`)    |
-| **F11** / **Pause**         | **BREAK** — fires NMI, drops into SAMOS monitor           |
+| **F11** / **Pause**         | **BREAK** (top-right key) — fires NMI, drops into SAMOS monitor       |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
+| **Escape**                  | **ESC / UNDO** (top-left key) — cancels / clears current CLI line    |
 | **Left Ctrl**               | CURSOR function key                                       |
 | **Left Alt**                | COPY function key                                         |
 | **Left Windows / Super**    | KILL function key                                         |

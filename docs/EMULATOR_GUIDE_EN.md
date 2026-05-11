@@ -216,9 +216,9 @@ The emulator maps them to standard PC keys as follows.
 | `Right Ctrl` | **CHANGE** function key |
 | `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
-| `F11` or `Pause` | **BREAK** — triggers NMI → drops into SYSMON monitor |
+| `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |
 | `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
-| `Escape` | Smaky ESC / line cancel |
+| `Escape` | **ESC / UNDO** (top-left key) — cancels / clears current CLI line |
 | `Tab` | Inserts `DX1:` in the CLI command line |
 
 ### Standard keys
