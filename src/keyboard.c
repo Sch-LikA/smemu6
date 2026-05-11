@@ -20,15 +20,16 @@
  * via SDL_TEXTINPUT (keyboard_text_event) so that the host OS applies the
  * correct shift / Caps Lock / dead-key state, giving lowercase by default.
  *
- * ESC (UNDO) → 0x04: the physical ESC / UNDO key (top-left) generates hardware
- * code 0x04 from the S471 keyboard encoder EPROM.  The SAMOS CLI dispatches on
- * this code to cancel/clear the current command line (or recall the previous
- * command if the line is already empty) — confirmed by CLI.SY disassembly:
- *   RST 0x20 / 0x0D  ; syscall 13 — blocking key read
- *   CP  0x04          ; check for ESC/UNDO
- *   JP  Z, cancel_handler
+ * ESC key — smart dual-behaviour:
+ *   The SAMOS line editor uses two distinct key codes for ESC-related actions:
+ *     0x04 — cancel/clear the current command line (EFFACE / CLR)
+ *     0x05 — recall previous command into the line editor (UNDO / recall)
+ *   Per the SAMOS manual: "BREAK (ESC) = cancels current line; if empty,
+ *   recalls last command."  keyboard_event() implements this by checking the
+ *   SAMOS line-buffer-length byte at 0x454B and sending 0x05 when empty,
+ *   0x04 when the line contains characters.
  * NOTE: 0x1B is the Smaky control-code table entry for "ESC" (printer/serial
- * escape prefix) and the chargen index for ä — it is NOT the keyboard code.
+ * escape prefix) — it is NOT the keyboard code.
  * The BREAK key (top-right, NMI/RESET) fires the Z80 NMI line; it does NOT
  * put a byte in the keyboard buffer.  Use Pause / F11 for that path.
  */
@@ -37,7 +38,7 @@ static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_BACKSPACE, 0x08 },
     { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
-    { SDL_SCANCODE_ESCAPE,    0x04 },   /* ESC / UNDO (top-left key) → 0x04 → CLI cancel/undo */
+    /* ESC is handled separately in keyboard_event() with smart empty-line logic */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
 };
@@ -203,6 +204,31 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     SDL_Scancode scan = ev->keysym.scancode;
     /* Track scancode so we can cancel repeat on the matching KEYUP. */
     m->kbd.repeat_scan = scan;
+
+    /* ESC / UNDO key: smart dual behaviour matching the SAMOS manual.
+     * The S471 encoder generates two distinct codes for ESC-related actions:
+     *   0x04 — cancel/clear the current command line (EFFACE / CLR)
+     *   0x05 — recall previous command (UNDO / recall)
+     * The SAMOS line editor at 0x577E dispatches on these codes independently.
+     * The user-facing behaviour documented in the SAMOS guide is:
+     *   ESC on non-empty line → cancel/clear it (0x04)
+     *   ESC on empty line     → recall previous command (0x05)
+     * We implement this by examining the SAMOS line-buffer-length byte at
+     * 0x454B: if 0 (empty) send 0x05 (recall); if non-zero send 0x04 (cancel). */
+    if (scan == SDL_SCANCODE_ESCAPE) {
+        uint8_t code = m->bus[0x454Bu] ? 0x04u : 0x05u;
+        int next = (m->kbd.fifo_tail + 1) & 63;
+        if (next != m->kbd.fifo_head) {
+            m->kbd.fifo[m->kbd.fifo_tail] = code;
+            m->kbd.fifo_tail = next;
+            if (m->dbg.trace_kbd)
+                fprintf(stderr, "[kbd_event] ESC → 0x%02X (line len=%u) FIFO[%d]\n",
+                        (unsigned)code, (unsigned)m->bus[0x454Bu],
+                        m->kbd.fifo_tail - 1);
+        }
+        return;
+    }
+
     for (int i = 0; i < KEY_TABLE_LEN; i++) {
         if (KEY_TABLE[i].scan == scan) {
             uint8_t code = KEY_TABLE[i].code;

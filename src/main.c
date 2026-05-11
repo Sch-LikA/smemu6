@@ -132,6 +132,11 @@ typedef struct {
     uint8_t inject_codes[128];
     int  inject_len;
     int  inject_via_fifo;
+    int  inject_at_prompt;        /* fire inject when prompt_count >= this */
+    uint8_t inject2_codes[128];
+    int  inject2_len;
+    int  inject2_at_prompt;       /* fire inject2 when prompt_count >= this */
+    int  inject2_idx;
     int  trace;
     /* Timing */
     Uint64 last_tick;
@@ -144,6 +149,8 @@ typedef struct {
     int    stage1_pressed;
     int    stage1_release_at;
     int    inject_idx;
+    int    prompt_was_visible;  /* 1 if prompt was visible last frame */
+    int    prompt_count;        /* number of prompt transitions (not→visible) */
     Uint64 boot_start_ms;
     Uint64 global_timeout_ms;
     int    timeout_reported;
@@ -371,8 +378,21 @@ static void main_loop_iter(void)
         if (L->break_to_monitor && L->stage1_release_at == L->frame_cnt)
             machine_release_key(L->m);
 
+        /* Track prompt transitions to distinguish init prompt from post-command prompt */
+        int prompt_now = machine_cli_prompt_visible(L->m);
+        if (prompt_now != L->prompt_was_visible) {
+            if (L->trace)
+                fprintf(stderr, "[prompt] frame %d: %s (count=%d)\n",
+                        L->frame_cnt,
+                        prompt_now ? "appeared" : "gone",
+                        L->prompt_count + (prompt_now ? 1 : 0));
+            if (prompt_now)
+                L->prompt_count++;
+        }
+        L->prompt_was_visible = prompt_now;
+
         if (L->inject_len > 0 && L->inject_idx == 0 &&
-            machine_cli_prompt_visible(L->m)) {
+            L->prompt_count >= L->inject_at_prompt && prompt_now) {
             if (L->trace)
                 fprintf(stderr,
                         "[inject] CLI prompt detected at frame %d; "
@@ -412,6 +432,32 @@ static void main_loop_iter(void)
             }
             L->inject_idx++;
         }
+
+        /* inject2: second inject string, fires at inject2_at_prompt, FIFO only */
+        if (L->inject2_len > 0 && L->inject2_idx == 0 &&
+            L->prompt_count >= L->inject2_at_prompt && prompt_now) {
+            if (L->trace)
+                fprintf(stderr,
+                        "[inject2] CLI prompt detected at frame %d; "
+                        "writing %d char(s) via FIFO\n",
+                        L->frame_cnt, L->inject2_len);
+            L->inject2_idx = 1;
+        }
+        if (L->inject2_idx > 0 && L->inject2_idx <= L->inject2_len) {
+            uint8_t kc = L->inject2_codes[L->inject2_idx - 1];
+            int next = (L->m->kbd.fifo_tail + 1) & 63;
+            if (next != L->m->kbd.fifo_head) {
+                L->m->kbd.fifo[L->m->kbd.fifo_tail] = kc;
+                L->m->kbd.fifo_tail = next;
+                if (L->trace)
+                    fprintf(stderr,
+                            "[inject2-fifo] FIFO <- 0x%02X ('%c') (char %d/%d)\n",
+                            (unsigned)kc,
+                            (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
+                            L->inject2_idx, L->inject2_len);
+            }
+            L->inject2_idx++;
+        }
     }
 
     /* ── Render ─────────────────────────────────────────────────────── */
@@ -443,6 +489,8 @@ void smemu6_reset(void)
     s_loop->stage1_pressed     = 0;
     s_loop->stage1_release_at  = -1;
     s_loop->inject_idx         = 0;
+    s_loop->prompt_was_visible = 0;
+    s_loop->prompt_count       = 0;
     s_loop->timeout_reported   = 0;
     s_loop->boot_start_ms      = SDL_GetTicks64();
     s_loop->running            = 1;
@@ -482,6 +530,9 @@ int main(int argc, char *argv[])
     int break_to_monitor = 0;  /* SHIFT+BREAK for monitor entry */
     uint8_t inject_codes[128];  /* key sequence to inject at OS prompt */
     int inject_len = 0;
+    uint8_t inject2_codes[128]; /* second key sequence to inject at a later prompt */
+    int inject2_len = 0;
+    int inject2_at_prompt = 2;  /* -inject2-at-prompt N */
     int forced_vmode = -1;
     int gfx_msb_first = -1;  /* -1 = use video_init() default (msb) */
     const char *loadbin_file = NULL;   /* -loadbin <addr> <file> */
@@ -506,6 +557,7 @@ int main(int argc, char *argv[])
     int no_launcher        = 0;  /* -no-launcher: skip startup dialog */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
+    int inject_at_prompt = 1;          /* -inject-at-prompt N: fire inject when prompt_count >= N */
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
 
@@ -640,6 +692,42 @@ int main(int argc, char *argv[])
             dump_ram_path = argv[++i];
         } else if (strcmp(argv[i], "-inject-via-fifo") == 0) {
             inject_via_fifo = 1;
+        } else if (strcmp(argv[i], "-inject-at-prompt") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long n = strtol(argv[++i], &end, 10);
+            if (!end || *end != '\0' || n < 1) {
+                fprintf(stderr, "-inject-at-prompt requires an integer >= 1\n"); return 1;
+            }
+            inject_at_prompt = (int)n;
+        } else if (strcmp(argv[i], "-inject2-str") == 0 && i + 1 < argc) {
+            const char *s = argv[++i];
+            inject2_len = 0;
+            for (int j = 0; s[j] && inject2_len < 126; j++) {
+                unsigned char c = (unsigned char)s[j];
+                if (c == '\\' && s[j + 1] == 'n') {
+                    inject2_codes[inject2_len++] = 0x0D;
+                    j++;
+                } else if (c >= 'a' && c <= 'z') {
+                    inject2_codes[inject2_len++] = (uint8_t)(c - 0x20);
+                } else if (c >= 'A' && c <= 'Z') {
+                    inject2_codes[inject2_len++] = (uint8_t)c;
+                } else if (c >= '0' && c <= '9') {
+                    inject2_codes[inject2_len++] = (uint8_t)c;
+                } else if (c == ' ') {
+                    inject2_codes[inject2_len++] = 0x20;
+                } else if (c == '\n' || c == '\r') {
+                    inject2_codes[inject2_len++] = 0x0D;
+                } else if (c < 0x20 || c >= 0x80) {
+                    inject2_codes[inject2_len++] = c;
+                }
+            }
+        } else if (strcmp(argv[i], "-inject2-at-prompt") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long n = strtol(argv[++i], &end, 10);
+            if (!end || *end != '\0' || n < 1) {
+                fprintf(stderr, "-inject2-at-prompt requires an integer >= 1\n"); return 1;
+            }
+            inject2_at_prompt = (int)n;
         } else if (strcmp(argv[i], "-no-launcher") == 0) {
             no_launcher = 1;
         } else if (strcmp(argv[i], "-loadbin") == 0 && i + 2 < argc) {
@@ -911,6 +999,11 @@ int main(int argc, char *argv[])
     memcpy(ctx.inject_codes, inject_codes, sizeof(inject_codes));
     ctx.inject_len         = inject_len;
     ctx.inject_via_fifo    = inject_via_fifo;
+    ctx.inject_at_prompt   = inject_at_prompt;
+    memcpy(ctx.inject2_codes, inject2_codes, sizeof(inject2_codes));
+    ctx.inject2_len        = inject2_len;
+    ctx.inject2_at_prompt  = inject2_at_prompt;
+    ctx.inject2_idx        = 0;
     ctx.trace              = trace;
     ctx.last_tick          = SDL_GetPerformanceCounter();
     ctx.freq               = SDL_GetPerformanceFrequency();
@@ -921,6 +1014,8 @@ int main(int argc, char *argv[])
     ctx.stage1_pressed     = 0;
     ctx.stage1_release_at  = -1;
     ctx.inject_idx         = 0;
+    ctx.prompt_was_visible = 0;
+    ctx.prompt_count       = 0;
     ctx.boot_start_ms      = SDL_GetTicks64();
     ctx.global_timeout_ms  = (Uint64)global_timeout_sec * 1000ULL;
     ctx.timeout_reported   = 0;

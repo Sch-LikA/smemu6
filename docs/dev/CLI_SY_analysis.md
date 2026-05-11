@@ -76,7 +76,7 @@ dispatcher to validate that an argument was supplied.
 | Key                   | CLI action                                                           |
 |-----------------------|----------------------------------------------------------------------|
 | TAB                   | Inserts literal string `DX1:` into the command line                 |
-| ESC (BREAK key)       | If line is non-empty: clears current line. If empty: recalls previous command. |
+| ESC (UNDO key)        | If line is **non-empty**: sends code `0x04` → clears current line. If line is **empty**: sends code `0x05` → recalls previous command. Dispatch handled by SAMOS line editor at `0x577E`. |
 | KILL (function key)   | Aborts current peripheral I/O transfer; sends EOF to SAMOS          |
 | SHIFT-BREAK           | Hard reset → reboot from DX0:                                       |
 | FUNCTION-SHIFT-BREAK  | Hard reset → reboot from DX1: (emulator: not yet implemented)       |

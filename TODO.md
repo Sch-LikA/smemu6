@@ -299,7 +299,18 @@ let the OS/SAMOS handle the control semantics.
 Note on `0x1B` dual use: when written to the display it renders the ä glyph (Prom
 2716 chargen mapping); when sent to the printer or serial port it acts as an escape
 sequence prefix.  This is why `SDL_SCANCODE_ESCAPE` must **not** be mapped to `0x1B`
-— the keyboard has no ESC key; the UNDO key generates NMI instead.
+— the UNDO/ESC key (top-left) uses codes `0x04` and `0x05` per the CLI line editor.
+
+**ESC / UNDO key smart dual-behaviour** ✅ Done
+
+The SAMOS CLI at `0x577E` uses two separate codes for cancel/recall:
+- `0x04` (EOT `<`) — cancel/clear the current command line
+- `0x05` (ENQ `>`) — recall the previous command into the line editor
+
+Per the SAMOS manual: "BREAK (ESC) = cancels current line; if empty, recalls last command."
+`keyboard_event()` checks `m->bus[0x454B]` (SAMOS line-buffer-length byte): sends
+`0x04` when the line is non-empty (cancel), `0x05` when empty (recall).
+Mapped to `SDL_SCANCODE_ESCAPE` (host Escape key).
 
 **Chargen glyph block `0x0F–0x1F`** — the keyboard EPROM (Prom 2716) maps this range
 to Swiss-French glyphs instead of the standard ASCII C0 control codes.  The full
