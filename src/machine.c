@@ -487,11 +487,12 @@ void machine_release_key(struct Smaky6 *m)
 
 void machine_inject_shift_break(struct Smaky6 *m)
 {
-    /* Inject SHIFT + BREAK (Escape 0x1B) combination.
-     * This triggers monitor mode on real hardware.
+    /* Inject SHIFT + BREAK to trigger monitor mode on real hardware.
+     * Supply the physical ESC key code (0x04) as the key, which the Phantom ROM
+     * kbd_wait sees as nonzero — directing it away from the PDP-11 loader path.
      */
     m->kbd.shift_pressed   = 1;
-    m->kbd.key_code        = 0x1B;  /* BREAK = Escape */
+    m->kbd.key_code        = 0x04;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
     m->kbd.key_hold_frames = 0;

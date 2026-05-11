@@ -20,21 +20,24 @@
  * via SDL_TEXTINPUT (keyboard_text_event) so that the host OS applies the
  * correct shift / Caps Lock / dead-key state, giving lowercase by default.
  *
- * ESC (UNDO) → 0x1B: the SAMOS CLI reads 0x1B from the keyboard circular buffer
- * to cancel/clear the current command line (or recall the previous command
- * if the line is already empty).  On the physical machine this is the top-left
- * key, labelled ESC (or UNDO on some variants) — a dedicated keyboard key that
- * puts 0x1B in the keyboard latch.  It is physically separate from the BREAK
- * key (top-right, labelled BREAK / NMI / RESET) which fires the Z80 NMI line
- * and does NOT put a byte in the keyboard latch.
- * Use Pause / F11 for the BREAK (NMI) path.
+ * ESC (UNDO) → 0x04: the physical ESC / UNDO key (top-left) generates hardware
+ * code 0x04 from the S471 keyboard encoder EPROM.  The SAMOS CLI dispatches on
+ * this code to cancel/clear the current command line (or recall the previous
+ * command if the line is already empty) — confirmed by CLI.SY disassembly:
+ *   RST 0x20 / 0x0D  ; syscall 13 — blocking key read
+ *   CP  0x04          ; check for ESC/UNDO
+ *   JP  Z, cancel_handler
+ * NOTE: 0x1B is the Smaky control-code table entry for "ESC" (printer/serial
+ * escape prefix) and the chargen index for ä — it is NOT the keyboard code.
+ * The BREAK key (top-right, NMI/RESET) fires the Z80 NMI line; it does NOT
+ * put a byte in the keyboard buffer.  Use Pause / F11 for that path.
  */
 static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_RETURN,    0x0D },
     { SDL_SCANCODE_BACKSPACE, 0x08 },
     { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
-    { SDL_SCANCODE_ESCAPE,    0x1B },   /* ESC / UNDO (top-left key) → cancel CLI line */
+    { SDL_SCANCODE_ESCAPE,    0x04 },   /* ESC / UNDO (top-left key) → 0x04 → CLI cancel/undo */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
 };
@@ -434,10 +437,9 @@ int keyboard_found(struct Smaky6 *m)
 
 int keyboard_shift_break_pressed(struct Smaky6 *m)
 {
-    /* SHIFT+BREAK at boot: the Phantom ROM kbd_wait looks for the ESC key code
-     * (0x1B) in the keyboard latch.  The ESC / UNDO key (top-left) is the
-     * physical key that generates 0x1B; BREAK (top-right) fires NMI separately.
-     * machine_inject_key() injects 0x1B for the -break-to-monitor autoboot
-     * path; SHIFT state is tracked here for reference only. */
+    /* SHIFT+BREAK at boot: NMI fires and the Phantom ROM kbd_wait returns any
+     * nonzero key code to take the non-PDP11 path.  machine_inject_shift_break()
+     * supplies 0x04 (physical ESC key code) alongside the NMI for the
+     * -break-to-monitor autoboot path; SHIFT state is tracked here only. */
     return m->kbd.shift_pressed;
 }

@@ -84,7 +84,7 @@ static void usage(const char *argv0)
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -autoboot      Inject Enter key after 3 s to auto-select floppy boot\n"
-        "  -break-to-monitor Inject SHIFT+ESC to enter monitor mode (ESC/UNDO key = 0x1B)\n"
+        "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -autoboot2 <n> Stage2 key code (decimal or 0xHH), default 0x20\n"
         "  -autoboot3 <n> Optional stage3 key code (decimal or 0xHH), default disabled\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
@@ -116,7 +116,7 @@ static void usage(const char *argv0)
         "  -help          Show this help\n"
         "  Pause / F11          BREAK key (top-right, NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
-        "  Escape               ESC / UNDO key (top-left, cancels CLI line)\n"
+        "  Escape               ESC / UNDO key (top-left, key code 0x04, cancels CLI line)\n"
         "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n",
         argv0);
 }

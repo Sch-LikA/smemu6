@@ -732,7 +732,7 @@ According to the official user manual (p.24, section "ROM Phantom — Possibilit
 
 | Physical key / combo        | Emulator mapping          | Action                                          |
 |-----------------------------|---------------------------|-------------------------------------------------|
-| **ESC** / **UNDO** (top-left) | `Escape`                | Push 0x1B to kbd buffer → SAMOS CLI cancel/undo |
+| **ESC** / **UNDO** (top-left) | `Escape`                | Push **0x04** to kbd buffer → SAMOS CLI cancel/undo |
 | **SHIFT-BREAK** (top-right) | Shift+Pause / Shift+F11   | Hard reset → boot from **DX0:** (normal boot)   |
 | **FUNCTION-SHIFT-BREAK**    | (not yet mapped)          | Hard reset → boot from **DX1:**                 |
 | **BREAK** (top-right)       | Pause / F11               | NMI → Phantom ROM monitor / PDP-11 loader (USART 14) |
@@ -750,11 +750,14 @@ re-reads ROM, restarts the boot sequence from DX0:).  The FUNCTION-SHIFT-BREAK p
 (boot from DX1:) is not yet implemented — it would require injecting the FUNCTION bit
 into the CLA bitmask alongside SHIFT+BREAK so the Phantom ROM takes the DX1 path.
 
-The `Escape` key on the PC keyboard pushes `0x1B` into the keyboard FIFO (the
-SAMOS circular buffer path).  On the physical Smaky 6 this is the **ESC / UNDO**
-key (top-left corner of the keyboard) — a dedicated key that puts 0x1B in the
-keyboard latch.  It is physically separate from the **BREAK** key (top-right,
-also labelled NMI or RESET), which pulls the Z80 `NMI` pin low and does not
-put any byte in the keyboard latch.  Note that 0x1B as chargen display index
-(renders ä on screen) is a completely separate namespace from 0x1B as a keyboard
-byte.
+The `Escape` key on the PC keyboard maps to the physical **ESC / UNDO** key
+(top-left corner).  The S471 keyboard encoder EPROM assigns this key hardware
+code **`0x04`**, which the SAMOS CLI dispatches on to cancel/undo the current
+command line (confirmed by CLI.SY disassembly: `CP 0x04` / `JP Z, cancel`).
+
+`0x1B` is **not** the keyboard code for ESC.  It is the Smaky control-code
+table entry for the printer/serial escape prefix, and it is also the chargen
+display index for the `ä` glyph — both completely separate namespaces.
+
+The **BREAK** key (top-right, also labelled NMI or RESET) is a separate physical
+key that pulls the Z80 `NMI` pin low; it does not produce any keyboard byte.

@@ -219,7 +219,7 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
-| `Escape` | **ESC / UNDO** (touche en haut à gauche) — annule / vide la ligne de commande CLI |
+| `Escape` | **ESC / UNDO** (touche en haut à gauche, code `0x04`) — annule / vide la ligne de commande CLI |
 | `Tab` | Insère `DX1:` dans la ligne de commande CLI (`0x09`) |
 | `Backspace` | Smaky BS (`0x08`) |
 | `Delete` | Smaky DEL (`0x7F`) |
