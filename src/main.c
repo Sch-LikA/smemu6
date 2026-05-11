@@ -349,6 +349,14 @@ static void main_loop_iter(void)
         keyboard_frame_tick(L->m);
         machine_int(L->m);
         machine_run_frame(L->m);
+        /* Phase B fix — deliver function key state to SAMOS GETFON register.
+         * The SAMOS ISR clears 0x4580 at line 0x015E each frame, then writes
+         * CLA & 0x7F there.  CLA now always returns 0x80 (plain), so 0x4580
+         * would be zeroed every frame.  Overwrite it here, post-ISR, with the
+         * live fonct_bits bitmask so the GETFON syscall (called between frames
+         * by application code) sees the correct function key state. */
+        if (L->m->kbd.samos_loaded)
+            L->m->bus[0x4580u] = L->m->kbd.fonct_bits;
         if (L->m->dbg.trace_kbd) {
             uint16_t ptr = (uint16_t)L->m->bus[0x457Cu] | ((uint16_t)L->m->bus[0x457Du] << 8);
             if (ptr != 0x4596u) {

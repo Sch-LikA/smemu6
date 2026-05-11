@@ -326,7 +326,7 @@ The emulator has two branches depending on `iff1`:
         m->kbd.found = 0;
         return m->kbd.key_code & 0x7Fu;   /* bit 7=0 → key present */
     }
-    return 0x80u;  /* bit 7=1 → no key (function key bits would be here on real HW) */
+    return 0x80u;  /* bit 7=1 → no regular key; fonct_bits delivered via 0x4580 directly */
 ```
 
 **`iff1=0` branch (Phantom ROM / monitor / `kbd_wait` context):**
@@ -338,8 +338,7 @@ This branch handles two distinct situations that both produce `iff1=0`:
 
 ```c
 if (!m->cpu.iff1) {
-    /* CLA fields first — serve machine_inject_key() / autoboot path
-     * (also used by SAMOS ISR Stages 1 & 2 for injected keys). */
+    /* CLA fields first — serve machine_inject_key() / autoboot path */
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
     m->kbd.cla_seen = 1;
@@ -355,9 +354,18 @@ if (!m->cpu.iff1) {
         m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
         return code & 0x7Fu;
     }
-    return 0x80u | m->kbd.fonct_bits;
+    return 0x80u;  /* no key; fonct_bits delivered to SAMOS via direct 0x4580 write */
 }
 ```
+
+**Why CLA never carries fonct_bits (confirmed against real hardware):**
+Encoding `fonct_bits` in the CLA return value (as `0x80 | fonct_bits`) caused SAMOS
+Stage 1 at `0x016E` to store `fonct_bits & 0x7F` into `0x4580`.  Some SAMOS CLI path
+then echoed this value as a printable character (e.g. KILL=`0x40`=`'@'`).  On real
+hardware no character appears when a function key is pressed.  The correct emulation:
+CLA always returns plain `0x80` when no regular key is held, and `fonct_bits` is
+written directly to `m->bus[0x4580]` after each ISR frame (in `main.c`) so the GETFON
+syscall sees the live value between frames.
 
 **Why the sentinel `0x4595==0x80` cannot be used here:** that sentinel is written at address `0x00A4`, before the boot-menu `kbd_wait` at `0x00B5`.  If `samos_loaded` were set by that sentinel, the FIFO branch would be blocked during `kbd_wait`, making the boot-menu keypress invisible.  The ISR vector at `0x4566` is written *after* `kbd_wait` exits — it is the correct trigger.
 

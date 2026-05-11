@@ -626,23 +626,40 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 ### Function key buttons write characters to screen  [confirmed against real hardware]
 
 Clicking any of the 7 function-key buttons on the status bar causes SAMOS to write a
-character to the screen (KILL → `@`, COPY → backspace, CHANGE → `–`, etc.).
-On real hardware, pressing a function key at the CLI produces **no visible output**
-— the OS reads the bitmask via the GETFON syscall but does not echo anything.
+character to the screen (KILL → `@`, COPY → backspace, etc.).
+On real hardware, pressing a function key at the CLI produces **no visible output** —
+they are pure modifier/bitmask keys.
 
-Root cause is not yet identified.  Candidates:
-- Stage 1 returns `0x80|fonct_bits`; SAMOS may be writing `fonct_bits` to `0x4580`
-  (last-key-code cache) and some CLI path echoes it.
-- ISR Stage 1 at `0x0166` stores to `0x457E`; if the CLI reads this for display,
-  any non-zero lower 7 bits would be printed.
-- `cla_seen` is set to 1 after Stage 1 returns; if `physically_held` is incorrectly
-  non-zero, Stage 2 could still be reached despite `0x4582=0x80`.
+**Root cause (confirmed from schematic analysis):**
+Function keys are in the regular S471 keyboard matrix but their EPROM codes have **bit 7 = 1**.
+When a function key is held, FOUND is set, Stage 1 CLA read returns `S471_code & 0x7F` which
+SAMOS stores into `0x4580` (the GETFON register). SAMOS CLI reads `0x4580` between ISR frames
+and echoes the non-zero byte to the screen as a character — which IS the observed bug.
 
-**To fix:** trace a real SAMOS run with a function key pressed and compare what
-`0x4580`, `0x457E`, and `0x4582` contain vs what the emulator produces.
-Stage 1 may need to return plain `0x80` (not `0x80|fonct_bits`) for the ISR path,
-with the GETFON syscall reading `fonct_bits` from a dedicated emulator register
-instead of `0x4580`.
+On **real hardware** this does NOT happen because the S471 codes for function keys have fixed
+values that SAMOS recognises as non-printable. In the emulator, we synthesised a bitmask
+(`0x80 | fonct_bits`) and returned it from CLA, which caused `fonct_bits` (a raw bit value
+like `0x40` = `'@'`) to leak into `0x4580` and be echoed.
+
+**Phased fix plan:**
+
+**Phase A — Stop fonct_bits leaking into CLA** ✅ (fix the spurious characters)
+- `keyboard_read_cla()`: when no regular key is pending, always return plain `0x80`
+  regardless of `fonct_bits`, in both the `iff1=0` (ISR) and `iff1=1` (app) branches.
+- Remove the `is_stage1` / `0x80|fonct_bits` logic introduced in the previous fix attempt.
+- Result: SAMOS Stage 1 stores `0x00` into `0x4580` (since `0x80 & 0x7F = 0`).
+  No character echoed. Function keys visually inactive.
+
+**Phase B — Restore GETFON by direct write to 0x4580** ✅
+- After each `machine_run_frame()` in the main loop, write `m->kbd.fonct_bits` directly
+  to `m->bus[0x4580]`.  The SAMOS ISR clears `0x4580` at line `0x015E` every frame, but
+  our post-frame write overwrites it so GETFON syscall (called between ISR frames by
+  application code) sees the live bitmask.
+- Result: GETFON works correctly; no characters echoed.
+
+**Phase C — Update documentation** ✅
+- Update `keyboard_analysis.md` to document the corrected CLA behaviour and the
+  direct-write-to-0x4580 mechanism.
 
 ---
 

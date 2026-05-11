@@ -392,7 +392,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
          * The ISR path (iff1=1 branch below) is unaffected. */
         if (!m->kbd.samos_loaded)
             return 0x00u;  /* idle: FOUND=1, code=0x00 → kbd_waits exit immediately */
-        return 0x80u | m->kbd.fonct_bits;  /* no key; function bits in 0-6 (may be 0) */
+        return 0x80u;  /* no key; function key state delivered to SAMOS via 0x4580 directly */
     }
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
@@ -404,18 +404,18 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      * If we return 0x80|fonct_bits here, SAMOS Stage 2 would write fonct_bits as a
      * character (e.g. KILL=0x40 → '@') and arm the auto-repeat counter, causing
      * an unstoppable character stream.  Stage 2 must see plain 0x80 (no key). */
-    int is_stage1 = (m->kbd.cla_seen == 0);
+    /* Distinguish Stage 1 (cla_seen=0 before this read) from Stage 2 (cla_seen=1). */
     m->kbd.cla_seen = 1;   /* mark that a CLA read has occurred this ISR cycle */
     if (have_key) {
         m->kbd.found = 0;  /* consume the 'new event' latch — mirrors HW: CLA read clears FOUND */
         return m->kbd.key_code & 0x7Fu;   /* bit 7 = 0 → key present */
     }
     /* No regular key: bit 7 = 1.
-     * Stage 1: bits 0-6 carry function key bitmask so SAMOS stores it at 0x457E
-     *          for the GETFON syscall path.
-     * Stage 2: return plain 0x80 — SAMOS must not see fonct_bits here.
-     * Per §10.4 CLAVIER: "lorsque FOUND=0, la valeur lue correspond aux touches FONCTION". */
-    return is_stage1 ? (0x80u | m->kbd.fonct_bits) : 0x80u;
+     * Function key state is written directly to 0x4580 after each ISR frame
+     * (see main.c post-frame write), not encoded in CLA.  Encoding fonct_bits
+     * in CLA caused SAMOS Stage 1 to store them at 0x4580 which the CLI then
+     * echoed as printable characters — confirmed absent on real hardware. */
+    return 0x80u;
 }
 
 int keyboard_found(struct Smaky6 *m)
