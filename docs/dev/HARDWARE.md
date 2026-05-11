@@ -330,14 +330,20 @@ Lit pixel colour      : #00E700  (P31 green phosphor)
 Background colour     : #000800  (dark phosphor glow)
 Aspect-corrected view : 512 × 384 (1.6× vertical — accurate hardware AR)
 Emulator render size  : 512 × 480 (2× vertical — integer scaling for crisp display)
-Status bar            : +12 px below → total SDL window 512 × 492 (×2 = 1024 × 984)
+Disk-activity bar     : +14 px below → 512 × 494
+Function-key bar      : +14 px below → total SDL window 512 × 508 (×2 = 1024 × 1016)
 Note: the emulator uses 2× (480 lines) rather than the exact 1.6× (384 lines) to
 keep all integer scale factors clean. The smaky6_samos.py image export uses 1.6×.
 ```
 
----
-
-## 5. Keyboard Interface
+**Phosphor persistence simulation:** The emulator models P31 phosphor remanence
+with a per-frame exponential decay applied to `phosphor_buf[]` (a `float` array
+parallel to the pixel buffer).  Each frame, live pixels write `1.0f` into the
+buffer; dead pixels decay by `phosphor_decay` (default `0.70f`).  The decayed
+float is multiplied into the green channel before rendering, so pixels linger
+beyond the frame in which they were drawn — matching the slow fade of a real P31
+phosphor screen.  Configurable via `-phosphor-decay <0.0..0.99>` or disabled
+entirely with `-no-phosphor`.
 
 ### 5.1 Overview
 
@@ -363,14 +369,62 @@ Reading port 0x00 **clears** the FOUND flip-flop.
 | SHIFT+BREAK       | Boot from DX0: (captured before NMI in Phantom ROM)    |
 | FUNCTION+SHIFT+BREAK | Boot from DX1:                                    |
 | FUNCTION+BREAK    | Memory POST test                                       |
-| FUNCTION keys F1–F7 | 7-bit codes with bit 7 set (0x80–0x86 range)         |
-| KILL              | Abort peripheral transfer (mapped to function key)     |
-| TAB               | Inserts `DX1:` at command prompt                       |
+| FUNCTION keys F1–F7 | 7-bit bitmask returned by CLA when FOUND=0 (see §5.5) |
+| KILL              | Bit 6 of the function-key bitmask                      |
+| TAB               | Code `0x09`; SAMOS CLI inserts `DX1:` at prompt        |
+| MACRO             | Code `0x1E` (`«`); replays recorded keystroke sequence  |
+| DEFINE            | Code `0x1F` (`»`); starts keystroke recording           |
+| BACKSPACE         | Code `0x08`; erases previous character                 |
+| DELETE            | Code `0x7F` (▓ block glyph in chargen); deletes current |
 
 ### 5.4 Key layout
 
 The keyboard has **57 alphanumeric / punctuation keys** plus **7 function keys**
 in a **QWERTZ Swiss** layout.  Uppercase only on alphanumeric characters.
+
+### 5.5 Function key (FOUND=0) return value
+
+When no regular key is pressed (FOUND=0), the CLA port returns a **7-bit bitmask**
+— one bit per function key held simultaneously.  Bit 7 is always 1 in this case
+(matching the NOT-FOUND encoding).
+
+| Key     | Bit | Hex    |
+|---------|-----|--------|
+| CHANGE  | 0   | `0x01` |
+| SEARCH  | 1   | `0x02` |
+| SHOW    | 2   | `0x04` |
+| COPY    | 3   | `0x08` |
+| CURSOR  | 4   | `0x10` |
+| PROGRA  | 5   | `0x20` |
+| KILL    | 6   | `0x40` |
+
+**Important:** on real hardware, pressing a function key alone produces **no character**
+in the SAMOS CLI.  The bitmask is consumed by the `GETFON` / `?GETFON` syscalls only.
+In the emulator, `fonct_bits` is written directly to `m->bus[0x4580]` after each ISR
+frame (in `main.c`) so GETFON sees the live value, and CLA always returns plain `0x80`
+when no regular key is held (never encodes `fonct_bits` in the CLA return value).
+
+### 5.6 Swiss-French accent codes
+
+Codes `0x0F–0x1D` in the Smaky 6 chargen map to the 15 Swiss-French accented
+characters.  They are dual-use: the chargen ROM renders the glyph, and the SAMOS
+printer / serial drivers interpret them as formatting or accent modifiers.
+
+| Hex    | Char (lower/upper) | | Hex    | Char (lower/upper) |
+|--------|--------------------|-|--------|--------------------|
+| `0x0F` | ü / Ü             | | `0x18` | ô / Ô             |
+| `0x10` | à / À             | | `0x19` | ù / Ù             |
+| `0x11` | â / Â             | | `0x1A` | û / Û             |
+| `0x12` | é / É             | | `0x1B` | ä / Ä             |
+| `0x13` | è / È             | | `0x1C` | ö / Ö             |
+| `0x14` | ë / Ë             | | `0x1D` | ç / Ç             |
+| `0x15` | ê / Ê             | | | |
+| `0x16` | ï / Ï             | | | |
+| `0x17` | î / Î             | | | |
+
+The emulator receives accented characters as 2-byte UTF-8 via `SDL_TEXTINPUT` events.
+`keyboard_text_event()` decodes the UTF-8 codepoint and looks it up in `ACCENT_TABLE[]`
+(defined in `src/keyboard.c`) to obtain the Smaky chargen code.
 
 ---
 

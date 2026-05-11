@@ -245,7 +245,19 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 `keyboard_frame_tick()` is called **once per 50 Hz frame, BEFORE `machine_run_frame()`**.
 It drains **all** pending FIFO entries into the SAMOS circular buffer each frame (not one per frame),
 stopping only when the guard sentinel is hit (buffer region full) or the write pointer is out of range
-(SAMOS workspace not yet initialized):
+(SAMOS workspace not yet initialized).
+
+**SDL OS key-repeat suppression (`suppress_text_next`):**  SDL fires `SDL_KEYDOWN` with
+`ev->repeat != 0` for held keys at the OS key-repeat rate.  It also fires a
+`SDL_TEXTINPUT` event immediately after each such repeat `SDL_KEYDOWN` — but the
+`SDL_TEXTINPUT` event has **no repeat flag** of its own.  Without suppression this
+causes a duplicate character per OS-repeat cycle (one from the KEYDOWN path, one from
+the TEXTINPUT path).  The fix: a `suppress_text_next` flag in `MainLoopCtx` (main.c)
+is set whenever a `SDL_KEYDOWN` with `repeat != 0` is received; the very next
+`SDL_TEXTINPUT` event is then discarded, and the flag is cleared.  SAMOS Stage 4
+provides application-level auto-repeat from within the emulated hardware; OS-level
+repeat events are redundant and dropped entirely via the `ev->repeat` check in
+`keyboard_event()`.
 
 ```c
 void keyboard_frame_tick(struct Smaky6 *m)
@@ -378,7 +390,25 @@ case 0x01:
     break;
 ```
 
----
+### Function-key status bar (video.c / main.c)
+
+A 14 px strip at the bottom of the SDL window (`VIDEO_FKEY_Y = VIDEO_ASPECT_H + VIDEO_LED_H`)
+contains 7 clickable buttons: CHANGE, SEARCH, SHOW, COPY, CURSOR, PROGRA, KILL.  Button
+labels are drawn with the chargen font.  Active buttons (corresponding `fonct_bits` bit
+set) are rendered bright red; inactive buttons are dark red; the hovered button is
+highlighted regardless of state.
+
+Mouse event handling in `main.c`:
+
+- **`SDL_MOUSEBUTTONDOWN`** in the bar region: sets the corresponding bit in
+  `m->kbd.fonct_bits`.
+- **`SDL_MOUSEBUTTONUP`**: clears the bit **and** writes `m->bus[0x4558] = 0` to
+  disable SAMOS Stage 4 auto-repeat for the released function key (without this,
+  the repeat countdown left over from a prior regular key would re-fire the fkey
+  code on the next ISR frame).
+
+The bar is purely an input convenience overlay — the same bits are set by the
+dedicated host keyboard scancodes (`Right Ctrl`, `Left Alt`, etc.).
 
 ## SAMOS Circular Buffer Mechanics (confirmed by trace)
 
@@ -436,7 +466,7 @@ Autoboot stage3 keys are held for 5 frames so Stage 2 can see them (pre-OS boot 
 |---------|---------|
 | `0x457E` | Last key code from Stage 1 (used by syscall 0x0E) |
 | `0x4558` | Debounce / key-repeat countdown (0x23 = 35 frames) |
-| `0x4580` | Stage 2 key code staging register |
+| `0x4580` | **Function-key bitmask / Stage 2 staging** — written to `fonct_bits` value by `main.c` after each ISR frame so GETFON syscall sees the live bitmask; also used by Stage 2 as a key-code staging register (but Stage 2 is permanently blocked post-boot) |
 | `0x4581` | Secondary staging byte |
 | `0x4582` | Inter-frame key sentinel (0x80 = none pending) |
 | `0x457C` | Circular buffer **write** pointer (init: 0x4596) |
@@ -467,38 +497,77 @@ Codes confirmed from doc section 10.4, page 213 (octal):
 | PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F6`         |
 | KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F7`         |
 
-**Implemented** (git commits step1–step3): `uint8_t fonct_bits` added to `struct kbd`
-in `src/machine_internal.h`; `keyboard_event()` sets/clears the bit on SDL key-down/up;
-`keyboard_read_cla()` returns `fonct_bits` instead of `0x80` when no regular key is
-pending and `iff1=1` (OS running, interrupts enabled). Guard: only returns `fonct_bits`
-when `fonct_bits != 0`, so the no-key sentinel `0x80` is still returned when no
-function key is held.
+**Implemented:** `uint8_t fonct_bits` field added to `struct kbd` in
+`src/machine_internal.h`.  `keyboard_event()` sets the corresponding bit on
+`SDL_KEYDOWN` and clears it on `SDL_KEYUP` for the seven function-key scancodes.
+Mouse clicks on the function-key status bar (see [Emulator Implementation](#emulator-implementation-srckeyboardc-srcmachinec)) also set/clear bits.
+
+**Critical:** CLA **never** encodes `fonct_bits` (see §"Why CLA never carries
+fonct_bits" in the Emulator Implementation section).  After each
+`machine_run_frame()`, `main.c` writes:
+```c
+if (L->m->kbd.samos_loaded)
+    L->m->bus[0x4580u] = L->m->kbd.fonct_bits;
+```
+so the SAMOS `GETFON` / `?GETFON` syscalls — which read `(0x4580)` directly —
+always see the live bitmask between ISR frames.
 
 ### Category 2 — Special keys in the normal FIFO (codes confirmed from doc p.213)
 
-| Key      | Octal | Hex    | Chargen glyph | Suggested SDL scancode    |
+| Key      | Octal | Hex    | Chargen glyph | SDL scancode              |
 |----------|-------|--------|---------------|---------------------------|
+| TAB      | `011` | `0x09` | (tab)         | `SDL_SCANCODE_TAB`        |
 | MACRO    | `036` | `0x1E` | `«`           | `SDL_SCANCODE_F8`         |
 | DEF(INE) | `037` | `0x1F` | `»`           | `SDL_SCANCODE_F9`         |
 
 `REP / FNCT` (code `0` in the doc) is the hardware repeat/function modifier; it
 generates no independent code and can be ignored for now.
 
-**Implemented** (git step1): added to `KEY_TABLE[]` in `src/keyboard.c`:
-```c
-{ SDL_SCANCODE_F8,  0x1E },   /* MACRO  → «  */
-{ SDL_SCANCODE_F9,  0x1F },   /* DEFINE → »  */
-```
+**Tab note:** SAMOS uses code `0x09` at the CLI prompt to insert the string `DX1:`,
+expanding the tab as a drive prefix shortcut.  SDL fires `SDL_KEYDOWN` (not
+`SDL_TEXTINPUT`) for Tab, so it must be in `KEY_TABLE[]` rather than handled via
+`keyboard_text_event()`.
 
 ### Correction keys (doc p.215)
 
 | Oct | Hex    | Name | SDL scancode               | Note                        |
 |-----|--------|------|----------------------------|-----------------------------|
-| 010 | `0x08` | BS   | `SDL_SCANCODE_BACKSPACE`   | already in `KEY_TABLE[]`    |
-| 177 | `0x7F` | DEL  | `SDL_SCANCODE_DELETE`      | implemented (git step1)     |
+| 010 | `0x08` | BS   | `SDL_SCANCODE_BACKSPACE`   | in `KEY_TABLE[]`            |
+| 177 | `0x7F` | DEL  | `SDL_SCANCODE_DELETE`      | in `KEY_TABLE[]`            |
 
 Note: `0x7F` also renders as the solid-filled block glyph ▓ in the chargen ROM
 (confirmed by direct ROM inspection — see [Chargen glyph reference](#chargen-glyph-reference) below).
+
+### Swiss-French accented characters (Category 3)
+
+Codes `0x0F`–`0x1D` are the 15 Swiss-French accented characters.  These are delivered
+to the emulator via `SDL_TEXTINPUT` events as 2-byte UTF-8 sequences (the SDL event
+system converts all text to UTF-8 regardless of host locale).  `keyboard_text_event()`
+in `src/keyboard.c` handles both `SDL_TEXTINPUT` and `SDL_KEYDOWN` events:
+
+- **Single-byte (0x20–0x7E):** pushed to the FIFO directly as printable ASCII.
+- **Two-byte UTF-8 (`0xC2`–`0xDF` leading byte):** codepoint decoded, looked up in
+  `ACCENT_TABLE[]`; the Smaky chargen code is pushed to the FIFO if found.
+
+`ACCENT_TABLE[]` covers all 30 entries (15 lowercase + 15 uppercase):
+
+| UTF-8 codepoint | Smaky code | Char |
+|-----------------|------------|------|
+| U+00FC / U+00DC | `0x0F` | ü / Ü |
+| U+00E0 / U+00C0 | `0x10` | à / À |
+| U+00E2 / U+00C2 | `0x11` | â / Â |
+| U+00E9 / U+00C9 | `0x12` | é / É |
+| U+00E8 / U+00C8 | `0x13` | è / È |
+| U+00EB / U+00CB | `0x14` | ë / Ë |
+| U+00EA / U+00CA | `0x15` | ê / Ê |
+| U+00EF / U+00CF | `0x16` | ï / Ï |
+| U+00EE / U+00CE | `0x17` | î / Î |
+| U+00F4 / U+00D4 | `0x18` | ô / Ô |
+| U+00F9 / U+00D9 | `0x19` | ù / Ù |
+| U+00FB / U+00DB | `0x1A` | û / Û |
+| U+00E4 / U+00C4 | `0x1B` | ä / Ä |
+| U+00F6 / U+00D6 | `0x1C` | ö / Ö |
+| U+00E7 / U+00C7 | `0x1D` | ç / Ç |
 
 ---
 
