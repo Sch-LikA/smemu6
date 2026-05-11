@@ -388,5 +388,76 @@ void video_render(struct Smaky6 *m)
         }
     }
 
+    /* ── Function-key button bar ────────────────────────────────────────── */
+    {
+        static const struct { const char *label; uint8_t bit; } FKEYS[7] = {
+            { "CHANGE", 0x01 }, { "SEARCH", 0x02 }, { "SHOW",   0x04 },
+            { "COPY",   0x08 }, { "CURSOR", 0x10 }, { "PROGRA", 0x20 },
+            { "KILL",   0x40 },
+        };
+
+        /* Get logical mouse position for hover highlight */
+        float mx_f = -1, my_f = -1;
+        { int wx, wy; SDL_GetMouseState(&wx, &wy);
+          SDL_RenderWindowToLogical(ren, wx, wy, &mx_f, &my_f); }
+        int fmx = (int)mx_f, fmy = (int)my_f;
+
+        /* Bar background */
+        SDL_SetRenderDrawColor(ren, 38, 28, 28, 255);
+        SDL_Rect fbar = { 0, VIDEO_FKEY_Y, VIDEO_WIN_W, VIDEO_FKEY_H };
+        SDL_RenderFillRect(ren, &fbar);
+        /* Top separator */
+        SDL_SetRenderDrawColor(ren, 80, 50, 50, 255);
+        SDL_RenderDrawLine(ren, 0, VIDEO_FKEY_Y, VIDEO_WIN_W - 1, VIDEO_FKEY_Y);
+
+        for (int i = 0; i < 7; i++) {
+            int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
+            int by = VIDEO_FKEY_Y + 1;
+            int bw = VIDEO_FKEY_BTN_W;
+            int bh = VIDEO_FKEY_BTN_H;
+
+            int active = (m->kbd.fonct_bits & FKEYS[i].bit) != 0;
+            int hover  = (fmx >= bx && fmx < bx + bw && fmy >= by && fmy < by + bh);
+
+            /* Button fill */
+            if (active)
+                SDL_SetRenderDrawColor(ren, 200, 30,  30, 255);
+            else if (hover)
+                SDL_SetRenderDrawColor(ren, 100, 25,  25, 255);
+            else
+                SDL_SetRenderDrawColor(ren,  70, 15,  15, 255);
+            SDL_Rect btn = { bx, by, bw, bh };
+            SDL_RenderFillRect(ren, &btn);
+
+            /* Button border */
+            if (active)
+                SDL_SetRenderDrawColor(ren, 255, 80, 80, 255);
+            else
+                SDL_SetRenderDrawColor(ren, 130, 50, 50, 255);
+            SDL_RenderDrawRect(ren, &btn);
+
+            /* Label — horizontally centred, vertically centred */
+            int label_len = (int)strlen(FKEYS[i].label);
+            int tx = bx + (bw - label_len * 9) / 2;
+            int ty = by + (bh - 8) / 2;
+            if (active)
+                SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+            else if (hover)
+                SDL_SetRenderDrawColor(ren, 200, 130, 130, 255);
+            else
+                SDL_SetRenderDrawColor(ren, 160,  80,  80, 255);
+            for (int ci = 0; FKEYS[i].label[ci]; ci++) {
+                uint8_t gc = (uint8_t)FKEYS[i].label[ci];
+                for (int sl = 0; sl < 8; sl++) {
+                    uint8_t row_bits = m->vid.chargen[gc * 16 + sl];
+                    for (int b = 0; b < 8; b++) {
+                        if (row_bits & (1u << b))
+                            SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ty + sl);
+                    }
+                }
+            }
+        }
+    }
+
     SDL_RenderPresent(ren);
 }

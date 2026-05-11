@@ -277,6 +277,33 @@ static void main_loop_iter(void)
             keyboard_text_event(L->m, &ev.text);
             break;
 
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+            if (ev.button.button == SDL_BUTTON_LEFT) {
+                /* Convert window coords → logical renderer coords */
+                float lx_f, ly_f;
+                SDL_RenderWindowToLogical(L->ren, ev.button.x, ev.button.y,
+                                          &lx_f, &ly_f);
+                int lx = (int)lx_f, ly = (int)ly_f;
+                /* Hit-test each function-key button */
+                static const uint8_t FKEY_BITS[7] = {
+                    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40
+                };
+                for (int i = 0; i < 7; i++) {
+                    int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
+                    int by = VIDEO_FKEY_Y + 1;
+                    if (lx >= bx && lx < bx + VIDEO_FKEY_BTN_W &&
+                        ly >= by && ly < by + VIDEO_FKEY_BTN_H) {
+                        if (ev.type == SDL_MOUSEBUTTONDOWN)
+                            L->m->kbd.fonct_bits |=  FKEY_BITS[i];
+                        else
+                            L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
+                        break;
+                    }
+                }
+            }
+            break;
+
         default:
             break;
         }

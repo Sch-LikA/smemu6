@@ -60,9 +60,17 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_PX_W         512
 #define VIDEO_PX_H         240
 #define VIDEO_ASPECT_H     480                  /* native 120 lines × 4 = 480 output lines; each char row → 24 output lines */
-#define VIDEO_LED_H        14                  /* status-bar height: 1 floppy row */
+#define VIDEO_LED_H        14                  /* disk status-bar height */
+#define VIDEO_FKEY_H       14                  /* function-key button bar height */
 #define VIDEO_WIN_W        VIDEO_PX_W
-#define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H)
+#define VIDEO_WIN_H        (VIDEO_ASPECT_H + VIDEO_LED_H + VIDEO_FKEY_H)
+
+/* Function-key button bar geometry (logical pixels) */
+#define VIDEO_FKEY_Y       (VIDEO_ASPECT_H + VIDEO_LED_H)   /* y of fkey bar */
+#define VIDEO_FKEY_BTN_W   70   /* button width */
+#define VIDEO_FKEY_BTN_GAP  3   /* gap between buttons */
+#define VIDEO_FKEY_BTN_X0   2   /* left margin */
+#define VIDEO_FKEY_BTN_H   12   /* button height inside bar (1px top/bottom pad) */
 
 /* Phosphor colours (ARGB8888).  P31 green phosphor: lit = #00E700, bg = #000800. */
 #define VIDEO_COLOR_LIT    0xFF00E700u
