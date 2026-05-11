@@ -20,14 +20,20 @@
  * via SDL_TEXTINPUT (keyboard_text_event) so that the host OS applies the
  * correct shift / Caps Lock / dead-key state, giving lowercase by default.
  *
- * SDL_SCANCODE_ESCAPE omitted: 0x1B is the Smaky 6 ä display code, not ESC.
- * The BREAK key generates NMI (PAUSE / F11 in main.c).
+ * ESC → 0x1B: the SAMOS CLI reads 0x1B from the keyboard circular buffer
+ * to cancel/clear the current command line (or recall the previous command
+ * if the line is already empty).  On the physical machine this was done by
+ * the BREAK key, which put 0x1B in the keyboard latch.  0x1B also happens
+ * to be the chargen display index for ä, but that is the VIDEO namespace;
+ * the keyboard namespace is completely independent.
+ * The BREAK key also triggered NMI → use Pause / F11 for that path.
  */
 static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_RETURN,    0x0D },
     { SDL_SCANCODE_BACKSPACE, 0x08 },
     { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
+    { SDL_SCANCODE_ESCAPE,    0x1B },   /* ESC/BREAK → cancel CLI line (SAMOS reads 0x1B) */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
 };

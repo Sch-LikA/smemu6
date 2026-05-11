@@ -734,8 +734,7 @@ According to the official user manual (p.24, section "ROM Phantom — Possibilit
 |-----------------------------|---------------------------|--------------------------------------------------|
 | **SHIFT-BREAK**             | Shift+Pause / Shift+F11   | Hard reset → boot from **DX0:** (normal boot)   |
 | **FUNCTION-SHIFT-BREAK**    | (not yet mapped)          | Hard reset → boot from **DX1:**                 |
-| **BREAK**                   | Pause / F11               | NMI → Phantom ROM monitor / PDP-11 loader (USART 14) |
-| **FUNCTION-BREAK**          | (not yet mapped)          | Memory test (POST)                               |
+| **BREAK**                   | Pause / F11               | NMI → Phantom ROM monitor / PDP-11 loader (USART 14) || **BREAK** (SAMOS CLI)       | `Escape`                  | Push 0x1B to kbd buffer → cancel/clear CLI line || **FUNCTION-BREAK**          | (not yet mapped)          | Memory test (POST)                               |
 
 The `FUNCTION` key is the `REP/FNCT` modifier (hardware repeat/function key).
 At boot-time the Phantom ROM polls it alongside SHIFT and BREAK to determine the
@@ -748,3 +747,10 @@ character meanings (e.g., FNCT+key → accented characters on some keys).
 re-reads ROM, restarts the boot sequence from DX0:).  The FUNCTION-SHIFT-BREAK path
 (boot from DX1:) is not yet implemented — it would require injecting the FUNCTION bit
 into the CLA bitmask alongside SHIFT+BREAK so the Phantom ROM takes the DX1 path.
+
+The `Escape` key on the PC keyboard pushes `0x1B` into the keyboard FIFO (the
+SAMOS circular buffer path).  On the physical machine the BREAK key put 0x1B in
+the keyboard latch AND fired NMI.  In the emulator these are split: `Escape`
+provides the keyboard-byte half (CLI cancel), while `Pause` / `F11` provides the
+NMI half (monitor entry).  Note that 0x1B as chargen display index (ä) is a
+completely separate namespace from 0x1B as a keyboard byte.
