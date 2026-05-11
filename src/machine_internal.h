@@ -58,12 +58,6 @@ struct Smaky6 {
                                   * branch serves the FIFO for Phantom ROM kbd_wait.
                                   * Once 1: iff1=0 means ISR context — FIFO must NOT be
                                   * served from CLA; it drains only via keyboard_frame_tick. */
-        /* Emulator-side command history for ESC recall.
-         * Captured in keyboard_event() when the Return key is pressed while the
-         * line buffer (0x45C0) has typed text.  Re-injected character-by-character
-         * into the FIFO when ESC is pressed on an empty CLI prompt. */
-        uint8_t prev_cmd[128];   /* last completed command line */
-        int     prev_cmd_len;    /* number of bytes in prev_cmd (0 = no history) */
     } kbd;
 
     /* Video */

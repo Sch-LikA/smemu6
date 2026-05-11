@@ -301,29 +301,41 @@ Note on `0x1B` dual use: when written to the display it renders the ä glyph (Pr
 sequence prefix.  This is why `SDL_SCANCODE_ESCAPE` must **not** be mapped to `0x1B`
 — the UNDO/ESC key (top-left) uses codes `0x04` and `0x05` per the CLI line editor.
 
-**ESC / UNDO key smart dual-behaviour** ✅ Done
+**ESC / UNDO key smart dual-behaviour** ✅ Partial
 
 The SAMOS CLI at `0x577E` uses two separate codes for cancel/recall:
 - `0x04` (EOT `<`) — cancel/clear the current command line
-- `0x05` (ENQ `>`) — recall the previous command (SAMOS native; see below)
+- `0x05` (ENQ `>`) — recall the previous command
 
 Per the SAMOS manual: "BREAK (ESC) = cancels current line; if empty, recalls last command."
 Mapped to `SDL_SCANCODE_ESCAPE` (host Escape key).
 
-**Implementation notes:**
+`keyboard_event()` checks `machine_cli_prompt_visible()` (scans video RAM for the
+`* -` prompt pattern) to decide: non-empty line → `0x04`, empty prompt → `0x05`.
+
 - Cancel (non-empty line → `0x04`): SAMOS handles this natively. ✅
-- Recall (empty line): SAMOS's built-in `0x05` recall does NOT work because
-  the SAMOS line editor reuses the line buffer `0x45C0` for cursor display,
-  overwriting the previous command before `0x05` can read it.  Additionally,
-  the SAMOS ISR auto-repeat mechanism would re-inject `\r` (Enter) indefinitely
-  after an injected Enter, causing a spurious empty-command loop.
-  **Both issues are fixed in the emulator:**
-  1. Enter (`0x0D`) is excluded from the SAMOS auto-repeat arming in
-     `keyboard_frame_tick()` — prevents the stray-Enter loop.
-  2. `keyboard_event()` captures the typed text from `m->bus[0x45C0]` (up to
-     `(0x7014)`−1) when the Return key is pressed, storing it in `kbd.prev_cmd`.
-  3. ESC on an empty CLI prompt re-injects `kbd.prev_cmd` char-by-char into the
-     FIFO instead of sending `0x05`, bypassing the broken SAMOS recall entirely.
+- Recall (empty line → `0x05`): currently broken. SAMOS native `0x05` recall does
+  not work because the line editor overwrites `0x45C0[0]` with the cursor `'-'`
+  when initialising a new input session, erasing the previous command before the
+  recall handler can read it. ❌
+
+**Emulator-side auto-repeat fixes** ✅ Done (commit `0ec70d7`):
+1. Enter (`0x0D`) never arms SAMOS ISR Stage 4 auto-repeat (`0x4558`/`0x4577`),
+   preventing a spurious stray-Enter loop at the next prompt.
+2. Physical keystrokes have bit 7 set in the FIFO entry; injected characters
+   (inject-str, etc.) do not.  Auto-repeat is only armed for physical keys.
+
+**TODO — emulator-side recall (not yet implemented):**
+Replace the broken `0x05` path with an emulator-side snapshot+replay approach:
+1. Add `uint8_t prev_cmd[128]; int prev_cmd_len;` to `struct kbd` in
+   `machine_internal.h`.
+2. In `keyboard_event()`, when Return (`0x0D`) is pressed on a non-empty line,
+   snapshot `m->bus[0x45C0 .. (0x7014)−1]` into `kbd.prev_cmd`.  This runs
+   before the Enter is delivered to the FIFO so the buffer is still intact.
+3. When ESC is pressed on an empty CLI prompt (instead of sending `0x05`),
+   push each `kbd.prev_cmd[i]` byte into the FIFO **without** bit 7 (so no
+   auto-repeat is armed).  SAMOS echoes the characters and leaves the cursor at
+   the end of the recalled line, ready for editing.
 
 **Chargen glyph block `0x0F–0x1F`** — the keyboard EPROM (Prom 2716) maps this range
 to Swiss-French glyphs instead of the standard ASCII C0 control codes.  The full
