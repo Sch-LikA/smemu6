@@ -2,6 +2,7 @@
 // Copyright (C) 2024-2026 Marcel Prisi
 /* keyboard.c – Smaky 6 keyboard controller (SDL2 → Smaky key codes) */
 #include "machine_internal.h"
+#include "machine.h"
 #include "keyboard.h"
 #include <string.h>
 
@@ -216,7 +217,9 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
      * We implement this by examining the SAMOS line-buffer-length byte at
      * 0x454B: if 0 (empty) send 0x05 (recall); if non-zero send 0x04 (cancel). */
     if (scan == SDL_SCANCODE_ESCAPE) {
-        uint8_t code = m->bus[0x454Bu] ? 0x04u : 0x05u;
+        /* Send 0x05 (recall) when at an empty CLI prompt (video row starts
+         * "* -"), or 0x04 (cancel) when the line contains typed text. */
+        uint8_t code = machine_cli_prompt_visible(m) ? 0x05u : 0x04u;
         int next = (m->kbd.fifo_tail + 1) & 63;
         if (next != m->kbd.fifo_head) {
             m->kbd.fifo[m->kbd.fifo_tail] = code;
