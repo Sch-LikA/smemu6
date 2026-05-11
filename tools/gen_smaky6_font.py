@@ -4,6 +4,8 @@ tools/gen_smaky6_font.py — Smaky 6 Linux console font generator
 
 Produces tools/Smaky6-8x16.psf: an 8×16 PSF2 font for Linux virtual console
 and most terminal emulators (e.g. xterm -fn, konsole, st).
+Optionally also produces tools/Smaky6-8x16.bdf and tools/Smaky6-8x16.pcf
+for use with X11 (xterm, rxvt, etc.) and any font-manager that reads PCF.
 
 Sources
 -------
@@ -37,8 +39,10 @@ Unicode mapping — Smaky chargen index → primary Unicode codepoint
 Usage
 -----
   cd /path/to/smemu6
-  python3 tools/gen_smaky6_font.py              # generate tools/Smaky6-8x16.psf
-  python3 tools/gen_smaky6_font.py --preview    # ASCII-art preview of chargen glyphs
+  python3 tools/gen_smaky6_font.py              # generate PSF2 (console)
+  python3 tools/gen_smaky6_font.py --pcf         # generate PSF2 + BDF + PCF (X11)
+  python3 tools/gen_smaky6_font.py --bdf         # generate PSF2 + BDF only
+  python3 tools/gen_smaky6_font.py --preview     # ASCII-art preview of chargen glyphs
   python3 tools/gen_smaky6_font.py --output /tmp/test.psf
 
   # Activate in current Linux virtual console (requires root or CAP_SYS_TTY_CONFIG):
@@ -47,9 +51,12 @@ Usage
   # Restore default font:
   sudo setfont
 
-  # Test in a tmux pane or xterm without touching the system font:
-  xterm -fn "-misc-fixed-medium-r-normal--16-*-*-*-*-*-iso8859-1" &
-  # (or just open a terminal and: setfont Smaky6-8x16.psf)
+  # Install PCF for X11 (once) and use in xterm:
+  cp tools/Smaky6-8x16.pcf ~/.fonts/
+  fc-cache -f ~/.fonts/
+  xterm -fa Smaky6 -fs 16 &
+  # or with the legacy bitmap font name:
+  xterm -fn "-misc-smaky6-medium-r-normal--16-120-100-100-c-80-iso10646-1"
 """
 
 import argparse
@@ -64,7 +71,13 @@ from pathlib import Path
 ROOT         = Path(__file__).resolve().parent.parent
 CHARGEN_H    = ROOT / "src" / "chargen_rom.h"
 TERMINUS_GZ  = Path("/usr/share/consolefonts/Uni2-Terminus16.psf.gz")
-DEFAULT_OUT  = ROOT / "tools" / "Smaky6-8x16.psf"
+DEFAULT_OUT     = ROOT / "tools" / "Smaky6-8x16.psf"
+DEFAULT_OUT_BDF = ROOT / "tools" / "Smaky6-8x16.bdf"
+DEFAULT_OUT_PCF = ROOT / "tools" / "Smaky6-8x16.pcf"
+
+# BDF baseline metrics (8×16 cell, baseline after 12 rows of ascent)
+BDF_ASCENT   = 12   # rows above baseline (rows 0–11)
+BDF_DESCENT  = 4    # rows below baseline (rows 12–15)
 
 # ---------------------------------------------------------------------------
 # Font geometry
@@ -224,6 +237,64 @@ def write_psf2(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
     print(f"[gen_smaky6_font] Wrote {n} glyphs to {path}")
 
 
+def write_bdf(path: Path, entries: list[tuple[bytes, list[int]]]) -> None:
+    """
+    Write an X11 BDF (Bitmap Distribution Format) font file.
+
+    Font name follows XLFD convention:
+      -misc-smaky6-medium-r-normal--16-120-100-100-c-80-iso10646-1
+
+    Baseline: ascent=BDF_ASCENT rows above baseline, descent=BDF_DESCENT below.
+    BBX origin yoff = -BDF_DESCENT so glyph rows map to y = CELL_H-1..0
+    with y=0 at baseline.
+    """
+    lines: list[str] = []
+    xlfd = (
+        "-misc-smaky6-medium-r-normal"
+        f"--{CELL_H}-{CELL_H * 10}-100-100-c-{CELL_W * 10}-iso10646-1"
+    )
+    lines += [
+        "STARTFONT 2.1",
+        f"FONT {xlfd}",
+        f"SIZE {CELL_H} 100 100",
+        f"FONTBOUNDINGBOX {CELL_W} {CELL_H} 0 -{BDF_DESCENT}",
+        "STARTPROPERTIES 11",
+        f"FONT_ASCENT {BDF_ASCENT}",
+        f"FONT_DESCENT {BDF_DESCENT}",
+        f"DEFAULT_CHAR 32",
+        f"POINT_SIZE {CELL_H * 10}",
+        "RESOLUTION_X 100",
+        "RESOLUTION_Y 100",
+        f"AVERAGE_WIDTH {CELL_W * 10}",
+        "CHARSET_REGISTRY \"ISO10646\"",
+        "CHARSET_ENCODING \"1\"",
+        f"FAMILY_NAME \"Smaky6\"",
+        "WEIGHT_NAME \"Medium\"",
+        "ENDPROPERTIES",
+        f"CHARS {len(entries)}",
+    ]
+
+    for bitmap, cps in entries:
+        cp = cps[0]
+        char_name = f"U{cp:04X}"
+        # BDF BITMAP rows: one hex byte per row (8 px wide), MSB=leftmost
+        hex_rows = [f"{b:02X}" for b in bitmap]
+        lines += [
+            f"STARTCHAR {char_name}",
+            f"ENCODING {cp}",
+            f"SWIDTH 500 0",
+            f"DWIDTH {CELL_W} 0",
+            f"BBX {CELL_W} {CELL_H} 0 -{BDF_DESCENT}",
+            "BITMAP",
+            *hex_rows,
+            "ENDCHAR",
+        ]
+
+    lines.append("ENDFONT")
+    path.write_text("\n".join(lines) + "\n", encoding="latin-1")
+    print(f"[gen_smaky6_font] Wrote {len(entries)} glyphs to {path}")
+
+
 def glyph_preview(bitmap: bytes, label: str = "") -> str:
     """Return a multi-line ASCII-art string visualising an 8×16 glyph."""
     lines = [f"  {label}"]
@@ -258,7 +329,31 @@ def main() -> None:
         metavar="PATH",
         help=f"Output PSF2 path (default: {DEFAULT_OUT})",
     )
+    ap.add_argument(
+        "--bdf",
+        action="store_true",
+        help="Also write a BDF file alongside the PSF (for X11 / PCF conversion)",
+    )
+    ap.add_argument(
+        "--pcf",
+        action="store_true",
+        help="Also write BDF and compile it to PCF with bdftopcf (requires bdftopcf)",
+    )
+    ap.add_argument(
+        "--bdf-output",
+        default=str(DEFAULT_OUT_BDF),
+        metavar="PATH",
+        help=f"BDF output path (default: {DEFAULT_OUT_BDF})",
+    )
+    ap.add_argument(
+        "--pcf-output",
+        default=str(DEFAULT_OUT_PCF),
+        metavar="PATH",
+        help=f"PCF output path (default: {DEFAULT_OUT_PCF})",
+    )
     args = ap.parse_args()
+    if args.pcf:
+        args.bdf = True  # PCF requires BDF as intermediate
 
     # ── 1. Load Smaky chargen ──────────────────────────────────────────────
     smaky = parse_chargen_h(CHARGEN_H)
@@ -356,14 +451,49 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     write_psf2(out, entries)
 
-    # ── 6. Usage hint ──────────────────────────────────────────────────────
+    # ── 6. Optional BDF output ─────────────────────────────────────────────
+    bdf_path = Path(args.bdf_output)
+    pcf_path = Path(args.pcf_output)
+    if args.bdf:
+        bdf_path.parent.mkdir(parents=True, exist_ok=True)
+        write_bdf(bdf_path, entries)
+
+    # ── 7. Optional PCF compilation ───────────────────────────────────────
+    if args.pcf:
+        import shutil, subprocess
+        if not shutil.which("bdftopcf"):
+            print(
+                "[gen_smaky6_font] WARNING: bdftopcf not found — skipping PCF.\n"
+                "  Install with: sudo apt-get install xfonts-utils"
+            )
+        else:
+            result = subprocess.run(
+                ["bdftopcf", "-t", "-o", str(pcf_path), str(bdf_path)],
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0:
+                print(f"[gen_smaky6_font] Compiled PCF to {pcf_path}")
+            else:
+                print(
+                    f"[gen_smaky6_font] ERROR: bdftopcf failed:\n{result.stderr}"
+                )
+
+    # ── 8. Usage hint ──────────────────────────────────────────────────────────
     print()
     print("To activate in the current virtual console:")
     print(f"  sudo setfont {out}")
     print("To restore default font:")
     print("  sudo setfont")
-    print("To use in xterm:")
-    print(f"  xterm -fa '' -font none &  # then inside: setfont {out}")
+    if args.pcf:
+        print()
+        print("To install the PCF for X11:")
+        print(f"  cp {pcf_path} ~/.fonts/")
+        print("  fc-cache -f ~/.fonts/")
+        print("  xterm -fn '-misc-smaky6-medium-r-normal--16-120-100-100-c-80-iso10646-1'")
+    elif args.bdf:
+        print()
+        print(f"BDF written to {bdf_path}")
+        print(f"  Compile to PCF: bdftopcf -t -o {pcf_path} {bdf_path}")
 
 
 if __name__ == "__main__":
