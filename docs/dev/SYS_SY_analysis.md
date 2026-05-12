@@ -254,8 +254,12 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > Port 0x00 writes are unrelated to keyboard; they are video-mode control only.
 >
 > **Post-OS keyboard path:** After SAMOS loads, the ISR Stage 2 path that writes
-> to the circular buffer is **permanently blocked** by `(0x4582) == 0x80` (set at OS
-> init and never changed).  Physical keypresses therefore bypass the ISR entirely:
+> to the circular buffer was previously documented as **permanently blocked** by
+> `(0x4582) == 0x80`.  A direct binary audit of `SYS.SY` on 2026-05-13 showed the
+> init sentinel write at `0x00A1` is actually `LD (0x458A),A` with `A=0x80`, while
+> the ISR keyboard path reads `0x4582` at `0x0175`.  The old `0x4582=0x80` claim is
+> therefore unsupported and withdrawn pending re-audit.  The emulator still routes
+> physical keypresses via its FIFO→circular-buffer path:
 > `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` drains the
 > entire FIFO each frame into the circular buffer at the current write pointer
 > (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.
@@ -508,7 +512,7 @@ with interrupts still **disabled** (DI from the 12-byte handoff stub).
 
 ; ── Sentinel installation ──────────────────────────────────────────
 009F  LD A,0x80
-00A1  LD (0x458A),A     ; ISR control byte = 0x80 (blocks Stage-2 circ-buf write)
+00A1  LD (0x458A),A     ; circular-buffer slot sentinel = 0x80
 00A4  LD (0x4595),A     ; circular-buf guard sentinel
 00A7  LD (0x45B6),A     ; end-of-circ-buf guard sentinel
 00AA  LD (0x45FF),A     ; workspace tail guard

@@ -189,7 +189,7 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 2. **Stage 1** (CLA read #1 at `0x0160`): `keyboard_read_cla()` returns `key_code` if `found=1`, else `0x80 | fonct_bits`.
    - If bit7=0 (regular key): SAMOS stores it to `0x457E` (syscall 0x0E) and returns early — circular buffer NOT touched.
    - If bit7=1: `AND 0x7F` strips bit7 and stores `fonct_bits` to `0x4580` (GETFON register). Falls into Stage 2.
-3. **Stage 2** (no-key path, 0x016E): reads sentinel `(0x4582)`.  While SAMOS is running this is permanently `0x80` → `RET Z` always.  CLA Read #2 at `0x0183` is never reached.
+3. **Stage 2** (no-key path, 0x016E): reads `0x4582` at `0x0175` and returns early only if that byte equals `0x80`.  Direct binary audit of `SYS.SY` on 2026-05-13 confirmed the init sentinel write is to `0x458A` at `0x00A1`, not to `0x4582`, so the old "Stage 2 is permanently blocked" claim is not supported by the binary.
 
 **Physical keys reach the CLI via `keyboard_frame_tick()`**, which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.  Syscall 0x0D (blocking CLI read) drains from there.
 
@@ -197,12 +197,12 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 
 ## Emulator Implementation (`src/keyboard.c`, `src/machine.c`)
 
-> **Important architectural note:** ISR Stage 2 is **permanently blocked** after boot.
-> At `0x0174–0x0178`, the code does `LD A,(0x4582); CP 0x80; RET Z`.  After the OS
-> loads, `(0x4582)` is set to `0x80` (the sentinel) and never changed, so Stage 2
-> always returns early.  This means **no physical keypress can reach the circular
-> buffer via the hardware ISR path** while SAMOS is running.  The emulator works
-> around this by writing directly to the circular buffer from the main loop.
+> **Important audit correction (2026-05-13):** the ISR still does `LD A,(0x4582);
+> CP 0x80; RET Z` at `0x0174–0x0178`, but a direct `SYS.SY` binary audit showed
+> the init code writes `0x80` to `0x458A` at `0x00A1`, not to `0x4582`.  The old
+> `0x4582=0x80` permanent-block explanation is therefore unsupported.  The current
+> emulator still uses the FIFO→circular-buffer path for physical keys, but that
+> design should no longer be justified by the withdrawn `0x4582=0x80` claim.
 
 ### Three delivery paths
 
@@ -409,7 +409,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
 ```
 
 **Why returning `0x80 | fonct_bits` is correct:**  
-SAMOS Stage 1 at `0x015E–0x016D` does: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A; BIT 7,A; JR NZ,0x016E`.  When CLA returns `0x80 | fonct_bits`, the `AND 0x7F` strips bit 7 and stores exactly `fonct_bits` to `0x4580` — the GETFON register.  Stage 2 (CLA Read #2 at 0x0183) is permanently blocked by sentinel `0x4582=0x80` so fonct_bits is never written to the circular buffer as a character.
+SAMOS Stage 1 at `0x015E–0x016D` does: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A; BIT 7,A; JR NZ,0x016E`.  When CLA returns `0x80 | fonct_bits`, the `AND 0x7F` strips bit 7 and stores exactly `fonct_bits` to `0x4580` — the GETFON register.  The old claim that Stage 2 (CLA Read #2 at 0x0183) is permanently blocked by `0x4582=0x80` has been withdrawn after direct binary audit showed the init sentinel write is to `0x458A`, not `0x4582`.
 
 ### ISR ACK (machine.c port 0x01 write, data≠0)
 

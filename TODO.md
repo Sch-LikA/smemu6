@@ -187,8 +187,10 @@ The two RAM locations controlling it:
 | `0x4577` | `042567` | Repeat key code register. Stores the last key written to the circular buffer; re-injected each time the countdown fires. |
 
 **Current status:** Physical keyboard uses a FIFO→circular-buffer path that bypasses
-the SAMOS ISR entirely (because ISR Stage 2 is permanently blocked by the `0x4582=0x80`
-sentinel once SAMOS is running).  SDL key-repeat events are filtered out
+the SAMOS ISR entirely.  The old explanation for this design, namely that ISR Stage 2
+was permanently blocked by a `0x4582=0x80` sentinel, was withdrawn on 2026-05-13 after
+direct `SYS.SY` binary audit showed the init sentinel write is to `0x458A`, while Stage 2
+reads `0x4582`.  SDL key-repeat events are filtered out
 (`if (ev->repeat) return`), so **holding a key produces exactly one character**.
 
 **To implement:** In `keyboard_frame_tick()`, after draining one key from the FIFO into
@@ -767,13 +769,14 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 **Root cause (confirmed from schematic doc 10.4):**
 When FOUND=0, CLA hardware returns `0x80 | fonct_bits`.
 SAMOS ISR Stage 1 stores `CLA & 0x7F = fonct_bits` to `0x4580` (GETFON register).
-Stage 2 CLA Read #2 would echo `fonct_bits` as a character — but Stage 2 is permanently
-blocked by sentinel `0x4582=0x80`.
+Stage 2 CLA Read #2 would echo `fonct_bits` as a character — but the old claim that this
+path is permanently blocked by `0x4582=0x80` has been withdrawn pending re-audit.
 
 **Fix — unified hardware-accurate CLA model** ✅ (see refactor item above)
 - `keyboard_read_cla()` always returns `0x80 | fonct_bits` when no regular key is held.
 - Stage 1 stores `fonct_bits` to `0x4580` automatically via `AND 0x7F; LD (0x4580),A`.
-- Stage 2 CLA Read #2 is never reached (sentinel blocks it) — no character echoed.
+- Whether Stage 2 CLA Read #2 is reached post-boot is under re-audit; the old
+  `0x4582=0x80` permanent-block explanation is no longer trusted.
 - No `cla_seen` or `is_stage1` flag needed.
 
 ---

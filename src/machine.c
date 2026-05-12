@@ -542,9 +542,12 @@ void machine_inject_to_circ_buf(struct Smaky6 *m, uint8_t code)
      * The write pointer (0x457C, 16-bit LE) grows upward from 0x4596.
      * The guard sentinel 0x80 at 0x45B6 prevents overflow.
      * Bit 7 is cleared (7-bit key space, matching CLA hardware convention).
-     * This bypasses the ISR Stage 2 pipeline entirely, which is needed
-     * for CLI injection because Stage 2 requires (0x4582) != 0x80 — a
-     * register that is 0x80 ("no pending key") after a normal boot. */
+    * This bypasses the SAMOS ISR keyboard pipeline entirely.  Direct SYS.SY
+    * binary audit (2026-05-13) showed that the old documentation conflated
+    * 0x4582 (read by ISR Stage 2 at 0x0175) with 0x458A (written to 0x80 at
+    * init at 0x00A1).  The precise post-boot hardware ISR delivery path is
+    * therefore being re-audited; this helper remains the emulator's explicit
+    * direct circular-buffer injection path for CLI input. */
     uint16_t wr = (uint16_t)m->bus[0x457Cu]
                 | ((uint16_t)m->bus[0x457Du] << 8);
     if (m->bus[wr] == 0x80u)

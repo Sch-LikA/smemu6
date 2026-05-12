@@ -474,8 +474,10 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      *   Falls through when bit7=0 → stores key to 0x457E (syscall 0x0E).
      *   Jumps to 0x016E when bit7=1 → Stage 2: AND 0x7F; LD (0x4580),A
      *   stores fonct_bits to the GETFON register automatically.
-     * Stage 2 CLA Read #2 (0x0183) is permanently blocked by sentinel
-     * 0x4582=0x80 — fonct_bits never echoes as a character. */
+     * Direct SYS.SY binary audit (2026-05-13) confirmed that Stage 2 reads
+     * 0x4582 at 0x0175, but the init sentinel write is to 0x458A at 0x00A1,
+     * not to 0x4582.  The old "Stage 2 is permanently blocked by 0x4582=0x80"
+     * model is therefore unproven and needs re-audit before relying on it. */
     return 0x80u | m->kbd.fonct_bits;
 }
 
