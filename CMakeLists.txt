@@ -181,6 +181,10 @@ if(NOT EMSCRIPTEN)
         install(DIRECTORY ${CMAKE_SOURCE_DIR}/roms/
                 DESTINATION smemu6.app/Contents/Resources/roms
                 COMPONENT smemu6)
+        install(DIRECTORY ${CMAKE_SOURCE_DIR}/floppies/
+                DESTINATION smemu6.app/Contents/Resources/floppies
+                COMPONENT smemu6
+                FILES_MATCHING PATTERN "*.dsk" PATTERN "*.DSK")
     else()
         install(TARGETS smemu6 DESTINATION ${CMAKE_INSTALL_BINDIR}
                 COMPONENT smemu6)
