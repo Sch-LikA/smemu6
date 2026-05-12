@@ -74,6 +74,7 @@
  *   the motor envelope decays naturally over 500 ms.
  */
 #include "sound.h"
+#include "machine.h"
 #include "machine_internal.h"
 
 #include <SDL2/SDL.h>
@@ -82,8 +83,8 @@
 #include <stdio.h>
 
 #define AUDIO_SAMPLE_RATE   44100
-#define TSTATES_PER_FRAME   50000
-#define SAMPLES_PER_FRAME   (AUDIO_SAMPLE_RATE / 50)   /* 882 */
+#define TSTATES_PER_FRAME   SMAKY6_TSTATES_PER_FRAME
+#define SAMPLES_PER_FRAME   (AUDIO_SAMPLE_RATE / SMAKY6_FRAME_HZ)   /* 882 */
 #define AUDIO_AMPLITUDE     10000   /* +-10000 out of +-32767 -- comfortable volume */
 
 /* Maximum queued audio bytes before we start skipping frames to avoid

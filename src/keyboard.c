@@ -2,6 +2,7 @@
 // Copyright (C) 2024-2026 Marcel Prisi
 /* keyboard.c – Smaky 6 keyboard controller (SDL2 → Smaky key codes) */
 #include "machine_internal.h"
+#include "machine.h"
 #include "keyboard.h"
 #include <string.h>
 
@@ -444,7 +445,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
          * promotes it to found=1 once enough cycles have elapsed. */
         if (m->kbd.physically_held) {
             m->kbd.reassert_pending = 1;
-            m->kbd.reassert_cycles  = 500u;
+            m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
         }
         return m->kbd.key_code & 0x7Fu;   /* bit7=0: regular key */
     }

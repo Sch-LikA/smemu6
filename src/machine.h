@@ -6,6 +6,16 @@
 
 #include <stdint.h>
 
+/* Hardware timing constants */
+#define SMAKY6_CPU_HZ            2500000u  /* Z80 clock: 2.5 MHz */
+#define SMAKY6_FRAME_HZ          50u       /* display / ISR rate */
+#define SMAKY6_TSTATES_PER_FRAME (SMAKY6_CPU_HZ / SMAKY6_FRAME_HZ)  /* 50 000 */
+/* Keyboard scanner reassert bound: one full 8×8 scan at 300 kHz ≈ 200 µs */
+#define SMAKY6_SCAN_REASSERT_US  200u
+/* T-states for one scan reassert window at the nominal CPU clock */
+#define SMAKY6_SCAN_REASSERT_TSTATES \
+    ((SMAKY6_CPU_HZ / 1000000u) * SMAKY6_SCAN_REASSERT_US)  /* = 500 */
+
 /* Forward declarations */
 struct Smaky6;
 
