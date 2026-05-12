@@ -467,6 +467,15 @@ void machine_reset(struct Smaky6 *m)
     z80_instant_reset(&m->cpu);
     m->irq_pending      = 0;
     m->fdc.nmi_armed    = 0;
+    /* Re-arm the power-on FOUND=1 / Enter latch so the Phantom ROM boot menu
+     * exits immediately to DX0 boot, same as cold power-on.
+     * Also clear samos_loaded so the iff1=0 branch in keyboard_read_cla()
+     * serves the FIFO again during the Phantom ROM kbd_wait loop. */
+    m->kbd.found        = 1;
+    m->kbd.key_code     = 0x00;  /* Enter → boot from DX0 */
+    m->kbd.samos_loaded = 0;
+    m->kbd.fifo_head    = 0;
+    m->kbd.fifo_tail    = 0;
 }
 
 void machine_inject_key(struct Smaky6 *m, uint8_t code)
