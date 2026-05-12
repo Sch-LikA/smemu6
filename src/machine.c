@@ -446,9 +446,33 @@ void machine_run_frame(struct Smaky6 *m)
             cycles += ran;
             keyboard_tick_cycles(m, (uint32_t)ran);
         }
-        sound_end_frame(m);  /* flush per-frame buzzer buffer to audio queue */
+        sound_end_frame(m);
         rtc_tick_frame(&m->rtc);
         floppy_tick(m);
+
+        /* Drift check (debug builds only): once per second verify that the
+         * accumulated executed cycles match the expected frame budget within
+         * 1% tolerance.  Fires every SMAKY6_FRAME_HZ frames (= 1 s). */
+#ifndef NDEBUG
+        m->dbg.drift_cycles_accum += (uint64_t)cycles;
+        m->dbg.drift_frames++;
+        if (m->dbg.drift_frames >= (int)SMAKY6_FRAME_HZ) {
+            const uint64_t expected = (uint64_t)SMAKY6_TSTATES_PER_FRAME
+                                      * (uint64_t)SMAKY6_FRAME_HZ;
+            const uint64_t got  = m->dbg.drift_cycles_accum;
+            const uint64_t diff = (got > expected) ? (got - expected)
+                                                   : (expected - got);
+            if (diff > expected / 100u)
+                fprintf(stderr,
+                        "[drift] 1-s budget: expected %llu, got %llu"
+                        " (drift %+lld)\n",
+                        (unsigned long long)expected,
+                        (unsigned long long)got,
+                        (long long)((int64_t)got - (int64_t)expected));
+            m->dbg.drift_cycles_accum = 0;
+            m->dbg.drift_frames       = 0;
+        }
+#endif
     } else {
         /* Single-step: execute one instruction */
         z80_execute(&m->cpu, 1);

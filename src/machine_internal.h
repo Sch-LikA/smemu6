@@ -153,6 +153,10 @@ struct Smaky6 {
         uint32_t io19_repeat_count; /* suppressed repeated 0x19 writes */
         uint16_t frame_start_pc; /* PC at start of frame for stall detection */
         int stall_frames; /* consecutive frames with no PC progress */
+        /* Drift check: accumulate executed cycles; every SMAKY6_FRAME_HZ frames
+         * (= 1 second) verify total is within 1% of expected. */
+        uint64_t drift_cycles_accum; /* running sum of executed cycles */
+        int      drift_frames;       /* frame counter within current 1-s window */
     } dbg;
 
     /* Port 0x08: E405/08 RTC serial interface (extension board) */

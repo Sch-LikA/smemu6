@@ -28,6 +28,14 @@
 #define SMAKY6_AUDIO_HZ            44100u
 #define SMAKY6_SAMPLES_PER_FRAME   SMAKY_DIV_ROUND_NEAREST(SMAKY6_AUDIO_HZ, SMAKY6_FRAME_HZ)  /* 882 */
 
+/* Compile-time sanity checks */
+#if ((SMAKY6_CPU_HZ) % (SMAKY6_FRAME_HZ)) != 0
+#warning "SMAKY6_CPU_HZ is not an integer multiple of SMAKY6_FRAME_HZ; TSTATES_PER_FRAME truncates."
+#endif
+#if ((SMAKY6_CPU_HZ) / 1000000u) == 0
+#error "SMAKY6_CPU_HZ is too low for microsecond-based conversions."
+#endif
+
 /* Forward declarations */
 struct Smaky6;
 
