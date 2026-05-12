@@ -67,8 +67,6 @@ void machine_inject_shift_break(struct Smaky6 *m);
 /* Current Z80 program counter (for debug/trace coordination). */
 uint16_t machine_get_pc(const struct Smaky6 *m);
 
-/* True when running from RAM and sitting in early key-wait loop post-handoff. */
-int machine_in_posthandoff_keywait(const struct Smaky6 *m);
 int machine_cli_prompt_visible(const struct Smaky6 *m);
 
 /* Write a 7-bit key code directly into the SAMOS circular keyboard buffer

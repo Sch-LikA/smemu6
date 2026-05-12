@@ -232,7 +232,26 @@ needs to return `fonct_bits` instead of `0x80`.
 
 ✅ Done — `fonct_bits` field added to `struct kbd`; FONCT[] table in `keyboard_event()`
 sets/clears bits on KEYDOWN/KEYUP; `keyboard_read_cla()` returns `0x80 | fonct_bits`
-on Stage 1 (first CLA read per ISR frame) and plain `0x80` on Stage 2.
+when no regular key is held.
+
+- **Refactor keyboard CLA to a single hardware-accurate model** ✅ Done
+
+  The hardware model (schematic §10.4):
+
+  | Condition | `IN A,(0)` returns |
+  |-----------|-------------------|
+  | FOUND=1 (key held) | `key_code & 0x7F` |
+  | FOUND=0 | `0x80 \| fonct_bits` (idle = `0x80`) |
+
+  STROBE clears FOUND+FULCLA; scanner reasserts within ≤200µs if key still held.
+  Identical for Phantom ROM polling, SAMOS ISR, and monitor — no mode flag needed.
+
+  **Implemented:**
+  - `keyboard_read_cla()`: if `found` → clear found, re-assert if `physically_held`, return `key_code & 0x7F`; else return `0x80 | fonct_bits`.
+  - `physically_held=1` at power-on models FOUND latch SET (4013 FF2). Every CLA read re-asserts `found=1` while held, so all boot-phase `kbd_wait` loops exit automatically (Phantom ROM 0x00FD + SAMOS init 0x00B5). Released when SAMOS ISR vector `bus[0x4566..7]==0x003E` is installed.
+  - Removed: `samos_loaded`, `cla_seen`, `key_hold_frames` from `struct kbd`.
+  - Removed: `cla_seen=0` from port 0x01 ISR ACK handler.
+  - Removed: post-frame `bus[0x4580] = fonct_bits` write in `main.c` — SAMOS ISR Stage 1 stores `CLA & 0x7F = fonct_bits` to 0x4580 naturally.
 
 SDL mapping (current):
 
@@ -745,23 +764,17 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 ### ~~Function key buttons write characters to screen~~  ✅ Fixed
 
-~~Clicking any of the 7 function-key buttons on the status bar causes SAMOS to write a
-character to the screen (KILL → `@`, COPY → backspace, etc.).~~
-
 **Root cause (confirmed from schematic doc 10.4):**
-When FOUND=0 (no regular key), the CLA hardware returns `0x80 | fonct_bits`.
-SAMOS ISR Stage 1 reads this and stores `CLA & 0x7F` = `fonct_bits` to `0x4580` (GETFON register).
-SAMOS ISR Stage 2 re-reads CLA for auto-repeat detection; if it sees `0x80 | fonct_bits`
-it strips bit 7 and writes the lower 7 bits to the circular buffer as a character (KILL=0x40 → `'@'`).
+When FOUND=0, CLA hardware returns `0x80 | fonct_bits`.
+SAMOS ISR Stage 1 stores `CLA & 0x7F = fonct_bits` to `0x4580` (GETFON register).
+Stage 2 CLA Read #2 would echo `fonct_bits` as a character — but Stage 2 is permanently
+blocked by sentinel `0x4582=0x80`.
 
-**Fix — Stage 1 / Stage 2 split** ✅
-- `keyboard_read_cla()` captures `is_stage1 = !m->kbd.cla_seen` before setting `cla_seen=1`.
-- **Stage 1** (`is_stage1=true`): returns `0x80 | fonct_bits` — SAMOS ISR stores the correct
-  bitmask to `0x4580` mid-ISR, matching real hardware behaviour.
-- **Stage 2** (`is_stage1=false`): returns plain `0x80` — no character written to buffer.
-- Post-frame direct write to `bus[0x4580]` retained as belt-and-suspenders for GETFON
-  calls arriving between ISR frames.
-- Result: GETFON works correctly; no characters echoed; function keys fully visible to SAMOS.
+**Fix — unified hardware-accurate CLA model** ✅ (see refactor item above)
+- `keyboard_read_cla()` always returns `0x80 | fonct_bits` when no regular key is held.
+- Stage 1 stores `fonct_bits` to `0x4580` automatically via `AND 0x7F; LD (0x4580),A`.
+- Stage 2 CLA Read #2 is never reached (sentinel blocks it) — no character echoed.
+- No `cla_seen` or `is_stage1` flag needed.
 
 ---
 

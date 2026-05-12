@@ -53,28 +53,27 @@ CLA in a tight loop and exits as soon as bit 7 = 0 (FOUND=1).  With FOUND=1 at p
 the first CLA read returns `0x00` (Enter) and the ROM immediately proceeds to boot from
 DX0 — no user key-press required.
 
-The emulator replicates this by initialising `found=1` and `key_code=0x00` in
-`keyboard_init()`.  The latch is consumed (found→0) on the first CLA read and does not
-interfere with subsequent user input once SAMOS is running.
+The emulator replicates this with `found=1`, `key_code=0x00`, and `physically_held=1`
+in `keyboard_init()`.  `physically_held=1` models the scanner continuously reasserting
+FOUND (200µs reassertion) as long as a key is held, so every `kbd_wait` loop in the
+boot sequence exits immediately — both the Phantom ROM menu (0x00FD) and the SAMOS
+init kbd_wait at 0x00B5 ("Disque souple ...").
 
-Consequence: the machine boots from DX0 automatically without any extra flag.
+`keyboard_frame_tick()` releases the virtual key (clears `physically_held` and `found`)
+when the SAMOS ISR vector at `bus[0x4566..7]` is written to `0x003E` (SAMOS init at
+`0x00CD`, **after** the init kbd_wait exits).  FIFO entries queued during the pre-SAMOS
+boot phase are discarded at that point — they were destined for the Phantom ROM boot
+menu, not the CLI.
 
-### Emulator keyboard flags (inject path only)
+No `samos_loaded` flag or `iff1` branch is needed in `keyboard_read_cla()`.  The pure
+hardware model works identically for all callers.
 
-Physical keyboard input bypasses all CLA machinery (see "Emulator Implementation" section below).
-The following flags are used **only** by `machine_inject_key()` and the inject stages:
+### Emulator keyboard flags
 
-- **`found`** — "new key event" latch.  Set by `machine_inject_key()`.  Cleared by `keyboard_read_cla()` on the first call that returns a key code — **matching the hardware behavior** (CLA read clears FOUND).
-- **`physically_held`** — injected key-down state.  Set by `machine_inject_key()`, cleared when `key_hold_frames` countdown reaches 0.
-- **`key_hold_frames`** — countdown (5 frames) so Stage 2 sees the key as still held.
-- **`cla_seen`** — ISR-cycle flag.  Set by every CLA read.  **Cleared by the ISR ACK** (`OUT (0x01), data≠0`) at the start of each 50 Hz frame.  This is a software-only emulator concept; on real hardware FOUND is reasserted within 200µs so Stage 2 always sees it — `cla_seen` is the emulator's proxy for that reassertion.
-- **`samos_loaded`** — set to 1 when `keyboard_frame_tick()` detects that SAMOS has installed its 50 Hz ISR vector (`bus[0x4566..7] == 0x003E`).  This happens at address `0x00CD` in SYS.SY, **after** the boot-menu keyboard wait at `0x00B5` exits.  Once set, `keyboard_read_cla()` never pops the FIFO in the `iff1=0` branch, because `iff1=0` then means "inside the SAMOS ISR" rather than "inside Phantom ROM kbd_wait".
+- **`found`** — FOUND latch.  Set by power-on init and by `machine_inject_key()`.  `keyboard_read_cla()` clears it when returning a key code, then immediately re-sets it if `physically_held=1` (scanner reassertion model).
+- **`physically_held`** — scanner reassertion gate.  `1` at power-on (models FOUND latch SET) until the SAMOS ISR vector is installed; also set by `machine_inject_key()` and cleared by `machine_release_key()`.  While `1`, every CLA read re-asserts `found=1` after returning the key code — exactly matching real hardware where the scanner refires within 200µs while a key is physically held.
 
-Port 0x01 bit 2 (FOUND) reflects `physically_held || key_hold_frames > 0`, not `found`.
-
-CLA read **does** consume the `found` latch, but `physically_held && cla_seen` enables Stage 2
-to see the injected key for its circular-buffer write.  This is only relevant during boot (before
-SAMOS sets the 0x4582 sentinel and permanently blocks Stage 2).
+Port 0x01 bit 2 (FOUND) reflects `physically_held` directly.
 
 ---
 
@@ -182,21 +181,17 @@ The two key RAM locations are:
 
 ---
 
-## Why Keys Reach the CLI (the two-stage pipeline)
+## Why Keys Reach the CLI
 
 The SAMOS ISR fires at 50 Hz.  Each frame:
 
-1. **ISR ACK** (`OUT (0x01), 0x08` at `0x0048`): resets `cla_seen=0`.
-2. **Stage 1** (CLA read #1 at `0x0160`): `have_key = found || (key_held && cla_seen)`.
-   - `cla_seen=0` here, so `have_key = found` only.
-   - If `found=1` (key was pressed this frame): returns key code, clears `found`, sets `cla_seen=1`. Stage 1 stores it to `0x457E` and returns early — circular buffer NOT touched.
-   - If `found=0`: returns `0x80`, sets `cla_seen=1`. Falls into the no-key path (Stage 2).
-3. **Stage 2** (no-key path, CLA read #2 at `0x0183`):
-   - Busy-wait 256 iterations.
-   - Reads port 0x01: returns `0x08 | (key_held ? 0x04 : 0x00)`. If `key_held=0` → `RET Z` → discard.
-   - If `key_held=1`: CLA read #2. `have_key = found || (key_held && cla_seen) = 0 || (1 && 1) = 1`. Returns key code. **Written to the circular buffer** → syscall 0x0D → CLI sees it.
+1. **ISR ACK** (`OUT (0x01), 0x08` at `0x0048`): no keyboard state change in the unified model.
+2. **Stage 1** (CLA read #1 at `0x0160`): `keyboard_read_cla()` returns `key_code` if `found=1`, else `0x80 | fonct_bits`.
+   - If bit7=0 (regular key): SAMOS stores it to `0x457E` (syscall 0x0E) and returns early — circular buffer NOT touched.
+   - If bit7=1: `AND 0x7F` strips bit7 and stores `fonct_bits` to `0x4580` (GETFON register). Falls into Stage 2.
+3. **Stage 2** (no-key path, 0x016E): reads sentinel `(0x4582)`.  While SAMOS is running this is permanently `0x80` → `RET Z` always.  CLA Read #2 at `0x0183` is never reached.
 
-**Summary**: On frame N when key is first pressed, Stage 1 stores to `0x457E`. On frame N+1 (key still held, `found=0`), Stage 1 returns `0x80`, Stage 2 fires and writes to the circular buffer. The CLI's blocking read (syscall `0x0D`) then returns the character.
+**Physical keys reach the CLI via `keyboard_frame_tick()`**, which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.  Syscall 0x0D (blocking CLI read) drains from there.
 
 ---
 
@@ -209,21 +204,20 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 > buffer via the hardware ISR path** while SAMOS is running.  The emulator works
 > around this by writing directly to the circular buffer from the main loop.
 
-### Two separate delivery paths
+### Two delivery paths
 
 | Caller | Path | Destination |
 |--------|------|-------------|
 | Physical keyboard (`SDL_KEYDOWN`) | FIFO → `keyboard_frame_tick()` → direct write to SAMOS circular buffer | Syscall 0x0D (CLI blocking read) |
-| Autoboot / inject (`machine_inject_key()`) | Sets CLA fields (`found`, `key_code`, `physically_held`, `key_hold_frames`) → ISR Stage 1 → `0x457E` | Syscall 0x0E (non-blocking) |
+| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` → `keyboard_read_cla()` returns key code on every read while held | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
 ### Physical keyboard: FIFO-based delivery
 
 `keyboard_event()` pushes one key code per `SDL_KEYDOWN` into a 64-slot software FIFO.
 SDL key-repeat events (`ev->repeat != 0`) are **discarded** — Stage 4 auto-repeat is
 managed by the emulator (see below).
-The CLA fields (`found`, `key_code`, `physically_held`, `key_hold_frames`) are **not touched** by
-`keyboard_event()`.  Touching them would cause ISR Stage 2 (if ever un-blocked) to re-inject
-keys each frame, creating loops.
+The CLA fields (`found`, `key_code`, `physically_held`) are **not touched** by
+`keyboard_event()` for physical keys.
 
 **Physical-key bit-7 marker:** `keyboard_event()` and `keyboard_text_event()` set **bit 7** in
 each FIFO byte to mark it as a physical keystroke.  `keyboard_frame_tick()` strips bit 7 before
@@ -270,26 +264,22 @@ repeat events are redundant and dropped entirely via the `ev->repeat` check in
 ```c
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    /* key_hold_frames countdown (inject path) */
-    if (m->kbd.key_hold_frames > 0) {
-        if (--m->kbd.key_hold_frames == 0 && !m->kbd.physically_held)
-            m->kbd.cla_seen = 0;
-    }
-
-    /* Detect when SAMOS has installed its 50 Hz ISR vector.
-     * Execution order in SYS.SY:
-     *   0x0095: SAMOS init — fill, write sentinels (incl. 0x4595=0x80)
-     *   0x00B5: IN A,(0x00)  ← boot-menu kbd_wait (samos_loaded still 0 here)
-     *   0x00CD: LD (0x4566),0x003E  ← trigger fires next frame (samos_loaded→1)
-     *   0x020D: EI — first ISR fires after samos_loaded=1, FIFO protected
-     * Using bus[0x4595]==0x80 fires too early (before kbd_wait). */
-    if (!m->kbd.samos_loaded) {
+    /* Release power-on virtual key when SAMOS ISR vector is installed.
+     * bus[0x4566..7] == 0x003E is written by SAMOS init at 0x00CD,
+     * AFTER the init kbd_wait at 0x00B5 exits.  Before this point
+     * physically_held=1 keeps FOUND reasserting on every CLA read,
+     * passing through all boot-phase kbd_wait loops automatically.
+     * FIFO entries from the pre-SAMOS phase are discarded. */
+    if (m->kbd.physically_held) {
         uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
-        if (vec == 0x003Eu)
-            m->kbd.samos_loaded = 1;
+        if (vec == 0x003Eu) {
+            m->kbd.physically_held = 0;
+            m->kbd.found           = 0;
+            m->kbd.fifo_head       = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
+        }
     }
 
-    if (!m->cpu.iff1) return;   /* ISR context or monitor: leave FIFO for CLA path */
+    if (!m->cpu.iff1) return;   /* inside ISR or pre-SAMOS: leave FIFO for CLA path */
     /* Drain the entire FIFO into the SAMOS circular buffer each frame. */
     while (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
@@ -372,86 +362,48 @@ matching this pattern indicates the prompt is at the start of a new empty line.
 
 ### Autoboot / inject: CLA-based delivery
 
-`machine_inject_key()` (used only by `-break-to-monitor` and `-inject-str`) sets:
+`machine_inject_key()` (used by `-break-to-monitor` and `-inject-str`) sets:
 
 ```c
 m->kbd.key_code        = code;
 m->kbd.found           = 1;
 m->kbd.physically_held = 1;
-m->kbd.key_hold_frames = 5;   /* hold for 5 frames so Stage 2 fires */
 ```
 
-These flow through `keyboard_read_cla()` → ISR Stage 1 → `0x457E`, or
-through Stage 2 → circular buffer, depending on the boot phase.
+While `physically_held=1`, every CLA read returns `key_code` and immediately
+re-asserts `found=1` — exactly as on real hardware with a held key.  `machine_release_key()`
+clears both flags to end the inject.
 
-### `keyboard_read_cla()` — used by inject path
+### `keyboard_read_cla()` — pure hardware model
 
-The hardware splits CLA reads into two cases based on FOUND state. When FOUND=1 a regular
-key code is returned (bit 7=0). When FOUND=0 the function key bitmask is returned (bit 7=1).
-The read itself clears FOUND; within 200µs FOUND is reasserted if the key is still held.
-
-The emulator has two branches depending on `iff1`:
-
-**`iff1=1` branch (normal OS / ISR context):** serves CLA fields (`found`, `physically_held`,
-`key_hold_frames`) and the `cla_seen` flag for Stage 2.
+The hardware model is uniform across all callers (Phantom ROM kbd_wait, SAMOS ISR
+Stage 1 / Stage 2, monitor).  No `iff1` or mode-flag branching:
 
 ```c
-    int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
-    int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
-    m->kbd.cla_seen = 1;
-    if (have_key) {
+uint8_t keyboard_read_cla(struct Smaky6 *m)
+{
+    if (m->kbd.found) {
         m->kbd.found = 0;
-        return m->kbd.key_code & 0x7Fu;   /* bit 7=0 → key present */
+        /* Scanner immediately reasserts FOUND if key still held (§10.4: 200µs). */
+        if (m->kbd.physically_held)
+            m->kbd.found = 1;
+        return m->kbd.key_code & 0x7Fu;   /* bit7=0: regular key */
     }
-    return 0x80u;  /* bit 7=1 → no regular key; fonct_bits delivered via 0x4580 directly */
-```
-
-**`iff1=0` branch (Phantom ROM / monitor / `kbd_wait` context):**
-
-This branch handles two distinct situations that both produce `iff1=0`:
-
-1. **Phantom ROM kbd_wait (pre-SAMOS, `samos_loaded=0`)** — the CPU is polling `IN A,(0x00)` at 0x00B5 with interrupts disabled.  Autoboot inject must be visible here.
-2. **Inside the SAMOS ISR (`samos_loaded=1`)** — the Z80 clears IFF1 on INT acknowledgement.  FIFO keys must NOT be consumed here; they have already been written to the circular buffer by `keyboard_frame_tick()` before this frame's ISR ran.
-
-```c
-if (!m->cpu.iff1) {
-    /* CLA fields first — serve machine_inject_key() / inject path */
-    int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
-    int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
-    m->kbd.cla_seen = 1;
-    if (have_key) {
-        m->kbd.found = 0;
-        return m->kbd.key_code & 0x7Fu;  /* bit 7=0 → key present */
-    }
-    /* Physical FIFO: only serve before SAMOS ISR is installed.
-     * Once samos_loaded=1, iff1=0 means we are inside the SAMOS ISR;
-     * FIFO entries are already in the circular buffer — do not pop them again. */
-    if (!m->kbd.samos_loaded && m->kbd.fifo_head != m->kbd.fifo_tail) {
-        uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
-        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-        return code & 0x7Fu;
-    }
-    return 0x80u;  /* no key; fonct_bits delivered to SAMOS via direct 0x4580 write */
+    /* FOUND=0: return function key bitmask (0x80 if none = idle).
+     * SAMOS Stage 1 stores (CLA & 0x7F) to 0x4580 (GETFON register). */
+    return 0x80u | m->kbd.fonct_bits;
 }
 ```
 
-**Why CLA never carries fonct_bits (confirmed against real hardware):**
-Encoding `fonct_bits` in the CLA return value (as `0x80 | fonct_bits`) caused SAMOS
-Stage 1 at `0x016E` to store `fonct_bits & 0x7F` into `0x4580`.  Some SAMOS CLI path
-then echoed this value as a printable character (e.g. KILL=`0x40`=`'@'`).  On real
-hardware no character appears when a function key is pressed.  The correct emulation:
-CLA always returns plain `0x80` when no regular key is held, and `fonct_bits` is
-written directly to `m->bus[0x4580]` after each ISR frame (in `main.c`) so the GETFON
-syscall sees the live value between frames.
-
-**Why the sentinel `0x4595==0x80` cannot be used here:** that sentinel is written at address `0x00A4`, before the boot-menu `kbd_wait` at `0x00B5`.  If `samos_loaded` were set by that sentinel, the FIFO branch would be blocked during `kbd_wait`, making the boot-menu keypress invisible.  The ISR vector at `0x4566` is written *after* `kbd_wait` exits — it is the correct trigger.
+**Why returning `0x80 | fonct_bits` is correct:**  
+SAMOS Stage 1 at `0x015E–0x016D` does: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A; BIT 7,A; JR NZ,0x016E`.  When CLA returns `0x80 | fonct_bits`, the `AND 0x7F` strips bit 7 and stores exactly `fonct_bits` to `0x4580` — the GETFON register.  Stage 2 (CLA Read #2 at 0x0183) is permanently blocked by sentinel `0x4582=0x80` so fonct_bits is never written to the circular buffer as a character.
 
 ### ISR ACK (machine.c port 0x01 write, data≠0)
 
 ```c
 case 0x01:
     if (data == 0x00) memory_unprotect_rom(m, 0x0000, 0x0800);
-    else m->kbd.cla_seen = 0;   /* ISR frame start: reset CLA-seen flag */
+    /* else: ISR ACK — no keyboard state change needed in unified model */
     break;
 ```
 
@@ -518,10 +470,8 @@ After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR d
 When `SDL_VIDEODRIVER=dummy` is set (CI / automated test mode), SDL delivers **no real keyboard events**.  Only the key injection path (`machine_inject_key()`) works.  Interactive keyboard testing requires a real display:
 
 ```sh
-DISPLAY=:0 ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk"
+DISPLAY=:0 ./build/smemu6 -floppy floppies/Sys1-H.dsk
 ```
-
-Injected keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase only).
 
 ---
 
@@ -531,12 +481,8 @@ Injected keys are held for 5 frames so Stage 2 can see them (pre-OS boot phase o
 |---------|---------|
 | `0x457E` | Last key code from Stage 1 (used by syscall 0x0E) |
 | `0x4558` | Debounce / key-repeat countdown (0x23 = 35 frames) |
-| `0x4580` | **Function-key bitmask / Stage 2 staging** — written to `fonct_bits` value by `main.c` after each ISR frame so GETFON syscall sees the live bitmask; also used by Stage 2 as a key-code staging register (but Stage 2 is permanently blocked post-boot) |
-| `0x4581` | Secondary staging byte |
-| `0x4582` | Inter-frame key sentinel (0x80 = none pending) |
-| `0x457C` | Circular buffer **write** pointer (init: 0x4596) |
-| `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait; used as `samos_loaded` trigger) |
-| `0x4595` | SAMOS init sentinel (written to `0x80` at `0x00A4`, **before** kbd_wait — cannot be used as `samos_loaded` trigger) |
+| `0x4580` | **Function-key bitmask (GETFON register)** — written by SAMOS ISR Stage 1 (`AND 0x7F; LD (0x4580),A`) from the CLA return value each frame.  Since `keyboard_read_cla()` returns `0x80 | fonct_bits` when no regular key is held, Stage 1 stores exactly `fonct_bits` here automatically.  No extra write from `main.c` needed. |
+| `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait exits; used as the power-on virtual key release trigger in `keyboard_frame_tick()`) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
 | `0x45C0` | **CLI line buffer start** — typed characters stored here; overwritten by `-` cursor at start of each new input session (used for ESC history capture) |

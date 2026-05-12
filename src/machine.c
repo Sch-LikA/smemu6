@@ -161,17 +161,14 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         if (data == 0x00)
             memory_unprotect_rom(m, 0x0000, 0x0800);
         else {
-            /* SAMOS ISR ACK: OUT (0x01), A with data=0x08 acknowledges the
-             * 50 Hz frame tick and resets the CLA-seen flag so Stage 1 of
-             * the next ISR frame starts fresh (cla_seen=0 means Stage 1 will
-             * not forward key_held to the key path — only 'found' can trigger
-             * it, ensuring Stage 2 fires on the frame after Stage 1). */
+            /* SAMOS ISR ACK: OUT (0x01), A with data=0x08 acknowledges the 50 Hz
+             * frame tick.  No keyboard state changes needed — the unified CLA model
+             * does not use cla_seen. */
             if (m->dbg.trace_kbd) {
                 uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-                fprintf(stderr, "[kbd] ISR ACK pc=%04X data=%02X cla_seen=0  ptr=0x%04X [ptr]=0x%02X\n",
+                fprintf(stderr, "[kbd] ISR ACK pc=%04X data=%02X  ptr=0x%04X [ptr]=0x%02X\n",
                         (unsigned)Z80_PC(m->cpu), data, ptr, (unsigned)m->bus[ptr]);
             }
-            m->kbd.cla_seen = 0;
         }
         break;
     case 0x02: parallel_write_data(m, data);                    break;
@@ -470,15 +467,14 @@ void machine_reset(struct Smaky6 *m)
     z80_instant_reset(&m->cpu);
     m->irq_pending      = 0;
     m->fdc.nmi_armed    = 0;
-    /* Re-arm the power-on FOUND=1 / Enter latch so the Phantom ROM boot menu
-     * exits immediately to DX0 boot, same as cold power-on.
-     * Also clear samos_loaded so the iff1=0 branch in keyboard_read_cla()
-     * serves the FIFO again during the Phantom ROM kbd_wait loop. */
-    m->kbd.found        = 1;
-    m->kbd.key_code     = 0x00;  /* Enter → boot from DX0 */
-    m->kbd.samos_loaded = 0;
-    m->kbd.fifo_head    = 0;
-    m->kbd.fifo_tail    = 0;
+    /* Re-arm power-on state: physically_held=1 so the scanner reasserts FOUND
+     * after each CLA read, passing through all boot-phase kbd_wait loops until
+     * EI is executed (keyboard_frame_tick releases it on iff1→1). */
+    m->kbd.found           = 1;
+    m->kbd.key_code        = 0x00;  /* Enter → boot from DX0 */
+    m->kbd.physically_held = 1;
+    m->kbd.fifo_head       = 0;
+    m->kbd.fifo_tail       = 0;
 }
 
 void machine_inject_key(struct Smaky6 *m, uint8_t code)
@@ -486,15 +482,12 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
-    m->kbd.key_hold_frames = 0;
 }
 
 void machine_release_key(struct Smaky6 *m)
 {
     m->kbd.found           = 0;
     m->kbd.physically_held = 0;
-    m->kbd.key_hold_frames = 0;
-    m->kbd.cla_seen        = 0;
 }
 
 void machine_inject_shift_break(struct Smaky6 *m)
@@ -507,20 +500,11 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.key_code        = 0x04;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
-    m->kbd.key_hold_frames = 0;
 }
 
 uint16_t machine_get_pc(const struct Smaky6 *m)
 {
     return (uint16_t)Z80_PC(m->cpu);
-}
-
-int machine_in_posthandoff_keywait(const struct Smaky6 *m)
-{
-    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
-    if (m->rom_mask[0x0000] != 0)
-        return 0;
-    return (pc == 0x00B5 || pc == 0x00B7 || pc == 0x00B9);
 }
 
 void machine_inject_to_circ_buf(struct Smaky6 *m, uint8_t code)

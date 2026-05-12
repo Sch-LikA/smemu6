@@ -33,15 +33,6 @@ struct Smaky6 {
         uint8_t key_code;
         int     found;           /* set on KEYDOWN, cleared by CLA read */
         int     physically_held; /* 1 while SDL key is physically down (cleared by KEYUP) */
-        int     key_hold_frames; /* extra frames to maintain key_held after KEYUP.
-                                  * On KEYUP: set to 2 so Stage 2 has at least 2 frames
-                                  * to see the key, even if KEYUP fires before Stage 2 runs.
-                                  * Decremented by keyboard_frame_tick() each 50 Hz frame;
-                                  * when 0, keyboard_found() returns 0. */
-        int     cla_seen;        /* 1 after first CLA read in current ISR cycle;
-                                  * reset to 0 by the ISR ACK (OUT port 0x01, data!=0).
-                                  * Allows Stage 2's CLA read to return the key even
-                                  * though Stage 1 already cleared 'found'. */
         int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
         uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (held | latched) */
         uint8_t fonct_latched;   /* bits toggled by right-click; stay set until right-clicked again */
@@ -54,11 +45,6 @@ struct Smaky6 {
         uint8_t fifo[64];
         int     fifo_head;       /* next read index */
         int     fifo_tail;       /* next write index */
-        int     samos_loaded;    /* set once iff1 has been 1 (EI executed = SAMOS running).
-                                  * While 0: Phantom ROM boot — keyboard_read_cla iff1=0
-                                  * branch serves the FIFO for Phantom ROM kbd_wait.
-                                  * Once 1: iff1=0 means ISR context — FIFO must NOT be
-                                  * served from CLA; it drains only via keyboard_frame_tick. */
     } kbd;
 
     /* Video */
