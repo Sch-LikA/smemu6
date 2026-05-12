@@ -367,7 +367,7 @@ static void show_help(SDL_Window *parent)
         "  Shift+Pause  = Hard reset\n"
         "  Ctrl+Q       = Quit\n";
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
-        "Smemu6 Help", msg, parent);
+        "Smemu6 Help (" SMEMU6_VERSION ")", msg, parent);
 }
 
 /* ── Draw full launcher frame ─────────────────────────────────────────────── */

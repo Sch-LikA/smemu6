@@ -288,7 +288,7 @@ static void main_loop_iter(void)
                                           &lx_f, &ly_f);
                 int lx = (int)lx_f, ly = (int)ly_f;
 
-                /* RESET / NMI buttons (status bar, first row) — fire on left-click only */
+                /* RESET / BREAK buttons (status bar, first row) — fire on left-click only */
                 if (ev.type == SDL_MOUSEBUTTONDOWN &&
                     ev.button.button == SDL_BUTTON_LEFT) {
                     if (lx >= VIDEO_SYS_NMI_X && lx < VIDEO_SYS_NMI_X + VIDEO_SYS_BTN_W &&
@@ -527,6 +527,17 @@ static void main_loop_iter(void)
 
 /* ── Emscripten JS-callable exports ─────────────────────────────────────────*/
 #ifdef __EMSCRIPTEN__
+
+/* Returns the build version string (e.g. "v1.0.4-37-gabcdef"). */
+EMSCRIPTEN_KEEPALIVE
+const char *smemu6_get_version(void)
+{
+#ifdef SMEMU6_VERSION
+    return SMEMU6_VERSION;
+#else
+    return "dev";
+#endif
+}
 
 /* Called from JS to reset the machine (without reloading the page). */
 EMSCRIPTEN_KEEPALIVE

@@ -91,6 +91,13 @@
       letter-spacing: 0.08em;
       font-style: italic;
     }
+    #version-badge {
+      display: block;
+      font-size: 0.62em;
+      color: #9a9080;
+      letter-spacing: 0.06em;
+      margin-top: 3px;
+    }
 
     /* ── Attribution footer ────────────────────────────────────────────── */
     #attribution {
@@ -476,6 +483,7 @@
 
   <div class="badge-strip">
     <span class="badge-tagline">Reliving 1978, one Z80 cycle at a time</span>
+    <span id="version-badge"></span>
   </div>
 
   <div class="lnch-section" style="border-top:none; padding-top:0; margin-top:0;">
@@ -544,6 +552,7 @@
 
   <div class="badge-strip">
     <span class="badge-tagline">Reliving 1978, one Z80 cycle at a time</span>
+    <span id="version-badge-machine"></span>
   </div>
 
   <div id="bezel">
@@ -657,6 +666,17 @@ var Module = {
 
   onRuntimeInitialized: function() {
     try { Module.FS.mkdir('/floppies'); } catch(e) {}
+
+    // Display build version in both badge strips
+    try {
+      var ver = Module.ccall('smemu6_get_version', 'string', [], []);
+      if (ver) {
+        var el = document.getElementById('version-badge');
+        if (el) el.textContent = ver;
+        var el2 = document.getElementById('version-badge-machine');
+        if (el2) el2.textContent = ver;
+      }
+    } catch(e) {}
 
     function writeDisk(file, drive, nameId, ledId) {
       if (!file) return;

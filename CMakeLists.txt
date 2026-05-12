@@ -10,6 +10,20 @@ else()
     set(CMAKE_C_EXTENSIONS OFF)
 endif()
 
+# ── Version string (from git describe; available to all build targets) ────────
+find_package(Git QUIET)
+if(Git_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE SMEMU6_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+else()
+    set(SMEMU6_VERSION "dev")
+endif()
+message(STATUS "smemu6 version: ${SMEMU6_VERSION}")
+
 # ── SDL2 ─────────────────────────────────────────────────────────────────────
 # Emscripten provides SDL2 as a built-in port; skip find_package for web builds.
 if(NOT EMSCRIPTEN)
@@ -122,7 +136,7 @@ if(EMSCRIPTEN)
     target_compile_options(smemu6 PRIVATE -s USE_SDL=2)
 
     # Build link flags as a string (target_link_options mis-parses -s KEY=VAL)
-    set(EM_LINK_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,FS] -s EXPORTED_FUNCTIONS=[_main,_smemu6_reset,_smemu6_mount_dx0,_smemu6_mount_dx1] -s MODULARIZE=0 -s FORCE_FILESYSTEM=1")
+    set(EM_LINK_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,FS] -s EXPORTED_FUNCTIONS=[_main,_smemu6_reset,_smemu6_mount_dx0,_smemu6_mount_dx1,_smemu6_get_version] -s MODULARIZE=0 -s FORCE_FILESYSTEM=1")
     # Only preload the Phantom boot ROM; chargen is built into the emulator.
     foreach(_rom samos_sys17.rom)
         if(EXISTS "${CMAKE_SOURCE_DIR}/roms/${_rom}")
@@ -153,6 +167,9 @@ else()
         m
     )
 endif()
+
+# ── Version compile definition ───────────────────────────────────────────────
+target_compile_definitions(smemu6 PRIVATE SMEMU6_VERSION="${SMEMU6_VERSION}")
 
 # ── Compiler warnings ─────────────────────────────────────────────────────────
 if(MSVC)
@@ -211,21 +228,11 @@ if(NOT EMSCRIPTEN)
     # Debian version fields must not contain hyphens in the upstream part, so
     # we replace the first hyphen (between tag and commit count) with a tilde
     # which sorts correctly as a pre-release in dpkg version comparison.
-    find_package(Git QUIET)
-    if(Git_FOUND)
-        execute_process(
-            COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            OUTPUT_VARIABLE GIT_VERSION
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_QUIET)
-        # Strip leading 'v'
-        string(REGEX REPLACE "^v" "" GIT_VERSION "${GIT_VERSION}")
-        # Replace first hyphen (tag-count separator) with ~ for deb compat
-        string(REGEX REPLACE "^([^-]+)-([0-9]+)-" "\\1~\\2~" GIT_VERSION "${GIT_VERSION}")
-    else()
-        set(GIT_VERSION "0.0.0")
-    endif()
+    # Derive a deb-compatible version from SMEMU6_VERSION (strip 'v', replace
+    # first hyphen with ~ so dpkg sorts it correctly as a pre-release).
+    set(GIT_VERSION "${SMEMU6_VERSION}")
+    string(REGEX REPLACE "^v" "" GIT_VERSION "${GIT_VERSION}")
+    string(REGEX REPLACE "^([^-]+)-([0-9]+)-" "\\1~\\2~" GIT_VERSION "${GIT_VERSION}")
     set(CPACK_PACKAGE_VERSION "${GIT_VERSION}")
     set(CPACK_PACKAGE_CONTACT         "Marcel Prisi")
     set(CPACK_RESOURCE_FILE_LICENSE   "${CMAKE_SOURCE_DIR}/LICENSE")
