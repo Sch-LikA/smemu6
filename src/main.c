@@ -103,6 +103,7 @@ static void usage(const char *argv0)
         "  -no-beeper     Disable the machine buzzer (beeper is on by default)\n"
         "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
         "  -no-display-off  Ignore display-off writes (port 0x00 bit0=0); screen stays on\n"
+        "  -verbose-video   Log display on/off and mode changes to stderr\n"
         "  -scanlines     Draw CRT-style scanline overlay (darkens every other output row)\n"
         "  -phosphor <colour>  Screen phosphor: green (default, P31 #00E700) or white (#E8E8E8)\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
@@ -279,45 +280,79 @@ static void main_loop_iter(void)
 
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
-            if (ev.button.button == SDL_BUTTON_LEFT) {
+            if (ev.button.button == SDL_BUTTON_LEFT ||
+                ev.button.button == SDL_BUTTON_RIGHT) {
                 /* Convert window coords → logical renderer coords */
                 float lx_f, ly_f;
                 SDL_RenderWindowToLogical(L->ren, ev.button.x, ev.button.y,
                                           &lx_f, &ly_f);
                 int lx = (int)lx_f, ly = (int)ly_f;
 
-                /* RESET / NMI buttons (status bar, first row) — fire on click */
-                if (ev.type == SDL_MOUSEBUTTONDOWN) {
+                /* RESET / NMI buttons (status bar, first row) — fire on left-click only */
+                if (ev.type == SDL_MOUSEBUTTONDOWN &&
+                    ev.button.button == SDL_BUTTON_LEFT) {
                     if (lx >= VIDEO_SYS_NMI_X && lx < VIDEO_SYS_NMI_X + VIDEO_SYS_BTN_W &&
                         ly >= VIDEO_SYS_BTN_Y  && ly < VIDEO_SYS_BTN_Y  + VIDEO_SYS_BTN_H) {
+                        L->m->vid.reset_armed = 0;  /* cancel any pending reset */
                         machine_nmi(L->m);
                         break;
                     }
-                    if (lx >= VIDEO_SYS_RST_X && lx < VIDEO_SYS_RST_X + VIDEO_SYS_BTN_W &&
+                    if (lx >= VIDEO_SYS_RST_X && lx < VIDEO_SYS_RST_X + VIDEO_SYS_RST_W &&
                         ly >= VIDEO_SYS_BTN_Y  && ly < VIDEO_SYS_BTN_Y  + VIDEO_SYS_BTN_H) {
-                        machine_reset(L->m);
+                        if (L->m->vid.reset_armed) {
+                            /* Second click — confirmed: do the reset */
+                            L->m->vid.reset_armed = 0;
+                            machine_reset(L->m);
+                        } else {
+                            /* First click — arm the button */
+                            L->m->vid.reset_armed    = 1;
+                            L->m->vid.reset_armed_at = SDL_GetTicks();
+                        }
                         break;
                     }
+                    /* Clicked somewhere else — cancel armed reset */
+                    L->m->vid.reset_armed = 0;
                 }
 
-                /* Hit-test each function-key button */
+                /* Hit-test each function-key button.
+                 * Bit order must match FKEYS[] in video.c:
+                 * CURSOR=0x10, COPY=0x08, KILL=0x40, PROGRA=0x20,
+                 * SHOW=0x04, SEARCH=0x02, CHANGE=0x01
+                 *
+                 * Left-click: held while button is down, released on mouse-up
+                 *   (but stays set if latched).
+                 * Right-click (DOWN only): toggle persistent latch for this bit. */
                 static const uint8_t FKEY_BITS[7] = {
-                    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40
+                    0x10, 0x08, 0x40, 0x20, 0x04, 0x02, 0x01
                 };
                 for (int i = 0; i < 7; i++) {
                     int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
                     int by = VIDEO_FKEY_Y + 1;
                     if (lx >= bx && lx < bx + VIDEO_FKEY_BTN_W &&
                         ly >= by && ly < by + VIDEO_FKEY_BTN_H) {
-                        if (ev.type == SDL_MOUSEBUTTONDOWN) {
-                            L->m->kbd.fonct_bits |=  FKEY_BITS[i];
-                        } else {
-                            L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
-                            /* Clear SAMOS auto-repeat in case Stage 2 wrote the
-                             * fonct_bits value as a character before this fix.
-                             * Zeroing the countdown stops any pending repeat. */
-                            if (L->m->kbd.samos_loaded)
-                                L->m->bus[0x4558u] = 0u;
+                        if (ev.button.button == SDL_BUTTON_RIGHT) {
+                            if (ev.type == SDL_MOUSEBUTTONDOWN) {
+                                /* Toggle latch */
+                                L->m->kbd.fonct_latched ^= FKEY_BITS[i];
+                                /* Recompute fonct_bits = held | latched.
+                                 * Left-click held state is not tracked separately here
+                                 * so just set the bit if latched, leave held bits intact. */
+                                if (L->m->kbd.fonct_latched & FKEY_BITS[i])
+                                    L->m->kbd.fonct_bits |= FKEY_BITS[i];
+                                else
+                                    L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
+                            }
+                        } else { /* SDL_BUTTON_LEFT */
+                            if (ev.type == SDL_MOUSEBUTTONDOWN) {
+                                L->m->kbd.fonct_bits |= FKEY_BITS[i];
+                            } else {
+                                /* On release, clear held bit only if not latched */
+                                if (!(L->m->kbd.fonct_latched & FKEY_BITS[i]))
+                                    L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
+                                /* Clear SAMOS auto-repeat countdown */
+                                if (L->m->kbd.samos_loaded)
+                                    L->m->bus[0x4558u] = 0u;
+                            }
                         }
                         break;
                     }
@@ -566,6 +601,7 @@ int main(int argc, char *argv[])
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
+    int verbose_video      = 0;  /* -verbose-video: log display on/off/mode changes to stderr */
     float phosphor_decay   = PHOSPHOR_DECAY_DEFAULT; /* -phosphor-decay <v>: persistence per frame */
     int scanlines          = 0;  /* -scanlines: draw CRT scanline overlay */
     int phosphor_white     = 0;  /* -phosphor white: use white phosphor palette */
@@ -684,6 +720,8 @@ int main(int argc, char *argv[])
             enable_drive_sound = 1;
         } else if (strcmp(argv[i], "-no-display-off") == 0) {
             no_display_off = 1;
+        } else if (strcmp(argv[i], "-verbose-video") == 0) {
+            verbose_video = 1;
         } else if (strcmp(argv[i], "-no-phosphor") == 0) {
             phosphor_decay = 0.0f;
         } else if (strcmp(argv[i], "-phosphor-decay") == 0 && i + 1 < argc) {
@@ -989,6 +1027,8 @@ int main(int argc, char *argv[])
         machine_set_trace_kbd(m, 1);
     if (no_display_off)
         machine_set_no_display_off(m, 1);
+    if (verbose_video)
+        machine_set_verbose_video(m, 1);
     if (phosphor_decay != PHOSPHOR_DECAY_DEFAULT)
         machine_set_phosphor_decay(m, phosphor_decay);
     if (scanlines)

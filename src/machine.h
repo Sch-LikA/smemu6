@@ -50,6 +50,7 @@ void machine_set_trace_scr(struct Smaky6 *m, int on);
  * Useful when the emulated OS does a display-off during boot that would
  * otherwise blank the window before the first useful frame is rendered. */
 void machine_set_no_display_off(struct Smaky6 *m, int on);
+void machine_set_verbose_video(struct Smaky6 *m, int on);
 void machine_set_scanlines(struct Smaky6 *m, int on);
 void machine_set_phosphor(struct Smaky6 *m, int white); /* 0=green (default), 1=white */
 void machine_set_phosphor_decay(struct Smaky6 *m, float decay); /* 0.0=instant, ~0.7=P31 */

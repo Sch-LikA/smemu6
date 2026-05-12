@@ -173,6 +173,7 @@ valides sont :
 | `-phosphor-decay <f>` | Facteur de décroissance de la persistance par trame `0.0`–0.99 (défaut `0.70` ≈ P31) ; simule la rémanence du phosphore entre les trames d'extinction d'écran |
 | `-no-phosphor` | Désactive la persistance du phosphore (décroissance instantanée) |
 | `-no-display-off` | Ignore les écritures d'extinction d'écran sur le port `0x00` ; l'écran reste visible en permanence |
+| `-verbose-video` | Affiche sur stderr les changements d'état d'écran (allumage, extinction, mode vidéo) |
 
 ### Timing et timeouts
 
@@ -236,11 +237,25 @@ traduit vers les codes chargen Smaky 6 correspondants :
 ### Barre de touches de fonction
 
 La bande inférieure de la fenêtre de l'émulateur contient 7 boutons
-cliquables rouge foncé, un par touche de fonction Smaky 6 (CURSOR, COPY, KILL,
-PROGRA, SHOW, SEARCH, CHANGE).  Cliquez et maintenez pour activer ;
-relâcher désactive.  Ces touches sont **exclusivement des modificateurs** —
-aucun caractère n'est écrit à l'écran, conformément au comportement du
-matériel réel.
+cliquables, un par touche de fonction Smaky 6 (CURSOR, COPY, KILL,
+PROGRA, SHOW, SEARCH, CHANGE).
+
+- **Clic gauche maintenu** pour activer une touche de fonction ; relâcher désactive.
+- **Clic droit** bascule un **verrouillage persistant** : le bouton reste actif
+  (affiché en jaune) jusqu'au prochain clic droit, permettant les combinaisons
+  modificateur+touche d'une seule main.
+
+Ces touches sont **exclusivement des modificateurs** — aucun caractère n'est
+écrit à l'écran, conformément au comportement du matériel réel.
+
+### Barre de disques / boutons RESET et NMI
+
+La bande centrale affiche les LEDs d'activité des lecteurs de disquettes et
+Winchester.  À droite se trouvent deux boutons :
+- **NMI** — clic gauche déclenche un NMI (identique à `F11` / `Pause`).
+- **RESET** — nécessite **deux clics** : le premier arme le bouton (il clignote
+  en orange pendant 3 s) ; le second confirme la réinitialisation matérielle.
+  Cliquer ailleurs annule l'état armé.
 
 ### Touches standard
 

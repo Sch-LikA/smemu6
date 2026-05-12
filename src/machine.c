@@ -127,7 +127,8 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
     case 0x00:
         if (data & 0x01) { /* display enable bit — mode is meaningful */
             if (!m->vid.display_on) {
-                fprintf(stderr, "[video] display ON (port00=0x%02X)\n", data);
+                if (m->vid.verbose_video)
+                    fprintf(stderr, "[video] display ON (port00=0x%02X)\n", data);
                 m->vid.display_on = 1;
             }
             VideoMode new_mode;
@@ -139,15 +140,17 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
                 new_mode = VMODE_ALPHA;   /* neither: alpha only */
             if (new_mode != m->vid.mode) {
                 static const char *names[] = {"ALPHA","GRAPHIC","SUPER"};
-                fprintf(stderr, "[video] mode -> %s (port00=0x%02X)\n",
-                        names[new_mode], data);
+                if (m->vid.verbose_video)
+                    fprintf(stderr, "[video] mode -> %s (port00=0x%02X)\n",
+                            names[new_mode], data);
                 video_set_mode(m, new_mode);
             }
         }
         if (!(data & 0x01)) {
             /* Display-off: bit 0 = 0 blanks the screen */
             if (m->vid.display_on && !m->vid.no_display_off) {
-                fprintf(stderr, "[video] display OFF (port00=0x%02X)\n", data);
+                if (m->vid.verbose_video)
+                    fprintf(stderr, "[video] display OFF (port00=0x%02X)\n", data);
                 m->vid.display_on = 0;
             }
         }
@@ -612,6 +615,11 @@ void machine_set_trace_scr(struct Smaky6 *m, int on)
 void machine_set_no_display_off(struct Smaky6 *m, int on)
 {
     m->vid.no_display_off = on ? 1 : 0;
+}
+
+void machine_set_verbose_video(struct Smaky6 *m, int on)
+{
+    m->vid.verbose_video = on ? 1 : 0;
 }
 
 void machine_set_scanlines(struct Smaky6 *m, int on)

@@ -324,7 +324,8 @@ void video_render(struct Smaky6 *m)
     static const char *dx_label[2] = { "DX0:", "DX1:" };
     const int ly = VIDEO_ASPECT_H + 2;   /* glyph y */
     for (int d = 0; d < 2; d++) {
-        int lx = 4 + d * 256;   /* slot left edge; two 256-px halves */
+        /* DX0 starts at x=4; DX1 starts at half the space left of the NMI button */
+        int lx = (d == 0) ? 4 : (VIDEO_SYS_NMI_X / 2);
 
         int is_hd     = m->win.image[d] != NULL;
         int mounted   = is_hd ? 1 : (m->fdc.image[d] != NULL);
@@ -400,23 +401,39 @@ void video_render(struct Smaky6 *m)
             { "NMI",   VIDEO_SYS_NMI_X },
             { "RESET", VIDEO_SYS_RST_X },
         };
+        /* Auto-expire the reset_armed state after 3 seconds */
+        if (m->vid.reset_armed && SDL_GetTicks() - m->vid.reset_armed_at > 3000)
+            m->vid.reset_armed = 0;
+
         for (int i = 0; i < 2; i++) {
             int bx = SYSBTNS[i].x;
             int by = VIDEO_SYS_BTN_Y;
-            int bw = VIDEO_SYS_BTN_W;
+            int bw = (i == 1) ? VIDEO_SYS_RST_W : VIDEO_SYS_BTN_W;
             int bh = VIDEO_SYS_BTN_H;
             int hover = (smx >= bx && smx < bx + bw && smy >= by && smy < by + bh);
+            /* RESET button (index 1) blinks orange when armed */
+            int armed = (i == 1) && m->vid.reset_armed;
+            int blink_on = armed && ((SDL_GetTicks() / 200) & 1);
 
-            /* Fill: vivid red, brighter on hover */
-            if (hover)
+            /* Fill: orange blinking when armed, vivid red otherwise */
+            if (armed) {
+                if (blink_on)
+                    SDL_SetRenderDrawColor(ren, 255, 160,   0, 255);
+                else
+                    SDL_SetRenderDrawColor(ren, 180,  80,   0, 255);
+            } else if (hover) {
                 SDL_SetRenderDrawColor(ren, 255,  60,  60, 255);
-            else
+            } else {
                 SDL_SetRenderDrawColor(ren, 200,  20,  20, 255);
+            }
             SDL_Rect btn = { bx, by, bw, bh };
             SDL_RenderFillRect(ren, &btn);
 
-            /* Border */
-            SDL_SetRenderDrawColor(ren, 255, 120, 120, 255);
+            /* Border: bright yellow when armed, pink otherwise */
+            if (armed)
+                SDL_SetRenderDrawColor(ren, 255, 220,  80, 255);
+            else
+                SDL_SetRenderDrawColor(ren, 255, 120, 120, 255);
             SDL_RenderDrawRect(ren, &btn);
 
             /* Label — centred */
@@ -465,31 +482,38 @@ void video_render(struct Smaky6 *m)
             int bw = VIDEO_FKEY_BTN_W;
             int bh = VIDEO_FKEY_BTN_H;
 
-            int active = (m->kbd.fonct_bits & FKEYS[i].bit) != 0;
-            int hover  = (fmx >= bx && fmx < bx + bw && fmy >= by && fmy < by + bh);
+            int active  = (m->kbd.fonct_bits    & FKEYS[i].bit) != 0;
+            int latched = (m->kbd.fonct_latched & FKEYS[i].bit) != 0;
+            int hover   = (fmx >= bx && fmx < bx + bw && fmy >= by && fmy < by + bh);
 
-            /* Button fill */
-            if (active)
-                SDL_SetRenderDrawColor(ren, 200, 30,  30, 255);
+            /* Button fill: yellow=latched, red=held, dim=idle */
+            if (latched)
+                SDL_SetRenderDrawColor(ren, 160, 130,   0, 255);
+            else if (active)
+                SDL_SetRenderDrawColor(ren, 200,  30,  30, 255);
             else if (hover)
-                SDL_SetRenderDrawColor(ren, 100, 25,  25, 255);
+                SDL_SetRenderDrawColor(ren, 100,  25,  25, 255);
             else
-                SDL_SetRenderDrawColor(ren,  70, 15,  15, 255);
+                SDL_SetRenderDrawColor(ren,  70,  15,  15, 255);
             SDL_Rect btn = { bx, by, bw, bh };
             SDL_RenderFillRect(ren, &btn);
 
-            /* Button border */
-            if (active)
-                SDL_SetRenderDrawColor(ren, 255, 80, 80, 255);
+            /* Button border: bright yellow=latched, bright red=active, dim=idle */
+            if (latched)
+                SDL_SetRenderDrawColor(ren, 255, 220,  60, 255);
+            else if (active)
+                SDL_SetRenderDrawColor(ren, 255,  80,  80, 255);
             else
-                SDL_SetRenderDrawColor(ren, 130, 50, 50, 255);
+                SDL_SetRenderDrawColor(ren, 130,  50,  50, 255);
             SDL_RenderDrawRect(ren, &btn);
 
-            /* Label — horizontally centred, vertically centred */
+            /* Label colour */
             int label_len = (int)strlen(FKEYS[i].label);
             int tx = bx + (bw - label_len * 9) / 2;
             int ty = by + (bh - 8) / 2;
-            if (active)
+            if (latched)
+                SDL_SetRenderDrawColor(ren, 255, 255, 180, 255);
+            else if (active)
                 SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
             else if (hover)
                 SDL_SetRenderDrawColor(ren, 200, 130, 130, 255);

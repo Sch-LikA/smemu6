@@ -41,6 +41,7 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 | Phosphor colour | Drop-down: **Green** / **White** | *(new `-phosphor white` option)* | Green |
 | Scanlines | Drop-down: **Off** / **On** | `-scanlines` | On |
 | Disable screen blanking | Toggle: **On** / **Off** | `-no-display-off` | On |
+| Verbose video log | Toggle: **Off** / **On** | `-verbose-video` | Off |
 
 > **Note:** `-phosphor white` is implemented. The launcher **Phosphor colour** drop-down is wired directly.
 
@@ -130,17 +131,18 @@ Added **RESET** and **NMI** buttons at the right end of the first status bar row
 function-key buttons on the second row).
 - Left-click **NMI** → `machine_nmi()` (same as host Pause/F11)
 - Left-click **RESET** → `machine_reset()` (same as host Shift+Pause/Shift+F11)
+- First click arms RESET (button blinks orange for 3 s); second click confirms the reset.
 
-### Function-key buttons: right-click to latch
+### ~~Function-key buttons: right-click to latch~~ ✅ Done
 
 The seven function-key buttons on the second status bar row are **modifier keys** on the
-real Smaky 6 — the user holds them while pressing another key.  The current left-click
-behaviour (held while mouse button is down, released on mouse-up) stays as-is.
+real Smaky 6 — the user holds them while pressing another key.  Left-click behaviour
+(held while button is down, released on mouse-up) stays as-is.
 
-Add **right-click to latch**: a right-click on a function-key button toggles a persistent
-"latched" state for that bit in `fonct_bits`.  A latched button stays active (and is
-rendered distinctly — e.g. brighter or with a different border) until right-clicked again,
-allowing single-handed modifier+key combinations.
+**Right-click toggles a persistent latch** for that bit in `fonct_bits` (`fonct_latched`
+field in `struct kbd`).  A latched button stays active until right-clicked again, allowing
+single-handed modifier+key combinations.  Latched buttons render in yellow (fill, border,
+and text) to distinguish them from the red held state.
 
 ---
 

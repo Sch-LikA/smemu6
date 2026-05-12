@@ -277,6 +277,15 @@ the display during a mode switch and you want to keep the window live.
 ./smemu6 -floppy sys.dsk -no-display-off
 ```
 
+#### `-verbose-video`
+Log display on/off and video mode changes to `stderr`.  Off by default.
+Useful when debugging boot sequences or investigating unexpected screen
+blanking.
+
+```bash
+./smemu6 -floppy sys.dsk -verbose-video
+```
+
 ---
 
 ### 4.4 Audio
@@ -416,10 +425,18 @@ layout is translated to the correct Smaky 6 chargen codes via UTF-8
 `SDL_TEXTINPUT` events.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
-7 clickable red buttons — one per Smaky function key (CURSOR, COPY, KILL,
-PROGRA, SHOW, SEARCH, CHANGE).  Click and hold to activate a function key;
-release to deactivate.  These are modifier-only keys: no character appears on
-screen when they are pressed, matching real hardware behaviour.
+7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,
+PROGRA, SHOW, SEARCH, CHANGE).  Left-click and hold to activate a function
+key; release to deactivate.  **Right-click** toggles a persistent **latch**:
+the button stays active (rendered in yellow) until right-clicked again,
+enabling single-handed modifier+key combinations.
+
+**Disk / RESET status bar:** The middle strip shows floppy and Winchester
+drive activity LEDs.  At the right end are two buttons:
+- **NMI** — left-click fires an NMI (same as `F11` / `Pause`)
+- **RESET** — requires **two clicks**: first click arms the button (it blinks
+  orange for 3 seconds); second click confirms the hard reset.  Clicking
+  anywhere else cancels the armed state.
 
 ---
 

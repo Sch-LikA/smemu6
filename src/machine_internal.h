@@ -43,7 +43,8 @@ struct Smaky6 {
                                   * Allows Stage 2's CLA read to return the key even
                                   * though Stage 1 already cleared 'found'. */
         int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
-        uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" */
+        uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (held | latched) */
+        uint8_t fonct_latched;   /* bits toggled by right-click; stay set until right-clicked again */
         SDL_Scancode repeat_scan; /* scancode of the key whose code was last drained
                                    * to the SAMOS circ-buf; KEYUP of this scan zeros
                                    * the SAMOS repeat-countdown register (0x4558). */
@@ -67,6 +68,9 @@ struct Smaky6 {
         VideoMode     mode;
         int           display_on;       /* 1 = enabled (normal), 0 = blanked (port 0x00 bit 0 = 0) */
         int           no_display_off;   /* 1 = ignore display-off writes (keeps screen always on) */
+        int           verbose_video;      /* 1 = log display-on/off/mode changes to stderr */
+        int           reset_armed;        /* 1 = RESET button awaiting confirm click */
+        Uint32        reset_armed_at;     /* SDL_GetTicks() at which reset was first clicked */
         int           scanlines;          /* 1 = draw semi-transparent dark lines on every other output row */
         PhosphorColour phosphor;        /* PHOSPHOR_GREEN (default) or PHOSPHOR_WHITE */
         int           gfx_msb_first;

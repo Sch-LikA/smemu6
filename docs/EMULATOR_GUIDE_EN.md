@@ -172,6 +172,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | `-phosphor-decay <f>` | Per-frame persistence decay `0.0`–0.99 (default `0.70` ≈ P31); simulates phosphor remanence between display-off frames |
 | `-no-phosphor` | Disable phosphor persistence (instant pixel decay) |
 | `-no-display-off` | Ignore display-blank writes to port `0x00`; screen stays visible at all times |
+| `-verbose-video` | Log display on/off and video mode changes to stderr |
 
 ### Timing and timeouts
 
@@ -216,6 +217,25 @@ The emulator maps them to standard PC keys as follows.
 All printable ASCII characters are passed through directly.
 The Smaky 6 keyboard uses **QWERTZ** layout (Swiss German) — if your PC
 keyboard is QWERTY or AZERTY, some punctuation keys may differ.
+
+**Function-key status bar:** The bottom strip of the emulator window shows
+7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,
+PROGRA, SHOW, SEARCH, CHANGE).
+
+- **Left-click and hold** to activate a function key; release to deactivate.
+- **Right-click** toggles a persistent **latch**: the button stays active
+  (rendered in yellow) until right-clicked again, enabling single-handed
+  modifier+key combinations.
+
+These are modifier-only keys: no character appears on screen when they are
+pressed, matching real hardware behaviour.
+
+**Disk / RESET status bar:** The middle strip shows floppy and Winchester
+drive activity LEDs.  At the right end:
+- **NMI** button — left-click fires an NMI (same as `F11` / `Pause`).
+- **RESET** button — requires **two clicks**: first click arms the button
+  (blinks orange for 3 s); second click confirms the hard reset.  Clicking
+  anywhere else cancels.
 
 ---
 
