@@ -199,13 +199,25 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 
 | Touche PC | Fonction Smaky 6 |
 |-----------|------------------|
-| `Ctrl gauche` | Touche de fonction **CURSOR** |
+| `F1` | Touche de fonction **CHANGE** |
+| `F2` | Touche de fonction **SEARCH** |
+| `F3` | Touche de fonction **SHOW** |
+| `F4` | Touche de fonction **COPY** |
+| `F5` | Touche de fonction **CURSOR** |
+| `F6` | Touche de fonction **PROGRA** |
+| `F7` | Touche de fonction **KILL** |
+
+Associations alternatives (également actives, pour les utilisateurs qui les préfèrent) :
+
+| Touche PC | Fonction Smaky 6 |
+|-----------|------------------|
+| `Fin` (End) | Touche de fonction **CHANGE** |
+| `Orig` (Home) | Touche de fonction **SEARCH** |
+| `Inser` | Touche de fonction **SHOW** |
 | `Alt gauche` | Touche de fonction **COPY** |
+| `Ctrl gauche` | Touche de fonction **CURSOR** |
 | `Windows gauche` / `Super` | Touche de fonction **PROGRA** |
 | `AltGr` (Alt droit) | Touche de fonction **KILL** |
-| `Inser` | Touche de fonction **SHOW** |
-| `Orig` (Home) | Touche de fonction **SEARCH** |
-| `Fin` (End) | Touche de fonction **CHANGE** |
 | `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |

@@ -500,30 +500,25 @@ The SAMOS `?GETFON` / `GETFON` system calls read this bitmask.
 
 Codes confirmed from doc section 10.4, page 213 (octal):
 
-| Key     | Octal | Hex    | Bit | Suggested SDL scancode    |
-|---------|-------|--------|-----|---------------------------|
-| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F1`         |
-| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F2`         |
-| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F3`         |
-| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F4`         |
-| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F5`         |
-| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F6`         |
-| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F7`         |
+| Key     | Octal | Hex    | Bit | Primary SDL scancode      | Alt SDL scancode           |
+|---------|-------|--------|-----|---------------------------|----------------------------|
+| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F1`         | `SDL_SCANCODE_END`         |
+| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F2`         | `SDL_SCANCODE_HOME`        |
+| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F3`         | `SDL_SCANCODE_INSERT`      |
+| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F4`         | `SDL_SCANCODE_LALT`        |
+| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F5`         | `SDL_SCANCODE_LCTRL`       |
+| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F6`         | `SDL_SCANCODE_LGUI`        |
+| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F7`         | `SDL_SCANCODE_RALT`        |
 
-**Implemented:** `uint8_t fonct_bits` field added to `struct kbd` in
-`src/machine_internal.h`.  `keyboard_event()` sets the corresponding bit on
-`SDL_KEYDOWN` and clears it on `SDL_KEYUP` for the seven function-key scancodes.
-Mouse clicks on the function-key status bar (see [Emulator Implementation](#emulator-implementation-srckeyboardc-srcmachinec)) also set/clear bits.
+**Implemented:** `uint8_t fonct_bits` field in `struct kbd`.  `keyboard_event()`
+sets/clears the corresponding bit on `SDL_KEYDOWN`/`SDL_KEYUP` for **both** the
+F1–F7 primary scancodes and the alternative modifier/nav scancodes (End, Home,
+Insert, LAlt, LCtrl, LGui, RAlt).  Mouse clicks on the function-key status bar
+also set/clear bits (left-click = momentary; right-click = latched toggle).
 
-**Critical:** CLA **never** encodes `fonct_bits` (see §"Why CLA never carries
-fonct_bits" in the Emulator Implementation section).  After each
-`machine_run_frame()`, `main.c` writes:
-```c
-if (L->m->kbd.samos_loaded)
-    L->m->bus[0x4580u] = L->m->kbd.fonct_bits;
-```
-so the SAMOS `GETFON` / `?GETFON` syscalls — which read `(0x4580)` directly —
-always see the live bitmask between ISR frames.
+The SAMOS ISR Stage 2 (`AND 0x7F; LD (0x4580), A`) stores `fonct_bits` to the
+GETFON register automatically when `keyboard_read_cla()` returns `0x80 | fonct_bits`
+(FOUND=0).  No post-frame bus write is needed.
 
 ### Category 2 — Special keys in the normal FIFO (codes confirmed from doc p.213)
 
