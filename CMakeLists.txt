@@ -95,7 +95,7 @@ if(APPLE)
     set_target_properties(smemu6 PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "Smaky 6 Emulator"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "ch.epsitec.smemu6"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "ch.mprisi.smemu6"
         MACOSX_BUNDLE_ICON_FILE "smaky6.icns"
         MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
     )
