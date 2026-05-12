@@ -170,6 +170,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
                     m->kbd.fonct_bits |= FONCT[i].bit;
                 else
                     m->kbd.fonct_bits &= (uint8_t)~FONCT[i].bit;
+                if (m->dbg.trace_kbd)
+                    fprintf(stderr, "[kbd] fonct %s bit=0x%02X fonct_bits=0x%02X\n",
+                            ev->type == SDL_KEYDOWN ? "DOWN" : "UP  ",
+                            FONCT[i].bit, m->kbd.fonct_bits);
                 return;
             }
         }
