@@ -81,13 +81,14 @@ cp "$SDL2_BIN/SDL2.dll" "$DIST_DIR/"
 # ROM (required for boot)
 cp "$SCRIPT_DIR/roms/samos_sys17.rom" "$DIST_DIR/roms/"
 
-# Floppy disk image bundled with the release
-FLOPPY_SRC="$SCRIPT_DIR/floppies/1 Systeme_1HComplet.dsk"
-if [[ -f "$FLOPPY_SRC" ]]; then
+# Floppy disk images bundled with the release
+if compgen -G "$SCRIPT_DIR/floppies/*.dsk" > /dev/null 2>&1 || \
+   compgen -G "$SCRIPT_DIR/floppies/*.DSK" > /dev/null 2>&1; then
     mkdir -p "$DIST_DIR/floppies"
-    cp "$FLOPPY_SRC" "$DIST_DIR/floppies/"
+    cp "$SCRIPT_DIR"/floppies/*.dsk "$DIST_DIR/floppies/" 2>/dev/null || true
+    cp "$SCRIPT_DIR"/floppies/*.DSK "$DIST_DIR/floppies/" 2>/dev/null || true
 else
-    echo "WARNING: $FLOPPY_SRC not found — skipping floppy."
+    echo "WARNING: no .dsk files found in floppies/ — skipping floppy bundle."
 fi
 
 # License and readme
