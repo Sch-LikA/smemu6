@@ -440,6 +440,15 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
     return 0x80u | m->kbd.fonct_bits;
 }
 
+uint8_t keyboard_read_status(struct Smaky6 *m)
+{
+    /* Port 0x01 (IN): bit2=FOUND (4013 FF2 latch output), bit3 fixed high (pull-up).
+     * All other bits are undefined on hardware; we return 0 for them. */
+    uint8_t st = 0x08u;
+    if (keyboard_found(m)) st |= 0x04u;
+    return st;
+}
+
 int keyboard_found(struct Smaky6 *m)
 {
     /* Port 0x01 bit 2 is the output of the 4013 FF2 FOUND latch — NOT a raw

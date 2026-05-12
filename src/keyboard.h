@@ -35,7 +35,8 @@ void keyboard_frame_tick(struct Smaky6 *m);
 uint8_t keyboard_read_cla(struct Smaky6 *m);
 
 /* Query the raw FOUND state (for INT polling if needed) */
-int keyboard_found(struct Smaky6 *m);
+int     keyboard_found(struct Smaky6 *m);
+uint8_t keyboard_read_status(struct Smaky6 *m);
 
 /*
  * Detect if SHIFT + BREAK (Escape) is being pressed.

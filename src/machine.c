@@ -55,7 +55,7 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
         return cla;
     }
     case 0x01: {
-        uint8_t st = (uint8_t)(0x08u | (keyboard_found(m) ? 0x04u : 0x00u));
+        uint8_t st = keyboard_read_status(m);
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd] ST  read pc=%04X -> %02X\n",
                     (unsigned)Z80_PC(m->cpu), st);
