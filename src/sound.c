@@ -164,7 +164,7 @@ static void floppy_mix_frame(void)
         g_motor_on = 0;
     }
 
-    for (int i = 0; i < SAMPLES_PER_FRAME; i++) {
+    for (int i = 0; i < (int)SAMPLES_PER_FRAME; i++) {
         float mix = 0.0f;
 
         /* ── Motor whir ────────────────────────────────────────────────── */
@@ -224,7 +224,7 @@ static inline int cycles_to_sample(zusize frame_pos)
     /* Map T-state position within frame to sample index [0, SAMPLES_PER_FRAME] */
     int s = (int)((frame_pos * (zusize)SAMPLES_PER_FRAME) / (zusize)TSTATES_PER_FRAME);
     if (s < 0)                 s = 0;
-    if (s > SAMPLES_PER_FRAME) s = SAMPLES_PER_FRAME;
+    if (s > (int)SAMPLES_PER_FRAME) s = (int)SAMPLES_PER_FRAME;
     return s;
 }
 
