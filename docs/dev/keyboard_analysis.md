@@ -73,7 +73,7 @@ hardware model works identically for all callers.
 - **`found`** — FOUND latch.  Set by power-on init and by `machine_inject_key()`.  `keyboard_read_cla()` clears it when returning a key code, then immediately re-sets it if `physically_held=1` (scanner reassertion model).
 - **`physically_held`** — scanner reassertion gate.  `1` at power-on (models FOUND latch SET) until the SAMOS ISR vector is installed; also set by `machine_inject_key()` and cleared by `machine_release_key()`.  While `1`, every CLA read re-asserts `found=1` after returning the key code — exactly matching real hardware where the scanner refires within 200µs while a key is physically held.
 
-Port 0x01 bit 2 (FOUND) reflects `physically_held` directly.
+Port 0x01 bit 2 (FOUND) reflects `found` (the latch state), not `physically_held` (the raw physical signal).  After a CLA read: `found=0`, `physically_held=1`, `reassert_pending=1` — bit 2 correctly returns 0 until the scanner reasserts.
 
 ---
 

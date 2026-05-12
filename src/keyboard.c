@@ -442,11 +442,20 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
 
 int keyboard_found(struct Smaky6 *m)
 {
-    /* Port 0x01 bit 2 (FOUND): 1 if the key is physically held.
-     * SAMOS Stage 2 reads this port, but Stage 2's CLA Read #2 is permanently
-     * blocked by the sentinel at 0x0178 — this value is effectively dead code
-     * while SAMOS is running. */
-    return m->kbd.physically_held;
+    /* Port 0x01 bit 2 is the output of the 4013 FF2 FOUND latch — NOT a raw
+     * "physically held" signal.  The latch is:
+     *   SET   when the scanner detects a pressed key (= found=1)
+     *   RESET by the CLA read STROBE (= found=0 after keyboard_read_cla())
+     *   RE-SET by the scanner within ≤200µs if the key is still held
+     *          (= reassert_pending → found=1 at the next frame tick)
+     *
+     * Returning physically_held here would give bit2=1 even immediately after a
+     * CLA read cleared the latch — contradicting hardware where bit2 follows the
+     * latch, not the raw physical signal.
+     *
+     * Stage 2 reads this port at 0x017E, but its CLA Read #2 is permanently
+     * blocked by the sentinel at 0x0178, so this is dead code while SAMOS runs. */
+    return m->kbd.found;
 }
 
 int keyboard_shift_break_pressed(struct Smaky6 *m)
