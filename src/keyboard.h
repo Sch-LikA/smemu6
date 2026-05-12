@@ -38,11 +38,4 @@ uint8_t keyboard_read_cla(struct Smaky6 *m);
 int     keyboard_found(struct Smaky6 *m);
 uint8_t keyboard_read_status(struct Smaky6 *m);
 
-/*
- * Detect if SHIFT + BREAK (Escape) is being pressed.
- * Returns 1 if SHIFT + ESCAPE is active, 0 otherwise.
- * Used for special boot path: SHIFT+BREAK → monitor mode.
- */
-int keyboard_shift_break_pressed(struct Smaky6 *m);
-
 #endif /* KEYBOARD_H */

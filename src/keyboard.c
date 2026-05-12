@@ -466,12 +466,3 @@ int keyboard_found(struct Smaky6 *m)
      * blocked by the sentinel at 0x0178, so this is dead code while SAMOS runs. */
     return m->kbd.found;
 }
-
-int keyboard_shift_break_pressed(struct Smaky6 *m)
-{
-    /* SHIFT+BREAK at boot: NMI fires and the Phantom ROM kbd_wait returns any
-     * nonzero key code to take the non-PDP11 path.  machine_inject_shift_break()
-     * supplies 0x04 (physical ESC key code) alongside the NMI for the
-     * -break-to-monitor path; SHIFT state is tracked here only. */
-    return m->kbd.shift_pressed;
-}
