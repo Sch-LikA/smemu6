@@ -200,11 +200,11 @@ The emulator maps them to standard PC keys as follows.
 |--------|-----------------|
 | `Left Ctrl` | **CURSOR** function key |
 | `Left Alt` | **COPY** function key |
-| `Left Windows` / `Super` | **KILL** function key |
-| `AltGr` (Right Alt) | **PROGRA** function key |
-| `F10` | **SHOW** function key |
-| `Menu` / `App` | **SEARCH** function key |
-| `Right Ctrl` | **CHANGE** function key |
+| `Left Windows` / `Super` | **PROGRA** function key |
+| `AltGr` (Right Alt) | **KILL** function key |
+| `Insert` | **SHOW** function key |
+| `Home` | **SEARCH** function key |
+| `End` | **CHANGE** function key |
 | `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |

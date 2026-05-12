@@ -113,6 +113,33 @@ constant is kept equal to `VIDEO_PX_H` so no stretching is applied inside the lo
 the window is 1024 × 520 (240+20 status bar × 2).  SDL logical size stays fixed at
 `VIDEO_WIN_W × VIDEO_WIN_H` so the rendering code is scale-independent.
 
+### Hot-swap floppy disks while running
+
+Allow the user to eject and replace a floppy image without restarting the emulator,
+similar to how a real Smaky 6 user would physically swap disks.
+
+**Proposed UI:**
+- Each DX0 / DX1 slot label in the status bar gets a small **⏏** (eject) button rendered
+  next to the drive label (or revealed on hover).
+- **Left-click ⏏**: ejects the current image (closes the file, sets the slot to empty,
+  LED goes dark, label shows `---`).  The drive reports "no disk" to the FDC until a
+  new image is loaded.
+- A second click on the empty slot (or a dedicated **📂** button) opens the OS native
+  file picker (via `tinyfiledialogs`) filtered to `*.dsk *.DSK`; on confirm the new
+  image is mounted in place without rebooting.
+- The swap is also accessible from the launcher settings panel so it can be configured
+  before start as well as at runtime.
+
+**Implementation notes:**
+- `floppy.c` already abstracts disk access through `struct floppy`; add
+  `floppy_eject(struct floppy *f)` (closes file handle, zeroes path) and
+  `floppy_load(struct floppy *f, const char *path)` (opens new image) functions.
+- Writes to the in-memory sector cache that haven't been flushed should be written back
+  to the old image file before ejecting (dirty-flush).
+- A short (≈500 ms) "motor spin-down" period after eject before the new disk is
+  accepted would match real hardware, but is optional.
+- Status bar hit-test in `main.c` / `video.c` needs a new clickable region per slot.
+
 ### ~~Live floppy track/sector visualisation~~ ✅ Done
 
 The status bar (14 logical px `VIDEO_LED_H`, scales with `-scale`) shows per drive slot (DX0 / DX1).
@@ -205,19 +232,19 @@ needs to return `fonct_bits` instead of `0x80`.
 
 ✅ Done — `fonct_bits` field added to `struct kbd`; FONCT[] table in `keyboard_event()`
 sets/clears bits on KEYDOWN/KEYUP; `keyboard_read_cla()` returns `0x80 | fonct_bits`
-when no regular key is pending.
+on Stage 1 (first CLA read per ISR frame) and plain `0x80` on Stage 2.
 
-SDL mapping:
+SDL mapping (current):
 
 | Key     | SDL scancode                          | Host key                  |
 |---------|---------------------------------------|---------------------------|
-| CHANGE  | `SDL_SCANCODE_RCTRL`                  | Right Ctrl                |
-| SEARCH  | `SDL_SCANCODE_APPLICATION`            | Menu / App key            |
-| SHOW    | `SDL_SCANCODE_F10`                    | F10 (Fn not SDL-visible)  |
+| CHANGE  | `SDL_SCANCODE_END`                    | End                       |
+| SEARCH  | `SDL_SCANCODE_HOME`                   | Home                      |
+| SHOW    | `SDL_SCANCODE_INSERT`                 | Insert                    |
 | COPY    | `SDL_SCANCODE_LALT`                   | Left Alt                  |
 | CURSOR  | `SDL_SCANCODE_LCTRL`                  | Left Ctrl                 |
-| PROGRA  | `SDL_SCANCODE_RALT`                   | AltGr (= Right Alt)       |
-| KILL    | `SDL_SCANCODE_LGUI`                   | Left Windows / Super      |
+| PROGRA  | `SDL_SCANCODE_LGUI`                   | Left Windows / Super      |
+| KILL    | `SDL_SCANCODE_RALT`                   | AltGr (Right Alt)         |
 
 **Category 2 — regular FIFO keys with special codes** ✅ Done
 
@@ -629,6 +656,37 @@ See [web/README.md](web/README.md) for build and serving instructions.
   styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
 
 ### Remaining work
+- **Responsive layout for all screen sizes** — the current HTML shell is desktop-only
+  (fixed canvas width).  Make it adapt to smartphones, tablets, and laptops:
+  - Use CSS `max-width: 100vw` + `aspect-ratio` on the canvas so it scales down
+    on narrow screens without horizontal scrolling.
+  - On portrait mobile, stack controls (file buttons, reset, log) below the canvas
+    rather than beside it; use CSS `@media (max-width: …)` breakpoints.
+  - Replace fixed-pixel font sizes with `clamp()` / `vw`-relative values so labels
+    stay legible at all zoom levels.
+  - On touch devices, map tap to mouse click (SDL2 Emscripten already translates
+    touch events, but verify function-key and status-bar buttons have large enough
+    hit targets — minimum 44 × 44 CSS px).
+  - Consider a "fullscreen" button that calls `canvas.requestFullscreen()` on mobile
+    for an immersive experience.
+  - Test at minimum: 375 px wide (iPhone SE), 768 px (iPad), 1280 px (laptop),
+    1920 px (desktop).
+- **Bundled floppy library** — bundle all `.dsk` images from the `floppies/` directory
+  into the Emscripten data package at build time, and offer a selection UI at boot so
+  users can pick a disk without uploading anything:
+  - Add `--preload-file floppies@/floppies` to the `emcc` link flags in
+    `CMakeLists.txt` (web preset only).
+  - In `web/index.html`, before the emulator starts, populate a `<select>` dropdown
+    (or a card grid) with the filenames found under `/floppies/` via the Emscripten
+    virtual FS API (`FS.readdir('/floppies')`), filtered to `*.dsk` / `*.DSK`.
+  - Selecting a disk sets it as the DX0 (or DX1) boot image; the path is passed to
+    the C side via a `smemu6_set_floppy(int drive, const char *vpath)`
+    `EMSCRIPTEN_KEEPALIVE` export before the main loop starts.
+  - A "Use own disk…" option in the same UI still allows the existing
+    `<input type="file">` upload path for user-supplied images.
+  - The dropdown should be shown in a pre-boot splash / configuration panel (ties in
+    with the SDL launcher port item below); if the launcher is not yet ported, show
+    it as an overlay that disappears once the user clicks **Start**.
 - **SDL launcher in browser** — `launcher_run()` is a blocking event loop and
   cannot run as-is under Emscripten.  To enable it: refactor into
   `launcher_init()` + `launcher_frame()` (called from `emscripten_set_main_loop`);
@@ -636,9 +694,19 @@ See [web/README.md](web/README.md) for build and serving instructions.
   and start the main emulator loop.  `tinyfiledialogs` would be replaced by an
   HTML `<input type="file">` picker (already guarded).  Remove the
   `no_launcher = 1` override in `main.c` for Emscripten once done.
-- **Hot-mount** — loading a disk image after the emulator has started currently
-  requires a page reload; a `machine_hot_mount()` C export and JS wiring would
-  allow live disk swapping without reset.
+- **Hot-mount / floppy hot-swap** — loading a disk image after the emulator has started
+  currently requires a page reload.  Implement live disk swapping without reset:
+  - Export `smemu6_eject(int drive)` and `smemu6_mount(int drive)` as
+    `EMSCRIPTEN_KEEPALIVE` C functions (mirroring the desktop `floppy_eject()` /
+    `floppy_load()` pair planned in the hot-swap TODO above).
+  - In `web/index.html`, add an **Eject** button and a hidden `<input type="file">`
+    per drive slot (DX0 / DX1).  Clicking Eject calls `smemu6_eject(n)`; the drive
+    LED goes dark.  Clicking the slot (or a **Load disk…** button) triggers the
+    file input; `FileReader` reads the selected `.dsk` file into the Emscripten
+    virtual FS and calls `smemu6_mount(n)` with the virtual path, mounting it live.
+  - The drive label and LED in the HTML status area update to reflect the new image.
+  - Remove the `no_launcher = 1` override in `main.c` for Emscripten once the SDL
+    launcher is also ported, so disk selection can happen before boot too.
 - **COOP/COEP headers** — hosting requires `Cross-Origin-Opener-Policy: same-origin`
   + `Cross-Origin-Embedder-Policy: require-corp` for `SharedArrayBuffer` (not
   needed for sound or the CPU loop; only needed if SDL threads are ever used).
@@ -675,43 +743,25 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 ## Known Bugs
 
-### Function key buttons write characters to screen  [confirmed against real hardware]
+### ~~Function key buttons write characters to screen~~  ✅ Fixed
 
-Clicking any of the 7 function-key buttons on the status bar causes SAMOS to write a
-character to the screen (KILL → `@`, COPY → backspace, etc.).
-On real hardware, pressing a function key at the CLI produces **no visible output** —
-they are pure modifier/bitmask keys.
+~~Clicking any of the 7 function-key buttons on the status bar causes SAMOS to write a
+character to the screen (KILL → `@`, COPY → backspace, etc.).~~
 
-**Root cause (confirmed from schematic analysis):**
-Function keys are in the regular S471 keyboard matrix but their EPROM codes have **bit 7 = 1**.
-When a function key is held, FOUND is set, Stage 1 CLA read returns `S471_code & 0x7F` which
-SAMOS stores into `0x4580` (the GETFON register). SAMOS CLI reads `0x4580` between ISR frames
-and echoes the non-zero byte to the screen as a character — which IS the observed bug.
+**Root cause (confirmed from schematic doc 10.4):**
+When FOUND=0 (no regular key), the CLA hardware returns `0x80 | fonct_bits`.
+SAMOS ISR Stage 1 reads this and stores `CLA & 0x7F` = `fonct_bits` to `0x4580` (GETFON register).
+SAMOS ISR Stage 2 re-reads CLA for auto-repeat detection; if it sees `0x80 | fonct_bits`
+it strips bit 7 and writes the lower 7 bits to the circular buffer as a character (KILL=0x40 → `'@'`).
 
-On **real hardware** this does NOT happen because the S471 codes for function keys have fixed
-values that SAMOS recognises as non-printable. In the emulator, we synthesised a bitmask
-(`0x80 | fonct_bits`) and returned it from CLA, which caused `fonct_bits` (a raw bit value
-like `0x40` = `'@'`) to leak into `0x4580` and be echoed.
-
-**Phased fix plan:**
-
-**Phase A — Stop fonct_bits leaking into CLA** ✅ (fix the spurious characters)
-- `keyboard_read_cla()`: when no regular key is pending, always return plain `0x80`
-  regardless of `fonct_bits`, in both the `iff1=0` (ISR) and `iff1=1` (app) branches.
-- Remove the `is_stage1` / `0x80|fonct_bits` logic introduced in the previous fix attempt.
-- Result: SAMOS Stage 1 stores `0x00` into `0x4580` (since `0x80 & 0x7F = 0`).
-  No character echoed. Function keys visually inactive.
-
-**Phase B — Restore GETFON by direct write to 0x4580** ✅
-- After each `machine_run_frame()` in the main loop, write `m->kbd.fonct_bits` directly
-  to `m->bus[0x4580]`.  The SAMOS ISR clears `0x4580` at line `0x015E` every frame, but
-  our post-frame write overwrites it so GETFON syscall (called between ISR frames by
-  application code) sees the live bitmask.
-- Result: GETFON works correctly; no characters echoed.
-
-**Phase C — Update documentation** ✅
-- Update `keyboard_analysis.md` to document the corrected CLA behaviour and the
-  direct-write-to-0x4580 mechanism.
+**Fix — Stage 1 / Stage 2 split** ✅
+- `keyboard_read_cla()` captures `is_stage1 = !m->kbd.cla_seen` before setting `cla_seen=1`.
+- **Stage 1** (`is_stage1=true`): returns `0x80 | fonct_bits` — SAMOS ISR stores the correct
+  bitmask to `0x4580` mid-ISR, matching real hardware behaviour.
+- **Stage 2** (`is_stage1=false`): returns plain `0x80` — no character written to buffer.
+- Post-frame direct write to `bus[0x4580]` retained as belt-and-suspenders for GETFON
+  calls arriving between ISR frames.
+- Result: GETFON works correctly; no characters echoed; function keys fully visible to SAMOS.
 
 ---
 

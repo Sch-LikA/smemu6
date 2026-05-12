@@ -412,11 +412,11 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **Escape**                  | **ESC / UNDO** (top-left key) — cancels / clears current CLI line    |
 | **Left Ctrl**               | CURSOR function key                                       |
 | **Left Alt**                | COPY function key                                         |
-| **Left Windows / Super**    | KILL function key                                         |
-| **AltGr** (Right Alt)       | PROGRA function key                                       |
-| **F10**                     | SHOW function key                                         |
-| **Menu / App**              | SEARCH function key                                       |
-| **Right Ctrl**              | CHANGE function key (modifier only, no character echoed)  |
+| **Left Windows / Super**    | PROGRA function key                                       |
+| **AltGr** (Right Alt)       | KILL function key                                         |
+| **Insert**                  | SHOW function key                                         |
+| **Home**                    | SEARCH function key                                       |
+| **End**                     | CHANGE function key (modifier only, no character echoed)  |
 | **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
 
 Accented Swiss-French characters are fully mapped: typing é, è, à, ü, ö, ç,

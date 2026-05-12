@@ -159,13 +159,13 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
      * keyboard_read_cla() returns this when no regular key is pending. */
     {
         static const struct { SDL_Scancode scan; uint8_t bit; } FONCT[] = {
-            { SDL_SCANCODE_RCTRL,       0x01 }, /* CHANGE  */
-            { SDL_SCANCODE_APPLICATION, 0x02 }, /* SEARCH  (Menu / App key) */
-            { SDL_SCANCODE_F10,         0x04 }, /* SHOW    */
+            { SDL_SCANCODE_END,         0x01 }, /* CHANGE  */
+            { SDL_SCANCODE_HOME,        0x02 }, /* SEARCH  */
+            { SDL_SCANCODE_INSERT,      0x04 }, /* SHOW    */
             { SDL_SCANCODE_LALT,        0x08 }, /* COPY    */
             { SDL_SCANCODE_LCTRL,       0x10 }, /* CURSOR  */
-            { SDL_SCANCODE_RALT,        0x20 }, /* PROGRA  (AltGr) */
-            { SDL_SCANCODE_LGUI,        0x40 }, /* KILL    (Left Windows / Super) */
+            { SDL_SCANCODE_LGUI,        0x20 }, /* PROGRA  (Left Windows / Super) */
+            { SDL_SCANCODE_RALT,        0x40 }, /* KILL    (AltGr) */
         };
         for (int i = 0; i < (int)(sizeof(FONCT)/sizeof(FONCT[0])); i++) {
             if (FONCT[i].scan == ev->keysym.scancode) {
@@ -414,21 +414,25 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      * Stage 1 is the first CLA read per ISR frame (immediately after ISR ACK resets
      * cla_seen=0); Stage 2 is the second read, only reached when Stage 1 returned
      * bit7=1 (no regular key).
-     * SAMOS Stage 2 strips bit 7 and writes the lower 7 bits to the circular buffer.
-     * If we return 0x80|fonct_bits here, SAMOS Stage 2 would write fonct_bits as a
-     * character (e.g. KILL=0x40 → '@') and arm the auto-repeat counter, causing
-     * an unstoppable character stream.  Stage 2 must see plain 0x80 (no key). */
-    /* Distinguish Stage 1 (cla_seen=0 before this read) from Stage 2 (cla_seen=1). */
+     *
+     * Per schematic doc 10.4: when FOUND=0 (no regular key), CLA returns the 7
+     * function-key bits in bits 6..0, with bit 7=1.  SAMOS Stage 1 reads this
+     * value and stores (CLA & 0x7F) = fonct_bits to 0x4580 (the GETFON register).
+     * Stage 2 is only reached when Stage 1 returned bit7=1; it re-reads CLA to
+     * detect auto-repeat.  Stage 2 MUST see plain 0x80 — returning 0x80|fonct_bits
+     * there would cause SAMOS to write fonct_bits as a character to the circular
+     * buffer (e.g. KILL=0x40 → '@'), producing an unstoppable character stream. */
+    int is_stage1 = !m->kbd.cla_seen;  /* true on first CLA read this ISR frame */
     m->kbd.cla_seen = 1;   /* mark that a CLA read has occurred this ISR cycle */
     if (have_key) {
         m->kbd.found = 0;  /* consume the 'new event' latch — mirrors HW: CLA read clears FOUND */
         return m->kbd.key_code & 0x7Fu;   /* bit 7 = 0 → key present */
     }
     /* No regular key: bit 7 = 1.
-     * Function key state is written directly to 0x4580 after each ISR frame
-     * (see main.c post-frame write), not encoded in CLA.  Encoding fonct_bits
-     * in CLA caused SAMOS Stage 1 to store them at 0x4580 which the CLI then
-     * echoed as printable characters — confirmed absent on real hardware. */
+     * Stage 1: return fonct_bits in bits 6..0 so SAMOS ISR stores them to 0x4580.
+     * Stage 2: plain 0x80 so fonct_bits are not echoed as a character. */
+    if (is_stage1)
+        return 0x80u | m->kbd.fonct_bits;
     return 0x80u;
 }
 

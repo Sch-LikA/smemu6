@@ -201,11 +201,11 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 |-----------|------------------|
 | `Ctrl gauche` | Touche de fonction **CURSOR** |
 | `Alt gauche` | Touche de fonction **COPY** |
-| `Windows gauche` / `Super` | Touche de fonction **KILL** |
-| `AltGr` (Alt droit) | Touche de fonction **PROGRA** |
-| `F10` | Touche de fonction **SHOW** |
-| `Menu` / `App` | Touche de fonction **SEARCH** |
-| `Ctrl droit` | Touche de fonction **CHANGE** |
+| `Windows gauche` / `Super` | Touche de fonction **PROGRA** |
+| `AltGr` (Alt droit) | Touche de fonction **KILL** |
+| `Inser` | Touche de fonction **SHOW** |
+| `Orig` (Home) | Touche de fonction **SEARCH** |
+| `Fin` (End) | Touche de fonction **CHANGE** |
 | `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
