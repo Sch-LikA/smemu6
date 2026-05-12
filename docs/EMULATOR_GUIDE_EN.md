@@ -208,7 +208,7 @@ The emulator maps them to standard PC keys as follows.
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |
 | `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
-| `Escape` | **ESC / UNDO** (top-left key) — on an **empty** CLI line: recalls the previous command (may not work reliably with all SAMOS builds); on a **non-empty** line: cancels/clears it |
+| `Escape` | **ESC / UNDO** (top-left key) — cancels/clears the current CLI command line |
 | `Tab` | Inserts `DX1:` in the CLI command line |
 
 ### Standard keys

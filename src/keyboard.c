@@ -2,7 +2,6 @@
 // Copyright (C) 2024-2026 Marcel Prisi
 /* keyboard.c – Smaky 6 keyboard controller (SDL2 → Smaky key codes) */
 #include "machine_internal.h"
-#include "machine.h"
 #include "keyboard.h"
 #include <string.h>
 
@@ -20,24 +19,13 @@
  * Printable characters (letters, digits, punctuation, space) are handled
  * via SDL_TEXTINPUT (keyboard_text_event) so that the host OS applies the
  * correct shift / Caps Lock / dead-key state, giving lowercase by default.
- *
- * ESC key — smart dual-behaviour:
- *   The SAMOS line editor dispatches two distinct codes for ESC-related actions:
- *     0x04 — cancel/clear the current command line (EFFACE / CLR)
- *     0x05 — recall previous command
- *   Per the SAMOS manual: "BREAK (ESC) = cancels current line; if empty,
- *   recalls last command."  keyboard_event() implements this by checking
- *   machine_cli_prompt_visible(): sends 0x04 on a non-empty line, 0x05 on an
- *   empty prompt.  Note: SAMOS native 0x05 recall is unreliable (the line editor
- *   overwrites the history buffer with the cursor '-' on entry); full emulator-side
- *   recall via kbd.prev_cmd snapshot is tracked in TODO.md.
  */
 static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_RETURN,    0x0D },
     { SDL_SCANCODE_BACKSPACE, 0x08 },
     { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
-    /* ESC is handled separately in keyboard_event() with smart empty-line logic */
+    { SDL_SCANCODE_ESCAPE,    0x04 },   /* ESC / UNDO (top-left key) → 0x04 → CLI cancel/undo */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
 };
@@ -224,22 +212,6 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
      *   ESC on empty line     → recall previous command (0x05)
      * We implement this by examining the SAMOS line-buffer-length byte at
      * 0x454B: if 0 (empty) send 0x05 (recall); if non-zero send 0x04 (cancel). */
-    if (scan == SDL_SCANCODE_ESCAPE) {
-        /* 0x05 = recall (empty prompt), 0x04 = cancel/clear (non-empty line). */
-        uint8_t code = machine_cli_prompt_visible(m) ? 0x05u : 0x04u;
-        int next = (m->kbd.fifo_tail + 1) & 63;
-        if (next != m->kbd.fifo_head) {
-            m->kbd.fifo[m->kbd.fifo_tail] = code;  /* no bit 7: don't arm auto-repeat */
-            m->kbd.fifo_tail = next;
-            if (m->dbg.trace_kbd)
-                fprintf(stderr, "[kbd_event] ESC → 0x%02X (%s)  FIFO[%d]\n",
-                        (unsigned)code,
-                        code == 0x05u ? "recall" : "cancel",
-                        m->kbd.fifo_tail - 1);
-        }
-        return;
-    }
-
     for (int i = 0; i < KEY_TABLE_LEN; i++) {
         if (KEY_TABLE[i].scan == scan) {
             uint8_t code = KEY_TABLE[i].code;
