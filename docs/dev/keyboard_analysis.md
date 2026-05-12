@@ -204,12 +204,25 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 > buffer via the hardware ISR path** while SAMOS is running.  The emulator works
 > around this by writing directly to the circular buffer from the main loop.
 
-### Two delivery paths
+### Three delivery paths
 
 | Caller | Path | Destination |
 |--------|------|-------------|
-| Physical keyboard (`SDL_KEYDOWN`) | FIFO → `keyboard_frame_tick()` → direct write to SAMOS circular buffer | Syscall 0x0D (CLI blocking read) |
+| Physical regular key (`SDL_KEYDOWN`) | FIFO → `keyboard_frame_tick()` → direct write to SAMOS circular buffer | Syscall 0x0D (CLI blocking read) |
+| Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; `keyboard_frame_tick()` writes `fonct_bits` to `bus[0x4580]` AND `bus[0x457E]` | `0x4580` via GETFON syscall; `0x457E` via syscall 0x0E (non-blocking) — **press-and-hold, clears on release** |
 | Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` → `keyboard_read_cla()` returns key code on every read while held | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
+
+**Syscall 0x0E and function keys:** Syscall 0x0E reads `0x457E` directly.  Since the physical
+regular-key path never touches `0x457E`, it would always return 0 for physical keys.
+`keyboard_frame_tick()` therefore mirrors `fonct_bits` into `bus[0x457E]` each frame so that
+games reading flippers via syscall 0x0E work correctly.  Writing `fonct_bits` (rather than the
+last regular key code) gives true press-and-hold semantics: the latch is `0x00` when no function
+key is held, immediately releasing the flipper.
+
+**FLIPPER.SM analysis:** `FLIPPER.SM` detects flippers exclusively via syscall 0x0E followed by
+`AND 0xF0` (left flipper: CURSOR, fonct\_bit=`0x10`) and `AND 0x0F` (right flipper: CHANGE,
+fonct\_bit=`0x01`).  The fonct\_bit values happen to satisfy both masks perfectly with no
+cross-activation.
 
 ### Physical keyboard: FIFO-based delivery
 

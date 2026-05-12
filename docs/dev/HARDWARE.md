@@ -351,9 +351,59 @@ Source: doc-231 CLAVIER (J. Zahn, Nov 1978).
 
 ```mermaid
 flowchart LR
+
+subgraph HOST["Host (Smaky 6)"]
+  Z80["Z80 CPU\n\nReads:\nIN A,(00h) = keycode\nIN A,(01h) = status"]
+  P00["Port 00h\nCLA (keycode)\nRead triggers STROBE"]
+  P01["Port 01h\nSTATUS\nbit2 = FOUND"]
+  FUL["FULCLA latch\n(event: key detected)"]
+  FND["FOUND latch\n(level: key held)"]
+end
+
+subgraph KBD["Keyboard logic"]
+  OSC["4093\n300 kHz"]
+  CNT["4024 counter"]
+  ARR["ARRIVE ~2.3 kHz\n(scan timing)"]
+  MUX["4051 mux"]
+  MAT["Key matrix"]
+  EP["S471 EPROM\nencoder"]
+  SCAN["Scanner state machine\n(running / frozen)"]
+end
+
+%% Scan chain
+OSC --> CNT
+CNT --> ARR
+ARR --> SCAN
+SCAN --> MUX
+MUX --> MAT
+MAT --> EP
+
+%% Detection
+EP -->|keycode| P00
+
+EP -->|key found| FUL
+EP -->|key level| FND
+
+%% Scan control
+EP -->|on key detect| SCAN
+SCAN -->|freeze scan| SCAN
+
+P00 -->|STROBE| FUL
+P00 -->|STROBE| FND
+P00 -->|STROBE| SCAN
+
+SCAN -->|restart scan| MUX
+
+%% Data path
+P00 --> Z80
+P01 --> Z80
+```
+
+```mermaid
+flowchart LR
     subgraph Z80IF["Z80 Interface (CLAVIER board)"]
         direction TB
-        FULCLA["FULCLA latch\n(bit 2, port 0x01)"]
+        FULCLA["FULCLA latch\n(event: key detected — not directly readable)"]
         DLATCH["Data latch\n(port 0x00 = CLA)"]
     end
 
@@ -391,11 +441,37 @@ flowchart LR
     SPECKEYS -->|"RESET(LOW)\nNMI(LOW)"| Z80IF
 ```
 
-**Key behaviours from the schematic:**
-- `IN A,(0x00)` (CLA read) generates **STROBE** which simultaneously latches the value AND clears FOUND + FULCLA.
-- As long as a regular key is physically held the scanner reasserts FOUND within **≤200 µs** (one full scan cycle at 300 kHz).
-- Function keys **bypass the encoder ROM** — their state is always on DATA[6:0] when FOUND=0, regardless of which combinations are held (up to all 7 simultaneously).
-- BREAK generates **NMI(LOW)** (non-maskable interrupt → drops into SYSMON). SHIFT+BREAK generates **RESET(LOW)** instead.
+**Key behaviours from the schematic (doc-231):**
+
+**Scan-freeze architecture:** The keyboard continuously scans until a key is detected.
+When a pressed key is found the scanner **stops immediately** (`FOUND=1`, `FULCLA=1`,
+scan counter frozen).  The CPU reads a perfectly stable, debounced keycode.
+This is why no key FIFO is needed: hardware guarantees exactly one key visible at a time.
+
+```
+Normal:    scan → scan → scan → scan → …
+Key held:  scan → DETECT → FREEZE → HOLD stable keycode → wait for IN A,(00h)
+Release:   STROBE clears FOUND+FULCLA → scan restarts → next key (or FOUND=0)
+```
+
+- `IN A,(0x00)` (CLA read) generates **STROBE** which simultaneously latches the value
+  AND clears FOUND + FULCLA AND **resumes the scan counter**.
+- As long as a regular key is physically held the scanner reasserts FOUND within
+  **≤200 µs** (one full scan cycle at 300 kHz), giving hardware auto-repeat base rate.
+- **N-key rollover is not possible** (`NKRO=NO`): scan freezes on the first detected key;
+  simultaneous presses are not detectable.
+- Function keys **bypass the encoder ROM** — their state is always on DATA[6:0] when
+  FOUND=0, regardless of which combinations are held (up to all 7 simultaneously).
+- BREAK generates **NMI(LOW)** (non-maskable interrupt → drops into SYSMON).
+  SHIFT+BREAK generates **RESET(LOW)** instead.
+
+**FOUND vs FULCLA distinction:**
+- **FOUND** is *level-sensitive*: reflects whether a physical key is currently pressed.
+  It is re-asserted within 200 µs if the key is still held when the scan restarts.
+- **FULCLA** is *event-sensitive* (latched): set once when the key is first detected,
+  cleared by STROBE.  Reading port 0x01 bit 2 reflects FOUND, not FULCLA.
+- Optional mode: the hardware supports a `BLOCKING` configuration where the scan
+  stays frozen until the key is physically released (prevents repeated re-trigger).
 
 ### 5.1 Overview
 
@@ -409,9 +485,13 @@ latched by a flip-flop (the "FOUND" flip-flop) and read by the CPU via I/O.
 |------|-----------|------|-------------------------------------------------|
 | 0x00 | Read      | CLA  | bits[6:0] = key code; bit 7 = NOT-FOUND (1 if no key) |
 | 0x00 | Write     | MODE | Display mode register (see §4.1 — same address!) |
-| 0x01 | Read      | ST   | bit 3 = always 1; bit 2 = FOUND (key available) |
+| 0x01 | Read      | ST   | bit 3 = always 1; bit 2 = **FOUND** (level: key held) |
 
-Reading port 0x00 **clears** the FOUND flip-flop.
+Reading port 0x00 **clears FOUND and FULCLA** and **resumes the scan counter**.
+
+> **Official doc note:** *"le registre de status du clavier n'est en fait pas
+> nécessaire"* — bit 7 of the CLA byte encodes FOUND state directly, so the
+> separate status port read is redundant in practice.
 
 ### 5.3 Special keys
 
@@ -436,9 +516,11 @@ in a **QWERTZ Swiss** layout.  Uppercase only on alphanumeric characters.
 
 ### 5.5 Function key (FOUND=0) return value
 
-When no regular key is pressed (FOUND=0), the CLA port returns a **7-bit bitmask**
-— one bit per function key held simultaneously.  Bit 7 is always 1 in this case
-(matching the NOT-FOUND encoding).
+When no regular key is pressed (FOUND=0) **and no regular key has been frozen in the
+hardware latch**, the CLA port returns a **7-bit bitmask** — one bit per function key
+held simultaneously.  Bit 7 is always 1 in this case (matching the NOT-FOUND encoding).
+Function key bits are **level-sensitive**: the value reflects the physical state at the
+moment `IN A,(0x00)` is executed; they do not latch.
 
 | Key     | Bit | Hex    |
 |---------|-----|--------|

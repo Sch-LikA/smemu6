@@ -102,6 +102,19 @@ void keyboard_frame_tick(struct Smaky6 *m)
      * ensures every GETFON poll in the frame sees the current value.
      * The ISR's own write at 0x0170 is harmless (writes the same value). */
     m->bus[0x4580u] = m->kbd.fonct_bits;
+
+    /* Mirror fonct_bits into the SAMOS "last key" latch (0x457E) so that
+     * syscall 0x0E (LD A,(0x457E); OR A; RET) returns the current function-
+     * key bitmask.  Games like FLIPPER.SM read flippers exclusively via
+     * syscall 0x0E and check (result & 0xF0) for left flipper and
+     * (result & 0x0F) for right flipper — which maps exactly to the fonct_bits:
+     *   CURSOR (F1) = bit 4 = 0x10 → AND 0xF0 = 0x10 ≠ 0 → left flipper
+     *   CHANGE (F7) = bit 0 = 0x01 → AND 0x0F = 0x01 ≠ 0 → right flipper
+     * Physical regular-key presses travel via the FIFO→circular-buffer path
+     * and never touch 0x457E in the emulator, so this write does not conflict.
+     * Writing 0x00 when no function key is held releases the flipper each frame,
+     * giving true press-and-hold (not toggle/latch) behaviour. */
+    m->bus[0x457Eu] = m->kbd.fonct_bits;
     while (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
         /* Sanity check: if write pointer is outside the circular buffer area,
