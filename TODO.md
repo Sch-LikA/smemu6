@@ -122,6 +122,26 @@ Each slot auto-detects whether it holds a floppy or a harddisk image:
 - **Empty**: LED off, no info text
 
 The label (`DX0:` / `DX1:`) is rendered in green for floppies and cyan for harddisks.
+
+### RESET and NMI buttons in status bar (first line)
+
+Add a **RESET** and an **NMI** button at the right end of the first status bar line
+(the floppy/harddisk track info row), rendered in a more vibrant red than the function-key
+buttons on the second row.
+- Left-click **NMI** → `machine_nmi()` (same as host Pause/F11)
+- Left-click **RESET** → `machine_reset()` (same as host Shift+Pause/Shift+F11)
+
+### Function-key buttons: right-click to latch
+
+The seven function-key buttons on the second status bar row are **modifier keys** on the
+real Smaky 6 — the user holds them while pressing another key.  The current left-click
+behaviour (held while mouse button is down, released on mouse-up) stays as-is.
+
+Add **right-click to latch**: a right-click on a function-key button toggles a persistent
+"latched" state for that bit in `fonct_bits`.  A latched button stays active (and is
+rendered distinctly — e.g. brighter or with a different border) until right-clicked again,
+allowing single-handed modifier+key combinations.
+
 ---
 
 ## Keyboard
