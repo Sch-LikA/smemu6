@@ -46,6 +46,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.repeat_scan     = SDL_SCANCODE_UNKNOWN;
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
+    m->kbd.text_blocked    = 0;
 
     /* Power-on state: the FOUND latch (4013 FF2) powers up SET in practice.
      * physically_held=1 models the scanner continuously reasserting FOUND
@@ -239,10 +240,14 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
          * SAMOS is not yet running, address 0x4558 is uninitialised RAM and no
          * repeat is active. */
         m->bus[0x4558u] = 0u;
+        m->kbd.text_blocked = 0;
         return;
     }
     if (ev->type != SDL_KEYDOWN) return;
     if (ev->repeat) return;   /* ignore SDL key-repeat; SAMOS handles its own repeat */
+
+    /* New (non-repeated) KEYDOWN: unblock text input for this new keypress. */
+    m->kbd.text_blocked = 0;
 
     SDL_Scancode scan = ev->keysym.scancode;
     /* Track scancode so we can cancel repeat on the matching KEYUP. */
@@ -350,6 +355,13 @@ static const struct { uint16_t unicode; uint8_t code; } ACCENT_TABLE[] = {
  */
 void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 {
+    /* SDL_TextInputEvent has no repeat field: the host OS fires a new
+     * SDL_TEXTINPUT for every OS-level key-repeat tick while a key is held.
+     * We suppress all but the first text event per physical keypress using
+     * text_blocked, which is cleared on each non-repeated SDL_KEYDOWN and on
+     * SDL_KEYUP (in keyboard_event()), and set after the first text is pushed. */
+    if (m->kbd.text_blocked) return;
+    m->kbd.text_blocked = 1;
     const unsigned char *p = (const unsigned char *)ev->text;
     while (*p != '\0') {
         uint8_t b0 = *p;

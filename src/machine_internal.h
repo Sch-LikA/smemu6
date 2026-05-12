@@ -47,6 +47,9 @@ struct Smaky6 {
         uint8_t fifo[64];
         int     fifo_head;       /* next read index */
         int     fifo_tail;       /* next write index */
+        int     text_blocked;    /* 1 after first SDL_TEXTINPUT for a held key;
+                                  * cleared on KEYDOWN (non-repeat) and KEYUP to
+                                  * suppress OS key-repeat text injections */
     } kbd;
 
     /* Video */
