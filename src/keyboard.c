@@ -369,13 +369,18 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      *   directly.  CLA fields serve machine_inject_key(); FIFO serves physical
      *   keys typed in monitor mode.
      */
-    if (!m->cpu.iff1) {
-        /* Phantom ROM / monitor context (kbd_wait, iff1=0):
+    if (!m->cpu.iff1 && !m->kbd.samos_loaded) {
+        /* Phantom ROM / monitor context (kbd_wait, iff1=0, samos_loaded=0):
          * Serve machine_inject_key() CLA fields first, so injected keys
          * are visible to the Phantom ROM kbd_wait polling loop.
          * Fall through to FIFO for physical keys (monitor mode, post-handoff).
          * Hardware: CLA read itself clears FOUND; if key still held, reasserts
-         * within 200µs.  We mirror that by clearing found=0 here. */
+         * within 200µs.  We mirror that by clearing found=0 here.
+         *
+         * NOTE: do NOT enter this branch when samos_loaded=1, even if iff1=0.
+         * Z80 clears IFF1 on INT acknowledgment, so iff1=0 inside the SAMOS
+         * 50 Hz ISR is normal — those CLA reads must use the Stage 1/Stage 2
+         * path below. */
         {
             int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
             int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
@@ -391,22 +396,13 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
          * (IFF1 cleared on INT acknowledgment).  In that case the FIFO
          * must NOT be popped here — keyboard_frame_tick() drains it to
          * the SAMOS circular buffer instead. */
-        if (!m->kbd.samos_loaded && m->kbd.fifo_head != m->kbd.fifo_tail) {
+        if (m->kbd.fifo_head != m->kbd.fifo_tail) {
             uint8_t code = m->kbd.fifo[m->kbd.fifo_head];
             m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
             return code & 0x7Fu;  /* bit 7 = 0 → key present */
         }
-        /* Hardware idle state: the keyboard scanner continuously asserts FOUND=1
-         * with code 0x00 ("null / Enter") when no physical key is held.
-         * This is why both kbd_waits (Phantom ROM 0x00FD and SAMOS init 0x00B5)
-         * exit immediately with A=0x00 on real hardware without any keypress —
-         * the machine autoboots to CLI by default.
-         * Returning 0x00 here (bit7=0 = FOUND asserted, code=0x00) mirrors that
-         * idle-state behaviour in the iff1=0 / pre-SAMOS polling path only.
-         * The ISR path (iff1=1 branch below) is unaffected. */
-        if (!m->kbd.samos_loaded)
-            return 0x00u;  /* idle: FOUND=1, code=0x00 → kbd_waits exit immediately */
-        return 0x80u;  /* no key; function key state delivered to SAMOS via 0x4580 directly */
+        /* Hardware idle state: return 0x00 (FOUND asserted, code=0x00) */
+        return 0x00u;  /* idle: FOUND=1, code=0x00 → kbd_waits exit immediately */
     }
     int key_held = m->kbd.physically_held || (m->kbd.key_hold_frames > 0);
     int have_key = m->kbd.found || (key_held && m->kbd.cla_seen);
