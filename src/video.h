@@ -74,7 +74,7 @@ void video_render(struct Smaky6 *m);
 
 /* RESET / NMI buttons in the disk status bar (first row).
  * Two buttons placed flush at the right edge of the 512-px bar. */
-#define VIDEO_SYS_BTN_W    38   /* NMI button width */
+#define VIDEO_SYS_BTN_W    50   /* BREAK button width (5 chars × 9px + padding) */
 #define VIDEO_SYS_RST_W    50   /* RESET button width (wider — 5 chars) */
 #define VIDEO_SYS_BTN_GAP   3   /* gap between the two buttons */
 #define VIDEO_SYS_BTN_H    10   /* button height (1px top/bottom pad within LED_H=14) */

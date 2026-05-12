@@ -306,12 +306,12 @@ void video_render(struct Smaky6 *m)
     }
 
     /* ── Status bar: disk activity + track/sector ───────────────────────── */
-    /* Grey background for the LED strip */
-    SDL_SetRenderDrawColor(ren, 48, 48, 48, 255);
+    /* Background for the LED strip */
+    SDL_SetRenderDrawColor(ren, 72, 68, 64, 255);
     SDL_Rect bar = { 0, VIDEO_ASPECT_H, VIDEO_WIN_W, VIDEO_LED_H };
     SDL_RenderFillRect(ren, &bar);
     /* Separator line */
-    SDL_SetRenderDrawColor(ren, 90, 90, 90, 255);
+    SDL_SetRenderDrawColor(ren, 130, 125, 115, 255);
     SDL_RenderDrawLine(ren, 0, VIDEO_ASPECT_H, VIDEO_WIN_W - 1, VIDEO_ASPECT_H);
 
     /* Two drive slots: LED + label + track number.
@@ -324,8 +324,8 @@ void video_render(struct Smaky6 *m)
     static const char *dx_label[2] = { "DX0:", "DX1:" };
     const int ly = VIDEO_ASPECT_H + 2;   /* glyph y */
     for (int d = 0; d < 2; d++) {
-        /* DX0 starts at x=4; DX1 starts at half the space left of the NMI button */
-        int lx = (d == 0) ? 4 : (VIDEO_SYS_NMI_X / 2);
+        /* DX0 starts at x=4; DX1 starts at the midpoint of the space left of the BREAK button */
+        int lx = (d == 0) ? 4 : ((4 + VIDEO_SYS_NMI_X) / 2);
 
         int is_hd     = m->win.image[d] != NULL;
         int mounted   = is_hd ? 1 : (m->fdc.image[d] != NULL);
@@ -415,12 +415,15 @@ void video_render(struct Smaky6 *m)
             int armed = (i == 1) && m->vid.reset_armed;
             int blink_on = armed && ((SDL_GetTicks() / 200) & 1);
 
-            /* Fill: orange blinking when armed, vivid red otherwise */
+            /* Fill: orange blinking when armed (RESET), brown for BREAK, red for RESET */
             if (armed) {
                 if (blink_on)
                     SDL_SetRenderDrawColor(ren, 255, 160,   0, 255);
                 else
                     SDL_SetRenderDrawColor(ren, 180,  80,   0, 255);
+            } else if (i == 0) {
+                /* BREAK button — brown base */
+                SDL_SetRenderDrawColor(ren, hover ? 180 : 140, hover ? 100 : 70, hover ? 40 : 20, 255);
             } else if (hover) {
                 SDL_SetRenderDrawColor(ren, 255,  60,  60, 255);
             } else {
@@ -429,9 +432,11 @@ void video_render(struct Smaky6 *m)
             SDL_Rect btn = { bx, by, bw, bh };
             SDL_RenderFillRect(ren, &btn);
 
-            /* Border: bright yellow when armed, pink otherwise */
+            /* Border: bright yellow when armed, tan for BREAK, pink for RESET */
             if (armed)
                 SDL_SetRenderDrawColor(ren, 255, 220,  80, 255);
+            else if (i == 0)
+                SDL_SetRenderDrawColor(ren, 200, 150,  80, 255);
             else
                 SDL_SetRenderDrawColor(ren, 255, 120, 120, 255);
             SDL_RenderDrawRect(ren, &btn);
@@ -440,7 +445,7 @@ void video_render(struct Smaky6 *m)
             int label_len = (int)strlen(SYSBTNS[i].label);
             int tx = bx + (bw - label_len * 9) / 2;
             int ty = by + (bh - 8) / 2;
-            SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+            SDL_SetRenderDrawColor(ren, 220, 190, 175, 255);
             for (int ci = 0; SYSBTNS[i].label[ci]; ci++) {
                 uint8_t gc = (uint8_t)SYSBTNS[i].label[ci];
                 for (int sl = 0; sl < 8; sl++) {
@@ -469,11 +474,11 @@ void video_render(struct Smaky6 *m)
         int fmx = (int)mx_f, fmy = (int)my_f;
 
         /* Bar background */
-        SDL_SetRenderDrawColor(ren, 38, 28, 28, 255);
+        SDL_SetRenderDrawColor(ren, 62, 48, 44, 255);
         SDL_Rect fbar = { 0, VIDEO_FKEY_Y, VIDEO_WIN_W, VIDEO_FKEY_H };
         SDL_RenderFillRect(ren, &fbar);
         /* Top separator */
-        SDL_SetRenderDrawColor(ren, 80, 50, 50, 255);
+        SDL_SetRenderDrawColor(ren, 120, 90, 80, 255);
         SDL_RenderDrawLine(ren, 0, VIDEO_FKEY_Y, VIDEO_WIN_W - 1, VIDEO_FKEY_Y);
 
         for (int i = 0; i < 7; i++) {
@@ -492,9 +497,9 @@ void video_render(struct Smaky6 *m)
             else if (active)
                 SDL_SetRenderDrawColor(ren, 200,  30,  30, 255);
             else if (hover)
-                SDL_SetRenderDrawColor(ren, 100,  25,  25, 255);
+                SDL_SetRenderDrawColor(ren, 130,  55,  45, 255);
             else
-                SDL_SetRenderDrawColor(ren,  70,  15,  15, 255);
+                SDL_SetRenderDrawColor(ren, 100,  38,  30, 255);
             SDL_Rect btn = { bx, by, bw, bh };
             SDL_RenderFillRect(ren, &btn);
 
@@ -516,9 +521,9 @@ void video_render(struct Smaky6 *m)
             else if (active)
                 SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
             else if (hover)
-                SDL_SetRenderDrawColor(ren, 200, 130, 130, 255);
+                SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
             else
-                SDL_SetRenderDrawColor(ren, 160,  80,  80, 255);
+                SDL_SetRenderDrawColor(ren, 220, 190, 175, 255);
             for (int ci = 0; FKEYS[i].label[ci]; ci++) {
                 uint8_t gc = (uint8_t)FKEYS[i].label[ci];
                 for (int sl = 0; sl < 8; sl++) {
