@@ -15,6 +15,36 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
+    if (m->dbg.trace_kbd &&
+        (addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
+         addr == 0x4580u || addr == 0x4582u)) {
+        uint8_t old = m->bus[addr];
+        if (old != data) {
+            fprintf(stderr,
+                    "[kbd-w] pc=%04X [%04X] %02X -> %02X\n",
+                    (unsigned)Z80_PC(m->cpu),
+                    (unsigned)addr,
+                    (unsigned)old,
+                    (unsigned)data);
+        }
+    }
+    if (m->dbg.trace_flow &&
+        ((addr >= 0x45C0u && addr <= 0x463Fu) || addr == 0x7014u || addr == 0x7015u)) {
+        uint8_t old = m->bus[addr];
+        if (old != data) {
+            fprintf(stderr,
+                    "[cli-w] pc=%04X [%04X] %02X -> %02X",
+                    (unsigned)Z80_PC(m->cpu),
+                    (unsigned)addr,
+                    (unsigned)old,
+                    (unsigned)data);
+            if (addr >= 0x45C0u && addr <= 0x463Fu) {
+                fprintf(stderr, " ('%c')",
+                        (data >= 0x20u && data < 0x7Fu) ? (char)data : '?');
+            }
+            fputc('\n', stderr);
+        }
+    }
     m->bus[addr] = data;
 }
 

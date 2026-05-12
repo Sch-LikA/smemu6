@@ -41,6 +41,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.reassert_pending  = 0;
     m->kbd.reassert_cycles   = 0;
     m->kbd.physically_held   = 0;
+    m->kbd.boot_key_held     = 0;
     m->kbd.shift_pressed   = 0;
     m->kbd.fonct_bits      = 0;
     m->kbd.repeat_scan     = SDL_SCANCODE_UNKNOWN;
@@ -57,6 +58,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.found             = 1;
     m->kbd.key_code          = 0x00;
     m->kbd.physically_held   = 1;
+    m->kbd.boot_key_held     = 1;
 }
 
 /* Called once per 50 Hz frame from the main loop.  Decrements the hold-time
@@ -95,9 +97,10 @@ void keyboard_frame_tick(struct Smaky6 *m)
      * We do NOT use iff1 as the trigger: EI fires as early as 0x020D during the
      * Phantom ROM floppy loader, which is before SAMOS init's kbd_wait at 0x00B5.
      * Using iff1 would release the virtual key too early and hang the machine. */
-    if (m->kbd.physically_held) {
+    if (m->kbd.boot_key_held) {
         uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
         if (vec == 0x003Eu) {
+            m->kbd.boot_key_held    = 0;
             m->kbd.physically_held  = 0;
             m->kbd.reassert_pending = 0;
             m->kbd.reassert_cycles  = 0;

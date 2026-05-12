@@ -151,7 +151,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
-| `-inject-delay <f>` | Accepted for backward compatibility; no longer has any effect. |
+| `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
 | `-inject-via-fifo` | Route `-inject-str` through the hardware keyboard FIFO instead of the fast path |
 
 **Example — run `LIST` automatically:**

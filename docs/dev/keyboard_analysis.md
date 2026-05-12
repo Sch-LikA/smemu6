@@ -209,10 +209,35 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 **Current emulator path:** physical keys reach the CLI via `keyboard_frame_tick()`,
 which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.
 
-**Real post-boot hardware path:** still unresolved.  The binary proves that the CLI
-waits on the circular buffer, and that Stage 1 alone only updates `0x457E`, so some
-combination of Stage 2 and Stage 3 must feed the buffer on real hardware.  The exact
-steady-state mechanism is the remaining open question.
+**Real post-boot hardware path:** resolved one step further, but still not complete.
+The binary proves that the CLI waits on the circular buffer, and two runtime audits on
+2026-05-13 narrowed the split clearly:
+
+- delayed `-inject-keycode 0x41` at the live `Sys1-H.dsk` CLI prompt follows the
+  Stage 1 path exactly: status goes to `0x0C`, the next CLA read at `pc=0x0162`
+  returns `0x41`, and SYS.SY writes `0x41` to `0x457E` at `pc=0x0169`;
+- in that one-key CLA trace window there was no write to `0x457C`/`0x457D`, no
+  circular-buffer store, and no visible prompt-line update;
+- control injection via `-inject-str "A"` did produce a visible `A` on the CLI line,
+  and traceflow showed that visible input goes through the blocking-read + line-editor
+  path in `CLI.SY`, not through `0x457E`.
+
+The confirmed visible path is:
+
+1. `CLI.SY` line-input loop at `0x5857` calls key helper `0x5B29`.
+2. `0x5B29` issues SAMOS syscall `0x47`, then SAMOS blocking read syscall `0x0D`
+    (encoded as `RST 20h` followed by byte `0x0D` at runtime `0x5B2C`).
+3. The returned character is dispatched at `0x585D..0x586D`.
+4. Normal character insertion flows through helper `0x58DD..0x590F`.
+    Runtime trace of visible `A` showed:
+    - `pc=0x58FD`: cursor pointer `0x7014` advanced from `0x45C0` to `0x45C1`;
+    - `pc=0x590E`: line buffer `0x45C0` changed from `'-'` to `0x41` (`'A'`).
+5. Cursor redraw then runs through `0x5A7B..0x5AF9`, restoring `'-'` at the new cursor
+    position (`0x45C1`).
+
+So the remaining open question is now narrower: how a real hardware-originating key
+becomes eligible for the CLI's blocking-read / circular-buffer path, given that the
+direct CLA Stage 1 path only updates `0x457E`.
 
 ---
 
@@ -236,7 +261,7 @@ steady-state mechanism is the remaining open question.
 |--------|------|-------------|
 | Physical regular key (`SDL_KEYDOWN`) | FIFO → `keyboard_frame_tick()` → direct write to SAMOS circular buffer | Syscall 0x0D (CLI blocking read) |
 | Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; `keyboard_frame_tick()` writes `fonct_bits` to `bus[0x4580]` AND `bus[0x457E]` | `0x4580` via GETFON syscall; `0x457E` via syscall 0x0E (non-blocking) — **press-and-hold, clears on release** |
-| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` → `keyboard_read_cla()` returns key code on every read while held | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
+| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on autoboot hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
 **Syscall 0x0E and function keys:** Syscall 0x0E reads `0x457E` directly.  Since the physical
 regular-key path never touches `0x457E`, it would always return 0 for physical keys.
@@ -501,6 +526,25 @@ LDIR (BC = ptr-base = 0)  ; copies 0 bytes
 ```
 After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR did nothing).
 `keyboard_frame_tick()` uses the **guard-sentinel check** (`[wr] != 0x80`), not `ptr == 0x4596`.
+
+## CLI Visible Character Path (confirmed by CLI.SY disassembly + trace)
+
+Visible prompt-line edits are performed by `CLI.SY`, not by the SAMOS Stage 1 latch path.
+
+- `CLI.SY` line-input routine `0x5857` calls helper `0x5B29` to fetch one key.
+- `0x5B29` uses SAMOS blocking read syscall `0x0D`, not syscall `0x0E`.
+    In disassembly this appears as `RST 20h` at `0x5B2C` followed by byte `0x0D`
+    (rendered by `z80dasm` as `DEC C` because it does not understand the syscall ABI).
+- Normal character insertion then uses helper `0x58DD..0x590F`:
+    - `0x58F8..0x58FD`: load current cursor from `0x7014`, increment it, store back;
+    - `0x5900..0x590B`: if needed, shift the tail right with `LDDR`;
+    - `0x590E`: store the new character into the line buffer;
+    - `0x590F`: return.
+- Cursor redraw then uses `0x5A7B..0x5AF9`; trace confirmed `0x5A88` writes `'-'`
+    at the current cursor and later redraws it at the new cursor position.
+
+This is why `-inject-str "A"` visibly changes the prompt line while a one-shot
+CLA key injected through `machine_inject_key()` does not.
 
 ---
 

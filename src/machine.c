@@ -502,6 +502,7 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.found           = 1;
     m->kbd.key_code        = 0x00;  /* Enter → boot from DX0 */
     m->kbd.physically_held = 1;
+    m->kbd.boot_key_held   = 1;
     m->kbd.fifo_head       = 0;
     m->kbd.fifo_tail       = 0;
 }
@@ -511,12 +512,14 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
+    m->kbd.boot_key_held   = 0;
 }
 
 void machine_release_key(struct Smaky6 *m)
 {
     m->kbd.found           = 0;
     m->kbd.physically_held = 0;
+    m->kbd.boot_key_held   = 0;
 }
 
 void machine_inject_shift_break(struct Smaky6 *m)
@@ -529,6 +532,7 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.key_code        = 0x04;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
+    m->kbd.boot_key_held   = 0;
 }
 
 uint16_t machine_get_pc(const struct Smaky6 *m)

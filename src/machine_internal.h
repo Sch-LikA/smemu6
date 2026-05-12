@@ -35,6 +35,7 @@ struct Smaky6 {
         int      reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
         uint32_t reassert_cycles;   /* T-state countdown to reassert (≈500 at 2.5 MHz = 200 µs) */
         int     physically_held;   /* 1 while SDL key is physically down (cleared by KEYUP) */
+        int     boot_key_held;     /* 1 only for the power-on virtual Enter autoboot key */
         int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
         uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (held | latched) */
         uint8_t fonct_latched;   /* bits toggled by right-click; stay set until right-clicked again */

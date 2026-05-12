@@ -152,7 +152,7 @@ valides sont :
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
-| `-inject-delay <f>` | Accepté pour compatibilité ascendante ; n'a plus aucun effet. |
+| `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
 | `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
 
 **Exemple — exécuter `LIST` automatiquement :**

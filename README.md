@@ -213,7 +213,9 @@ SDL key events) instead of writing directly to the SAMOS circular buffer.
 Slower but exercises the full keyboard emulation path; useful for testing.
 
 #### `-inject-delay <frames>`
-Accepted for backward compatibility; no longer has any effect.
+Wait this many 50 Hz frames after the CLI prompt becomes visible before
+triggering `-inject-str` or `-inject-keycode`. Useful when the OS reaches the
+prompt before the screen content has fully stabilized.
 
 ---
 

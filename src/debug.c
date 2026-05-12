@@ -185,20 +185,38 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     m->dbg.flow_budget--;
                 }
             }
-        } else if ((pc >= 0x00B0 && pc <= 0x0150) || (pc >= 0x0400 && pc <= 0x0508)) {
+        } else if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
+                   pc == 0x057E || pc == 0x058C ||
+                   (pc >= 0x00B0 && pc <= 0x0150) || (pc >= 0x0400 && pc <= 0x0508)) {
             m->dbg.flow_spin_count = 0;
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
-            fprintf(stderr,
-                    "[flow] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
-                    "k=%02X/%d w54=%02X w55=%02X w57f=%02X w58a=%02X w595=%02X\n",
-                    pc,
-                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
-                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    m->kbd.key_code, m->kbd.found,
-                    m->bus[0x4554], m->bus[0x4555], m->bus[0x457F],
-                    m->bus[0x458A], m->bus[0x4595]);
+            if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
+                pc == 0x057E || pc == 0x058C) {
+                uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+                uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
+                fprintf(stderr,
+                        "[flow-cli] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
+                        "ptr=%04X [ptr]=%02X 457e=%02X 45c0=%02X 7014=%04X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        ptr, (unsigned)m->bus[ptr],
+                        (unsigned)m->bus[0x457Eu],
+                        (unsigned)m->bus[0x45C0u],
+                        cursor);
+            } else {
+                fprintf(stderr,
+                        "[flow] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
+                        "k=%02X/%d w54=%02X w55=%02X w57f=%02X w58a=%02X w595=%02X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        m->kbd.key_code, m->kbd.found,
+                        m->bus[0x4554], m->bus[0x4555], m->bus[0x457F],
+                        m->bus[0x458A], m->bus[0x4595]);
+            }
             m->dbg.flow_budget--;
         }
         }
