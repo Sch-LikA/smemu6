@@ -31,8 +31,9 @@ struct Smaky6 {
     /* Keyboard */
     struct {
         uint8_t key_code;
-        int     found;             /* FOUND latch: 1 = key present, cleared by CLA read */
-        int     reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
+        int      found;             /* FOUND latch: 1 = key present, cleared by CLA read */
+        int      reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
+        uint32_t reassert_cycles;   /* T-state countdown to reassert (≈500 at 2.5 MHz = 200 µs) */
         int     physically_held;   /* 1 while SDL key is physically down (cleared by KEYUP) */
         int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
         uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (held | latched) */

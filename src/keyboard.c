@@ -38,6 +38,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.key_code          = 0;
     m->kbd.found             = 0;
     m->kbd.reassert_pending  = 0;
+    m->kbd.reassert_cycles   = 0;
     m->kbd.physically_held   = 0;
     m->kbd.shift_pressed   = 0;
     m->kbd.fonct_bits      = 0;
@@ -61,6 +62,22 @@ void keyboard_init(struct Smaky6 *m)
  * and the key has been physically released.
  * Also drains one key from the software FIFO into the SAMOS circular buffer
  * when the buffer slot is free (write pointer == 0x4596 = buffer base). */
+void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles)
+{
+    /* Advance the FOUND-reassert countdown.  Called after every CPU execution
+     * slice so the reassert fires at ~200 µs granularity (500 T-states at 2.5 MHz)
+     * rather than once per 20 ms frame. */
+    if (!m->kbd.reassert_pending) return;
+    if (cycles >= m->kbd.reassert_cycles) {
+        m->kbd.reassert_pending = 0;
+        m->kbd.reassert_cycles  = 0;
+        if (m->kbd.physically_held)
+            m->kbd.found = 1;   /* scanner refires */
+    } else {
+        m->kbd.reassert_cycles -= cycles;
+    }
+}
+
 void keyboard_frame_tick(struct Smaky6 *m)
 {
     /* Deferred FOUND reassert: when CLA read clears FOUND while physically_held=1,
@@ -77,8 +94,8 @@ void keyboard_frame_tick(struct Smaky6 *m)
 
     /* Power-on virtual Enter key: physically_held=1 from keyboard_init() models
      * the 4013 FF2 FOUND latch being SET at power-on.  The first kbd_wait exits on
-     * the initial found=1.  Subsequent polls are served by the reassert_pending
-     * path above (≤1 frame delay, matching real hardware's ≤200µs scan cycle).
+     * the initial found=1.  Subsequent polls are served by keyboard_tick_cycles()
+     * (~500 T-state / 200 µs countdown), matching real hardware's ≤200µs scan cycle.
      *
      * Release trigger: the SAMOS 50 Hz ISR vector at bus[0x4566..7] == 0x003E.
      * This is written by SAMOS init at 0x00CD, AFTER the init kbd_wait exits,
@@ -93,6 +110,7 @@ void keyboard_frame_tick(struct Smaky6 *m)
         if (vec == 0x003Eu) {
             m->kbd.physically_held  = 0;
             m->kbd.reassert_pending = 0;
+            m->kbd.reassert_cycles  = 0;
             m->kbd.found            = 0;
             m->kbd.fifo_head        = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
         }
@@ -420,12 +438,14 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         m->kbd.found = 0;
         /* Scanner immediately reasserts FOUND if key still held (§10.4: 200µs).
          * Models a key held down: every CLA read keeps returning the same code. */
-        /* Hardware: scanner reasserts FOUND within ≤200µs (one full 8×8 scan at
-         * 300 kHz) while the key is physically held.  We defer to the next
-         * keyboard_frame_tick() call (≤20ms) rather than reasserting immediately,
-         * so FOUND is not continuously asserted between two consecutive CLA reads. */
-        if (m->kbd.physically_held)
+        /* Hardware: scanner reasserts FOUND within ≤200µs after CLA read clears
+         * the latch (one full 8×8 scan at 300 kHz / 32 divider).  At 2.5 MHz
+         * Z80 that is ≈500 T-states.  Store a countdown; keyboard_tick_cycles()
+         * promotes it to found=1 once enough cycles have elapsed. */
+        if (m->kbd.physically_held) {
             m->kbd.reassert_pending = 1;
+            m->kbd.reassert_cycles  = 500u;
+        }
         return m->kbd.key_code & 0x7Fu;   /* bit7=0: regular key */
     }
 

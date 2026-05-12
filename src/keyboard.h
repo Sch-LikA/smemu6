@@ -26,6 +26,10 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);
 /* Call once per 50 Hz frame: decrements the post-KEYUP hold countdown */
 void keyboard_frame_tick(struct Smaky6 *m);
 
+/* Advance FOUND-reassert countdown by the given number of Z80 T-states.
+ * Call after every z80_run() / z80_execute() slice. */
+void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles);
+
 /*
  * Port 0x00 (CLA) read:
  *   bits[6:0] = keyboard code  (0 if no key pressed)

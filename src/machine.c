@@ -401,6 +401,7 @@ void machine_run_frame(struct Smaky6 *m)
                     return;
                 }
                 cycles += ran;
+                keyboard_tick_cycles(m, (uint32_t)ran);
             }
             m->snd.frame_base = cycles;  /* update before INT-window batch */
             z80_int(&m->cpu, Z_TRUE);
@@ -415,6 +416,7 @@ void machine_run_frame(struct Smaky6 *m)
                     return;
                 }
                 cycles += ran;
+                keyboard_tick_cycles(m, (uint32_t)ran);
             }
             z80_int(&m->cpu, Z_FALSE);
             m->snd.frame_base = cycles;  /* update before final batch */
@@ -429,6 +431,7 @@ void machine_run_frame(struct Smaky6 *m)
                     return;
                 }
                 cycles += ran;
+                keyboard_tick_cycles(m, (uint32_t)ran);
             }
         } else {
             zusize ran = z80_execute(&m->cpu, TSTATES_PER_FRAME);
@@ -440,6 +443,7 @@ void machine_run_frame(struct Smaky6 *m)
                 return;
             }
             cycles += ran;
+            keyboard_tick_cycles(m, (uint32_t)ran);
         }
         sound_end_frame(m);  /* flush per-frame buzzer buffer to audio queue */
         rtc_tick_frame(&m->rtc);
