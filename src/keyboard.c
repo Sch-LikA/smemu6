@@ -35,9 +35,10 @@ static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
 
 void keyboard_init(struct Smaky6 *m)
 {
-    m->kbd.key_code        = 0;
-    m->kbd.found           = 0;
-    m->kbd.physically_held = 0;
+    m->kbd.key_code          = 0;
+    m->kbd.found             = 0;
+    m->kbd.reassert_pending  = 0;
+    m->kbd.physically_held   = 0;
     m->kbd.shift_pressed   = 0;
     m->kbd.fonct_bits      = 0;
     m->kbd.repeat_scan     = SDL_SCANCODE_UNKNOWN;
@@ -50,9 +51,9 @@ void keyboard_init(struct Smaky6 *m)
      * key is held from power-on through all boot-phase kbd_wait loops until
      * EI is executed.  keyboard_frame_tick() releases it when iff1 first
      * becomes 1.  key_code=0x00 = Enter selects DX0 autoboot. */
-    m->kbd.found           = 1;
-    m->kbd.key_code        = 0x00;
-    m->kbd.physically_held = 1;
+    m->kbd.found             = 1;
+    m->kbd.key_code          = 0x00;
+    m->kbd.physically_held   = 1;
 }
 
 /* Called once per 50 Hz frame from the main loop.  Decrements the hold-time
@@ -62,12 +63,22 @@ void keyboard_init(struct Smaky6 *m)
  * when the buffer slot is free (write pointer == 0x4596 = buffer base). */
 void keyboard_frame_tick(struct Smaky6 *m)
 {
+    /* Deferred FOUND reassert: when CLA read clears FOUND while physically_held=1,
+     * keyboard_read_cla() sets reassert_pending instead of reasserting immediately.
+     * On real hardware the scanner reasserts within ≤200µs (one 8×8 matrix scan at
+     * 300 kHz).  Promoting the pending reassert here (once per 50 Hz frame = 20ms)
+     * is coarser in absolute time but cycle-consistent: FOUND is never continuously
+     * held, and the ISR and kbd_wait callers see the same FOUND=0 → FOUND=1
+     * transition they would on hardware — just bounded at frame granularity. */
+    if (m->kbd.reassert_pending && m->kbd.physically_held) {
+        m->kbd.found            = 1;
+        m->kbd.reassert_pending = 0;
+    }
+
     /* Power-on virtual Enter key: physically_held=1 from keyboard_init() models
-     * the 4013 FF2 FOUND latch being SET at power-on.  As long as physically_held
-     * is set, keyboard_read_cla() keeps re-asserting found=1 after each read
-     * (matching real hardware's 200µs reassertion while a key is held), so every
-     * kbd_wait loop during the boot sequence exits immediately — both the Phantom
-     * ROM boot menu (0x00FD) and the SAMOS init kbd_wait (0x00B5).
+     * the 4013 FF2 FOUND latch being SET at power-on.  The first kbd_wait exits on
+     * the initial found=1.  Subsequent polls are served by the reassert_pending
+     * path above (≤1 frame delay, matching real hardware's ≤200µs scan cycle).
      *
      * Release trigger: the SAMOS 50 Hz ISR vector at bus[0x4566..7] == 0x003E.
      * This is written by SAMOS init at 0x00CD, AFTER the init kbd_wait exits,
@@ -80,9 +91,10 @@ void keyboard_frame_tick(struct Smaky6 *m)
     if (m->kbd.physically_held) {
         uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
         if (vec == 0x003Eu) {
-            m->kbd.physically_held = 0;
-            m->kbd.found           = 0;
-            m->kbd.fifo_head       = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
+            m->kbd.physically_held  = 0;
+            m->kbd.reassert_pending = 0;
+            m->kbd.found            = 0;
+            m->kbd.fifo_head        = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
         }
     }
 
@@ -408,8 +420,12 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         m->kbd.found = 0;
         /* Scanner immediately reasserts FOUND if key still held (§10.4: 200µs).
          * Models a key held down: every CLA read keeps returning the same code. */
+        /* Hardware: scanner reasserts FOUND within ≤200µs (one full 8×8 scan at
+         * 300 kHz) while the key is physically held.  We defer to the next
+         * keyboard_frame_tick() call (≤20ms) rather than reasserting immediately,
+         * so FOUND is not continuously asserted between two consecutive CLA reads. */
         if (m->kbd.physically_held)
-            m->kbd.found = 1;
+            m->kbd.reassert_pending = 1;
         return m->kbd.key_code & 0x7Fu;   /* bit7=0: regular key */
     }
 
