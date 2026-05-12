@@ -92,19 +92,19 @@ cd build
 **Démarrer depuis une image disquette (démarrage automatique) :**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img
+./smemu6 -floppy <disque.dsk>
 ```
 
 **Démarrer avec deux lecteurs disquette :**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
+./smemu6 -floppy <disque.dsk> -floppy2 <disque2.dsk>
 ```
 
 **Démarrer depuis le Winchester (DX0) avec une disquette accessible en DX1 :**
 
 ```bash
-./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disque2.dsk>
 ```
 
 > Sur les Smaky 6 équipés d'un Winchester, le disque dur **est** DX0.
@@ -146,19 +146,24 @@ valides sont :
 | Option | Description |
 |--------|-------------|
 | `-break-to-monitor` | Injecte SHIFT+BREAK pour entrer dans le moniteur SYSMON au démarrage |
+| `-no-launcher` | Ignore la boîte de dialogue de démarrage et lance directement avec les médias/options fournis |
 
 ### Injection de chaîne
 
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
+| `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA une fois l'invite CLI stable. Sert surtout à l'audit bas niveau du pipeline clavier. |
 | `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
+| `-inject-hold-frames <f>` | Maintient `-inject-keycode` actif pendant `f` trames d'ISR avant relâchement (défaut `1`). |
 | `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
+
+`-inject-str` est la voie normale pour taper automatiquement une commande. `-inject-keycode` suit le chemin CLA / Stage 1 de bas niveau et sert surtout au reverse engineering du pipeline clavier ; il ne produit pas forcément de texte visible dans la CLI à lui seul.
 
 **Exemple — exécuter `LIST` automatiquement :**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -inject-str "LIST\n"
+./smemu6 -floppy <disque.dsk> -no-launcher -inject-str "LIST\n"
 ```
 
 ### Affichage
@@ -166,7 +171,7 @@ valides sont :
 | Option | Description |
 |--------|-------------|
 | `-vmode <m>` | Forcer le mode vidéo : `alpha` (texte seul), `graphic` (graphique seul), `super` (texte + graphique) |
-| `-gfxbits <b>` | Ordre des bits du bitmap : `lsb` (défaut) ou `msb` |
+| `-gfxbits <b>` | Ordre des bits du bitmap : `msb` (défaut, conforme au matériel) ou `lsb` |
 | `-scale <n>` | Zoom entier de la fenêtre 1–8 (défaut `1` → 512 × 508 pixels) |
 | `-scanlines` | Superpose un effet de lignes de balayage CRT (assombrit une ligne sur deux) |
 | `-phosphor <c>` | Couleur du phosphore : `green` (défaut, P31 `#00E700`) ou `white` (`#E8E8E8`) |
@@ -381,13 +386,13 @@ Activez avec `-drive-sound`.
 **Exemple — démarrer avec buzzer et sons du lecteur :**
 
 ```bash
-./smemu6 -floppy sys.img -drive-sound
+./smemu6 -floppy <disque.dsk> -drive-sound
 ```
 
 **Exemple — tout couper :**
 
 ```bash
-./smemu6 -floppy sys.img -no-beeper
+./smemu6 -floppy <disque.dsk> -no-beeper
 ```
 
 ---
@@ -401,7 +406,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disque.dsk> \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>ecran.txt
@@ -411,7 +416,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disque.dsk> \
     -trace \
     -timeout 15 2>trace.log
 ```
@@ -420,7 +425,7 @@ L'émulateur peut être piloté de manière non interactive en combinant
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disque.dsk> \
     -inject-str "BASIC\n" \
     -timeout 30 \
     -dump-ram basic_init.bin
@@ -451,7 +456,7 @@ rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
 sans les mélanger à la sortie de l'émulateur :
 
 ```bash
-./smemu6 -floppy sys.img -tracekbd 2>clavier.log
+./smemu6 -floppy <disque.dsk> -tracekbd 2>clavier.log
 ```
 
 ---
@@ -461,7 +466,7 @@ sans les mélanger à la sortie de l'émulateur :
 **Dump automatique à la fin :**
 
 ```bash
-./smemu6 -floppy sys.img -timeout 10 -dump-ram snapshot.bin
+./smemu6 -floppy <disque.dsk> -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Dump interactif pendant une session en cours :**
@@ -493,7 +498,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Essayez de forcer un mode vidéo :
 
 ```bash
-./smemu6 -floppy sys.img -vmode alpha
+./smemu6 -floppy <disque.dsk> -vmode alpha
 ```
 
 **Les graphiques apparaissent inversés ou brouillés**
@@ -502,7 +507,7 @@ Le plan graphique utilise un encodage nibble-entrelacé avec MSB à gauche par d
 (vérifié sur le matériel réel). Pour forcer l'ordre inverse :
 
 ```bash
-./smemu6 -floppy sys.img -gfxbits lsb
+./smemu6 -floppy <disque.dsk> -gfxbits lsb
 ```
 
 **L'émulateur quitte immédiatement avec l'erreur 043**

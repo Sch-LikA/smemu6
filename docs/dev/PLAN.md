@@ -338,9 +338,9 @@ which sends an end-of-file to SAMOS.
 - Hardware-scanned, oscillator @ 300 kHz
 - 57 keys + 7 function keys (CHANGE, SEARCH, SHOW, COPY, CURSOR, PROGRA, KILL)
 - QWERTZ Swiss-ROM layout with French-accented lower-case characters
-- **Physical keyboard delivery (post-boot)**: the emulator currently routes physical keypresses as `keyboard_event()` → 64-slot software FIFO → `keyboard_frame_tick()` → SAMOS circular buffer. The old justification for this design, namely that ISR Stage 2 was permanently blocked by `(0x4582)==0x80`, was withdrawn on 2026-05-13 after direct `SYS.SY` binary audit showed the init sentinel write is to `0x458A` at `0x00A1`, while Stage 2 reads `0x4582` at `0x0175`. The implementation remains in place, but the real post-boot hardware ISR path needs re-audit.
-- **Autoboot / inject delivery (pre-boot or inject-str)**: `machine_inject_key()` sets CLA fields (`found`, `key_code`, `physically_held`, `key_hold_frames`), which flow through `keyboard_read_cla()` → ISR Stage 1 → `0x457E` (syscall 0x0E) or Stage 2 → circular buffer.
-- Port 0x00 CLA read is used only by the autoboot path. Port 0x01 bit 2 reflects `physically_held || key_hold_frames > 0` for the autoboot path.
+- **Physical keyboard delivery (post-boot)**: the emulator currently routes physical keypresses as `keyboard_event()` → 64-slot software FIFO → `keyboard_frame_tick()` → SAMOS circular buffer. That implementation remains in place because it matches the confirmed CLI blocking-read path, but the old Stage 2 permanent-block justification was withdrawn on 2026-05-13 and the real post-boot hardware bridge is still under audit.
+- **Autoboot / raw-key injection delivery**: `machine_inject_key()` drives the CLA-facing fields (`found`, `key_code`, `physically_held`). The current held-key probe shows this path repeatedly rewrites `0x457E` through Stage 1 and does not, by itself, explain how post-boot CLI input reaches the circular buffer.
+- Port 0x00 CLA read is used by the power-on autoboot path and by low-level raw-key injection probes. Port 0x01 bit 2 reflects whether a CLA-side key is currently held when SAMOS re-checks FOUND after debounce.
 - See `docs/dev/keyboard_analysis.md` for the full pipeline, circular buffer mechanics, and confirmed working model.
 - Key matrix → keyboard code done by hardware EPROM lookup
 - Full key/ASCII table documented in section 10.4 of the PDF

@@ -234,7 +234,7 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 |-------|-----|---------------|----------------------------------------------------------|
 | 0x00  | W   | 0x00E3        | **Video mode control** — init write (alpha-only, value 0x01) |
 | 0x00  | W   | 0x02BC        | **Video mode control** — all runtime mode-switch writes  |
-| 0x01  | W   | 0x0048        | **Dual function:** `data=0x00` → Phantom ROM bank-switch (disable 2 KB ROM, make 0x0000–0x07FF writable RAM). `data≠0x00` → **ISR ACK** — resets the emulator's `cla_seen` flag so Stage 2 can fire in the next ISR frame. The SAMOS 50 Hz ISR writes a non-zero value here at the start of every interrupt. |
+| 0x01  | W   | 0x0048        | **Dual function:** `data=0x00` → Phantom ROM bank-switch (disable 2 KB ROM, make 0x0000–0x07FF writable RAM). `data≠0x00` → **ISR ACK** for the 50 Hz tick. In the current unified emulator model this ACK does not mutate keyboard state. |
 | 0x19  | W   | 0x0158        | Floppy control register                                  |
 
 ### OS section (0x0800–0x22FF)
@@ -258,11 +258,16 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > `(0x4582) == 0x80`.  A direct binary audit of `SYS.SY` on 2026-05-13 showed the
 > init sentinel write at `0x00A1` is actually `LD (0x458A),A` with `A=0x80`, while
 > the ISR keyboard path reads `0x4582` at `0x0175`.  The old `0x4582=0x80` claim is
-> therefore unsupported and withdrawn pending re-audit.  The emulator still routes
-> physical keypresses via its FIFO→circular-buffer path:
+> therefore unsupported and withdrawn.  A follow-up held-CLA probe at the live CLI
+> prompt also showed repeated Stage 1 writes to `0x457E` without any observed entry
+> into the traced Stage 3/4 PCs or any `0x457C` advance, so a plain held raw key is
+> still not enough to explain the bridge.  The emulator still routes physical
+> keypresses via its FIFO→circular-buffer path:
 > `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` drains the
 > entire FIFO each frame into the circular buffer at the current write pointer
-> (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.
+> (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.  For the
+> post-boot OS-side bridge question, `SYS.SY` remains the only defensible software
+> candidate still under audit.
 >
 > `keyboard_frame_tick()` also sets the `samos_loaded` flag once it detects that
 > SAMOS has written its 50 Hz ISR vector to `(0x4566)` (`== 0x003E`).  This happens

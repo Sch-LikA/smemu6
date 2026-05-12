@@ -87,6 +87,7 @@ static void usage(const char *argv0)
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
+        "  -inject-hold-frames <f> Hold -inject-keycode for this many frames (default 1)\n"
         "  -timeout <s>   Global wall-clock timeout (0=off, default 30s with -trace)\n"
 
         "  -vmode <m>     Force video mode: alpha|graphic|super\n"
@@ -136,6 +137,7 @@ typedef struct {
     int  inject_via_fifo;
     int  inject_at_prompt;        /* fire inject when prompt_count >= this */
     int  inject_delay_frames;     /* wait this many visible-prompt frames before injecting */
+    int  inject_hold_frames;      /* hold CLA injection for this many frames */
     int  inject_keycode_enabled;
     uint8_t inject_keycode;
     int  inject_keycode_done;
@@ -463,13 +465,14 @@ static void main_loop_iter(void)
             prompt_injection_ready(L, prompt_now)) {
             machine_inject_key(L->m, L->inject_keycode);
             L->inject_keycode_done = 1;
-            L->stage1_release_at = L->frame_cnt + 1;
+            L->stage1_release_at = L->frame_cnt + L->inject_hold_frames;
             if (L->trace || L->m->dbg.trace_kbd)
                 fprintf(stderr,
-                        "[inject] CLA keycode 0x%02X armed at frame %d after %d prompt frame(s); release at %d\n",
+                        "[inject] CLA keycode 0x%02X armed at frame %d after %d prompt frame(s); hold=%d release at %d\n",
                         (unsigned)L->inject_keycode,
                         L->frame_cnt,
                         L->frame_cnt - L->prompt_visible_since_frame,
+                        L->inject_hold_frames,
                         L->stage1_release_at);
         }
 
@@ -655,6 +658,7 @@ int main(int argc, char *argv[])
     int inject_via_fifo = 0;           /* -inject-via-fifo: push inject-str through kbd FIFO */
     int inject_at_prompt = 1;          /* -inject-at-prompt N: fire inject when prompt_count >= N */
     int inject_delay_frames = 2;       /* -inject-delay N: wait N frames after prompt appears */
+    int inject_hold_frames = 1;        /* -inject-hold-frames N: hold CLA key for N frames */
     int inject_keycode_enabled = 0;    /* -inject-keycode: inject one key via CLA path */
     uint8_t inject_keycode = 0;
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
@@ -713,6 +717,14 @@ int main(int argc, char *argv[])
             }
             inject_keycode_enabled = 1;
             inject_keycode = (uint8_t)v;
+        } else if (strcmp(argv[i], "-inject-hold-frames") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long v = strtol(argv[++i], &end, 0);
+            if (!end || *end != '\0' || v < 1 || v > 100000) {
+                fprintf(stderr, "Invalid -inject-hold-frames value: %s\n", argv[i]);
+                return 1;
+            }
+            inject_hold_frames = (int)v;
         } else if (strcmp(argv[i], "-timeout") == 0 && i + 1 < argc) {
             char *end = NULL;
             long v = strtol(argv[++i], &end, 0);
@@ -1113,6 +1125,7 @@ int main(int argc, char *argv[])
     ctx.inject_via_fifo    = inject_via_fifo;
     ctx.inject_at_prompt   = inject_at_prompt;
     ctx.inject_delay_frames = inject_delay_frames;
+    ctx.inject_hold_frames = inject_hold_frames;
     ctx.inject_keycode_enabled = inject_keycode_enabled;
     ctx.inject_keycode     = inject_keycode;
     ctx.inject_keycode_done = 0;

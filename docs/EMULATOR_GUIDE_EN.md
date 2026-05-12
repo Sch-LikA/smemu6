@@ -92,19 +92,19 @@ cd build
 **Boot from a floppy image (starts automatically):**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img
+./smemu6 -floppy <disk.dsk>
 ```
 
 **Boot with two floppy drives:**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -floppy2 ../floppies/data.img
+./smemu6 -floppy <disk.dsk> -floppy2 <disk2.dsk>
 ```
 
 **Boot from Winchester (DX0) with a floppy accessible as DX1:**
 
 ```bash
-./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/data.img
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disk2.dsk>
 ```
 
 > On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
@@ -145,19 +145,24 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | Option | Description |
 |--------|-------------|
 | `-break-to-monitor` | Inject SHIFT+BREAK to enter the SYSMON monitor at startup |
+| `-no-launcher` | Skip the startup configuration dialog and boot directly with the supplied media/options |
 
 ### String injection
 
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
+| `-inject-keycode <hex>` | Inject one raw keyboard code through the CLA path once the CLI prompt is stable. This is mainly for low-level keyboard auditing. |
 | `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
+| `-inject-hold-frames <f>` | Hold `-inject-keycode` active for `f` ISR frames before releasing it (default `1`). |
 | `-inject-via-fifo` | Route `-inject-str` through the hardware keyboard FIFO instead of the fast path |
+
+`-inject-str` is the normal way to type commands automatically. `-inject-keycode` follows the low-level CLA / Stage 1 path and is useful for reverse-engineering the keyboard pipeline; it does not necessarily produce visible CLI text by itself.
 
 **Example — run `LIST` automatically:**
 
 ```bash
-./smemu6 -floppy ../floppies/sys.img -inject-str "LIST\n"
+./smemu6 -floppy <disk.dsk> -no-launcher -inject-str "LIST\n"
 ```
 
 ### Display
@@ -351,13 +356,13 @@ work-in-progress; real samples will be added later). Enable with
 **Example — boot with beeper and drive sounds:**
 
 ```bash
-./smemu6 -floppy sys.img -drive-sound
+./smemu6 -floppy <disk.dsk> -drive-sound
 ```
 
 **Example — mute everything:**
 
 ```bash
-./smemu6 -floppy sys.img -no-beeper
+./smemu6 -floppy <disk.dsk> -no-beeper
 ```
 
 ---
@@ -370,7 +375,7 @@ The emulator can be driven non-interactively by combining `-inject-str` and `-ti
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disk.dsk> \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>screen.txt
@@ -380,7 +385,7 @@ The emulator can be driven non-interactively by combining `-inject-str` and `-ti
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disk.dsk> \
     -trace \
     -timeout 15 2>trace.log
 ```
@@ -389,7 +394,7 @@ The emulator can be driven non-interactively by combining `-inject-str` and `-ti
 
 ```bash
 ./smemu6 \
-    -floppy ../floppies/sys.img \
+  -floppy <disk.dsk> \
     -inject-str "BASIC\n" \
     -timeout 30 \
     -dump-ram basic_init.bin
@@ -420,7 +425,7 @@ They produce output on **stderr**.
 them with emulator output:
 
 ```bash
-./smemu6 -floppy sys.img -tracekbd 2>kbd.log
+./smemu6 -floppy <disk.dsk> -tracekbd 2>kbd.log
 ```
 
 ---
@@ -430,7 +435,7 @@ them with emulator output:
 **Automatic dump on exit:**
 
 ```bash
-./smemu6 -floppy sys.img -timeout 10 -dump-ram snapshot.bin
+./smemu6 -floppy <disk.dsk> -timeout 10 -dump-ram snapshot.bin
 ```
 
 **Interactive dump during a running session:**
@@ -461,7 +466,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 Try forcing a video mode:
 
 ```bash
-./smemu6 -floppy sys.img -vmode alpha
+./smemu6 -floppy <disk.dsk> -vmode alpha
 ```
 
 **Graphics appear inverted or garbled**
@@ -470,7 +475,7 @@ The graphic plane uses nibble-interleaved encoding with MSB-left by default
 (hardware-verified). If images still look wrong, you can force the bit order:
 
 ```bash
-./smemu6 -floppy sys.img -gfxbits lsb
+./smemu6 -floppy <disk.dsk> -gfxbits lsb
 ```
 
 **Emulator exits immediately with error 043**

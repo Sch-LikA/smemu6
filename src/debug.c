@@ -185,15 +185,32 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     m->dbg.flow_budget--;
                 }
             }
-        } else if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
-                   pc == 0x057E || pc == 0x058C ||
+        } else if (pc == 0x019B || pc == 0x01BB || pc == 0x01C9 || pc == 0x01DF ||
+               pc == 0x01EE || pc == 0x0200 ||
+               pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
+               pc == 0x057E || pc == 0x058C ||
                    (pc >= 0x00B0 && pc <= 0x0150) || (pc >= 0x0400 && pc <= 0x0508)) {
             m->dbg.flow_spin_count = 0;
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
-            if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
-                pc == 0x057E || pc == 0x058C) {
+            if (pc == 0x019B || pc == 0x01BB || pc == 0x01C9 || pc == 0x01DF ||
+                pc == 0x01EE || pc == 0x0200) {
+                uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
+                fprintf(stderr,
+                        "[flow-kbd] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
+                        "4558=%02X 4577=%02X 457c=%04X 457e=%02X 4580=%02X 4582=%02X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        (unsigned)m->bus[0x4558u],
+                        (unsigned)m->bus[0x4577u],
+                        ptr,
+                        (unsigned)m->bus[0x457Eu],
+                        (unsigned)m->bus[0x4580u],
+                        (unsigned)m->bus[0x4582u]);
+            } else if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
+                       pc == 0x057E || pc == 0x058C) {
                 uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
                 uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
                 fprintf(stderr,

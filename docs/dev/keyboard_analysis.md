@@ -132,7 +132,8 @@ Only reached when Stage 1's CLA read returned 0x80 (no active key press):
 
 ### Stage 3 — Circular buffer management (0x019B–0x01DF)
 
-Called after Stage 1 (with key detected) or reached via fall-through after Stage 2.
+Reached from the Stage 2 / workspace path, not from the regular-key Stage 1 early
+return at `0x016D`.
 
 - Direct disassembly shows Stage 3 starts at `0x019B` with `DE=0x4580` and `HL=0x458A`.
 - `0x458A` is initialised to `0x80` at `0x00A1`; `0x4595` and `0x45B6` are guard
@@ -235,9 +236,41 @@ The confirmed visible path is:
 5. Cursor redraw then runs through `0x5A7B..0x5AF9`, restoring `'-'` at the new cursor
     position (`0x45C1`).
 
+**Held-CLA probe (2026-05-13):** a delayed `-inject-keycode 0x41` held for 20 ISR
+frames at the live CLI prompt still did not enter the Stage 3/4 path. Runtime trace
+showed repeated cycles of:
+
+- status read `pc=0x0044` returning `0x0C`;
+- ISR CLA read at `pc=0x0162` returning `0x41`;
+- Stage 1 store at `pc=0x0169` rewriting `0x457E`.
+
+During the hold window there was no observed entry into the traced Stage 3/4 PCs
+(`0x019B`, `0x01BB`, `0x01C9`, `0x01DF`, `0x01EE`, `0x0200`) and no circular-buffer
+pointer advance at `0x457C`.  This rules out the simplest hypothesis that merely
+holding a regular CLA key causes `SYS.SY` to promote it from Stage 1 into the
+circular-buffer path on later ISR frames.
+
 So the remaining open question is now narrower: how a real hardware-originating key
 becomes eligible for the CLI's blocking-read / circular-buffer path, given that the
 direct CLA Stage 1 path only updates `0x457E`.
+
+**OS-boundary narrowing (2026-05-13):** for this machine, the OS is only composed of
+the Phantom ROM, `SYS.SY` (SAMOS), and `CLI.SY`. A full disassembly scan of the
+extracted post-boot modules on `Sys1-H.dsk` therefore matters only insofar as it can
+exclude `CLI.SY` or identify non-OS consumers of the same APIs. The concrete result is:
+
+- only `SYS.SY` references `0x457E` / syscall `0x0E` at all, and those references are
+    just the Stage 1 store (`0x0166`) plus the accessor definition (`0x0516`);
+- `CLI.SY` does not directly read `0x457E` or call `0x0516`;
+- `CLI.SY` does consume the blocking-read path for visible command-line input;
+- the Phantom ROM is only relevant during boot and is bank-switched out before the
+    post-boot CLI path under audit here;
+- `BASIC.SM` also references the circular-buffer path, but it is an application-level
+    BASIC interpreter, not part of the OS keyboard pipeline.
+
+Therefore, for the specific post-boot OS-side bridge question, `SYS.SY` is now the
+only remaining software candidate. That is still not proof that `SYS.SY` performs the
+bridge, but it is the only defensible remaining place to look.
 
 ---
 
