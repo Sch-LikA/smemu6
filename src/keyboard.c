@@ -91,6 +91,17 @@ void keyboard_frame_tick(struct Smaky6 *m)
      * clears IFF1 on INT acknowledgment).  In both cases keys must not be
      * written to the circular buffer from here. */
     if (!m->cpu.iff1) return;
+
+    /* Direct write of fonct_bits to the GETFON register (0x4580).
+     * The SAMOS ISR (Stage 2 at 0x016E-0x0170) does update 0x4580, but only
+     * when FOUND=0 AND the ISR reaches Stage 2.  Between ISR ticks (most of
+     * the game loop) 0x4580 holds the PREVIOUS frame's ISR value.  For
+     * programs that poll 0x4580 directly (GETFON syscall) or poll IN A,(0x00)
+     * for real-time function-key state (e.g. Flipper game flippers), we must
+     * keep 0x4580 live at all times.  Writing here (before machine_run_frame)
+     * ensures every GETFON poll in the frame sees the current value.
+     * The ISR's own write at 0x0170 is harmless (writes the same value). */
+    m->bus[0x4580u] = m->kbd.fonct_bits;
     while (m->kbd.fifo_head != m->kbd.fifo_tail) {
         uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
         /* Sanity check: if write pointer is outside the circular buffer area,
