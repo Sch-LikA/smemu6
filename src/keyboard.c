@@ -147,14 +147,14 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
      * Both sets are active simultaneously; holding either fires the same bit. */
     {
         static const struct { SDL_Scancode scan; uint8_t bit; } FONCT[] = {
-            /* Primary: F1–F7 */
-            { SDL_SCANCODE_F1,          0x01 }, /* CHANGE  */
-            { SDL_SCANCODE_F2,          0x02 }, /* SEARCH  */
-            { SDL_SCANCODE_F3,          0x04 }, /* SHOW    */
-            { SDL_SCANCODE_F4,          0x08 }, /* COPY    */
-            { SDL_SCANCODE_F5,          0x10 }, /* CURSOR  */
-            { SDL_SCANCODE_F6,          0x20 }, /* PROGRA  */
-            { SDL_SCANCODE_F7,          0x40 }, /* KILL    */
+            /* Primary: F1–F7 (left-to-right keyboard order) */
+            { SDL_SCANCODE_F1,          0x10 }, /* CURSOR  */
+            { SDL_SCANCODE_F2,          0x08 }, /* COPY    */
+            { SDL_SCANCODE_F3,          0x40 }, /* KILL    */
+            { SDL_SCANCODE_F4,          0x20 }, /* PROGRA  */
+            { SDL_SCANCODE_F5,          0x04 }, /* SHOW    */
+            { SDL_SCANCODE_F6,          0x02 }, /* SEARCH  */
+            { SDL_SCANCODE_F7,          0x01 }, /* CHANGE  */
             /* Secondary: original modifier/nav mappings */
             { SDL_SCANCODE_END,         0x01 }, /* CHANGE  */
             { SDL_SCANCODE_HOME,        0x02 }, /* SEARCH  */

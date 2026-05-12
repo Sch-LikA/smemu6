@@ -199,13 +199,13 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 
 | Touche PC | Fonction Smaky 6 |
 |-----------|------------------|
-| `F1` | Touche de fonction **CHANGE** |
-| `F2` | Touche de fonction **SEARCH** |
-| `F3` | Touche de fonction **SHOW** |
-| `F4` | Touche de fonction **COPY** |
-| `F5` | Touche de fonction **CURSOR** |
-| `F6` | Touche de fonction **PROGRA** |
-| `F7` | Touche de fonction **KILL** |
+| `F1` | Touche de fonction **CURSOR** |
+| `F2` | Touche de fonction **COPY** |
+| `F3` | Touche de fonction **KILL** |
+| `F4` | Touche de fonction **PROGRA** |
+| `F5` | Touche de fonction **SHOW** |
+| `F6` | Touche de fonction **SEARCH** |
+| `F7` | Touche de fonction **CHANGE** |
 
 Associations alternatives (également actives, pour les utilisateurs qui les préfèrent) :
 

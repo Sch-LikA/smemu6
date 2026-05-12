@@ -198,13 +198,13 @@ The emulator maps them to standard PC keys as follows.
 
 | PC key | Smaky 6 function |
 |--------|-----------------|
-| `F1` | **CHANGE** function key |
-| `F2` | **SEARCH** function key |
-| `F3` | **SHOW** function key |
-| `F4` | **COPY** function key |
-| `F5` | **CURSOR** function key |
-| `F6` | **PROGRA** function key |
-| `F7` | **KILL** function key |
+| `F1` | **CURSOR** function key |
+| `F2` | **COPY** function key |
+| `F3` | **KILL** function key |
+| `F4` | **PROGRA** function key |
+| `F5` | **SHOW** function key |
+| `F6` | **SEARCH** function key |
+| `F7` | **CHANGE** function key |
 
 Alternative mappings (also active, for users who prefer them):
 

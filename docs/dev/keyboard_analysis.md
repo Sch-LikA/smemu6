@@ -502,13 +502,13 @@ Codes confirmed from doc section 10.4, page 213 (octal):
 
 | Key     | Octal | Hex    | Bit | Primary SDL scancode      | Alt SDL scancode           |
 |---------|-------|--------|-----|---------------------------|----------------------------|
-| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F1`         | `SDL_SCANCODE_END`         |
-| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F2`         | `SDL_SCANCODE_HOME`        |
-| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F3`         | `SDL_SCANCODE_INSERT`      |
-| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F4`         | `SDL_SCANCODE_LALT`        |
-| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F5`         | `SDL_SCANCODE_LCTRL`       |
-| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F6`         | `SDL_SCANCODE_LGUI`        |
-| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F7`         | `SDL_SCANCODE_RALT`        |
+| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F1`         | `SDL_SCANCODE_LCTRL`       |
+| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F2`         | `SDL_SCANCODE_LALT`        |
+| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F3`         | `SDL_SCANCODE_RALT`        |
+| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F4`         | `SDL_SCANCODE_LGUI`        |
+| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F5`         | `SDL_SCANCODE_INSERT`      |
+| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F6`         | `SDL_SCANCODE_HOME`        |
+| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F7`         | `SDL_SCANCODE_END`         |
 
 **Implemented:** `uint8_t fonct_bits` field in `struct kbd`.  `keyboard_event()`
 sets/clears the corresponding bit on `SDL_KEYDOWN`/`SDL_KEYUP` for **both** the
