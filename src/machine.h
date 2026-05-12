@@ -6,15 +6,27 @@
 
 #include <stdint.h>
 
+/* Integer arithmetic helpers (no floating-point, C99/C11 safe) */
+#define SMAKY_DIV_ROUND_NEAREST(n, d)  (((n) + ((d) / 2u)) / (d))
+#define SMAKY_DIV_ROUND_UP(n, d)       (((n) + (d) - 1u) / (d))
+
 /* Hardware timing constants */
-#define SMAKY6_CPU_HZ            2500000u  /* Z80 clock: 2.5 MHz */
-#define SMAKY6_FRAME_HZ          50u       /* display / ISR rate */
-#define SMAKY6_TSTATES_PER_FRAME (SMAKY6_CPU_HZ / SMAKY6_FRAME_HZ)  /* 50 000 */
-/* Keyboard scanner reassert bound: one full 8×8 scan at 300 kHz ≈ 200 µs */
-#define SMAKY6_SCAN_REASSERT_US  200u
-/* T-states for one scan reassert window at the nominal CPU clock */
+#define SMAKY6_CPU_HZ              2500000u  /* Z80 clock: 2.5 MHz */
+#define SMAKY6_FRAME_HZ            50u       /* display / ISR rate */
+#define SMAKY6_TSTATES_PER_FRAME   (SMAKY6_CPU_HZ / SMAKY6_FRAME_HZ)  /* 50 000 */
+
+/* 50 Hz INT pulse fired at mid-frame; width = 64 T-states (~25.6 µs) */
+#define SMAKY6_INT_PULSE_AT        (SMAKY6_TSTATES_PER_FRAME / 2u)     /* 25 000 */
+#define SMAKY6_INT_PULSE_WIDTH     64u
+
+/* Keyboard scanner reassert: one full 8×8 scan at 300 kHz ≈ 200 µs */
+#define SMAKY6_SCAN_REASSERT_US    200u
 #define SMAKY6_SCAN_REASSERT_TSTATES \
-    ((SMAKY6_CPU_HZ / 1000000u) * SMAKY6_SCAN_REASSERT_US)  /* = 500 */
+    ((SMAKY6_CPU_HZ / 1000000u) * SMAKY6_SCAN_REASSERT_US)             /* = 500 */
+
+/* Audio */
+#define SMAKY6_AUDIO_HZ            44100u
+#define SMAKY6_SAMPLES_PER_FRAME   SMAKY_DIV_ROUND_NEAREST(SMAKY6_AUDIO_HZ, SMAKY6_FRAME_HZ)  /* 882 */
 
 /* Forward declarations */
 struct Smaky6;

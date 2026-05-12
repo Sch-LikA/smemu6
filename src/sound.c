@@ -82,9 +82,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#define AUDIO_SAMPLE_RATE   44100
+#define AUDIO_SAMPLE_RATE   SMAKY6_AUDIO_HZ
 #define TSTATES_PER_FRAME   SMAKY6_TSTATES_PER_FRAME
-#define SAMPLES_PER_FRAME   (AUDIO_SAMPLE_RATE / SMAKY6_FRAME_HZ)   /* 882 */
+#define SAMPLES_PER_FRAME   SMAKY6_SAMPLES_PER_FRAME
 #define AUDIO_AMPLITUDE     10000   /* +-10000 out of +-32767 -- comfortable volume */
 
 /* Maximum queued audio bytes before we start skipping frames to avoid

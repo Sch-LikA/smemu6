@@ -343,10 +343,11 @@ int machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base)
 
 void machine_run_frame(struct Smaky6 *m)
 {
-    /* Smaky 6: 2.5 MHz, 50 Hz → 50,000 T-states per frame */
+    /* Smaky 6: 2.5 MHz, 50 Hz → 50,000 T-states per frame.
+     * All frame/interrupt timing constants are derived from machine.h macros. */
     const zusize TSTATES_PER_FRAME = SMAKY6_TSTATES_PER_FRAME;
-    const zusize INT_PULSE_AT      = SMAKY6_TSTATES_PER_FRAME / 2;
-    const zusize INT_PULSE_WIDTH   = 64;
+    const zusize INT_PULSE_AT      = SMAKY6_INT_PULSE_AT;
+    const zusize INT_PULSE_WIDTH   = SMAKY6_INT_PULSE_WIDTH;
     const int STALL_THRESHOLD      = 150;  /* if PC doesn't change for 150 frames (~3s), exit */
     int do_int_pulse = m->irq_pending;
     m->irq_pending = 0;
