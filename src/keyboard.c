@@ -82,18 +82,6 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles)
 
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    /* Deferred FOUND reassert: when CLA read clears FOUND while physically_held=1,
-     * keyboard_read_cla() sets reassert_pending instead of reasserting immediately.
-     * On real hardware the scanner reasserts within ≤200µs (one 8×8 matrix scan at
-     * 300 kHz).  Promoting the pending reassert here (once per 50 Hz frame = 20ms)
-     * is coarser in absolute time but cycle-consistent: FOUND is never continuously
-     * held, and the ISR and kbd_wait callers see the same FOUND=0 → FOUND=1
-     * transition they would on hardware — just bounded at frame granularity. */
-    if (m->kbd.reassert_pending && m->kbd.physically_held) {
-        m->kbd.found            = 1;
-        m->kbd.reassert_pending = 0;
-    }
-
     /* Power-on virtual Enter key: physically_held=1 from keyboard_init() models
      * the 4013 FF2 FOUND latch being SET at power-on.  The first kbd_wait exits on
      * the initial found=1.  Subsequent polls are served by keyboard_tick_cycles()
