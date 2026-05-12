@@ -433,7 +433,7 @@ enabling single-handed modifier+key combinations.
 
 **Disk / RESET status bar:** The middle strip shows floppy and Winchester
 drive activity LEDs.  At the right end are two buttons:
-- **NMI** — left-click fires an NMI (same as `F11` / `Pause`)
+- **BREAK** — left-click fires an NMI (same as `F11` / `Pause`)
 - **RESET** — requires **two clicks**: first click arms the button (it blinks
   orange for 3 seconds); second click confirms the hard reset.  Clicking
   anywhere else cancels the armed state.

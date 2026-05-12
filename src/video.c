@@ -389,7 +389,7 @@ void video_render(struct Smaky6 *m)
         }
     }
 
-    /* ── RESET / NMI buttons (right end of disk status bar) ────────────── */
+    /* ── RESET / BREAK buttons (right end of disk status bar) ────────────── */
     {
         /* Get logical mouse position for hover highlight */
         float mx_f = -1, my_f = -1;
@@ -398,7 +398,7 @@ void video_render(struct Smaky6 *m)
         int smx = (int)mx_f, smy = (int)my_f;
 
         static const struct { const char *label; int x; } SYSBTNS[2] = {
-            { "NMI",   VIDEO_SYS_NMI_X },
+            { "BREAK", VIDEO_SYS_NMI_X },
             { "RESET", VIDEO_SYS_RST_X },
         };
         /* Auto-expire the reset_armed state after 3 seconds */

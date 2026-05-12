@@ -232,7 +232,7 @@ pressed, matching real hardware behaviour.
 
 **Disk / RESET status bar:** The middle strip shows floppy and Winchester
 drive activity LEDs.  At the right end:
-- **NMI** button — left-click fires an NMI (same as `F11` / `Pause`).
+- **BREAK** button — left-click fires an NMI (same as `F11` / `Pause`).
 - **RESET** button — requires **two clicks**: first click arms the button
   (blinks orange for 3 s); second click confirms the hard reset.  Clicking
   anywhere else cancels.

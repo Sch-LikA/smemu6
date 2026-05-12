@@ -365,9 +365,11 @@ static void show_help(SDL_Window *parent)
         "  Backspace    = BS         Delete     = DEL\n"
         "  Pause / F11  = BREAK (NMI)\n"
         "  Shift+Pause  = Hard reset\n"
-        "  Ctrl+Q       = Quit\n";
+        "  Ctrl+Q       = Quit\n"
+        "\n"
+        "Version: " SMEMU6_VERSION;
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION,
-        "Smemu6 Help (" SMEMU6_VERSION ")", msg, parent);
+        "Smemu6 Help", msg, parent);
 }
 
 /* ── Draw full launcher frame ─────────────────────────────────────────────── */

@@ -252,7 +252,7 @@ Ces touches sont **exclusivement des modificateurs** — aucun caractère n'est
 
 La bande centrale affiche les LEDs d'activité des lecteurs de disquettes et
 Winchester.  À droite se trouvent deux boutons :
-- **NMI** — clic gauche déclenche un NMI (identique à `F11` / `Pause`).
+- **BREAK** — clic gauche déclenche un NMI (identique à `F11` / `Pause`).
 - **RESET** — nécessite **deux clics** : le premier arme le bouton (il clignote
   en orange pendant 3 s) ; le second confirme la réinitialisation matérielle.
   Cliquer ailleurs annule l'état armé.

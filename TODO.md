@@ -151,7 +151,7 @@ Each slot auto-detects whether it holds a floppy or a harddisk image:
 
 The label (`DX0:` / `DX1:`) is rendered in green for floppies and cyan for harddisks.
 
-### RESET and NMI buttons in status bar (first line) ✅ Done
+### RESET and BREAK buttons in status bar (first line) ✅ Done
 
 Added **RESET** and **NMI** buttons at the right end of the first status bar row
 (the floppy/harddisk track info row), rendered in vivid red (brighter than the
