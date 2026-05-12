@@ -171,12 +171,18 @@ void keyboard_frame_tick(struct Smaky6 *m)
         wr++;
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
-        /* Auto-repeat arming disabled: SAMOS Stage 4 repeat is not used for the
-         * FIFO-based physical keyboard path.  Re-injecting any code 700 ms later
-         * causes unintended line-editor side-effects (extra Enter, spurious cancel,
-         * etc.).  KEYUP already zeroes 0x4558 in keyboard_event(), so no stray
-         * repeat fires. */
-        (void)physical;
+        /* Arm SAMOS Stage 4 auto-repeat for physical keystrokes only.
+         * Enter (0x0D) and ESC (0x04) are excluded: arming Enter causes the
+         * ISR to re-inject it 700 ms later, making the line editor process a
+         * spurious empty command; arming ESC would cancel the current line
+         * again after the initial cancel.
+         * keyboard_event() zeroes 0x4558 on KEYUP, so repeat stops on release.
+         * OS-level text repeat is suppressed by text_blocked in keyboard_event(),
+         * so SAMOS Stage 4 is the sole source of key repeat. */
+        if (physical && code != 0x0Du && code != 0x04u) {
+            m->bus[0x4558u] = 0x23u;   /* 35 frames = 700 ms initial delay */
+            m->bus[0x4577u] = code;    /* repeat key code */
+        }
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd_tick] circ[0x%04X] <- 0x%02X ('%c')  ptr now 0x%04X  [ptr]=0x%02X\n",
                     (unsigned)(wr-1), (unsigned)code,
