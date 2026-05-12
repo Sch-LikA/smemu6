@@ -123,14 +123,26 @@ Only reached when Stage 1's CLA read returned 0x80 (no active key press):
 …    ; → continues into circular buffer management at 0x0188–0x0197
 ```
 
+**What is now proven vs still unresolved:**
+- Direct `SYS.SY` binary audit confirms the ISR really reads `0x4582` at `0x0175`.
+- The same audit confirms the init sentinel write at `0x00A1` is to `0x458A`, not `0x4582`.
+- Therefore the old `0x4582=0x80` permanent-block explanation is withdrawn.
+- The precise runtime role of `0x4582` is still unresolved.  It is clearly live ISR
+    workspace, not a statically initialised sentinel.
+
 ### Stage 3 — Circular buffer management (0x019B–0x01DF)
 
 Called after Stage 1 (with key detected) or reached via fall-through after Stage 2.
 
-- Circular buffer base: `0x458A+`, read pointer stored at `0x457C` (init: `0x4596`).
-- Keys are written to the buffer with bit 7 SET as a "slot filled" marker.
-- The 0x80 sentinel marks empty slots.
-- On a new key press, `(0x4558)` is set to `0x23` (35) and the key code is saved to `(0x4577)` for auto-repeat.
+- Direct disassembly shows Stage 3 starts at `0x019B` with `DE=0x4580` and `HL=0x458A`.
+- `0x458A` is initialised to `0x80` at `0x00A1`; `0x4595` and `0x45B6` are guard
+    sentinels written by the same init block.
+- Stage 3 does more than a simple one-byte enqueue: it scans and compacts an
+    internal workspace structure before Stage 4 uses the circular-buffer write pointer
+    at `0x457C`.
+- The exact semantic roles of `0x4580..0x4582` and `0x458B..` are still under
+    re-audit, so the old simplistic description has been intentionally narrowed to
+    binary-backed facts only.
 
 ### Stage 4 — Auto-repeat (0x01DF–0x0206)
 
@@ -177,7 +189,10 @@ The two key RAM locations are:
 | 0x0D (blocking char read) | 0x04F6 | Circular buffer at `0x457C`/`0x458A+` |
 | 0x0E (non-blocking check) | — | `0x457E` (Stage 1 direct store) |
 
-**The CLI uses syscall 0x0D.**  Therefore keys must travel through Stage 2's CLA Read #2 → circular buffer path.
+**The CLI uses syscall 0x0D.**  Direct binary audit confirms `0x0509` loops on the
+`0x04F6` circular-buffer routine, while `0x0516` is the separate `0x457E` accessor.
+Therefore normal typed input must reach the circular-buffer path somehow.  Exactly
+how Stage 1, Stage 2, and Stage 3 cooperate post-boot is still under re-audit.
 
 ---
 
@@ -191,7 +206,13 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
    - If bit7=1: `AND 0x7F` strips bit7 and stores `fonct_bits` to `0x4580` (GETFON register). Falls into Stage 2.
 3. **Stage 2** (no-key path, 0x016E): reads `0x4582` at `0x0175` and returns early only if that byte equals `0x80`.  Direct binary audit of `SYS.SY` on 2026-05-13 confirmed the init sentinel write is to `0x458A` at `0x00A1`, not to `0x4582`, so the old "Stage 2 is permanently blocked" claim is not supported by the binary.
 
-**Physical keys reach the CLI via `keyboard_frame_tick()`**, which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.  Syscall 0x0D (blocking CLI read) drains from there.
+**Current emulator path:** physical keys reach the CLI via `keyboard_frame_tick()`,
+which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.
+
+**Real post-boot hardware path:** still unresolved.  The binary proves that the CLI
+waits on the circular buffer, and that Stage 1 alone only updates `0x457E`, so some
+combination of Stage 2 and Stage 3 must feed the buffer on real hardware.  The exact
+steady-state mechanism is the remaining open question.
 
 ---
 
@@ -203,6 +224,11 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 > `0x4582=0x80` permanent-block explanation is therefore unsupported.  The current
 > emulator still uses the FIFO→circular-buffer path for physical keys, but that
 > design should no longer be justified by the withdrawn `0x4582=0x80` claim.
+
+> **Additional audit result (2026-05-13):** direct disassembly of `0x04F6..0x051A`
+> shows syscall `0x0D` / the blocking keyboard read loops on the circular-buffer
+> routine at `0x04F6`, while syscall `0x0E` is the separate `LD A,(0x457E)` path at
+> `0x0516`.  This confirms the CLI does not poll `0x457E` while waiting for input.
 
 ### Three delivery paths
 
