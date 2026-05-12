@@ -388,6 +388,55 @@ void video_render(struct Smaky6 *m)
         }
     }
 
+    /* ── RESET / NMI buttons (right end of disk status bar) ────────────── */
+    {
+        /* Get logical mouse position for hover highlight */
+        float mx_f = -1, my_f = -1;
+        { int wx, wy; SDL_GetMouseState(&wx, &wy);
+          SDL_RenderWindowToLogical(ren, wx, wy, &mx_f, &my_f); }
+        int smx = (int)mx_f, smy = (int)my_f;
+
+        static const struct { const char *label; int x; } SYSBTNS[2] = {
+            { "NMI",   VIDEO_SYS_NMI_X },
+            { "RESET", VIDEO_SYS_RST_X },
+        };
+        for (int i = 0; i < 2; i++) {
+            int bx = SYSBTNS[i].x;
+            int by = VIDEO_SYS_BTN_Y;
+            int bw = VIDEO_SYS_BTN_W;
+            int bh = VIDEO_SYS_BTN_H;
+            int hover = (smx >= bx && smx < bx + bw && smy >= by && smy < by + bh);
+
+            /* Fill: vivid red, brighter on hover */
+            if (hover)
+                SDL_SetRenderDrawColor(ren, 255,  60,  60, 255);
+            else
+                SDL_SetRenderDrawColor(ren, 200,  20,  20, 255);
+            SDL_Rect btn = { bx, by, bw, bh };
+            SDL_RenderFillRect(ren, &btn);
+
+            /* Border */
+            SDL_SetRenderDrawColor(ren, 255, 120, 120, 255);
+            SDL_RenderDrawRect(ren, &btn);
+
+            /* Label — centred */
+            int label_len = (int)strlen(SYSBTNS[i].label);
+            int tx = bx + (bw - label_len * 9) / 2;
+            int ty = by + (bh - 8) / 2;
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+            for (int ci = 0; SYSBTNS[i].label[ci]; ci++) {
+                uint8_t gc = (uint8_t)SYSBTNS[i].label[ci];
+                for (int sl = 0; sl < 8; sl++) {
+                    uint8_t bits = m->vid.chargen[gc * 16 + sl];
+                    for (int b = 0; b < 8; b++) {
+                        if (bits & (1u << b))
+                            SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ty + sl);
+                    }
+                }
+            }
+        }
+    }
+
     /* ── Function-key button bar ────────────────────────────────────────── */
     {
         static const struct { const char *label; uint8_t bit; } FKEYS[7] = {

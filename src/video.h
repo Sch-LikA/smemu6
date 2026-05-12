@@ -72,6 +72,16 @@ void video_render(struct Smaky6 *m);
 #define VIDEO_FKEY_BTN_X0   2   /* left margin */
 #define VIDEO_FKEY_BTN_H   12   /* button height inside bar (1px top/bottom pad) */
 
+/* RESET / NMI buttons in the disk status bar (first row).
+ * Two buttons placed flush at the right edge of the 512-px bar. */
+#define VIDEO_SYS_BTN_W    38   /* button width */
+#define VIDEO_SYS_BTN_GAP   3   /* gap between the two buttons */
+#define VIDEO_SYS_BTN_H    10   /* button height (1px top/bottom pad within LED_H=14) */
+#define VIDEO_SYS_BTN_Y    (VIDEO_ASPECT_H + 2)  /* y inside status bar */
+/* NMI is leftmost of the pair; RESET is rightmost (far right edge) */
+#define VIDEO_SYS_NMI_X    (VIDEO_WIN_W - 2*(VIDEO_SYS_BTN_W) - VIDEO_SYS_BTN_GAP - 2)
+#define VIDEO_SYS_RST_X    (VIDEO_WIN_W - VIDEO_SYS_BTN_W - 2)
+
 /* Phosphor colours (ARGB8888).  P31 green phosphor: lit = #00E700, bg = #000800. */
 #define VIDEO_COLOR_LIT    0xFF00E700u
 #define VIDEO_COLOR_BG     0xFF000800u

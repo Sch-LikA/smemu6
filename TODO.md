@@ -123,11 +123,11 @@ Each slot auto-detects whether it holds a floppy or a harddisk image:
 
 The label (`DX0:` / `DX1:`) is rendered in green for floppies and cyan for harddisks.
 
-### RESET and NMI buttons in status bar (first line)
+### RESET and NMI buttons in status bar (first line) ✅ Done
 
-Add a **RESET** and an **NMI** button at the right end of the first status bar line
-(the floppy/harddisk track info row), rendered in a more vibrant red than the function-key
-buttons on the second row.
+Added **RESET** and **NMI** buttons at the right end of the first status bar row
+(the floppy/harddisk track info row), rendered in vivid red (brighter than the
+function-key buttons on the second row).
 - Left-click **NMI** → `machine_nmi()` (same as host Pause/F11)
 - Left-click **RESET** → `machine_reset()` (same as host Shift+Pause/Shift+F11)
 

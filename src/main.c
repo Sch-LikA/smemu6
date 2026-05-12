@@ -285,6 +285,21 @@ static void main_loop_iter(void)
                 SDL_RenderWindowToLogical(L->ren, ev.button.x, ev.button.y,
                                           &lx_f, &ly_f);
                 int lx = (int)lx_f, ly = (int)ly_f;
+
+                /* RESET / NMI buttons (status bar, first row) — fire on click */
+                if (ev.type == SDL_MOUSEBUTTONDOWN) {
+                    if (lx >= VIDEO_SYS_NMI_X && lx < VIDEO_SYS_NMI_X + VIDEO_SYS_BTN_W &&
+                        ly >= VIDEO_SYS_BTN_Y  && ly < VIDEO_SYS_BTN_Y  + VIDEO_SYS_BTN_H) {
+                        machine_nmi(L->m);
+                        break;
+                    }
+                    if (lx >= VIDEO_SYS_RST_X && lx < VIDEO_SYS_RST_X + VIDEO_SYS_BTN_W &&
+                        ly >= VIDEO_SYS_BTN_Y  && ly < VIDEO_SYS_BTN_Y  + VIDEO_SYS_BTN_H) {
+                        machine_reset(L->m);
+                        break;
+                    }
+                }
+
                 /* Hit-test each function-key button */
                 static const uint8_t FKEY_BITS[7] = {
                     0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40
