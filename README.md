@@ -207,11 +207,6 @@ on screen.  The string is converted to uppercase Smaky key codes:
 ./smemu6 -floppy sys.dsk -inject-str "LIST\n"
 ```
 
-#### `-inject-via-fifo`
-Route `-inject-str` bytes through the **keyboard FIFO** (same path as physical
-SDL key events) instead of writing directly to the SAMOS circular buffer.
-Slower but exercises the full keyboard emulation path; useful for testing.
-
 #### `-inject-delay <frames>`
 Wait this many 50 Hz frames after the CLI prompt becomes visible before
 triggering `-inject-str` or `-inject-keycode`. Useful when the OS reaches the
@@ -396,43 +391,36 @@ Print the short option summary to stderr and exit.
 
 ## 5. Keyboard Controls
 
-The host keyboard maps to the Smaky 6 keyboard.  Alphanumeric keys and most
-punctuation are passed through.  The emulator forwards printable text from the
-host OS text-input path, so letters, digits, punctuation, and space are sent as
-typed by the active host keyboard layout.
+The host keyboard maps to audited Smaky 6 matrix positions.  Ordinary keys are
+resolved through the S471 table in `src/keyboard.c`, then exposed through the
+strict CLA / `SYS.SY` path.  This is now a host-scancode-position model, not an
+host text-input passthrough.
 
 | Host key                    | Smaky 6 function                                          |
 |-----------------------------|-----------------------------------------------------------|
-| **Printable ASCII** including space | Direct character (`0x20`–`0x7E`)                   |
-| **Backspace**               | Smaky BS (`0x08`)                                        |
-| **Delete**                  | Smaky DEL (`0x7F`)                                       |
-| **Tab**                     | Inserts `DX1:` at the CLI prompt (`0x09`)                |
-| **Enter / Return**          | Smaky CR (`0x0D`)                                        |
-| **F8**                      | **MACRO** — replay recorded keystroke sequence (`«` `0x1E`) |
-| **F9**                      | **DEFINE** — record a keystroke sequence (`»` `0x1F`)    |
+| `A`..`Z`, `0`..`9`, `Space` | Resolved by host position through the audited S471 table |
+| `Backspace`                 | Smaky BS (`0x08`)                                        |
+| `Tab`                       | Smaky TAB (`0x09`)                                       |
+| `Enter / Return`            | Smaky CR (`0x0D`)                                        |
+| **F1**..**F7**              | Smaky function-key bits CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE |
+| **F9**                      | **DEFINE** (`0x1F`) via the current strict matrix map    |
 | **F11** / **Pause**         | **BREAK** (top-right key) — fires NMI, drops into SAMOS monitor       |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
 | **Escape**                  | **ESC / UNDO** (top-left key, current working code `0x06`)           |
-| **Left Ctrl**               | CURSOR function key                                       |
-| **Left Alt**                | COPY function key                                         |
-| **Left Windows / Super**    | PROGRA function key                                       |
-| **AltGr** (Right Alt)       | KILL function key                                         |
-| **Insert**                  | SHOW function key                                         |
-| **Home**                    | SEARCH function key                                       |
-| **End**                     | CHANGE function key (modifier only, no character echoed)  |
+| **End**                     | Current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted) |
 | **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
 
-Accented Swiss-French characters are fully mapped: typing é, è, à, ü, ö, ç,
-â, ê, î, ô, û, ë, ï, ä and their uppercase variants on any host keyboard
-layout is translated to the correct Smaky 6 chargen codes via UTF-8
-`SDL_TEXTINPUT` events.
+Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
+`Left Windows / Super`, `AltGr`, and `Delete` should no longer be treated as
+current documented bindings unless they are reintroduced in code.
 
 Hardware note: the full S471 keyboard ROM dump is now available.  The emulator
 matches the confirmed special-key outputs it exposes directly, including
 `Escape -> 0x06`, `Backspace -> 0x08`, `Tab -> 0x09`, `Return -> 0x0D`, and
-`Space -> 0x20`.  Ordinary printable keys still follow the active host keyboard
-layout through `SDL_TEXTINPUT`, so this is not yet a strict physical-key matrix
-emulation mode.
+`Space -> 0x20`.  Ordinary printable keys now follow the current audited host
+scancode position map into the S471 normal / Shift / Caps layers.  This is a
+strict CLA-centric baseline, but it does not yet expose every original Smaky
+physical position or a separate accented-text compatibility path.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

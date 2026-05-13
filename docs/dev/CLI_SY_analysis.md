@@ -350,11 +350,12 @@ mode register.
 1. **Port 0x00 is implemented** (`src/machine.c` `case 0x00:` write handler).
    The handler decodes the four bits and calls `video_set_mode()` accordingly.
    Writing 0x00 (display off) is currently a no-op (no blank mode in `VideoMode`).
-   Port 0x00 writes are **video-only**.  Physical keyboard input bypasses CLA entirely
-   (see `docs/dev/keyboard_analysis.md`): `keyboard_event()` pushes to a software FIFO,
-   and `keyboard_frame_tick()` writes one key per frame into the SAMOS circular buffer at
-   the current write pointer, stopping only when the `0x80` guard sentinel is hit (buffer
-   full).  CLA is only used by the autoboot/inject path (`machine_inject_key()`).
+   Port 0x00 writes are **video-only**.  Physical keyboard input is now produced by the
+   strict CLA-facing latch in `src/keyboard.c`: host scancode position -> S471 lookup ->
+   CLA read / STATUS re-check -> `SYS.SY` Stage 2 / 3 / 4 promotion into the circular
+   buffer.  The compatibility direct-circular-buffer shortcut is no longer the physical
+   keyboard path.  CLA is still also used by the autoboot/inject path
+   (`machine_inject_key()`).
    SAMOS syscall `0x0D` (the blocking read the CLI uses) polls the circular buffer write
    pointer at `0x457C`; when it equals the base `0x4596` the buffer is empty.
 

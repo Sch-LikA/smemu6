@@ -153,10 +153,8 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 |--------|-------------|
 | `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
 | `-inject-keycode <hex>` | Inject one raw keyboard code through the low-level CLA path once the CLI prompt is stable. Post-boot injected held keys now use the emulator's current best hardware model: the first CLA read returns a bit-7-set regular code, which can produce visible CLI text. |
-| `-inject-keycode-bit7-first-cla` | Diagnostic force flag for the same first-read bit-7 rule. Useful for audit runs; plain `-inject-keycode` already uses this model by default. |
 | `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Hold `-inject-keycode` active for `f` ISR frames before releasing it (default `1`). |
-| `-inject-via-fifo` | Route `-inject-str` through the hardware keyboard FIFO instead of the fast path |
 
 `-inject-str` is still the normal way to type commands automatically. `-inject-keycode` now follows the low-level CLA model closely enough to reproduce the visible post-boot `A` path in audit runs, but it remains a reverse-engineering / low-level testing tool rather than the normal command-entry mechanism.
 
@@ -198,7 +196,8 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 ## 6. Keyboard Mapping
 
 The Smaky 6 has a QWERTZ Swiss keyboard layout with special function keys.
-The emulator maps them to standard PC keys as follows.
+The emulator now resolves ordinary keys from host scancode positions through the
+audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 
 ### Special keys
 
@@ -211,37 +210,34 @@ The emulator maps them to standard PC keys as follows.
 | `F5` | **SHOW** function key |
 | `F6` | **SEARCH** function key |
 | `F7` | **CHANGE** function key |
-
-Alternative mappings (also active, for users who prefer them):
-
-| PC key | Smaky 6 function |
-|--------|------------------|
-| `End` | **CHANGE** function key |
-| `Home` | **SEARCH** function key |
-| `Insert` | **SHOW** function key |
-| `Left Alt` | **COPY** function key |
-| `Left Ctrl` | **CURSOR** function key |
-| `Left Windows` / `Super` | **PROGRA** function key |
-| `AltGr` (Right Alt) | **KILL** function key |
-| `F8` | **MACRO** — replay recorded keystroke sequence (`«` code 0x1E) |
-| `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
+| `F9` | **DEFINE** (`0x1F`) via the current strict matrix map |
+| `End` | Current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted) |
 | `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |
 | `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
-| `Escape` | **ESC / UNDO** (top-left key) — current working mapping now emits code `0x06` |
-| `Tab` | Inserts `DX1:` in the CLI command line |
+| `Escape` | **ESC / UNDO** (top-left key) — current working mapping emits `0x06` |
+
+Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
+`Left Windows / Super`, `AltGr`, and `Delete` are not part of the current documented
+strict keyboard baseline and should not be relied on unless they are reintroduced
+explicitly in code.
 
 ### Standard keys
 
-All printable ASCII characters are passed through directly.
+Ordinary keys currently supported by the strict matrix path include the audited
+host positions for `A`..`Z`, `0`..`9`, `Space`, `Backspace`, `Tab`, `Return`,
+brackets, backslash, comma, period, and minus.  `Shift` selects the S471 Shift
+layer, and `Caps Lock` selects the audited caps-like layer.
+
 The Smaky 6 keyboard uses **QWERTZ** layout (Swiss German) — if your PC
-keyboard is QWERTY or AZERTY, some punctuation keys may differ.
+keyboard is QWERTY or AZERTY, some punctuation positions differ because the
+mapping is now position-based rather than text-input-based.
 
 Hardware note: the full S471 keyboard ROM dump is now available.  The emulator
 matches the confirmed special-key outputs it exposes directly, including
 `Escape -> 0x06`, `Backspace -> 0x08`, `Tab -> 0x09`, `Return -> 0x0D`, and
-`Space -> 0x20`.  Ordinary printable keys still follow the active host keyboard
-layout through `SDL_TEXTINPUT`, so this is not yet a strict physical-key matrix
-emulation mode.
+`Space -> 0x20`.  This is now a strict CLA-centric baseline, but it does not yet
+cover every original Smaky physical position or a separate accented-text
+compatibility mode.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

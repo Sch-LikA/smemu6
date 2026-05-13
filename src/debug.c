@@ -59,7 +59,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     static int dumped_ram_image = 0;
     int rom_active = (m->rom_mask[0x0000] != 0);
 
-    if (!m->dbg.trace) return;
+    if (!m->dbg.trace && !m->dbg.trace_flow) return;
 
     if (pc == m->dbg.last_pc) return;
     m->dbg.last_pc = pc;
@@ -173,23 +173,30 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (pc == 0x5857 || pc == 0x58DD || pc == 0x58F8 || pc == 0x590E ||
-            pc == 0x590F || pc == 0x5B29 || pc == 0x5B2C) {
+            pc == 0x590F || (pc >= 0x5B29 && pc <= 0x5B35)) {
             uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
+            uint8_t op0 = m->bus[pc];
+            uint8_t op1 = m->bus[(uint16_t)(pc + 1u)];
+            uint8_t op2 = m->bus[(uint16_t)(pc + 2u)];
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
             fprintf(stderr,
                     "[flow-line] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
-                    "cursor=%04X 45c0=%02X 45c1=%02X 45c2=%02X 457c=%02X%02X\n",
+                    "op=%02X %02X %02X cursor=%04X 45c0=%02X 45c1=%02X 45c2=%02X 457c=%02X%02X 457e=%02X\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    (unsigned)op0,
+                    (unsigned)op1,
+                    (unsigned)op2,
                     cursor,
                     (unsigned)m->bus[0x45C0u],
                     (unsigned)m->bus[0x45C1u],
                     (unsigned)m->bus[0x45C2u],
                     (unsigned)m->bus[0x457Du],
-                    (unsigned)m->bus[0x457Cu]);
+                    (unsigned)m->bus[0x457Cu],
+                    (unsigned)m->bus[0x457Eu]);
             m->dbg.flow_budget--;
             return;
         }
@@ -422,7 +429,7 @@ void debug_set_trace(struct Smaky6 *m, int on)
 void debug_set_trace_flow(struct Smaky6 *m, int on)
 {
     m->dbg.trace_flow = on ? 1 : 0;
-    m->dbg.flow_budget = on ? 200000 : 0;
+    m->dbg.flow_budget = on ? 1000000 : 0;
     m->dbg.last_flow_pc = 0xFFFF;
     m->dbg.flow_spin_count = 0;
     if (on)

@@ -584,9 +584,7 @@ bridge, but it is the only defensible remaining place to look.
 > **Important audit correction (2026-05-13):** the ISR still does `LD A,(0x4582);
 > CP 0x80; RET Z` at `0x0174–0x0178`, but a direct `SYS.SY` binary audit showed
 > the init code writes `0x80` to `0x458A` at `0x00A1`, not to `0x4582`.  The old
-> `0x4582=0x80` permanent-block explanation is therefore unsupported.  The current
-> emulator still uses the FIFO→circular-buffer path for physical keys, but that
-> design should no longer be justified by the withdrawn `0x4582=0x80` claim.
+> `0x4582=0x80` permanent-block explanation is therefore unsupported.
 
 > **Additional audit result (2026-05-13):** direct disassembly of `0x04F6..0x051A`
 > shows syscall `0x0D` / the blocking keyboard read loops on the circular-buffer
@@ -597,120 +595,44 @@ bridge, but it is the only defensible remaining place to look.
 
 | Caller | Path | Destination |
 |--------|------|-------------|
-| Physical regular key (`SDL_KEYDOWN`) | FIFO → `keyboard_frame_tick()` → direct write to SAMOS circular buffer | Syscall 0x0D (CLI blocking read) |
-| Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; `keyboard_frame_tick()` writes `fonct_bits` to `bus[0x4580]` AND `bus[0x457E]` | `0x4580` via GETFON syscall; `0x457E` via syscall 0x0E (non-blocking) — **press-and-hold, clears on release** |
+| Physical ordinary key (`SDL_KEYDOWN`/`KEYUP`) | Host scancode position → S471 lookup → CLA-visible `found/key_code` latch; overlapping taps queue in `pending_ordinary[8]` until promoted | `SYS.SY` Stage 1 / 2 / 3 / 4 → SAMOS circular buffer → syscall 0x0D (CLI blocking read) |
+| Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned only when CLA has no ordinary key latched | `0x4580` via GETFON semantics and any callers that read function-bit state through CLA |
 | Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on autoboot hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
-**Syscall 0x0E and function keys:** Syscall 0x0E reads `0x457E` directly.  Since the physical
-regular-key path never touches `0x457E`, it would always return 0 for physical keys.
-`keyboard_frame_tick()` therefore mirrors `fonct_bits` into `bus[0x457E]` each frame so that
-games reading flippers via syscall 0x0E work correctly.  Writing `fonct_bits` (rather than the
-last regular key code) gives true press-and-hold semantics: the latch is `0x00` when no function
-key is held, immediately releasing the flipper.
+**Syscall 0x0E and function keys:** syscall `0x0E` still reads `0x457E` directly, while the CLI
+blocking read uses the circular buffer.  The strict physical ordinary-key path is now about getting
+`SYS.SY` itself to promote keys into that buffer; it is not a direct `0x457E` service path.
 
 **FLIPPER.SM analysis:** `FLIPPER.SM` detects flippers exclusively via syscall 0x0E followed by
 `AND 0xF0` (left flipper: CURSOR, fonct\_bit=`0x10`) and `AND 0x0F` (right flipper: CHANGE,
 fonct\_bit=`0x01`).  The fonct\_bit values happen to satisfy both masks perfectly with no
 cross-activation.
 
-### Physical keyboard: FIFO-based delivery
+### Physical keyboard: strict CLA-centric delivery
 
-`keyboard_event()` pushes one key code per `SDL_KEYDOWN` into a 64-slot software FIFO.
-SDL key-repeat events (`ev->repeat != 0`) are **discarded** — Stage 4 auto-repeat is
-managed by the emulator (see below).
-The CLA fields (`found`, `key_code`, `physically_held`) are **not touched** by
-`keyboard_event()` for physical keys.
+`keyboard_event()` now handles physical ordinary keys by host scancode position.  It resolves the
+matrix position through the audited S471 table, then latches the resulting 7-bit code into the
+CLA-visible `found/key_code` state.
 
-**Physical-key bit-7 marker:** `keyboard_event()` and `keyboard_text_event()` set **bit 7** in
-each FIFO byte to mark it as a physical keystroke.  `keyboard_frame_tick()` strips bit 7 before
-writing to the circular buffer, and only arms SAMOS Stage 4 auto-repeat (`0x4558`/`0x4577`)
-when bit 7 was set.  Injected keys (from `-inject-str` or ESC-recall re-injection) do not set
-bit 7, so they never arm auto-repeat.  This prevents injected sequences from triggering
-spurious key repetition at the next prompt.
+If another ordinary key arrives while one is already latched or awaiting reassertion, the second key
+is stored in `pending_ordinary[8]` together with its already-resolved key code.  That preserves the
+original layer decision even if Shift changes before the queued key is promoted.
 
-**Enter auto-repeat exclusion:** Even for physical keystrokes, Enter (`0x0D`) never arms
-auto-repeat.  Arming it would cause the SAMOS ISR to re-inject `0x0D` 35 frames later,
-making the line editor process an empty command and null-terminate `0x45C0`, erasing any
-history content.
+`keyboard_frame_tick()` no longer drains a FIFO into the circular buffer.  Its post-boot role is now
+only to release the virtual Enter autoboot hold once the SAMOS ISR vector is installed, then promote
+the next pending ordinary key when the active latch becomes idle.
 
-```c
-void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
-{
-    if (ev->type == SDL_KEYUP) return;
-    if (ev->type != SDL_KEYDOWN) return;
-    if (ev->repeat) return;   /* discard SDL auto-repeat; SAMOS Stage 4 handles it */
+Two release-side details were validated by the `Shift+MSG` CLI traces:
 
-    /* Look up key in table; set bit 7 to mark as physical keystroke: */
-    m->kbd.fifo[m->kbd.fifo_tail] = code | 0x80u;
-    m->kbd.fifo_tail = (m->kbd.fifo_tail + 1) & 63;
-}
-```
+- a promoted key that was already released before promotion must survive one synthetic reassert so
+  `SYS.SY` can still see it;
+- once `SYS.SY` commits such a released promoted key into the circular buffer (observed via the
+  `0x457C` advance hook), the emulator must clear both SAMOS repeat bytes `0x4558` and `0x4577`.
+  Clearing only the emulator latch was not enough: Stage 4 would otherwise re-inject the same code
+  endlessly ~700 ms later.
 
-`keyboard_frame_tick()` is called **once per 50 Hz frame, BEFORE `machine_run_frame()`**.
-It drains **all** pending FIFO entries into the SAMOS circular buffer each frame (not one per frame),
-stopping only when the guard sentinel is hit (buffer region full) or the write pointer is out of range
-(SAMOS workspace not yet initialized).
-
-**SDL OS key-repeat suppression (`suppress_text_next`):**  SDL fires `SDL_KEYDOWN` with
-`ev->repeat != 0` for held keys at the OS key-repeat rate.  It also fires a
-`SDL_TEXTINPUT` event immediately after each such repeat `SDL_KEYDOWN` — but the
-`SDL_TEXTINPUT` event has **no repeat flag** of its own.  Without suppression this
-causes a duplicate character per OS-repeat cycle (one from the KEYDOWN path, one from
-the TEXTINPUT path).  The fix: a `suppress_text_next` flag in `MainLoopCtx` (main.c)
-is set whenever a `SDL_KEYDOWN` with `repeat != 0` is received; the very next
-`SDL_TEXTINPUT` event is then discarded, and the flag is cleared.  SAMOS Stage 4
-provides application-level auto-repeat from within the emulated hardware; OS-level
-repeat events are redundant and dropped entirely via the `ev->repeat` check in
-`keyboard_event()`.
-
-```c
-void keyboard_frame_tick(struct Smaky6 *m)
-{
-    /* Release power-on virtual key when SAMOS ISR vector is installed.
-     * bus[0x4566..7] == 0x003E is written by SAMOS init at 0x00CD,
-     * AFTER the init kbd_wait at 0x00B5 exits.  Before this point
-     * physically_held=1 keeps FOUND reasserting on every CLA read,
-     * passing through all boot-phase kbd_wait loops automatically.
-     * FIFO entries from the pre-SAMOS phase are discarded. */
-    if (m->kbd.physically_held) {
-        uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
-        if (vec == 0x003Eu) {
-            m->kbd.physically_held = 0;
-            m->kbd.found           = 0;
-            m->kbd.fifo_head       = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
-        }
-    }
-
-    if (!m->cpu.iff1) return;   /* inside ISR or pre-SAMOS: leave FIFO for CLA path */
-    /* Drain the entire FIFO into the SAMOS circular buffer each frame. */
-    while (m->kbd.fifo_head != m->kbd.fifo_tail) {
-        uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-        if (wr < 0x4596u || wr > 0x45B6u) break;   /* SAMOS workspace not ready */
-        if (m->bus[wr] == 0x80u) break;             /* guard sentinel: buffer full */
-        uint8_t raw      = m->kbd.fifo[m->kbd.fifo_head];
-        uint8_t physical = raw & 0x80u;             /* set by keyboard_event() for real keys */
-        uint8_t code     = raw & 0x7Fu;
-        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-        m->bus[wr] = code;
-        wr++;
-        m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
-        m->bus[0x457Du] = (uint8_t)(wr >> 8);
-        /* Arm Stage 4 auto-repeat only for physical keys, never for Enter */
-        if (physical && code != 0x0Du) {
-            m->bus[0x4558u] = 0x23u;
-            m->bus[0x4577u] = code;
-        }
-    }
-}
-```
-
-**Why guard-sentinel check (not `ptr == base`)?**
-
-Writing stops when `bus[wr] == 0x80` — not when `wr == 0x4596` (base address).  The sentinel at `~0x45B6` marks the end of the writable region.  The SAMOS consume routine decrements the write pointer but leaves the consumed byte in place; a base-address check would stop too early when the pointer has been advanced by a previous write.  The guard-sentinel correctly limits writes to the ~32-slot buffer capacity.
-
-**Why drain all FIFO entries, not just one per frame?**
-
-Draining one entry per frame would impose a minimum 20 ms inter-character floor — i.e., keys typed at normal human speed could be dropped or delayed by a full frame.  Draining all pending entries each frame matches `machine_inject_to_circ_buf()` behaviour and means SAMOS sees the full burst of typed characters without artificial throttling.
+Validated runtime result (`tmp/manual_shift_msg_noreturn_fix11.log`): manual `Shift+MSG` now produces
+exactly one visible `M`, `S`, `G` insertion at `0x45C0..0x45C2`, with no later trailing `G`.
 
 ### ESC key: emulator-side dual behaviour
 
@@ -958,9 +880,8 @@ GETFON register automatically when `keyboard_read_cla()` returns `0x80 | fonct_b
 generates no independent code and can be ignored for now.
 
 **Tab note:** SAMOS uses code `0x09` at the CLI prompt to insert the string `DX1:`,
-expanding the tab as a drive prefix shortcut.  SDL fires `SDL_KEYDOWN` (not
-`SDL_TEXTINPUT`) for Tab, so it must be in `KEY_TABLE[]` rather than handled via
-`keyboard_text_event()`.
+expanding the tab as a drive prefix shortcut.  In the current strict implementation,
+Tab is one of the explicitly mapped host matrix positions in `HOST_MATRIX_KEYS[]`.
 
 ### Current host-mapping coverage vs. S471 evidence (audit status: 2026-05-13)
 
@@ -969,9 +890,9 @@ coverage falls into three distinct buckets:
 
 | Status | Mapping surface | Current state |
 |--------|-----------------|---------------|
-| Confirmed from currently shared S471 normal-layer facts | `Escape`, `Backspace`, `Tab`, `Return` | Explicitly mapped in `KEY_TABLE[]` as `0x06`, `0x08`, `0x09`, `0x0D` respectively. |
-| Inferred from the printable-text path rather than a per-key PROM position map | letters, digits, punctuation, `Space` | Delivered through `SDL_TEXTINPUT` as printable ASCII `0x20..0x7E`, so `Space` currently reaches SAMOS as `0x20` and ordinary printable text is forwarded as typed by the host layout. |
-| Emulator convenience aliases, not yet claims about original physical key positions | F1-F9, `End`, `Home`, `Insert`, `Left Alt`, `Left Ctrl`, `Left Windows/Super`, `AltGr` | These are deliberate host-side bindings to Smaky function or special-key codes, but they are not derived from the S471 physical position map. |
+| Confirmed strict host-position mapping | `Escape`, digits, `Backspace`, `Tab`, letters `A`..`Z`, brackets, backslash, `Return`, `Space`, comma, period, minus | Explicitly mapped in `HOST_MATRIX_KEYS[]` and resolved through the audited S471 layers. |
+| Confirmed function-bit mapping | `F1`..`F7` | Exposed as `fonct_bits`; returned on CLA only when no ordinary key is latched. |
+| Remaining convenience / non-physical bindings | `F9`, BREAK / reset host shortcuts | Still documented as emulator conveniences rather than original keyboard-position claims. |
 
 This means the current codebase is already consistent with the PROM-derived facts
 that have actually been shared so far:
@@ -985,11 +906,10 @@ that have actually been shared so far:
 What is **not** established by the current implementation is broader physical-key
 fidelity for the whole S471 matrix.  In particular:
 
-- most printable keys are intentionally delegated to the host OS text-input path,
-    so they preserve the active host layout instead of modeling a full Smaky row/
-    column matrix;
-- the alternative host bindings for function keys (`F1..F7`, nav keys, modifiers)
-    are usability shortcuts, not verified S471 position matches;
+- only the currently mapped host scancode positions are modeled; the rest of the
+    original Smaky matrix still needs explicit host-position coverage;
+- the alternative host bindings that remain are limited conveniences, not verified
+    S471 position matches;
 - the FNCT/ALT-layer outputs implied by the S471 dump are not broadly modeled as
     separate physical-key positions yet;
 - the boot-only `FUNCTION-SHIFT-BREAK` and `FUNCTION-BREAK` combinations remain
@@ -1014,10 +934,10 @@ The most relevant confirmed positions are:
 | Physical position class | Normal | Shift | FNCT/ALT | Caps-like | Current emulator state |
 |-------------------------|--------|-------|----------|-----------|------------------------|
 | Top-left ESC / UNDO     | `0x06` | `0x06` | `0x1B` | `0x06` | **Implemented** as host `Escape -> 0x06` |
-| Backspace position      | `0x08` | `0x7F` | `0x01` | `0x08` | Normal `Backspace -> 0x08` implemented; shifted/fnct variants are **not** modeled as physical-position behaviour |
-| Tab position            | `0x09` | `0x0B` | `0x03` | `0x09` | Normal `Tab -> 0x09` implemented; alternate layer outputs are not exposed as physical-position variants |
-| Return position         | `0x0D` | `0x0C` | `0x0A` | `0x0D` | Normal `Return -> 0x0D` implemented; shifted/fnct variants are not modeled |
-| Space position          | `0x20` | `0x20` | `0x02` | `0x20` | Normal space reaches SAMOS via ASCII text input; FNCT-layer `0x02` not modeled |
+| Backspace position      | `0x08` | `0x7F` | `0x01` | `0x08` | Position is mapped in `HOST_MATRIX_KEYS[]`; active output follows the current S471 layer |
+| Tab position            | `0x09` | `0x0B` | `0x03` | `0x09` | Position is mapped in `HOST_MATRIX_KEYS[]`; active output follows the current S471 layer |
+| Return position         | `0x0D` | `0x0C` | `0x0A` | `0x0D` | Position is mapped in `HOST_MATRIX_KEYS[]`; active output follows the current S471 layer |
+| Space position          | `0x20` | `0x20` | `0x02` | `0x20` | Position is mapped in `HOST_MATRIX_KEYS[]`; normal / Shift / Caps now come from strict matrix lookup |
 | Q-row right-edge candidate | `0x04` | `0x05` | `0x07` | `0x04` | **Not explicitly host-mapped**; this is now the strongest candidate for the older `0x04` / `0x05` CLI interpretation |
 | MACRO key               | `0x1E` | `0x1E` | `0x1E` | `0x1E` | Implemented as host `F8` convenience mapping |
 | DEFINE key              | `0x1F` | `0x1F` | `0x1F` | `0x1F` | Implemented as host `F9` convenience mapping |
@@ -1053,16 +973,13 @@ Note: `0x7F` also renders as the solid-filled block glyph ▓ in the chargen ROM
 
 ### Swiss-French accented characters (Category 3)
 
-Codes `0x0F`–`0x1D` are the 15 Swiss-French accented characters.  These are delivered
-to the emulator via `SDL_TEXTINPUT` events as 2-byte UTF-8 sequences (the SDL event
-system converts all text to UTF-8 regardless of host locale).  `keyboard_text_event()`
-in `src/keyboard.c` handles both `SDL_TEXTINPUT` and `SDL_KEYDOWN` events:
+Codes `0x0F`–`0x1D` are still the 15 Swiss-French accented characters in the Smaky
+code space, as confirmed by the S471 dump.  The current strict baseline does not
+feed them through a dedicated `SDL_TEXTINPUT` path anymore; exposing them from host
+keyboards again would require either additional audited host-position mappings or an
+explicit compatibility text-entry layer.
 
-- **Single-byte (0x20–0x7E):** pushed to the FIFO directly as printable ASCII.
-- **Two-byte UTF-8 (`0xC2`–`0xDF` leading byte):** codepoint decoded, looked up in
-  `ACCENT_TABLE[]`; the Smaky chargen code is pushed to the FIFO if found.
-
-`ACCENT_TABLE[]` covers all 30 entries (15 lowercase + 15 uppercase):
+The chargen-code assignments remain:
 
 | UTF-8 codepoint | Smaky code | Char |
 |-----------------|------------|------|

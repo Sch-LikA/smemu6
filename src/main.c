@@ -86,6 +86,7 @@ static void usage(const char *argv0)
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
+        "  -inject-at-frame <n> Inject at absolute frame n instead of waiting for CLI prompt\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
         "  -inject-hold-frames <f> Hold -inject-keycode for this many frames (default 1)\n"
         "  -timeout <s>   Global wall-clock timeout (0=off, default 30s with -trace)\n"
@@ -134,6 +135,7 @@ typedef struct {
     uint8_t inject_codes[128];
     int  inject_len;
     int  inject_at_prompt;        /* fire inject when prompt_count >= this */
+    int  inject_at_frame;         /* if >= 0, fire inject at this absolute frame instead of prompt gating */
     int  inject_delay_frames;     /* wait this many visible-prompt frames before injecting */
     int  inject_hold_frames;      /* hold CLA injection for this many frames */
     int  inject_keycode_enabled;
@@ -190,6 +192,13 @@ static int prompt_injection_ready(const MainLoopCtx *L, int prompt_now)
     if (L->prompt_visible_since_frame < 0)
         return 0;
     return (L->frame_cnt - L->prompt_visible_since_frame) >= L->inject_delay_frames;
+}
+
+static int injection_ready(const MainLoopCtx *L, int prompt_now)
+{
+    if (L->inject_at_frame >= 0)
+        return L->frame_cnt >= L->inject_at_frame;
+    return prompt_injection_ready(L, prompt_now);
 }
 
 static void main_loop_cleanup(void)
@@ -366,6 +375,16 @@ static void main_loop_iter(void)
         if (!L->running) break;   /* honour quit requests between frames */
 
         if (!L->freeze_cpu) {
+            if (L->m->dbg.trace_kbd && L->m->kbd.found) {
+                fprintf(stderr,
+                        "[kbd] pre-frame %d found=%d code=%02X held=%d boot=%d reassert=%d\n",
+                        L->frame_cnt + 1,
+                        L->m->kbd.found,
+                        (unsigned)L->m->kbd.key_code,
+                        L->m->kbd.physically_held,
+                        L->m->kbd.boot_key_held,
+                        L->m->kbd.reassert_pending);
+            }
             keyboard_frame_tick(L->m);
             machine_int(L->m);
             machine_run_frame(L->m);
@@ -412,26 +431,41 @@ static void main_loop_iter(void)
         L->prompt_was_visible = prompt_now;
 
         if (L->inject_keycode_enabled && !L->inject_keycode_done &&
-            prompt_injection_ready(L, prompt_now)) {
+            injection_ready(L, prompt_now)) {
             machine_inject_key(L->m, L->inject_keycode);
             L->inject_keycode_done = 1;
             L->stage1_release_at = L->frame_cnt + L->inject_hold_frames;
-            if (L->trace || L->m->dbg.trace_kbd)
-                fprintf(stderr,
-                        "[inject] CLA keycode 0x%02X armed at frame %d after %d prompt frame(s); hold=%d release at %d\n",
-                        (unsigned)L->inject_keycode,
-                        L->frame_cnt,
-                        L->frame_cnt - L->prompt_visible_since_frame,
-                        L->inject_hold_frames,
-                        L->stage1_release_at);
+            if (L->trace || L->m->dbg.trace_kbd) {
+                if (L->inject_at_frame >= 0)
+                    fprintf(stderr,
+                            "[inject] CLA keycode 0x%02X armed at frame %d via -inject-at-frame; hold=%d release at %d\n",
+                            (unsigned)L->inject_keycode,
+                            L->frame_cnt,
+                            L->inject_hold_frames,
+                            L->stage1_release_at);
+                else
+                    fprintf(stderr,
+                            "[inject] CLA keycode 0x%02X armed at frame %d after %d prompt frame(s); hold=%d release at %d\n",
+                            (unsigned)L->inject_keycode,
+                            L->frame_cnt,
+                            L->frame_cnt - L->prompt_visible_since_frame,
+                            L->inject_hold_frames,
+                            L->stage1_release_at);
+            }
         }
 
         if (L->inject_len > 0 && L->inject_idx == 0 &&
-            prompt_injection_ready(L, prompt_now)) {
-            if (L->trace)
-                fprintf(stderr,
-                        "[inject] CLI prompt stable at frame %d; writing %d char(s) via circular buffer\n",
-                        L->frame_cnt, L->inject_len);
+            injection_ready(L, prompt_now)) {
+            if (L->trace) {
+                if (L->inject_at_frame >= 0)
+                    fprintf(stderr,
+                            "[inject] frame %d reached; writing %d char(s) via circular buffer\n",
+                            L->frame_cnt, L->inject_len);
+                else
+                    fprintf(stderr,
+                            "[inject] CLI prompt stable at frame %d; writing %d char(s) via circular buffer\n",
+                            L->frame_cnt, L->inject_len);
+            }
             for (int i = 0; i < L->inject_len; i++) {
                 uint8_t kc = L->inject_codes[i];
                 machine_inject_to_circ_buf(L->m, kc);
@@ -552,6 +586,7 @@ int main(int argc, char *argv[])
     int no_launcher        = 0;  /* -no-launcher: skip startup dialog */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_at_prompt = 1;          /* -inject-at-prompt N: fire inject when prompt_count >= N */
+    int inject_at_frame = -1;          /* -inject-at-frame N: fire inject at frame N instead of prompt gating */
     int inject_delay_frames = 2;       /* -inject-delay N: wait N frames after prompt appears */
     int inject_hold_frames = 1;        /* -inject-hold-frames N: hold CLA key for N frames */
     int inject_keycode_enabled = 0;    /* -inject-keycode: inject one key via CLA path */
@@ -603,6 +638,14 @@ int main(int argc, char *argv[])
                 return 1;
             }
             inject_delay_frames = (int)v;
+        } else if (strcmp(argv[i], "-inject-at-frame") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long v = strtol(argv[++i], &end, 0);
+            if (!end || *end != '\0' || v < 0 || v > 1000000) {
+                fprintf(stderr, "Invalid -inject-at-frame value: %s\n", argv[i]);
+                return 1;
+            }
+            inject_at_frame = (int)v;
         } else if (strcmp(argv[i], "-inject-keycode") == 0 && i + 1 < argc) {
             char *end = NULL;
             unsigned long v = strtoul(argv[++i], &end, 0);
@@ -987,6 +1030,7 @@ int main(int argc, char *argv[])
     memcpy(ctx.inject_codes, inject_codes, sizeof(inject_codes));
     ctx.inject_len         = inject_len;
     ctx.inject_at_prompt   = inject_at_prompt;
+    ctx.inject_at_frame    = inject_at_frame;
     ctx.inject_delay_frames = inject_delay_frames;
     ctx.inject_hold_frames = inject_hold_frames;
     ctx.inject_keycode_enabled = inject_keycode_enabled;

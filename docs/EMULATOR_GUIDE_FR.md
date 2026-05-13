@@ -154,10 +154,8 @@ valides sont :
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
 | `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA bas niveau une fois l'invite CLI stable. Les touches maintenues injectées post-boot utilisent maintenant le meilleur modèle matériel actuel de l'émulateur : la première lecture CLA renvoie un code régulier avec bit 7 positionné, ce qui peut produire du texte visible dans la CLI. |
-| `-inject-keycode-bit7-first-cla` | Drapeau de forçage diagnostique pour cette même règle bit-7 sur la première lecture. Utile pour l'audit ; `-inject-keycode` utilise déjà ce modèle par défaut. |
 | `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Maintient `-inject-keycode` actif pendant `f` trames d'ISR avant relâchement (défaut `1`). |
-| `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
 
 `-inject-str` reste la voie normale pour taper automatiquement une commande. `-inject-keycode` suit désormais assez fidèlement le modèle CLA bas niveau pour reproduire le chemin visible post-boot de `A` dans les audits, mais cela reste un outil de reverse engineering / de test bas niveau, pas la voie normale de saisie de commandes.
 
@@ -199,7 +197,9 @@ valides sont :
 ## 6. Mapping du clavier
 
 Le Smaky 6 possède un clavier QWERTZ suisse avec des touches de fonction
-spéciales. L'émulateur les associe aux touches PC standard comme suit.
+spéciales. L'émulateur résout maintenant les touches ordinaires à partir de la
+position de la scancode hôte via la table S471 auditée, puis les fait passer par
+le chemin strict CLA / `SYS.SY`.
 
 ### Touches spéciales
 
@@ -212,53 +212,37 @@ spéciales. L'émulateur les associe aux touches PC standard comme suit.
 | `F5` | Touche de fonction **SHOW** |
 | `F6` | Touche de fonction **SEARCH** |
 | `F7` | Touche de fonction **CHANGE** |
-
-Associations alternatives (également actives, pour les utilisateurs qui les préfèrent) :
-
-| Touche PC | Fonction Smaky 6 |
-|-----------|------------------|
-| `Fin` (End) | Touche de fonction **CHANGE** |
-| `Orig` (Home) | Touche de fonction **SEARCH** |
-| `Inser` | Touche de fonction **SHOW** |
-| `Alt gauche` | Touche de fonction **COPY** |
-| `Ctrl gauche` | Touche de fonction **CURSOR** |
-| `Windows gauche` / `Super` | Touche de fonction **PROGRA** |
-| `AltGr` (Alt droit) | Touche de fonction **KILL** |
-| `F8` | **MACRO** — rejoue une séquence de touches enregistrée (code `«` 0x1E) |
-| `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
+| `F9` | **DEFINE** (`0x1F`) via le mapping strict actuel de la matrice |
+| `Fin` (End) | Position de touche ordinaire 30 auditée (`0x04` normal, `0x05` avec Shift) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
-| `Escape` | **ESC / UNDO** (touche en haut à gauche) — le mapping de travail courant émet maintenant le code `0x06` |
-| `Tab` | Insère `DX1:` dans la ligne de commande CLI (`0x09`) |
-| `Backspace` | Smaky BS (`0x08`) |
-| `Delete` | Smaky DEL (`0x7F`) |
+| `Escape` | **ESC / UNDO** (touche en haut à gauche) — le mapping de travail courant émet `0x06` |
 
-### Caractères accentués franco-suisses
+Les anciens alias de convenance comme `F8`, `Inser`, `Orig`, `Alt gauche`,
+`Ctrl gauche`, `Windows gauche / Super`, `AltGr` et `Delete` ne font plus partie
+de la base stricte actuellement documentée et ne doivent pas être considérés
+comme pris en charge tant qu'ils ne sont pas réintroduits explicitement dans le code.
+
+### Touches ordinaires
+
+Les touches ordinaires actuellement prises en charge par le chemin strict de la
+matrice incluent les positions auditées pour `A`..`Z`, `0`..`9`, `Space`,
+`Backspace`, `Tab`, `Return`, crochets, barre oblique inverse, virgule, point
+et tiret. `Shift` sélectionne la couche Shift S471, et `Caps Lock` sélectionne
+la couche « caps-like » auditée.
+
+Le clavier Smaky 6 utilise une disposition **QWERTZ** (allemand suisse) — si
+votre clavier PC est QWERTY ou AZERTY, certaines positions de ponctuation
+diffèrent, car le mapping est désormais basé sur la position et non sur la
+saisie de texte de l'OS hôte.
 
 Note matérielle : le dump complet de la ROM clavier S471 est maintenant
-disponible.  L'émulateur correspond déjà aux sorties spéciales confirmées qu'il
+disponible. L'émulateur correspond déjà aux sorties spéciales confirmées qu'il
 expose directement, notamment `Escape -> 0x06`, `Backspace -> 0x08`,
-`Tab -> 0x09`, `Return -> 0x0D` et `Space -> 0x20`.  Les touches imprimables
-ordinaires suivent encore la disposition active du clavier hôte via
-`SDL_TEXTINPUT` ; ce n'est donc pas encore une émulation stricte de toute la
-matrice physique du clavier.
-
-Les 15 caractères accentués franco-suisses sont intégralement supportés.
-Saisissez-les avec les méthodes habituelles de votre OS (touches mortes,
-touche de composition, etc.) ; l'émulateur les reçoit en UTF-8 et les
-traduit vers les codes chargen Smaky 6 correspondants :
-
-| Caractère | Code Smaky | | Caractère | Code Smaky |
-|-----------|------------|--|-----------|------------|
-| ü / Ü | `0x0F` | | ô / Ô | `0x18` |
-| à / À | `0x10` | | ù / Ù | `0x19` |
-| â / Â | `0x11` | | û / Û | `0x1A` |
-| é / É | `0x12` | | ä / Ä | `0x1B` |
-| è / È | `0x13` | | ö / Ö | `0x1C` |
-| ë / Ë | `0x14` | | ç / Ç | `0x1D` |
-| ê / Ê | `0x15` | | | |
-| ï / Ï | `0x16` | | | |
-| î / Î | `0x17` | | | |
+`Tab -> 0x09`, `Return -> 0x0D` et `Space -> 0x20`. C'est maintenant une base
+strictement CLA-centrique, mais elle ne couvre pas encore toutes les positions
+physiques originales du Smaky ni un mode de compatibilité séparé pour la saisie
+accentuée.
 
 ### Barre de touches de fonction
 

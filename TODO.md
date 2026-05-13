@@ -201,19 +201,44 @@ outputs for normal, Shift, FNCT/ALT, and caps-like layers, including:
 - Return position = `0x0D / 0x0C / 0x0A / 0x0D`;
 - Q-row right-edge candidate = `0x04 / 0x05 / 0x07 / 0x04`.
 
-Current emulator limitation:
+Current emulator state:
 
-- printable keys still mostly follow host `SDL_TEXTINPUT` layout instead of an exact
-  Smaky physical matrix;
-- function-key aliases (`F1..F9`, nav keys, modifiers) are convenience mappings;
-- FNCT/ALT-layer outputs are not broadly modeled per physical position.
+- ordinary keys now enter through the strict CLA-facing latch in `src/keyboard.c`,
+  using host scancode position -> S471 layer lookup -> CLA / `SYS.SY` delivery;
+- overlapping SDL taps are queued as pending ordinary keys and promoted one by one
+  once the active latch becomes idle;
+- function-key aliases (`F1..F7`) remain convenience host bindings for the 7
+  bottom-row Smaky function bits;
+- FNCT/ALT-layer printable outputs are still not broadly exposed through separate
+  host bindings.
 
 Future work:
 
-- decide whether to keep the current host-layout-friendly text path for usability,
-  or add an optional strict S471 physical keyboard mode;
-- if strict mode is added, derive host-position mappings from the 64-entry layer
-  table rather than from generic printable ASCII passthrough.
+- add the remaining audited host-position mappings that are still absent from
+  `HOST_MATRIX_KEYS[]`;
+- decide whether to add an explicit compatibility text-entry mode on top of the
+  strict S471 baseline for accented / host-layout-friendly typing.
+
+### Released promoted-key repeat disarm ✅ Done  [confirmed]
+
+Manual `Shift+MSG` CLI tracing on 2026-05-13/14 exposed a narrow post-fix bug:
+the third promoted key (`G`) inserted correctly once, then reappeared later via
+SAMOS Stage 4 auto-repeat.
+
+Validated result:
+
+- the first successful `G` enqueue still armed `0x4558 = 0x23`, `0x4577 = 0x47`;
+- later Stage 4 runs at `0x01DF..0x0205` re-injected `0x47` into `0x4596`, causing
+  endless trailing `G` insertions;
+- clearing only the emulator-side latch was insufficient;
+- the fix is to clear both SAMOS repeat bytes (`0x4558` and `0x4577`) when a
+  released promoted key is committed to the circular buffer via the `0x457C`
+  advance hook in `src/memory.c`.
+
+Validated runtime result (`tmp/manual_shift_msg_noreturn_fix11.log`):
+
+- visible CLI insertions are exactly `M`, `S`, `G` at `0x45C0..0x45C2`;
+- no later visible `G` appears at `0x45C3` or beyond.
 
 ### ~~Auto-repeat (SAMOS ≥ 1.3)~~ ✅ Done  [confirmed]
 

@@ -148,34 +148,42 @@ Therefore:
 
 ### 9. Post-boot regular-key delivery should be CLA-driven, not FIFO-shortcut-driven
 
-Recent runtime probes narrowed the regular-key bridge substantially:
+This is now the implemented baseline.
 
-- the current direct `keyboard_event() -> software FIFO -> circular buffer`
-  route is an emulator shortcut;
-- the strongest positive probe result so far is only that `SYS.SY`'s post-boot
-   promotion path can be driven by an emulator-side compatibility behaviour;
-- that result is useful for implementation experiments, but it is not yet an
-   electrical statement about real CLA hardware behaviour.
+Validated runtime and code result:
 
-What *is* strong enough to keep as a design target is narrower:
+- ordinary host scancodes are resolved by physical position through the S471
+   lookup table in `src/keyboard.c`;
+- the resulting ordinary key is latched into the CLA-visible `found/key_code`
+   state instead of being written directly into the SAMOS circular buffer;
+- overlapping SDL taps are queued as pending ordinary keys and promoted when the
+   current latch becomes idle;
+- released promoted keys are allowed one synthetic reassert so `SYS.SY` can see
+   them, then they are dropped again;
+- once `SYS.SY` commits such a released promoted key into the circular buffer,
+   the emulator also clears SAMOS repeat state (`0x4558`, `0x4577`) so the key is
+   not re-injected endlessly by Stage 4.
 
-- real physical keys should be delivered through the CLA-side path, not by direct
-   circular-buffer injection;
-- the current FIFO shortcut is architecturally wrong for a strict model;
-- the exact hardware mechanism that makes post-boot regular keys visible through
-   `SYS.SY` is still not proven electrically.
+What remains as active design work is narrower:
+
+- finish the remaining host-position coverage in `HOST_MATRIX_KEYS[]`;
+- decide whether accented / host-layout-friendly entry should come back as an
+   explicit compatibility layer on top of the strict baseline;
+- keep re-auditing the exact hardware explanation for the bit-7-prefixed first
+   ordinary CLA read, which is still validated as behaviour but not yet as a
+   pure electrical claim.
 
 So the required direction is not "make the current emulator trick work better";
 it is "replace emulator shortcuts with a model that is as close as possible to
 the original keyboard hardware."
 
-### 10. The current implementation is knowingly hybrid
+### 10. The current implementation is still partly hybrid
 
-The current codebase combines three different producer models:
+The current codebase still combines multiple host-side input classes:
 
-- explicit non-printable host scancodes in `KEY_TABLE[]`;
-- printable text via `SDL_TEXTINPUT`;
-- function keys as a separate `fonct_bits` bitmask plus convenience aliases.
+- ordinary matrix positions via `HOST_MATRIX_KEYS[]` and S471 lookup;
+- function keys as a separate `fonct_bits` bitmask;
+- some convenience host aliases for BREAK / reset / function access.
 
 That split is acceptable as a description of the current code, but it should not
 be the architecture we preserve.
@@ -203,11 +211,11 @@ Mappings such as:
 These are useful for usability, but they are not evidence of original physical
 key placement.
 
-### 3. The current printable-text path
+### 3. Compatibility text-entry may still be useful later
 
-`SDL_TEXTINPUT` remains useful as a compatibility tool, especially for accented
-input and host layouts, but it should no longer be the default source of truth
-for hardware-faithful keyboard generation.
+If accented input or host-layout-friendly text entry returns, it should be
+documented as a compatibility layer on top of the strict S471 baseline, not as
+the hardware-faithful producer model.
 
 ### 4. The `0x80 | key_code` first-read behaviour
 
@@ -407,7 +415,7 @@ convenience mapping should lose, not the hardware model.
 The current shortcut path:
 
 - `SDL_KEYDOWN` / `SDL_TEXTINPUT`
-- software FIFO
+- pending ordinary-key queue for overlapping taps
 - `keyboard_frame_tick()`
 - direct write to circular buffer
 
@@ -596,10 +604,10 @@ on keyboard-side modifier state.
 4. Split host input into two modes.
    Add a strict S471 physical-key path and preserve the current text-input path only as compatibility mode.
 
-5. Remove physical regular keys from the direct FIFO shortcut path.
+5. Keep physical regular keys on the strict CLA-facing path.
    Route them through the CLA-facing key state instead.
 
-6. Implement the strict CLA model first.
+6. Expand the strict CLA model to the remaining audited host positions.
    Keep `FOUND=1 -> key_code & 0x7F` and `FOUND=0 -> 0x80 | fonct_bits` as the authoritative contract.
 
 7. Re-test the top-left ESC / UNDO path with `0x06` as the real hardware code.
@@ -623,8 +631,8 @@ on keyboard-side modifier state.
 13. Reduce or remove `KEY_TABLE[]` once strict mode is in place.
     Keep only host compatibility bindings that are still intentionally non-physical.
 
-14. Revalidate auto-repeat after the path swap.
-    Confirm that Stage 4 repeat still works correctly once regular keys stop being injected through the direct circular-buffer shortcut.
+14. Revalidate auto-repeat after each queue / promotion change.
+   Released promoted keys must clear `0x4558` and `0x4577` once committed so Stage 4 does not re-inject them endlessly.
 
 15. Add focused runtime traces for physical position, resolved layer, resolved code, CLA return, and promotion outcome.
     Make the strict implementation debuggable without reintroducing shortcut logic.

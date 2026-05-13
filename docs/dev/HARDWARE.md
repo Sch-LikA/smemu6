@@ -558,9 +558,10 @@ printer / serial drivers interpret them as formatting or accent modifiers.
 | `0x16` | ï / Ï             | | | |
 | `0x17` | î / Î             | | | |
 
-The emulator receives accented characters as 2-byte UTF-8 via `SDL_TEXTINPUT` events.
-`keyboard_text_event()` decodes the UTF-8 codepoint and looks it up in `ACCENT_TABLE[]`
-(defined in `src/keyboard.c`) to obtain the Smaky chargen code.
+The current keyboard baseline no longer relies on `SDL_TEXTINPUT`.  Ordinary keys are
+resolved by host scancode position through the audited S471 table in `src/keyboard.c`.
+If accented-text compatibility returns later, it should be documented as a separate
+compatibility layer rather than as the core hardware path.
 
 ---
 
@@ -1669,8 +1670,9 @@ after the Phantom ROM sets up the USART.
 
 **Key translation ROM**: implement as a 256×8 Verilog parameter array (inferred
 as LUT RAM on iCE40/ECP5 or as BRAM on Gowin/Xilinx/Altera).  Source the mapping
-from `src/keyboard.c` `KEY_TABLE[]` plus SDL_TEXTINPUT logic; map PS/2 set-2
-make codes to Smaky 7-bit ASCII codes.
+from the audited S471 table and current `HOST_MATRIX_KEYS[]` host-position map in
+`src/keyboard.c`; map PS/2 set-2 make codes to Smaky 7-bit keyboard codes by
+physical position and layer rather than by host text-input translation.
 
 ### 15.15.4 I²C Master (for DS3231 RTC bridge, §15.8 Option B)
 

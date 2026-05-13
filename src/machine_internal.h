@@ -38,11 +38,23 @@ struct Smaky6 {
         int      reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
         uint32_t reassert_cycles;   /* T-state countdown to reassert (≈500 at 2.5 MHz = 200 µs) */
         int      physically_held;   /* 1 while the current ordinary key is held */
+        int      release_after_reassert; /* 1 when a promoted released key must drop after one synthetic reassert */
+        int      release_after_buffer_commit; /* 1 when a released promoted key should drop as soon as SYS.SY enqueues it */
         int      boot_key_held;     /* 1 only for the power-on virtual Enter autoboot key */
+        int      regular_prefix_pending; /* 1 = armed one-shot bit7 prefix for the next ordinary CLA read */
+        int      regular_prefix_armed; /* 1 until the first post-boot ordinary key claims the validated bit7 prefix */
         int      shift_pressed;     /* current Shift state for verified layer-sensitive keys */
         int      caps_lock_active;  /* latched CAPS/LOCK state selects the PROM caps layer */
         SDL_Scancode active_scancode; /* host scancode currently owning the ordinary-key latch */
         uint8_t  active_matrix_position; /* 0..63 for the held ordinary key; 0xFF = none */
+        struct {
+            SDL_Scancode scancode;
+            uint8_t matrix_position;
+            uint8_t key_code;
+            uint8_t released;
+        } pending_ordinary[8];
+        uint8_t  pending_ordinary_head;
+        uint8_t  pending_ordinary_len;
         uint8_t  fonct_bits;        /* direct state of the 7 bottom-row function keys */
     } kbd;
 

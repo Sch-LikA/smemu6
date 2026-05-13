@@ -9,15 +9,44 @@
 
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
+    if (m->dbg.trace_flow && addr == 0x457Eu) {
+        uint8_t value = m->bus[addr];
+        uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+        uint16_t ret = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+        fprintf(stderr,
+            "[kbd-r] pc=%04X [%04X] -> %02X sp=%04X ret=%04X\n",
+                (unsigned)Z80_PC(m->cpu),
+                (unsigned)addr,
+            (unsigned)value,
+            (unsigned)sp,
+            (unsigned)ret);
+        return value;
+    }
     return m->bus[addr];
 }
 
 void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
+
+    if (addr == 0x457Cu && m->kbd.release_after_buffer_commit && m->bus[addr] != data) {
+        m->bus[0x4558u] = 0;
+        m->bus[0x4577u] = 0;
+        m->kbd.found = 0;
+        m->kbd.physically_held = 0;
+        m->kbd.release_after_reassert = 0;
+        m->kbd.release_after_buffer_commit = 0;
+        m->kbd.regular_prefix_pending = 0;
+        m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+        m->kbd.active_matrix_position = 0xFFu;
+        m->kbd.reassert_pending = 0;
+        m->kbd.reassert_cycles = 0;
+    }
+
     if (m->dbg.trace_kbd &&
         (addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
-         (addr >= 0x4580u && addr <= 0x4595u))) {
+         (addr >= 0x4580u && addr <= 0x4595u) ||
+         (addr >= 0x4596u && addr <= 0x45B6u))) {
         uint8_t old = m->bus[addr];
         if (old != data) {
             fprintf(stderr,
