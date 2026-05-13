@@ -501,6 +501,7 @@ void machine_reset(struct Smaky6 *m)
      * EI is executed (keyboard_frame_tick releases it on iff1→1). */
     m->kbd.found           = 1;
     m->kbd.key_code        = 0x00;  /* Enter → boot from DX0 */
+    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 1;
     m->kbd.fifo_head       = 0;
@@ -511,6 +512,7 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
 {
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
+    m->kbd.regular_bit7_first_pending = 1;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 0;
 }
@@ -518,6 +520,7 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
 void machine_release_key(struct Smaky6 *m)
 {
     m->kbd.found           = 0;
+    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 0;
     m->kbd.boot_key_held   = 0;
 }
@@ -525,12 +528,13 @@ void machine_release_key(struct Smaky6 *m)
 void machine_inject_shift_break(struct Smaky6 *m)
 {
     /* Inject SHIFT + BREAK to trigger monitor mode on real hardware.
-     * Supply the physical ESC key code (0x04) as the key, which the Phantom ROM
+     * Supply the physical ESC/UNDO key code (0x06) as the key, which the Phantom ROM
      * kbd_wait sees as nonzero — directing it away from the PDP-11 loader path.
      */
     m->kbd.shift_pressed   = 1;
-    m->kbd.key_code        = 0x04;  /* ESC / UNDO physical key code */
+    m->kbd.key_code        = 0x06;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
+    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 0;
 }

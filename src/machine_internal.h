@@ -32,6 +32,7 @@ struct Smaky6 {
     struct {
         uint8_t key_code;
         int      found;             /* FOUND latch: 1 = key present, cleared by CLA read */
+        int      regular_bit7_first_pending; /* 1 = first post-boot held regular CLA read returns 0x80|key_code */
         int      reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
         uint32_t reassert_cycles;   /* T-state countdown to reassert (≈500 at 2.5 MHz = 200 µs) */
         int     physically_held;   /* 1 while SDL key is physically down (cleared by KEYUP) */
@@ -151,6 +152,25 @@ struct Smaky6 {
         int flow_budget; /* max flow log lines per run */
         uint16_t last_flow_pc;
         uint32_t flow_spin_count;
+        int      poke_on_pc_enabled;
+        int      poke_on_pc_armed;
+        uint16_t poke_on_pc;
+        uint16_t poke_addr;
+        uint8_t  poke_value;
+        int      poke_done;
+        int      cla_on_pc_enabled;
+        int      cla_on_pc_armed;
+        uint16_t cla_on_pc;
+        uint8_t  cla_value;
+        int      cla_done;
+        int      status_on_pc_enabled;
+        int      status_on_pc_armed;
+        uint16_t status_on_pc;
+        uint8_t  status_value;
+        int      status_done;
+        int      inject_keycode_bit7_first_cla_enabled;
+        int      inject_keycode_bit7_first_cla_armed;
+        int      inject_keycode_bit7_first_cla_done;
         uint16_t last_pc;/* last PC seen by trace hook (avoid duplicate prints) */
         uint16_t last_io19_pc;   /* last PC logged for port 0x19 */
         uint8_t  last_io19_data; /* last value logged for port 0x19 */

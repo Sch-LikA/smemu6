@@ -42,6 +42,12 @@ void debug_init(struct Smaky6 *m)
     m->dbg.flow_budget = 0;
     m->dbg.last_flow_pc = 0xFFFF;
     m->dbg.flow_spin_count = 0;
+    m->dbg.poke_on_pc_enabled = 0;
+    m->dbg.poke_on_pc_armed = 0;
+    m->dbg.poke_on_pc = 0;
+    m->dbg.poke_addr = 0;
+    m->dbg.poke_value = 0;
+    m->dbg.poke_done = 0;
     m->dbg.last_pc  = 0xFFFF;
     m->dbg.last_io19_pc = 0xFFFF;
     m->dbg.last_io19_data = 0xFF;
@@ -63,6 +69,19 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
     if (pc == m->dbg.last_pc) return;
     m->dbg.last_pc = pc;
+
+    if (m->dbg.poke_on_pc_enabled && m->dbg.poke_on_pc_armed &&
+        !m->dbg.poke_done && pc == m->dbg.poke_on_pc) {
+        memory_write(m, m->dbg.poke_addr, m->dbg.poke_value);
+        m->dbg.poke_done = 1;
+        if (m->dbg.trace || m->dbg.trace_kbd) {
+            fprintf(stderr,
+                    "[inject] pc=%04X RAM[0x%04X] <- 0x%02X\n",
+                    pc,
+                    (unsigned)m->dbg.poke_addr,
+                    (unsigned)m->dbg.poke_value);
+        }
+    }
 
     /* After Phantom ROM is banked out, trace early low-RAM control flow once. */
     if (m->rom_mask[0x0000] == 0 && pc < 0x0800 && ram_pc_printed < 64) {
@@ -172,6 +191,28 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             return;
         }
 
+        if (pc == 0x5857 || pc == 0x58DD || pc == 0x58F8 || pc == 0x590E ||
+            pc == 0x590F || pc == 0x5B29 || pc == 0x5B2C) {
+            uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
+            if (pc == m->dbg.last_flow_pc)
+                return;
+            m->dbg.last_flow_pc = pc;
+            fprintf(stderr,
+                    "[flow-line] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
+                    "cursor=%04X 45c0=%02X 45c1=%02X 45c2=%02X 457c=%02X%02X\n",
+                    pc,
+                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    cursor,
+                    (unsigned)m->bus[0x45C0u],
+                    (unsigned)m->bus[0x45C1u],
+                    (unsigned)m->bus[0x45C2u],
+                    (unsigned)m->bus[0x457Du],
+                    (unsigned)m->bus[0x457Cu]);
+            m->dbg.flow_budget--;
+            return;
+        }
+
         if (pc < 0x0800) {
         if (pc == 0x00B3 || pc == 0x00B5 || pc == 0x00B7 || pc == 0x00B9) {
             if (pc == 0x00B3) {
@@ -185,8 +226,9 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     m->dbg.flow_budget--;
                 }
             }
-        } else if (pc == 0x019B || pc == 0x01BB || pc == 0x01C9 || pc == 0x01DF ||
-               pc == 0x01EE || pc == 0x0200 ||
+         } else if (pc == 0x0175 || pc == 0x0179 || pc == 0x0183 || pc == 0x0188 ||
+             pc == 0x0198 || pc == 0x019B || pc == 0x01BB || pc == 0x01C9 ||
+             pc == 0x01DF || pc == 0x01EE || pc == 0x0200 ||
                pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
                pc == 0x057E || pc == 0x058C ||
                    (pc >= 0x00B0 && pc <= 0x0150) || (pc >= 0x0400 && pc <= 0x0508)) {
@@ -194,12 +236,13 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
-            if (pc == 0x019B || pc == 0x01BB || pc == 0x01C9 || pc == 0x01DF ||
-                pc == 0x01EE || pc == 0x0200) {
+            if (pc == 0x0175 || pc == 0x0179 || pc == 0x0183 || pc == 0x0188 ||
+                pc == 0x0198 || pc == 0x019B || pc == 0x01BB || pc == 0x01C9 ||
+                pc == 0x01DF || pc == 0x01EE || pc == 0x0200) {
                 uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
                 fprintf(stderr,
                         "[flow-kbd] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "
-                        "4558=%02X 4577=%02X 457c=%04X 457e=%02X 4580=%02X 4582=%02X\n",
+                        "4558=%02X 4577=%02X 457c=%04X 457e=%02X 4580=%02X 4581=%02X 4582=%02X 458a=%02X\n",
                         pc,
                         (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                         (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
@@ -208,7 +251,9 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                         ptr,
                         (unsigned)m->bus[0x457Eu],
                         (unsigned)m->bus[0x4580u],
-                        (unsigned)m->bus[0x4582u]);
+                        (unsigned)m->bus[0x4581u],
+                        (unsigned)m->bus[0x4582u],
+                        (unsigned)m->bus[0x458Au]);
             } else if (pc == 0x04D4 || pc == 0x04E4 || pc == 0x04F6 || pc == 0x0516 ||
                        pc == 0x057E || pc == 0x058C) {
                 uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);

@@ -86,6 +86,7 @@ static void usage(const char *argv0)
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
+        "  -inject-keycode-bit7-first-cla  Force bit7-set regular code on the first CLA read of -inject-keycode (diagnostic)\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
         "  -inject-hold-frames <f> Hold -inject-keycode for this many frames (default 1)\n"
         "  -timeout <s>   Global wall-clock timeout (0=off, default 30s with -trace)\n"
@@ -110,13 +111,18 @@ static void usage(const char *argv0)
         "  -phosphor <colour>  Screen phosphor: green (default, P31 #00E700) or white (#E8E8E8)\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -inject-via-fifo  Route -inject-str through keyboard FIFO (tests physical kbd path)\n"
+        "  -fonct-on-prompt <byte>  Set keyboard function-bit mask when CLI prompt is stable\n"
+        "  -poke-on-prompt <addr> <byte>  Write RAM byte when CLI prompt is stable (repeatable)\n"
+        "  -poke-at-pc <pc> <addr> <byte>  Write RAM byte once when execution reaches PC\n"
+        "  -cla-at-pc <pc> <byte>  Override one CLA read value once when execution reaches PC\n"
+        "  -status-at-pc <pc> <byte>  Override one keyboard status read once when execution reaches PC\n"
         "  -no-launcher   Skip the startup configuration dialog\n"
         "  -loadbin <addr> <file>  Load raw binary into RAM at hex address (e.g. -loadbin 0x4600 test.bin)\n"
         "  -freeze        Do not run the CPU; display static RAM contents (use with -loadbin)\n"
         "  -help          Show this help\n"
         "  Pause / F11          BREAK key (top-right, NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
-        "  Escape               ESC / UNDO key (top-left, key code 0x04, cancels CLI line)\n"
+        "  Escape               ESC / UNDO key (top-left, current working code 0x06)\n"
         "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n",
         argv0);
 }
@@ -139,8 +145,17 @@ typedef struct {
     int  inject_delay_frames;     /* wait this many visible-prompt frames before injecting */
     int  inject_hold_frames;      /* hold CLA injection for this many frames */
     int  inject_keycode_enabled;
+    int  inject_keycode_bit7_first_cla;
     uint8_t inject_keycode;
     int  inject_keycode_done;
+    uint16_t prompt_poke_addrs[16];
+    uint8_t  prompt_poke_values[16];
+    int      prompt_poke_len;
+    int      prompt_poke_armed;
+    int      prompt_poke_done;
+    int      prompt_fonct_enabled;
+    uint8_t  prompt_fonct_bits;
+    int      prompt_fonct_done;
     uint8_t inject2_codes[128];
     int  inject2_len;
     int  inject2_at_prompt;       /* fire inject2 when prompt_count >= this */
@@ -403,6 +418,18 @@ static void main_loop_iter(void)
         if (!L->running) break;   /* honour quit requests between frames */
 
         if (!L->freeze_cpu) {
+        if (L->prompt_poke_armed) {
+            for (int i = 0; i < L->prompt_poke_len; i++) {
+                memory_write(L->m, L->prompt_poke_addrs[i], L->prompt_poke_values[i]);
+                if (L->trace || L->m->dbg.trace_kbd)
+                    fprintf(stderr,
+                            "[inject] RAM[0x%04X] <- 0x%02X before frame %d\n",
+                            (unsigned)L->prompt_poke_addrs[i],
+                            (unsigned)L->prompt_poke_values[i],
+                            L->frame_cnt + 1);
+            }
+            L->prompt_poke_armed = 0;
+        }
         keyboard_frame_tick(L->m);
         machine_int(L->m);
         machine_run_frame(L->m);
@@ -464,6 +491,10 @@ static void main_loop_iter(void)
         if (L->inject_keycode_enabled && !L->inject_keycode_done &&
             prompt_injection_ready(L, prompt_now)) {
             machine_inject_key(L->m, L->inject_keycode);
+            if (L->inject_keycode_bit7_first_cla) {
+                L->m->dbg.inject_keycode_bit7_first_cla_armed = 1;
+                L->m->dbg.inject_keycode_bit7_first_cla_done = 0;
+            }
             L->inject_keycode_done = 1;
             L->stage1_release_at = L->frame_cnt + L->inject_hold_frames;
             if (L->trace || L->m->dbg.trace_kbd)
@@ -474,6 +505,58 @@ static void main_loop_iter(void)
                         L->frame_cnt - L->prompt_visible_since_frame,
                         L->inject_hold_frames,
                         L->stage1_release_at);
+        }
+
+        if (L->prompt_poke_len > 0 && !L->prompt_poke_done &&
+            prompt_injection_ready(L, prompt_now)) {
+            L->prompt_poke_armed = 1;
+            L->prompt_poke_done = 1;
+            if (L->trace || L->m->dbg.trace_kbd)
+                fprintf(stderr,
+                        "[inject] scheduling %d RAM poke(s) for frame %d\n",
+                        L->prompt_poke_len,
+                        L->frame_cnt + 1);
+        }
+
+        if (L->m->dbg.poke_on_pc_enabled && !L->m->dbg.poke_on_pc_armed &&
+            !L->m->dbg.poke_done && prompt_injection_ready(L, prompt_now)) {
+            L->m->dbg.poke_on_pc_armed = 1;
+            if (L->trace || L->m->dbg.trace_kbd)
+                fprintf(stderr,
+                        "[inject] armed PC poke for pc=%04X after prompt stabilized at frame %d\n",
+                        (unsigned)L->m->dbg.poke_on_pc,
+                        L->frame_cnt);
+        }
+
+        if (L->m->dbg.cla_on_pc_enabled && !L->m->dbg.cla_on_pc_armed &&
+            !L->m->dbg.cla_done && prompt_injection_ready(L, prompt_now)) {
+            L->m->dbg.cla_on_pc_armed = 1;
+            if (L->trace || L->m->dbg.trace_kbd)
+                fprintf(stderr,
+                        "[inject] armed CLA override for pc=%04X after prompt stabilized at frame %d\n",
+                        (unsigned)L->m->dbg.cla_on_pc,
+                        L->frame_cnt);
+        }
+
+        if (L->m->dbg.status_on_pc_enabled && !L->m->dbg.status_on_pc_armed &&
+            !L->m->dbg.status_done && prompt_injection_ready(L, prompt_now)) {
+            L->m->dbg.status_on_pc_armed = 1;
+            if (L->trace || L->m->dbg.trace_kbd)
+                fprintf(stderr,
+                        "[inject] armed STATUS override for pc=%04X after prompt stabilized at frame %d\n",
+                        (unsigned)L->m->dbg.status_on_pc,
+                        L->frame_cnt);
+        }
+
+        if (L->prompt_fonct_enabled && !L->prompt_fonct_done &&
+            prompt_injection_ready(L, prompt_now)) {
+            L->m->kbd.fonct_bits = L->prompt_fonct_bits;
+            L->prompt_fonct_done = 1;
+            if (L->trace || L->m->dbg.trace_kbd)
+                fprintf(stderr,
+                        "[inject] fonct_bits <- 0x%02X at frame %d\n",
+                        (unsigned)L->prompt_fonct_bits,
+                        L->frame_cnt);
         }
 
         if (L->inject_len > 0 && L->inject_idx == 0 &&
@@ -660,7 +743,23 @@ int main(int argc, char *argv[])
     int inject_delay_frames = 2;       /* -inject-delay N: wait N frames after prompt appears */
     int inject_hold_frames = 1;        /* -inject-hold-frames N: hold CLA key for N frames */
     int inject_keycode_enabled = 0;    /* -inject-keycode: inject one key via CLA path */
+    int inject_keycode_bit7_first_cla = 0; /* diagnostic force: first CLA read returns 0x80|key_code */
     uint8_t inject_keycode = 0;
+    int prompt_fonct_enabled = 0;      /* -fonct-on-prompt <byte> */
+    uint8_t prompt_fonct_bits = 0;
+    uint16_t prompt_poke_addrs[16];    /* -poke-on-prompt <addr> <byte> */
+    uint8_t prompt_poke_values[16];
+    int prompt_poke_len = 0;
+    int poke_on_pc_enabled = 0;        /* -poke-at-pc <pc> <addr> <byte> */
+    uint16_t poke_on_pc = 0;
+    uint16_t poke_addr = 0;
+    uint8_t poke_value = 0;
+    int cla_on_pc_enabled = 0;         /* -cla-at-pc <pc> <byte> */
+    uint16_t cla_on_pc = 0;
+    uint8_t cla_value = 0;
+    int status_on_pc_enabled = 0;      /* -status-at-pc <pc> <byte> */
+    uint16_t status_on_pc = 0;
+    uint8_t status_value = 0;
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
 
@@ -717,6 +816,8 @@ int main(int argc, char *argv[])
             }
             inject_keycode_enabled = 1;
             inject_keycode = (uint8_t)v;
+        } else if (strcmp(argv[i], "-inject-keycode-bit7-first-cla") == 0) {
+            inject_keycode_bit7_first_cla = 1;
         } else if (strcmp(argv[i], "-inject-hold-frames") == 0 && i + 1 < argc) {
             char *end = NULL;
             long v = strtol(argv[++i], &end, 0);
@@ -725,6 +826,91 @@ int main(int argc, char *argv[])
                 return 1;
             }
             inject_hold_frames = (int)v;
+        } else if (strcmp(argv[i], "-poke-on-prompt") == 0 && i + 2 < argc) {
+            char *end_addr = NULL;
+            char *end_val = NULL;
+            unsigned long addr = strtoul(argv[++i], &end_addr, 0);
+            unsigned long val = strtoul(argv[++i], &end_val, 0);
+            if (!end_addr || *end_addr != '\0' || addr > 0xFFFFu) {
+                fprintf(stderr, "Invalid -poke-on-prompt address: %s\n", argv[i - 1]);
+                return 1;
+            }
+            if (!end_val || *end_val != '\0' || val > 0xFFu) {
+                fprintf(stderr, "Invalid -poke-on-prompt byte: %s\n", argv[i]);
+                return 1;
+            }
+            if (prompt_poke_len >= (int)(sizeof(prompt_poke_addrs) / sizeof(prompt_poke_addrs[0]))) {
+                fprintf(stderr, "Too many -poke-on-prompt pairs (max %zu)\n",
+                        sizeof(prompt_poke_addrs) / sizeof(prompt_poke_addrs[0]));
+                return 1;
+            }
+            prompt_poke_addrs[prompt_poke_len] = (uint16_t)addr;
+            prompt_poke_values[prompt_poke_len] = (uint8_t)val;
+            prompt_poke_len++;
+        } else if (strcmp(argv[i], "-fonct-on-prompt") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            unsigned long v = strtoul(argv[++i], &end, 0);
+            if (!end || *end != '\0' || v > 0x7Fu) {
+                fprintf(stderr, "Invalid -fonct-on-prompt value: %s (expected 0..0x7F)\n", argv[i]);
+                return 1;
+            }
+            prompt_fonct_enabled = 1;
+            prompt_fonct_bits = (uint8_t)v;
+        } else if (strcmp(argv[i], "-poke-at-pc") == 0 && i + 3 < argc) {
+            char *end_pc = NULL;
+            char *end_addr = NULL;
+            char *end_val = NULL;
+            unsigned long pc = strtoul(argv[++i], &end_pc, 0);
+            unsigned long addr = strtoul(argv[++i], &end_addr, 0);
+            unsigned long val = strtoul(argv[++i], &end_val, 0);
+            if (!end_pc || *end_pc != '\0' || pc > 0xFFFFu) {
+                fprintf(stderr, "Invalid -poke-at-pc PC: %s\n", argv[i - 2]);
+                return 1;
+            }
+            if (!end_addr || *end_addr != '\0' || addr > 0xFFFFu) {
+                fprintf(stderr, "Invalid -poke-at-pc address: %s\n", argv[i - 1]);
+                return 1;
+            }
+            if (!end_val || *end_val != '\0' || val > 0xFFu) {
+                fprintf(stderr, "Invalid -poke-at-pc byte: %s\n", argv[i]);
+                return 1;
+            }
+            poke_on_pc_enabled = 1;
+            poke_on_pc = (uint16_t)pc;
+            poke_addr = (uint16_t)addr;
+            poke_value = (uint8_t)val;
+        } else if (strcmp(argv[i], "-cla-at-pc") == 0 && i + 2 < argc) {
+            char *end_pc = NULL;
+            char *end_val = NULL;
+            unsigned long pc = strtoul(argv[++i], &end_pc, 0);
+            unsigned long val = strtoul(argv[++i], &end_val, 0);
+            if (!end_pc || *end_pc != '\0' || pc > 0xFFFFu) {
+                fprintf(stderr, "Invalid -cla-at-pc PC: %s\n", argv[i - 1]);
+                return 1;
+            }
+            if (!end_val || *end_val != '\0' || val > 0xFFu) {
+                fprintf(stderr, "Invalid -cla-at-pc byte: %s\n", argv[i]);
+                return 1;
+            }
+            cla_on_pc_enabled = 1;
+            cla_on_pc = (uint16_t)pc;
+            cla_value = (uint8_t)val;
+        } else if (strcmp(argv[i], "-status-at-pc") == 0 && i + 2 < argc) {
+            char *end_pc = NULL;
+            char *end_val = NULL;
+            unsigned long pc = strtoul(argv[++i], &end_pc, 0);
+            unsigned long val = strtoul(argv[++i], &end_val, 0);
+            if (!end_pc || *end_pc != '\0' || pc > 0xFFFFu) {
+                fprintf(stderr, "Invalid -status-at-pc PC: %s\n", argv[i - 1]);
+                return 1;
+            }
+            if (!end_val || *end_val != '\0' || val > 0xFFu) {
+                fprintf(stderr, "Invalid -status-at-pc byte: %s\n", argv[i]);
+                return 1;
+            }
+            status_on_pc_enabled = 1;
+            status_on_pc = (uint16_t)pc;
+            status_value = (uint8_t)val;
         } else if (strcmp(argv[i], "-timeout") == 0 && i + 1 < argc) {
             char *end = NULL;
             long v = strtol(argv[++i], &end, 0);
@@ -1127,8 +1313,36 @@ int main(int argc, char *argv[])
     ctx.inject_delay_frames = inject_delay_frames;
     ctx.inject_hold_frames = inject_hold_frames;
     ctx.inject_keycode_enabled = inject_keycode_enabled;
+    ctx.inject_keycode_bit7_first_cla = inject_keycode_bit7_first_cla;
     ctx.inject_keycode     = inject_keycode;
     ctx.inject_keycode_done = 0;
+    memcpy(ctx.prompt_poke_addrs, prompt_poke_addrs, sizeof(prompt_poke_addrs));
+    memcpy(ctx.prompt_poke_values, prompt_poke_values, sizeof(prompt_poke_values));
+    ctx.prompt_poke_len    = prompt_poke_len;
+    ctx.prompt_poke_armed  = 0;
+    ctx.prompt_poke_done   = 0;
+    ctx.prompt_fonct_enabled = prompt_fonct_enabled;
+    ctx.prompt_fonct_bits  = prompt_fonct_bits;
+    ctx.prompt_fonct_done  = 0;
+    m->dbg.poke_on_pc_enabled = poke_on_pc_enabled;
+    m->dbg.poke_on_pc_armed = 0;
+    m->dbg.poke_on_pc = poke_on_pc;
+    m->dbg.poke_addr = poke_addr;
+    m->dbg.poke_value = poke_value;
+    m->dbg.poke_done = 0;
+    m->dbg.cla_on_pc_enabled = cla_on_pc_enabled;
+    m->dbg.cla_on_pc_armed = 0;
+    m->dbg.cla_on_pc = cla_on_pc;
+    m->dbg.cla_value = cla_value;
+    m->dbg.cla_done = 0;
+    m->dbg.status_on_pc_enabled = status_on_pc_enabled;
+    m->dbg.status_on_pc_armed = 0;
+    m->dbg.status_on_pc = status_on_pc;
+    m->dbg.status_value = status_value;
+    m->dbg.status_done = 0;
+    m->dbg.inject_keycode_bit7_first_cla_enabled = inject_keycode_bit7_first_cla;
+    m->dbg.inject_keycode_bit7_first_cla_armed = 0;
+    m->dbg.inject_keycode_bit7_first_cla_done = 0;
     memcpy(ctx.inject2_codes, inject2_codes, sizeof(inject2_codes));
     ctx.inject2_len        = inject2_len;
     ctx.inject2_at_prompt  = inject2_at_prompt;

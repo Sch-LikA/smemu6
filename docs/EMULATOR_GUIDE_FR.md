@@ -153,12 +153,13 @@ valides sont :
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
-| `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA une fois l'invite CLI stable. Sert surtout à l'audit bas niveau du pipeline clavier. |
+| `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA bas niveau une fois l'invite CLI stable. Les touches maintenues injectées post-boot utilisent maintenant le meilleur modèle matériel actuel de l'émulateur : la première lecture CLA renvoie un code régulier avec bit 7 positionné, ce qui peut produire du texte visible dans la CLI. |
+| `-inject-keycode-bit7-first-cla` | Drapeau de forçage diagnostique pour cette même règle bit-7 sur la première lecture. Utile pour l'audit ; `-inject-keycode` utilise déjà ce modèle par défaut. |
 | `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Maintient `-inject-keycode` actif pendant `f` trames d'ISR avant relâchement (défaut `1`). |
 | `-inject-via-fifo` | Route `-inject-str` par le FIFO clavier matériel au lieu du chemin rapide |
 
-`-inject-str` est la voie normale pour taper automatiquement une commande. `-inject-keycode` suit le chemin CLA / Stage 1 de bas niveau et sert surtout au reverse engineering du pipeline clavier ; il ne produit pas forcément de texte visible dans la CLI à lui seul.
+`-inject-str` reste la voie normale pour taper automatiquement une commande. `-inject-keycode` suit désormais assez fidèlement le modèle CLA bas niveau pour reproduire le chemin visible post-boot de `A` dans les audits, mais cela reste un outil de reverse engineering / de test bas niveau, pas la voie normale de saisie de commandes.
 
 **Exemple — exécuter `LIST` automatiquement :**
 
@@ -227,12 +228,20 @@ Associations alternatives (également actives, pour les utilisateurs qui les pr�
 | `F9` | **DEFINE** — enregistre une séquence de touches (code `»` 0x1F) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
-| `Escape` | **ESC / UNDO** (touche en haut à gauche) — annule/vide la ligne de commande CLI en cours |
+| `Escape` | **ESC / UNDO** (touche en haut à gauche) — le mapping de travail courant émet maintenant le code `0x06` |
 | `Tab` | Insère `DX1:` dans la ligne de commande CLI (`0x09`) |
 | `Backspace` | Smaky BS (`0x08`) |
 | `Delete` | Smaky DEL (`0x7F`) |
 
 ### Caractères accentués franco-suisses
+
+Note matérielle : le dump complet de la ROM clavier S471 est maintenant
+disponible.  L'émulateur correspond déjà aux sorties spéciales confirmées qu'il
+expose directement, notamment `Escape -> 0x06`, `Backspace -> 0x08`,
+`Tab -> 0x09`, `Return -> 0x0D` et `Space -> 0x20`.  Les touches imprimables
+ordinaires suivent encore la disposition active du clavier hôte via
+`SDL_TEXTINPUT` ; ce n'est donc pas encore une émulation stricte de toute la
+matrice physique du clavier.
 
 Les 15 caractères accentués franco-suisses sont intégralement supportés.
 Saisissez-les avec les méthodes habituelles de votre OS (touches mortes,

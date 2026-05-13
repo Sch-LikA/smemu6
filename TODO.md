@@ -175,6 +175,46 @@ and text) to distinguish them from the red held state.
 
 ## Keyboard
 
+### Re-audit ESC / UNDO hardware code
+
+External S471 PROM decoding suggests the top-left physical key position emits
+`0x06` on the normal layer, with `0x1B` only on an alternate FNCT/ALT layer.
+The emulator now follows that `0x06` result as its current working mapping.
+What remains unresolved is how this should be reconciled with the older CLI audit
+that previously pointed at a `0x04` cancel path.
+
+Needed next check:
+
+- verify the physical position map against live runtime behaviour and CLI.SY;
+- determine whether `0x04` belongs to a different key position (the PROM points to
+  the Q-row right-end candidate), while the top-left key is really `0x06`;
+- reconcile the live CLI behaviour with the now-switched `0x06` working mapping.
+
+### Full S471 matrix modeling
+
+The full four-layer S471 dump is now available.  It confirms exact per-position
+outputs for normal, Shift, FNCT/ALT, and caps-like layers, including:
+
+- top-left ESC / UNDO = `0x06 / 0x06 / 0x1B / 0x06`;
+- Backspace position = `0x08 / 0x7F / 0x01 / 0x08`;
+- Tab position = `0x09 / 0x0B / 0x03 / 0x09`;
+- Return position = `0x0D / 0x0C / 0x0A / 0x0D`;
+- Q-row right-edge candidate = `0x04 / 0x05 / 0x07 / 0x04`.
+
+Current emulator limitation:
+
+- printable keys still mostly follow host `SDL_TEXTINPUT` layout instead of an exact
+  Smaky physical matrix;
+- function-key aliases (`F1..F9`, nav keys, modifiers) are convenience mappings;
+- FNCT/ALT-layer outputs are not broadly modeled per physical position.
+
+Future work:
+
+- decide whether to keep the current host-layout-friendly text path for usability,
+  or add an optional strict S471 physical keyboard mode;
+- if strict mode is added, derive host-position mappings from the 64-entry layer
+  table rather than from generic printable ASCII passthrough.
+
 ### ~~Auto-repeat (SAMOS ≥ 1.3)~~ ✅ Done  [confirmed]
 
 SAMOS ISR Stage 4 (`0x01DF–0x0206`) implements hardware-accurate key auto-repeat.
@@ -186,12 +226,18 @@ The two RAM locations controlling it:
 | `0x4558` | `042530` | Initial-delay countdown. Set to `0x23` (35 frames = **700 ms**) on first keypress; decremented each frame; when it hits zero, reloaded to `3` (3 frames = **60 ms**) for the fast-repeat rate. |
 | `0x4577` | `042567` | Repeat key code register. Stores the last key written to the circular buffer; re-injected each time the countdown fires. |
 
-**Current status:** Physical keyboard uses a FIFO→circular-buffer path that bypasses
-the SAMOS ISR entirely.  The old explanation for this design, namely that ISR Stage 2
-was permanently blocked by a `0x4582=0x80` sentinel, was withdrawn on 2026-05-13 after
-direct `SYS.SY` binary audit showed the init sentinel write is to `0x458A`, while Stage 2
-reads `0x4582`.  SDL key-repeat events are filtered out
-(`if (ev->repeat) return`), so **holding a key produces exactly one character**.
+**Current status:** Physical keyboard still uses a FIFO→circular-buffer path that bypasses
+the low-level CLA workspace producer. The old explanation for this design, namely that
+ISR Stage 2 was permanently blocked by a `0x4582=0x80` sentinel, was withdrawn on
+2026-05-13 after direct `SYS.SY` binary audit showed the init sentinel write is to
+`0x458A`, while Stage 2 reads `0x4582`. Subsequent runtime probes now show that the
+best current hardware hypothesis is a different one: original post-boot regular-key
+delivery likely presents a bit-7-set regular code on the first relevant CLA read, so
+Stage 1 seeds `0x4580` with the regular code while still entering the Stage 2 / Stage 3
+path. That rule is now the default behavior for post-boot `machine_inject_key()` /
+`-inject-keycode` held keys, but not yet for real physical SDL keypresses. SDL key-repeat
+events are still filtered out (`if (ev->repeat) return`), so **holding a key produces
+exactly one initial physical character** and then relies on the SAMOS repeat registers.
 
 **To implement:** In `keyboard_frame_tick()`, after draining one key from the FIFO into
 the circular buffer, also set `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`.
@@ -249,11 +295,11 @@ when no regular key is held.
   Identical for Phantom ROM polling, SAMOS ISR, and monitor — no mode flag needed.
 
   **Implemented:**
-  - `keyboard_read_cla()`: if `found` → clear found, re-assert if `physically_held`, return `key_code & 0x7F`; else return `0x80 | fonct_bits`.
+  - `keyboard_read_cla()`: if `found` → clear found, re-assert if `physically_held`, and for post-boot injected held regular keys make the first CLA read return `0x80 | key_code`; otherwise return the normal `key_code & 0x7F`. If `found=0`, return `0x80 | fonct_bits`.
   - `physically_held=1` at power-on models FOUND latch SET (4013 FF2). Every CLA read re-asserts `found=1` while held, so all boot-phase `kbd_wait` loops exit automatically (Phantom ROM 0x00FD + SAMOS init 0x00B5). Released when SAMOS ISR vector `bus[0x4566..7]==0x003E` is installed.
   - Removed: `samos_loaded`, `cla_seen`, `key_hold_frames` from `struct kbd`.
   - Removed: `cla_seen=0` from port 0x01 ISR ACK handler.
-  - Removed: post-frame `bus[0x4580] = fonct_bits` write in `main.c` — SAMOS ISR Stage 1 stores `CLA & 0x7F = fonct_bits` to 0x4580 naturally.
+  - Confirmed by later probes: disabling the out-of-band `fonct_bits -> 0x4580` mirror does not change the mixed-path result; the surviving first `0x0171` payload comes from `SYS.SY` Stage 1 itself, not from a frame-time mirror.
 
 SDL mapping (current):
 
@@ -369,16 +415,19 @@ let the OS/SAMOS handle the control semantics.
 Note on `0x1B` dual use: when written to the display it renders the ä glyph (Prom
 2716 chargen mapping); when sent to the printer or serial port it acts as an escape
 sequence prefix.  This is why `SDL_SCANCODE_ESCAPE` must **not** be mapped to `0x1B`
-— the UNDO/ESC key (top-left) uses codes `0x04` and `0x05` per the CLI line editor.
+— the top-left UNDO/ESC key is now treated with the current working code `0x06`,
+while the older `0x04` / `0x05` CLI interpretation remains under re-audit.
 
-**ESC / UNDO key** ✅ Basic / 🔲 Recall
+**ESC / UNDO key** ✅ Working `0x06` mapping / 🔲 Runtime reconciliation
 
-The SAMOS CLI at `0x577E` uses two separate codes for cancel/recall:
+Older CLI notes had interpreted two separate codes for cancel/recall:
 - `0x04` (EOT `<`) — cancel/clear the current command line
 - `0x05` (ENQ `>`) — recall the previous command
 
-Currently `SDL_SCANCODE_ESCAPE` always sends `0x04` (cancel). This is correct for
-clearing a non-empty line. Recall (`0x05`) is not yet implemented.
+The emulator now maps `SDL_SCANCODE_ESCAPE` to `0x06` as its current working
+hardware code. The remaining task is to reconcile live CLI behaviour against that
+switch and decide whether the older `0x04` / `0x05` interpretation belongs to a
+different physical key path.
 
 **Emulator-side auto-repeat fixes** ✅ Done (commit `0ec70d7`):
 1. Enter (`0x0D`) never arms SAMOS ISR Stage 4 auto-repeat (`0x4558`/`0x4577`),

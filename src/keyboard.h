@@ -18,7 +18,8 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
 /*
  * Feed an SDL_TEXTINPUT event into the keyboard model.
  * Converts the UTF-8 text to Smaky display codes and pushes them to the FIFO.
- * Only printable ASCII (0x20–0x7E) is accepted; other codepoints are ignored.
+ * Accepts printable ASCII (0x20-0x7E) plus the documented 2-byte UTF-8 Swiss-
+ * French accented characters handled by ACCENT_TABLE in keyboard.c.
  * Use this for printable characters so that the host OS handles shift/Caps Lock.
  */
 void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);

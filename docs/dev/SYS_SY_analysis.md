@@ -9,6 +9,15 @@ Runtime update: 2026-05-07 (Phase 1Q / Phase 1R) — full boot to CLI directory 
 
 Error-code update: 2026-05-07.
 
+Keyboard-runtime update: 2026-05-13 — prompt-time RAM poke probes confirm that
+`0x015B..0x0174` resets `0x4580` / `0x4581` before the Stage 3 walker sees them,
+that `0x4582 = 0x80` still gates the `0x0179` debounce / second-CLA-read block,
+that `CLI.SY`, `ER.SY`, and `LP.SY` contain no direct absolute references to
+`0x4580..0x4582`, that a live nonzero `fonct_bits` value is enough to make
+Stage 3 / 4 toggle `0x458B` and advance the circular buffer, and that a
+live-prompt `0x0179` poke proves the promoted payload follows `0x4580`, not
+`0x4581`.
+
 ---
 
 ## Error Code Decode (ER.SY)
@@ -258,16 +267,85 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > `(0x4582) == 0x80`.  A direct binary audit of `SYS.SY` on 2026-05-13 showed the
 > init sentinel write at `0x00A1` is actually `LD (0x458A),A` with `A=0x80`, while
 > the ISR keyboard path reads `0x4582` at `0x0175`.  The old `0x4582=0x80` claim is
-> therefore unsupported and withdrawn.  A follow-up held-CLA probe at the live CLI
-> prompt also showed repeated Stage 1 writes to `0x457E` without any observed entry
-> into the traced Stage 3/4 PCs or any `0x457C` advance, so a plain held raw key is
-> still not enough to explain the bridge.  The emulator still routes physical
+> therefore unsupported and withdrawn.  A follow-up runtime trace showed that
+> `SYS.SY` does execute `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` repeatedly
+> post-boot with an empty workspace (`0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`,
+> `0x457C = 0x4596`), so the Stage 2 / 3 machinery is alive and the gate is
+> specifically `0x4582 != 0x80`.  A held-CLA probe at the live CLI prompt still showed
+> only repeated Stage 1 writes to `0x457E` and no workspace mutation attributable to
+> the raw key, so a plain held raw key is not enough to explain the bridge.  The
+> next discriminating probe then overrode exactly one CLA read at `pc=0x0162` from
+> the held key's natural `0x41` to `0xC1`.  That single bit-7-set regular-code byte
+> was enough for `SYS.SY` itself to store `0x4580 = 0x41` at `pc=0x0171`, run the
+> normal `0x0175 -> 0x0179 -> 0x01BB -> 0x0205` Stage 2 / 3 / 4 path, and later feed
+> the visible `CLI.SY` insertion at `[45C0] = 'A'`.  So the unresolved bridge is no
+> longer Stage 3 or the payload source: it is specifically the producer or timing
+> that makes original hardware present a bit-7-set CLA value with the regular key in
+> bits `0..6`.  A follow-up timing probe then forced the status re-check at
+> `pc=0x0180` high (`0x0C`) while also forcing the first CLA read at `pc=0x0162` to
+> `0x81` on a held raw `0x41` key.  That does open the second-read branch, but the
+> actual second CLA read at `pc=0x0185` still returns `0x80`, and the emitted payload
+> remains `0x01`.  So the remaining hardware-side gap is the reassert timing itself:
+> the held key is not becoming visible to the second CLA read early enough in the
+> current model.  A follow-up direct probe then forced the second CLA read itself to
+> `0x41` at `pc=0x0185`.  That does create a later regular-key payload path — a later
+> dequeue reaches `pc=0x04EE` with `AF=0x4100` — but the first visible CLI insertion
+> still remains the earlier `0x01` from `0x4580`.  Finally, suppressing that first
+> payload by poking `0x4580 = 0x00` at `pc=0x0179` makes the same forced second-read
+> `0x41` become the first visible prompt insertion (`[45C0] = 'A'`).  So the remaining
+> model gap is now the exact ordering / suppression rule between the first `0x4580`
+> payload and the later regular-code payload from the second CLA read.  The latest
+> dual-payload traces sharpen that further: when the first `0x4580` payload survives,
+> the re-entry after `0x0198` stores the second-read `0x41` into `0x4581` and it is
+> promoted only as a later queue item; when the first payload is suppressed, the same
+> re-entry path stores `0x41` back into `0x4580`, making it the first visible item.
+> A final cheap check then cleared `0x4580` only at `pc=0x0198` while leaving the
+> second-read `0x41` in play.  That still leaves the re-entry storing `0x41` into
+> `0x4581`, and the immediate `0x019B -> 0x01C9 -> 0x01DF` pass does not promote that
+> lone `0x4581` value into the first visible slot.  So the missing rule is specifically
+> how original hardware makes the regular-code payload occupy `0x4580` itself.  A final
+> slot-occupancy probe confirms that this condition is sufficient: restoring
+> `0x4580 = 0x41` exactly at the first `pc=0x019B` walk makes the first dequeue reach
+> `pc=0x04EE` with `AF=0x4144` and the first visible CLI insertion become
+> `[45C0] = 'A'`, even while `0x4581 = 0x41` is also present.
+> An even earlier suppression probe shows the same thing more directly: clearing
+> `0x4580` already at `pc=0x0175` is enough for the second-read `0x41` to re-enter
+> slot `0x4580` by itself, after which the first Stage 3 walk promotes it normally.
+> The final refinement is stronger still: clearing `0x4580` immediately at the first
+> `pc=0x0171` write is already enough to make the second-read re-entry write `0x41`
+> back into `0x4580`, after which the first visible CLI insertion becomes `A` with no
+> later walk-time patching.  So the missing real-hardware rule is specifically what
+> prevents that initial function-bit value from surviving in `0x4580` through the
+> second-read re-entry.
+> A follow-up emulator-local test then disabled the frame-time `fonct_bits -> 0x4580`
+> mirror in `keyboard_frame_tick()`.  That did **not** change the outcome: `SYS.SY`
+> still wrote `0x01` to `0x4580` at `pc=0x0171`, the forced second-read `0x41` still
+> landed in `0x4581`, and the first visible CLI insertion still remained `0x01`.
+> So the remaining discrepancy is not the emulator's out-of-band GETFON mirror; it is
+> the CLA / Stage-1 read timing that decides whether the first `0x0171` payload
+> survives.
+> A final positive model experiment tightened that answer further: a one-shot
+> model-level rule that makes the first CLA read of a held regular key return
+> `0x80 | key_code` reproduces the visible `A` path with no PC-specific CLA override
+> and no RAM poke.  In that run, the first read logs as `0xC1` at `pc=0x0162`,
+> `SYS.SY` stores `0x4580 = 0x41` at `pc=0x0171`, and the first visible CLI insertion
+> becomes `[45C0] = 'A'`.  So the best current hardware model is now: original
+> post-boot regular-key delivery likely presents a bit-7-set regular code to the
+> first relevant CLA read, letting Stage 1 seed `0x4580` with the regular code while
+> still entering the Stage 2 / Stage 3 path.
+> That rule has now been promoted into the emulator's default injected CLA model:
+> plain `-inject-keycode 0x41` reproduces the same `C1 -> 0x4580=0x41 -> [45C0]='A'`
+> path without the special diagnostic force flag.  So the low-level injected CLA path
+> is now aligned with the best current hardware hypothesis.
+> The
+> emulator still routes physical
 > keypresses via its FIFO→circular-buffer path:
 > `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` drains the
 > entire FIFO each frame into the circular buffer at the current write pointer
 > (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.  For the
 > post-boot OS-side bridge question, `SYS.SY` remains the only defensible software
-> candidate still under audit.
+> candidate still under audit, but the unresolved piece is now the producer that seeds
+> the `0x4581..0x4595` workspace rather than the Stage 2 gate itself.
 >
 > `keyboard_frame_tick()` also sets the `samos_loaded` flag once it detects that
 > SAMOS has written its 50 Hz ISR vector to `(0x4566)` (`== 0x003E`).  This happens

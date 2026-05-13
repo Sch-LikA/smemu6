@@ -152,12 +152,13 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 | Option | Description |
 |--------|-------------|
 | `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
-| `-inject-keycode <hex>` | Inject one raw keyboard code through the CLA path once the CLI prompt is stable. This is mainly for low-level keyboard auditing. |
+| `-inject-keycode <hex>` | Inject one raw keyboard code through the low-level CLA path once the CLI prompt is stable. Post-boot injected held keys now use the emulator's current best hardware model: the first CLA read returns a bit-7-set regular code, which can produce visible CLI text. |
+| `-inject-keycode-bit7-first-cla` | Diagnostic force flag for the same first-read bit-7 rule. Useful for audit runs; plain `-inject-keycode` already uses this model by default. |
 | `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Hold `-inject-keycode` active for `f` ISR frames before releasing it (default `1`). |
 | `-inject-via-fifo` | Route `-inject-str` through the hardware keyboard FIFO instead of the fast path |
 
-`-inject-str` is the normal way to type commands automatically. `-inject-keycode` follows the low-level CLA / Stage 1 path and is useful for reverse-engineering the keyboard pipeline; it does not necessarily produce visible CLI text by itself.
+`-inject-str` is still the normal way to type commands automatically. `-inject-keycode` now follows the low-level CLA model closely enough to reproduce the visible post-boot `A` path in audit runs, but it remains a reverse-engineering / low-level testing tool rather than the normal command-entry mechanism.
 
 **Example — run `LIST` automatically:**
 
@@ -226,7 +227,7 @@ Alternative mappings (also active, for users who prefer them):
 | `F9` | **DEFINE** — record a keystroke sequence (`»` code 0x1F) |
 | `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |
 | `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
-| `Escape` | **ESC / UNDO** (top-left key) — cancels/clears the current CLI command line |
+| `Escape` | **ESC / UNDO** (top-left key) — current working mapping now emits code `0x06` |
 | `Tab` | Inserts `DX1:` in the CLI command line |
 
 ### Standard keys
@@ -234,6 +235,13 @@ Alternative mappings (also active, for users who prefer them):
 All printable ASCII characters are passed through directly.
 The Smaky 6 keyboard uses **QWERTZ** layout (Swiss German) — if your PC
 keyboard is QWERTY or AZERTY, some punctuation keys may differ.
+
+Hardware note: the full S471 keyboard ROM dump is now available.  The emulator
+matches the confirmed special-key outputs it exposes directly, including
+`Escape -> 0x06`, `Backspace -> 0x08`, `Tab -> 0x09`, `Return -> 0x0D`, and
+`Space -> 0x20`.  Ordinary printable keys still follow the active host keyboard
+layout through `SDL_TEXTINPUT`, so this is not yet a strict physical-key matrix
+emulation mode.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

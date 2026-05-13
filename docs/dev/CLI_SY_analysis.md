@@ -76,7 +76,7 @@ dispatcher to validate that an argument was supplied.
 | Key                   | CLI action                                                           |
 |-----------------------|----------------------------------------------------------------------|
 | TAB                   | Inserts literal string `DX1:` into the command line                 |
-| ESC (UNDO key)        | If line is **non-empty**: sends code `0x04` → SAMOS clears the current line. If line is **empty**: emulator re-injects `kbd.prev_cmd` chars into the FIFO (captured on the previous Return press). SAMOS native recall (`0x05`) is NOT used — the line editor overwrites the buffer with the cursor character before `0x05` can read it. |
+| ESC (UNDO key)        | **Current emulator behaviour:** the emulator now emits top-left key code `0x06` as its working mapping. The older `0x04` cancel-path assumption remains under re-audit against live CLI behaviour. |
 | KILL (function key)   | Aborts current peripheral I/O transfer; sends EOF to SAMOS          |
 | SHIFT-BREAK           | Hard reset → reboot from DX0:                                       |
 | FUNCTION-SHIFT-BREAK  | Hard reset → reboot from DX1: (emulator: not yet implemented)       |
@@ -226,6 +226,12 @@ following the `E7` opcode in the caller's code). The dispatcher:
 | 0x05 | `0x051B` |                      |
 | 0x06 | `0x0485` | SYSMON startup       |
 | 0x10 | `0x02FE` |                      |
+**PROM contradiction note (2026-05-13):** external S471 PROM decoding suggests
+the top-left physical ESC/UNDO position emits `0x06` on the normal layer, not
+`0x04`. The emulator has now been switched to that `0x06` working mapping, but the
+older CLI audit still needs to be reconciled against live runtime before this area
+can be treated as settled hardware behaviour.
+
 | 0x11 | `0x02DE` | **MODE A** (alpha)   |
 | 0x12 | `0x02E6` | **MODE G** (graphics)|
 | 0x13 | `0x02EE` | **MODE 2** (both)    |

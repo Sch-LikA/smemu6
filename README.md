@@ -397,12 +397,13 @@ Print the short option summary to stderr and exit.
 ## 5. Keyboard Controls
 
 The host keyboard maps to the Smaky 6 keyboard.  Alphanumeric keys and most
-punctuation are passed through.  The Smaky 6 keyboard is uppercase-only on the
-physical hardware, so lowercase letters are automatically uppercased.
+punctuation are passed through.  The emulator forwards printable text from the
+host OS text-input path, so letters, digits, punctuation, and space are sent as
+typed by the active host keyboard layout.
 
 | Host key                    | Smaky 6 function                                          |
 |-----------------------------|-----------------------------------------------------------|
-| **A–Z**, **0–9**, space      | Direct character (uppercased)                            |
+| **Printable ASCII** including space | Direct character (`0x20`–`0x7E`)                   |
 | **Backspace**               | Smaky BS (`0x08`)                                        |
 | **Delete**                  | Smaky DEL (`0x7F`)                                       |
 | **Tab**                     | Inserts `DX1:` at the CLI prompt (`0x09`)                |
@@ -411,7 +412,7 @@ physical hardware, so lowercase letters are automatically uppercased.
 | **F9**                      | **DEFINE** — record a keystroke sequence (`»` `0x1F`)    |
 | **F11** / **Pause**         | **BREAK** (top-right key) — fires NMI, drops into SAMOS monitor       |
 | **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
-| **Escape**                  | **ESC / UNDO** (top-left key) — cancels / clears current CLI line    |
+| **Escape**                  | **ESC / UNDO** (top-left key, current working code `0x06`)           |
 | **Left Ctrl**               | CURSOR function key                                       |
 | **Left Alt**                | COPY function key                                         |
 | **Left Windows / Super**    | PROGRA function key                                       |
@@ -425,6 +426,13 @@ Accented Swiss-French characters are fully mapped: typing é, è, à, ü, ö, ç
 â, ê, î, ô, û, ë, ï, ä and their uppercase variants on any host keyboard
 layout is translated to the correct Smaky 6 chargen codes via UTF-8
 `SDL_TEXTINPUT` events.
+
+Hardware note: the full S471 keyboard ROM dump is now available.  The emulator
+matches the confirmed special-key outputs it exposes directly, including
+`Escape -> 0x06`, `Backspace -> 0x08`, `Tab -> 0x09`, `Return -> 0x0D`, and
+`Space -> 0x20`.  Ordinary printable keys still follow the active host keyboard
+layout through `SDL_TEXTINPUT`, so this is not yet a strict physical-key matrix
+emulation mode.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

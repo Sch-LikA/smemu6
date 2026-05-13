@@ -127,8 +127,13 @@ Only reached when Stage 1's CLA read returned 0x80 (no active key press):
 - Direct `SYS.SY` binary audit confirms the ISR really reads `0x4582` at `0x0175`.
 - The same audit confirms the init sentinel write at `0x00A1` is to `0x458A`, not `0x4582`.
 - Therefore the old `0x4582=0x80` permanent-block explanation is withdrawn.
-- The precise runtime role of `0x4582` is still unresolved.  It is clearly live ISR
-    workspace, not a statically initialised sentinel.
+- Live post-boot trace now confirms that `SYS.SY` repeatedly executes
+    `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` with `0x4582 = 0x00`,
+    `0x4581 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`, so Stage 2 and the
+    early Stage 3 workspace walk are active even while the workspace is empty.
+- Therefore the current gate is specifically `0x4582 == 0x80`, not `0x4582 == 0`.
+- The precise semantic roles of `0x4581`, `0x4582`, and `0x458B..0x4595` remain
+    unresolved.  The missing piece is now the producer that seeds this workspace.
 
 ### Stage 3 — Circular buffer management (0x019B–0x01DF)
 
@@ -141,6 +146,10 @@ return at `0x016D`.
 - Stage 3 does more than a simple one-byte enqueue: it scans and compacts an
     internal workspace structure before Stage 4 uses the circular-buffer write pointer
     at `0x457C`.
+- Live trace confirms that the idle-state walk into `0x019B` and `0x01C9` can happen
+    with `0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`.
+    So this path is not itself proof of a key being promoted; it can also be an empty
+    housekeeping pass over the workspace.
 - The exact semantic roles of `0x4580..0x4582` and `0x458B..` are still under
     re-audit, so the old simplistic description has been intentionally narrowed to
     binary-backed facts only.
@@ -206,6 +215,7 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
    - If bit7=0 (regular key): SAMOS stores it to `0x457E` (syscall 0x0E) and returns early — circular buffer NOT touched.
    - If bit7=1: `AND 0x7F` strips bit7 and stores `fonct_bits` to `0x4580` (GETFON register). Falls into Stage 2.
 3. **Stage 2** (no-key path, 0x016E): reads `0x4582` at `0x0175` and returns early only if that byte equals `0x80`.  Direct binary audit of `SYS.SY` on 2026-05-13 confirmed the init sentinel write is to `0x458A` at `0x00A1`, not to `0x4582`, so the old "Stage 2 is permanently blocked" claim is not supported by the binary.
+4. **Runtime Stage 2 / 3 state:** a repo-local trace (`tmp/kbd_stage2_probe_trace.log`) now shows that `SYS.SY` repeatedly executes `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` post-boot with an empty workspace (`0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, `0x457C = 0x4596`).  So Stage 2 and early Stage 3 are alive at runtime even before any bridge candidate has been identified.
 
 **Current emulator path:** physical keys reach the CLI via `keyboard_frame_tick()`,
 which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.
@@ -237,22 +247,317 @@ The confirmed visible path is:
     position (`0x45C1`).
 
 **Held-CLA probe (2026-05-13):** a delayed `-inject-keycode 0x41` held for 20 ISR
-frames at the live CLI prompt still did not enter the Stage 3/4 path. Runtime trace
-showed repeated cycles of:
+frames at the live CLI prompt still did not seed the Stage 2 / 3 workspace. Runtime
+trace showed repeated cycles of:
 
 - status read `pc=0x0044` returning `0x0C`;
 - ISR CLA read at `pc=0x0162` returning `0x41`;
 - Stage 1 store at `pc=0x0169` rewriting `0x457E`.
 
-During the hold window there was no observed entry into the traced Stage 3/4 PCs
-(`0x019B`, `0x01BB`, `0x01C9`, `0x01DF`, `0x01EE`, `0x0200`) and no circular-buffer
-pointer advance at `0x457C`.  This rules out the simplest hypothesis that merely
-holding a regular CLA key causes `SYS.SY` to promote it from Stage 1 into the
-circular-buffer path on later ISR frames.
+During the hold window there was no workspace mutation attributable to the raw key:
+the injected key kept exercising the Stage 1 `0x457E` path, but the Stage 2 / 3
+idle-state values (`0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, `0x457C = 0x4596`)
+did not change and there was still no circular-buffer pointer advance at `0x457C`.
+This rules out the simplest hypothesis that merely holding a regular CLA key causes
+`SYS.SY` to seed its internal workspace and promote that key into the circular-buffer
+path on later ISR frames.
 
-So the remaining open question is now narrower: how a real hardware-originating key
-becomes eligible for the CLI's blocking-read / circular-buffer path, given that the
+So the remaining open question is now narrower: what producer writes the
+`0x4581..0x4595` workspace that the already-active Stage 2 / 3 machinery walks,
+and how a real hardware-originating key becomes represented there given that the
 direct CLA Stage 1 path only updates `0x457E`.
+
+**FIFO-fed comparison (2026-05-13):** a repo-local trace using `-inject-str "A"`
+with `-inject-via-fifo` (`tmp/kbd_fifo_probe_trace.log`) confirms that the
+emulator's physical-key path bypasses the Stage 2 / 3 workspace entirely.  The
+trace shows:
+
+- `keyboard_frame_tick()` writing `0x41` directly to circular-buffer slot `0x4596`;
+- the blocking-read path consuming it and restoring `0x457C` from `0x4597` to
+    `0x4596`;
+- no writes to `0x4581..0x4595` attributable to that key, while the idle Stage 2 / 3
+    pass continues to show `0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`.
+
+That confirms the current emulator's FIFO-fed / physical-key route reaches the CLI
+by direct circular-buffer insertion, not by reproducing the hardware-side producer
+that seeds the SAMOS Stage 2 / 3 workspace.
+
+**Prompt-time workspace poke probes (2026-05-13):** a temporary
+`-poke-on-prompt <addr> <byte>` probe hook in `src/main.c` now schedules RAM writes
+once the CLI prompt is stable and applies them at the start of the next frame,
+before `machine_int()` / `machine_run_frame()`.
+
+- A prompt-time poke of `0x4580 = 0x41` (`tmp/kbd_workspace_poke_trace.log`) does
+    land before the next frame, but the very next ISR pass still shows
+    `0x4580 = 0x00`, `0x4581 = 0x00`, `0x4582 = 0x00` at `0x0175` / `0x019B`.
+    That matches the disassembly at `0x015B..0x0174`: `SYS.SY` explicitly resets
+    `0x4580` and `0x4581` every pass before the Stage 3 walker runs.
+- A prompt-time poke of `0x4582 = 0x80` (`tmp/kbd_gate_poke_trace.log`) persists
+    into the next frame and suppresses the `0x0179` debounce / second-CLA-read block.
+    The trace shows `0x0175` followed directly by the later `0x019B` / `0x01C9` /
+    `0x01DF` housekeeping path with `0x4582 = 0x80` still visible.
+
+These probes establish two more constraints on the missing producer:
+
+- writing `0x4580` before the ISR is not enough, because Stage 2 overwrites it;
+- `0x4582` is a live gate, but it is not itself the missing character source.
+
+**Function-bit probe (2026-05-13):** a second prompt-time probe now sets
+`m->kbd.fonct_bits` directly (`-fonct-on-prompt 0x01`), letting the existing
+keyboard model drive a real nonzero `0x4580` through `keyboard_frame_tick()`.
+That produces the first confirmed non-idle Stage 3 behavior at the live prompt:
+
+- the ISR no-key path rewrites `0x4580` from `0x00` to `0x01` every frame;
+- `SYS.SY` toggles `0x458B` between `0x01` and `0x81` (`pc=0x01B2` / `0x01D9`),
+    matching the Stage 3 duplicate-mark / compaction logic;
+- the circular-buffer pointer at `0x457C` advances from `0x4596` to `0x4597` at
+    `pc=0x0205`, then the blocking-read path consumes the byte and restores it to
+    `0x4596` at `pc=0x04EB`;
+- the CLI line buffer at `0x45C0` briefly receives `0x01` and restores `'-'`, so
+    the enqueued byte is a non-printable function-bit code rather than a normal
+    visible character.
+
+So a live nonzero `0x4580` is sufficient to make the existing Stage 3 / 4 path do
+real work. That narrows the remaining regular-key question further: the missing
+producer for post-boot visible keyboard input is not "any source of nonzero
+`0x4580`", but specifically the source that seeds the regular-key workspace / data
+which Stage 3 later promotes into the circular buffer.
+
+**PC-timed live-prompt probes (2026-05-13):** to test the regular-key side more
+precisely, `src/main.c` now has a temporary `-poke-at-pc <pc> <addr> <byte>` probe
+hook that arms only after the CLI prompt is stable and writes once when execution
+reaches the specified PC.
+
+- `-poke-at-pc 0x0179 0x4581 0x41` at the live prompt does land exactly where
+    intended, but the later Stage 3 / CLI behavior is unchanged from the baseline
+    function-bit case: the emitted byte remains `0x01`. So `0x4581` is not the
+    payload source for this already-live Stage 3 path.
+- `-poke-at-pc 0x0179 0x4580 0x41` at the live prompt does propagate. The trace
+    shows:
+    - `0x4580` rewritten from `0x01` to `0x41` at `pc=0x0179`;
+    - Stage 3 storing `0x41` into `0x458B` at `pc=0x01BB`;
+    - Stage 4 exposing `0x4577 = 0x41` at `pc=0x0200` and advancing `0x457C`;
+    - the blocking-read path later dequeuing that byte, with `AF=0x4100` visible at
+        `pc=0x04EE`.
+
+**Prompt-line insertion follow-up (2026-05-13):** the remaining ambiguity after the
+first `0x04EE` dequeue trace was whether the forced `0x41` actually reached the
+visible CLI line buffer or was consumed by some intermediate helper. A narrower trace
+slice on the `CLI.SY` line editor resolves that directly:
+
+- after the forced dequeue, `CLI.SY` reaches the normal insertion helper at
+    `0x58DD..0x590F` with `AF=0x411A` / `AF=0x4142`;
+- at `pc=0x590E`, the cursor has advanced from `0x45C0` to `0x45C1` and the pending
+    character is still `0x41`;
+- at `pc=0x590F`, the prompt buffer write occurs: `[45C0] 0x2D -> 0x41` (`'-' -> 'A'`).
+
+So the forced regular-key payload does reach the standard visible `CLI.SY` insertion
+path, not just the SAMOS blocking-read dequeue path. The earlier broad greps missed
+this because they were checking neighboring cells (`0x45C1`, `0x45C2`, etc.) rather
+than the actual first insertion at `0x45C0`, and later function-bit cycles then moved
+the cursor and changed subsequent cells.
+
+So the currently reproduced Stage 3 / 4 payload is sourced from the live `0x4580`
+value, not from `0x4581`. The unresolved regular-key question is therefore even
+sharper: what real hardware-side process causes a post-boot regular key to appear
+as the right live Stage 2 source value, given that raw CLA injection never produces
+that state on its own.
+
+**CLA override probe (2026-05-13):** a new one-shot `-cla-at-pc <pc> <byte>` hook
+was then used to override exactly one `keyboard_read_cla()` result at the live prompt.
+Forcing the Stage 1 read at `pc=0x0162` from the held regular key's natural `0x41`
+to `0xC1` is sufficient to reproduce the whole previously forced `0x4580` success path:
+
+- the override fires at `pc=0x0162` and `SYS.SY` immediately stores `0x4580 = 0x41`
+    at `pc=0x0171`;
+- the existing Stage 2 / 3 path then runs unchanged: `0x0175 -> 0x0179 -> 0x019B ->
+    0x01BB -> 0x0200 -> 0x0205`;
+- the promoted byte later dequeues at the SAMOS blocking-read path with
+    `pc=0x04EE` showing `AF=0x4144` / `A=0x41`;
+- `CLI.SY` reaches the normal insertion helper and writes `[45C0] 0x2D -> 0x41`
+    at `pc=0x590F`.
+
+So the missing ingredient is narrower again: for a post-boot regular key, SAMOS only
+needs to see a bit-7-set CLA value whose low seven bits still carry the regular code.
+The remaining hardware-fidelity question is what real producer or timing edge causes
+that mixed-format CLA byte on original hardware.
+
+**Status-timing probe (2026-05-13):** the next discriminating check targeted the
+FOUND re-check between the two CLA reads. A held raw key (`0x41`) was kept active,
+the first CLA read at `pc=0x0162` was forced to `0x81`, and the keyboard status read
+at `pc=0x0180` was forced to `0x0C` so `SYS.SY` had to take the second-read branch.
+That probe shows:
+
+- the forced status does open the branch: `SYS.SY` reaches `pc=0x0183`;
+- the actual second CLA read happens at `pc=0x0185`, not `0x0183`;
+- that second CLA read still returns `0x80`, so the held key has not reasserted in
+    time for the same ISR pass;
+- the downstream payload therefore remains the old function-bit value `0x01`, and
+    the visible CLI insertion stays `[45C0] 0x2D -> 0x01` rather than `'A'`.
+
+So the remaining gap is now narrower still: it is not just "take the second-read
+branch," because that can be forced. The missing behavior is the hardware timing that
+reasserts FOUND / CLA early enough for the second CLA read at `pc=0x0185` to see the
+regular key instead of `0x80`.
+
+**Second-read payload probe (2026-05-13):** the next probe targeted the actual second
+CLA read directly. With `-fonct-on-prompt 0x01`, forced status `0x0C` at `pc=0x0180`,
+and forced CLA `0x41` at `pc=0x0185`, the trace shows:
+
+- `SYS.SY` keeps the original Stage 2 function-bit payload in `0x4580 = 0x01`;
+- the second CLA read writes a separate later payload path, with `0x4581 = 0x41` and
+    a later dequeue showing `pc=0x04EE` / `AF=0x4100`;
+- but the first visible CLI insertion still remains the earlier `0x01`, because that
+    first queue item is still emitted before the later `0x41` entry reaches the line editor.
+
+So the second CLA read is not irrelevant. It can carry the regular code, but in the
+current execution order it becomes a later queue item, not the first visible character.
+
+**First-payload suppression probe (2026-05-13):** when that same second-read `0x41`
+probe is combined with a live-prompt `-poke-at-pc 0x0179 0x4580 0x00`, the result is
+the full visible regular-character path again:
+
+- the first `0x01` payload is suppressed before Stage 3 consumes `0x4580`;
+- Stage 3 then stores `0x41` into `0x458B` at `pc=0x01BB` and Stage 4 exposes
+    `0x4577 = 0x41` at `pc=0x0200`;
+- the blocking-read path later dequeues `A` (`pc=0x04EE`, `AF=0x4144`);
+- `CLI.SY` reaches the standard insertion helper and writes `[45C0] 0x2D -> 0x41`
+    at `pc=0x590F`.
+
+This means the remaining discrepancy is now even more precise: the hardware-faithful
+bridge is not only about making the second CLA read see the held key, but also about
+why the first `0x4580` / function-bit payload does not occupy the first visible slot
+on original hardware when a regular key is processed post-boot.
+
+**Ordering rule now confirmed from the dual-payload traces:** the second-read path is
+re-entering the same store logic around `0x0171`, but with different `HL` depending on
+what survived the earlier pass.
+
+- In the dual-payload run (`0x4580 = 0x01`, second CLA forced to `0x41`), the first
+    Stage 3 pass promotes `0x4580` and advances `0x457C` from `0x4596` to `0x4597`.
+    The re-entry after `pc=0x0198` then stores the second-read `0x41` into `0x4581`,
+    not `0x4580`, and a second Stage 3 pass promotes that later entry.
+- In the suppression run (`0x4580` poked to `0x00` at `pc=0x0179`), the same re-entry
+    path instead stores the forced second-read `0x41` back into `0x4580`, which is why
+    that `0x41` becomes the first visible CLI insertion.
+
+So the remaining hardware-side question is now about exact ordering / slot selection:
+what real machine condition makes the regular-key payload win slot `0x4580` instead of
+being queued behind an earlier function-bit value.
+
+**Late-clear probe at `pc=0x0198` (2026-05-13):** clearing `0x4580` only after the
+second CLA read is not sufficient. In the dual-payload run with forced status `0x0C`
+and forced second-read `0x41`:
+
+- `0x4580` is successfully cleared at `pc=0x0198`;
+- the re-entry still stores the regular-code payload into `0x4581`, not `0x4580`;
+- the immediate Stage 3 walk then takes the empty-slot housekeeping path
+    `0x019B -> 0x01C9 -> 0x01DF` and does **not** promote the lone `0x4581 = 0x41`
+    entry into the first visible CLI slot.
+
+So the problem is narrower than "clear `0x4580` before Stage 3."  The regular-code
+payload must win slot `0x4580` itself; a lone `0x4581` value is not enough for the
+current Stage 3 walk to make it the first visible character.
+
+**First-walk slot-occupancy probe (2026-05-13):** forcing the dual-payload case to
+restore `0x4580 = 0x41` exactly at the first `pc=0x019B` walk is sufficient to make
+the first visible CLI insertion become `A` again.
+
+- the probe leaves the second-read payload alive and also restores `0x4580 = 0x41`
+    right before Stage 3 consumes it;
+- the first Stage 3 pass then stores `0x41` into `0x458B` and exposes
+    `0x4577 = 0x41` at `pc=0x0200`;
+- the first dequeue reaches `pc=0x04EE` with `AF=0x4144`, and `CLI.SY` writes
+    `[45C0] 0x2D -> 0x41` at `pc=0x590F`.
+
+So the remaining discrepancy is now pinned to a single concrete condition: on real
+hardware, the regular-code payload must occupy slot `0x4580` by the time the first
+`0x019B` Stage 3 walk runs. If it is only present in `0x4581`, it loses the first
+visible slot.
+
+**Early-clear probe at `pc=0x0175` (2026-05-13):** clearing `0x4580` at the start of
+the Stage 2 gate logic is already sufficient to make the forced second-read `0x41`
+re-enter slot `0x4580` naturally.
+
+- the first `0x0171` write still briefly stores `0x01` into `0x4580`;
+- clearing `0x4580` at `pc=0x0175` makes the later re-entry from the second-read path
+    write `0x41` back into `0x4580`, not `0x4581`;
+- the first Stage 3 pass then promotes that `0x41`, and the first visible CLI write
+    is again `[45C0] 0x2D -> 0x41`.
+
+So the remaining hardware-side condition is now even tighter: the first function-bit
+payload must be absent from `0x4580` before the second-read re-entry happens. Once
+that slot is empty, the regular-code payload naturally wins it.
+
+**Strongest current conclusion (2026-05-13):** the earliest successful suppression
+point is already the first `pc=0x0171` write itself. Clearing `0x4580` immediately
+after that write is enough for the second-read `0x41` to re-enter slot `0x4580`
+without any later Stage 3-time patching:
+
+- `pc=0x0171` first writes `0x01` into `0x4580`;
+- the probe clears that value at the same `pc=0x0171` stop point;
+- after forced status / second-read, the re-entry again reaches `pc=0x0171` and now
+    writes `0x41` into `0x4580`;
+- the first Stage 3 walk promotes that `0x41`, and the first visible CLI write is
+    `[45C0] 0x2D -> 0x41`.
+
+So the emulator-side behavior is now pinned down definitively: to reproduce the
+original visible regular-key path, the initial function-bit value written at the
+first `0x0171` stop must not survive until the second-read re-entry. Once that value
+is gone, the rest of the software path behaves correctly.
+
+**Rejected emulator-local hypothesis (2026-05-13):** disabling the emulator's
+out-of-band `keyboard_frame_tick()` mirror of `fonct_bits -> 0x4580` does **not**
+change the mixed-path result. With that mirror gated off, the same probe still shows:
+
+- `pc=0x0171` writes `0x01` into `0x4580` from `SYS.SY` Stage 1 itself;
+- the forced second CLA read still writes `0x41` into `0x4581`, not `0x4580`;
+- the first visible CLI write remains `[45C0] 0x2D -> 0x01`, and only the later
+    dequeue reaches `pc=0x04EE` with `AF=0x4100`.
+
+So the definitive remaining mismatch is **not** the emulator's live GETFON mirror.
+It is the CLA / Stage-1 timing semantics that let the first `0x0171` function-bit
+payload survive long enough to occupy slot `0x4580` before the second-read regular
+payload can re-enter.
+
+**Positive model experiment (2026-05-13):** a new one-shot model hook now makes the
+first CLA read of an injected held regular key return `0x80 | key_code` directly,
+without any PC-specific `-cla-at-pc` override.  With `-inject-keycode 0x41`
+`-inject-keycode-bit7-first-cla` at the prompt, the trace shows:
+
+- the first CLA read logs `[inject] first CLA held-key bit7 -> C1 at pc=0162`;
+- `SYS.SY` Stage 1 immediately stores `0x4580 = 0x41` at `pc=0171`;
+- the first Stage 3 walk promotes that `0x41` from slot `0x4580`;
+- the first dequeue reaches `pc=04EE` with `AF=4144`;
+- the first visible CLI write is `[45C0] 0x2D -> 0x41`.
+
+This is now the strongest concrete reproduction of original post-boot regular-key
+behavior.  The best current hardware-side explanation is therefore no longer just
+"the first `0x0171` function-bit payload must not persist"; more specifically, the
+first relevant CLA value likely needs to appear to `SYS.SY` as a **bit-7-set regular
+code** (`0x80 | key_code`), so that Stage 1 stores the regular code into `0x4580`
+while still taking the Stage 2 / Stage 3 path.
+
+**Model promoted into the injected CLA path (2026-05-13):** the emulator now uses
+that bit-7-first rule by default for post-boot `machine_inject_key()` / `-inject-keycode`
+held keys.  Re-running the same prompt probe with plain `-inject-keycode 0x41`
+(no `-inject-keycode-bit7-first-cla` flag) still shows:
+
+- `[kbd] first CLA held regular bit7 -> C1 at pc=0162`;
+- `pc=0171` writes `0x4580 = 0x41`;
+- the first dequeue reaches `pc=04EE` with `AF=4144`;
+- the first visible CLI write is `[45C0] 0x2D -> 0x41`.
+
+So the emulator's injected low-level CLA model now matches the current best
+hardware-side hypothesis directly.  The remaining gap is no longer the injected CLA
+path itself; it is whether real physical post-boot SDL keypresses should eventually
+be routed through that same low-level path instead of the current FIFO shortcut.
+
+The extracted boot modules were then scanned for direct absolute references to the
+workspace bytes. Among `CLI.SY`, `ER.SY`, `LP.SY`, and `SYS.SY`, only `SYS.SY`
+contains direct references to `0x4580..0x4582`, and they are exactly the already
+known `0x015B` / `0x019B` Stage 2 / 3 sites. So the remaining producer is not an
+obvious second absolute writer in those boot modules.
 
 **OS-boundary narrowing (2026-05-13):** for this machine, the OS is only composed of
 the Phantom ROM, `SYS.SY` (SAMOS), and `CLI.SY`. A full disassembly scan of the
@@ -576,6 +881,11 @@ Visible prompt-line edits are performed by `CLI.SY`, not by the SAMOS Stage 1 la
 - Cursor redraw then uses `0x5A7B..0x5AF9`; trace confirmed `0x5A88` writes `'-'`
     at the current cursor and later redraws it at the new cursor position.
 
+Additional runtime confirmation (2026-05-13): during the live-prompt
+`-poke-at-pc 0x0179 0x4580 0x41` probe, the dequeued `0x41` does reach this exact
+insertion helper. The trace shows `pc=0x58DD`, `pc=0x58F8`, `pc=0x590E`, then a
+visible prompt-buffer write at `pc=0x590F`: `[45C0] 0x2D -> 0x41`.
+
 This is why `-inject-str "A"` visibly changes the prompt line while a one-shot
 CLA key injected through `machine_inject_key()` does not.
 
@@ -651,6 +961,85 @@ generates no independent code and can be ignored for now.
 expanding the tab as a drive prefix shortcut.  SDL fires `SDL_KEYDOWN` (not
 `SDL_TEXTINPUT`) for Tab, so it must be in `KEY_TABLE[]` rather than handled via
 `keyboard_text_event()`.
+
+### Current host-mapping coverage vs. S471 evidence (audit status: 2026-05-13)
+
+Based on the currently shared S471 PROM findings, the emulator's present host-key
+coverage falls into three distinct buckets:
+
+| Status | Mapping surface | Current state |
+|--------|-----------------|---------------|
+| Confirmed from currently shared S471 normal-layer facts | `Escape`, `Backspace`, `Tab`, `Return` | Explicitly mapped in `KEY_TABLE[]` as `0x06`, `0x08`, `0x09`, `0x0D` respectively. |
+| Inferred from the printable-text path rather than a per-key PROM position map | letters, digits, punctuation, `Space` | Delivered through `SDL_TEXTINPUT` as printable ASCII `0x20..0x7E`, so `Space` currently reaches SAMOS as `0x20` and ordinary printable text is forwarded as typed by the host layout. |
+| Emulator convenience aliases, not yet claims about original physical key positions | F1-F9, `End`, `Home`, `Insert`, `Left Alt`, `Left Ctrl`, `Left Windows/Super`, `AltGr` | These are deliberate host-side bindings to Smaky function or special-key codes, but they are not derived from the S471 physical position map. |
+
+This means the current codebase is already consistent with the PROM-derived facts
+that have actually been shared so far:
+
+- top-left `ESC / UNDO` currently emits `0x06`;
+- `Backspace` emits `0x08`;
+- `Tab` emits `0x09`;
+- `Return` emits `0x0D`;
+- `Space` is accepted through the ASCII text-input path as `0x20`.
+
+What is **not** established by the current implementation is broader physical-key
+fidelity for the whole S471 matrix.  In particular:
+
+- most printable keys are intentionally delegated to the host OS text-input path,
+    so they preserve the active host layout instead of modeling a full Smaky row/
+    column matrix;
+- the alternative host bindings for function keys (`F1..F7`, nav keys, modifiers)
+    are usability shortcuts, not verified S471 position matches;
+- the FNCT/ALT-layer outputs implied by the S471 dump are not broadly modeled as
+    separate physical-key positions yet;
+- the boot-only `FUNCTION-SHIFT-BREAK` and `FUNCTION-BREAK` combinations remain
+    documented but not implemented.
+
+So the broad audit conclusion is narrow but concrete: the emulator is aligned with
+the S471-backed keycode facts currently available, but it is still **not** a full
+physical keyboard matrix model.
+
+### Exact S471 ROM-dump findings now available (4 layers x 64 positions)
+
+The full S471 dump provided on 2026-05-13 sharpens the audit beyond the earlier
+spot facts.  The four hardware layers are now known explicitly:
+
+- **Layer 0** = normal typing
+- **Layer 1** = Shift
+- **Layer 2** = FNCT / ALT-like layer
+- **Layer 3** = caps-like layer
+
+The most relevant confirmed positions are:
+
+| Physical position class | Normal | Shift | FNCT/ALT | Caps-like | Current emulator state |
+|-------------------------|--------|-------|----------|-----------|------------------------|
+| Top-left ESC / UNDO     | `0x06` | `0x06` | `0x1B` | `0x06` | **Implemented** as host `Escape -> 0x06` |
+| Backspace position      | `0x08` | `0x7F` | `0x01` | `0x08` | Normal `Backspace -> 0x08` implemented; shifted/fnct variants are **not** modeled as physical-position behaviour |
+| Tab position            | `0x09` | `0x0B` | `0x03` | `0x09` | Normal `Tab -> 0x09` implemented; alternate layer outputs are not exposed as physical-position variants |
+| Return position         | `0x0D` | `0x0C` | `0x0A` | `0x0D` | Normal `Return -> 0x0D` implemented; shifted/fnct variants are not modeled |
+| Space position          | `0x20` | `0x20` | `0x02` | `0x20` | Normal space reaches SAMOS via ASCII text input; FNCT-layer `0x02` not modeled |
+| Q-row right-edge candidate | `0x04` | `0x05` | `0x07` | `0x04` | **Not explicitly host-mapped**; this is now the strongest candidate for the older `0x04` / `0x05` CLI interpretation |
+| MACRO key               | `0x1E` | `0x1E` | `0x1E` | `0x1E` | Implemented as host `F8` convenience mapping |
+| DEFINE key              | `0x1F` | `0x1F` | `0x1F` | `0x1F` | Implemented as host `F9` convenience mapping |
+
+The dump also confirms that the alphanumeric matrix itself is genuinely
+**Swiss-German QWERTZ** at the hardware level:
+
+- normal layer letters are lowercase (`qwertzuiop`, `asdfghjkl`, `yxcvbnm`);
+- Shift and caps-like layers produce uppercase letters;
+- accented keys such as `ü`, `ö`, `ä`, `é`, `è`, `ê`, `ç` appear directly in the
+    matrix rather than being host-side inventions.
+
+This turns the remaining implementation gap into a precise statement:
+
+- the emulator already matches the hardware for the specifically audited normal-layer
+    outputs that were switched or checked (`0x06`, `0x08`, `0x09`, `0x0D`, `0x20`,
+    `0x1E`, `0x1F`);
+- the emulator does **not** yet model the full four-layer S471 matrix per physical
+    position;
+- the older CLI hypothesis that tied cancel/recall to the top-left key is now even
+    weaker, because the dump places `0x04` / `0x05` / `0x07` on a different key
+    position near the Q-row right edge.
 
 ### Correction keys (doc p.215)
 
@@ -856,7 +1245,7 @@ According to the official user manual (p.24, section "ROM Phantom — Possibilit
 
 | Physical key / combo        | Emulator mapping          | Action                                          |
 |-----------------------------|---------------------------|-------------------------------------------------|
-| **ESC** / **UNDO** (top-left) | `Escape`                | Push **0x04** to kbd buffer → SAMOS CLI cancel/undo |
+| **ESC** / **UNDO** (top-left) | `Escape`                | Current working mapping pushes **0x06** to the kbd buffer |
 | **SHIFT-BREAK** (top-right) | Shift+Pause / Shift+F11   | Hard reset → boot from **DX0:** (normal boot)   |
 | **FUNCTION-SHIFT-BREAK**    | (not yet mapped)          | Hard reset → boot from **DX1:**                 |
 | **BREAK** (top-right)       | Pause / F11               | NMI → Phantom ROM monitor / PDP-11 loader (USART 14) |
@@ -874,14 +1263,26 @@ re-reads ROM, restarts the boot sequence from DX0:).  The FUNCTION-SHIFT-BREAK p
 (boot from DX1:) is not yet implemented — it would require injecting the FUNCTION bit
 into the CLA bitmask alongside SHIFT+BREAK so the Phantom ROM takes the DX1 path.
 
-The `Escape` key on the PC keyboard maps to the physical **ESC / UNDO** key
-(top-left corner).  The S471 keyboard encoder EPROM assigns this key hardware
-code **`0x04`**, which the SAMOS CLI dispatches on to cancel/undo the current
-command line (confirmed by CLI.SY disassembly: `CP 0x04` / `JP Z, cancel`).
+The `Escape` key on the PC keyboard now maps to the physical **ESC / UNDO**
+key (top-left corner) using the current working code **`0x06`**, following the
+S471 PROM normal-layer result.
 
-`0x1B` is **not** the keyboard code for ESC.  It is the Smaky control-code
-table entry for the printer/serial escape prefix, and it is also the chargen
-display index for the `ä` glyph — both completely separate namespaces.
+**Important contradiction (2026-05-13):** an external 256-byte S471 keyboard PROM
+analysis points the *normal-layer* top-left position at **`0x06`**, not `0x04`.
+The same dump also places **`0x1B`** on that physical position only on the FNCT/ALT
+layer, while a different normal-layer key candidate on the Q-row right edge yields
+`0x04`.  The emulator now follows that `0x06` result as its working mapping, but the
+older CLI audit still needs to be reconciled against live runtime.
+
+The current best interpretation is:
+
+- `0x1B` is still not evidence that the top-left key is the normal keyboard ESC key;
+    in the dump it appears to be a layer-dependent alternate output, not the default;
+- the emulator's previous `0x04` mapping has been retired in favor of the PROM-backed
+    `0x06` working mapping;
+- the next missing check is to reconcile the PROM position map with live runtime
+    behaviour and determine whether the top-left physical key is really `0x06` in
+    normal typing while `0x04` belongs to a different key position.
 
 The **BREAK** key (top-right, also labelled NMI or RESET) is a separate physical
 key that pulls the Z80 `NMI` pin low; it does not produce any keyboard byte.

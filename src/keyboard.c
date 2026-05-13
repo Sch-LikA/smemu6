@@ -26,7 +26,7 @@ static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
     { SDL_SCANCODE_BACKSPACE, 0x08 },
     { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
     { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
-    { SDL_SCANCODE_ESCAPE,    0x04 },   /* ESC / UNDO (top-left key) → 0x04 → CLI cancel/undo */
+    { SDL_SCANCODE_ESCAPE,    0x06 },   /* Current working mapping: top-left ESC/UNDO now follows the S471 PROM normal-layer result 0x06. */
     { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
     { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
 };
@@ -38,6 +38,7 @@ void keyboard_init(struct Smaky6 *m)
 {
     m->kbd.key_code          = 0;
     m->kbd.found             = 0;
+    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.reassert_pending  = 0;
     m->kbd.reassert_cycles   = 0;
     m->kbd.physically_held   = 0;
@@ -57,6 +58,7 @@ void keyboard_init(struct Smaky6 *m)
      * becomes 1.  key_code=0x00 = Enter selects DX0 autoboot. */
     m->kbd.found             = 1;
     m->kbd.key_code          = 0x00;
+    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held   = 1;
     m->kbd.boot_key_held     = 1;
 }
@@ -163,14 +165,15 @@ void keyboard_frame_tick(struct Smaky6 *m)
         m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
         m->bus[0x457Du] = (uint8_t)(wr >> 8);
         /* Arm SAMOS Stage 4 auto-repeat for physical keystrokes only.
-         * Enter (0x0D) and ESC (0x04) are excluded: arming Enter causes the
+         * Enter (0x0D) and the current working ESC/UNDO mapping (0x06)
+         * are excluded: arming Enter causes the
          * ISR to re-inject it 700 ms later, making the line editor process a
          * spurious empty command; arming ESC would cancel the current line
          * again after the initial cancel.
          * keyboard_event() zeroes 0x4558 on KEYUP, so repeat stops on release.
          * OS-level text repeat is suppressed by text_blocked in keyboard_event(),
          * so SAMOS Stage 4 is the sole source of key repeat. */
-        if (physical && code != 0x0Du && code != 0x04u) {
+        if (physical && code != 0x0Du && code != 0x06u) {
             m->bus[0x4558u] = 0x23u;   /* 35 frames = 700 ms initial delay */
             m->bus[0x4577u] = code;    /* repeat key code */
         }
@@ -250,16 +253,14 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     /* Track scancode so we can cancel repeat on the matching KEYUP. */
     m->kbd.repeat_scan = scan;
 
-    /* ESC / UNDO key: smart dual behaviour matching the SAMOS manual.
-     * The S471 encoder generates two distinct codes for ESC-related actions:
-     *   0x04 — cancel/clear the current command line (EFFACE / CLR)
-     *   0x05 — recall previous command (UNDO / recall)
+    /* ESC / UNDO key: current emulator-side working hypothesis.
+     * The current mapping now follows the S471 PROM normal-layer result:
+     *   0x06 — top-left ESC / UNDO working code
+     *
+     * The older 0x04 cancel-path assumption is retained only as a documented
+     * contradiction in the dev notes until CLI.SY is re-audited against runtime.
      * The SAMOS line editor at 0x577E dispatches on these codes independently.
-     * The user-facing behaviour documented in the SAMOS guide is:
-     *   ESC on non-empty line → cancel/clear it (0x04)
-     *   ESC on empty line     → recall previous command (0x05)
-     * We implement this by examining the SAMOS line-buffer-length byte at
-     * 0x454B: if 0 (empty) send 0x05 (recall); if non-zero send 0x04 (cancel). */
+     * We currently emit the top-left key code directly through the FIFO path. */
     for (int i = 0; i < KEY_TABLE_LEN; i++) {
         if (KEY_TABLE[i].scan == scan) {
             uint8_t code = KEY_TABLE[i].code;
@@ -412,6 +413,47 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 
 uint8_t keyboard_read_cla(struct Smaky6 *m)
 {
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+
+    if (m->dbg.cla_on_pc_enabled && m->dbg.cla_on_pc_armed &&
+        !m->dbg.cla_done && pc == m->dbg.cla_on_pc) {
+        if (m->kbd.found) {
+            m->kbd.found = 0;
+            if (m->kbd.physically_held) {
+                m->kbd.reassert_pending = 1;
+                m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
+            }
+        }
+        m->dbg.cla_done = 1;
+        if (m->dbg.trace || m->dbg.trace_kbd) {
+            fprintf(stderr, "[inject] CLA pc=%04X -> %02X\n",
+                    (unsigned)pc,
+                    (unsigned)m->dbg.cla_value);
+        }
+        return m->dbg.cla_value;
+    }
+
+    if (m->kbd.found &&
+        (m->kbd.regular_bit7_first_pending ||
+         (m->dbg.inject_keycode_bit7_first_cla_enabled &&
+          m->dbg.inject_keycode_bit7_first_cla_armed &&
+          !m->dbg.inject_keycode_bit7_first_cla_done))) {
+        m->kbd.found = 0;
+        if (m->kbd.physically_held) {
+            m->kbd.reassert_pending = 1;
+            m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
+        }
+        m->kbd.regular_bit7_first_pending = 0;
+        m->dbg.inject_keycode_bit7_first_cla_done = 1;
+        if (m->dbg.trace || m->dbg.trace_kbd) {
+            fprintf(stderr,
+                    "[kbd] first CLA held regular bit7 -> %02X at pc=%04X\n",
+                    (unsigned)(0x80u | (m->kbd.key_code & 0x7Fu)),
+                    (unsigned)pc);
+        }
+        return 0x80u | (m->kbd.key_code & 0x7Fu);
+    }
+
     /*
      * Pure hardware model (§10.4 CLAVIER, schematic Nov 1978 — J. Zahn):
      *
@@ -478,6 +520,18 @@ uint8_t keyboard_read_status(struct Smaky6 *m)
      * All other bits are undefined on hardware; we return 0 for them. */
     uint8_t st = 0x08u;
     if (keyboard_found(m)) st |= 0x04u;
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+
+    if (m->dbg.status_on_pc_enabled && m->dbg.status_on_pc_armed &&
+        !m->dbg.status_done && pc == m->dbg.status_on_pc) {
+        m->dbg.status_done = 1;
+        if (m->dbg.trace || m->dbg.trace_kbd) {
+            fprintf(stderr, "[inject] STATUS pc=%04X -> %02X\n",
+                    (unsigned)pc,
+                    (unsigned)m->dbg.status_value);
+        }
+        return m->dbg.status_value;
+    }
     return st;
 }
 

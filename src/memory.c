@@ -17,7 +17,7 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
     if (m->dbg.trace_kbd &&
         (addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
-         addr == 0x4580u || addr == 0x4582u)) {
+         (addr >= 0x4580u && addr <= 0x4595u))) {
         uint8_t old = m->bus[addr];
         if (old != data) {
             fprintf(stderr,
