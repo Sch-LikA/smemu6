@@ -80,17 +80,38 @@ The S471 table places:
 Therefore the previous top-left `0x04` assumption was based on the wrong
 physical position.
 
-### 4. Other directly validated normal-layer positions
+### 4. The full 64-position matrix now has a checked position map
+
+We now have a full 64-position physical-position table derived from the S471
+PROM dump and matched against the front-panel key legends.  The checked-in
+reference table is:
+
+- `docs/dev/smaky6_full_matrix_map.tsv`
+
+This upgrades the keyboard work from a handful of individually validated keys to
+an explicit 64-position matrix model.
+
+### 5. Directly validated matrix positions now include ordinary letter rows and RETURN
 
 From the S471 PROM dump:
 
 - Backspace position = `0x08 / 0x7F / 0x01 / 0x08`;
 - Tab position = `0x09 / 0x0B / 0x03 / 0x09`;
 - Space position = `0x20 / 0x20 / 0x02 / 0x20`;
-- MACRO key = `0x1E` on all four layers;
-- DEFINE key = `0x1F` on all four layers.
+- CTRL position = `0x1E` on all four layers;
+- RETURN position = `0x0D / 0x0C / 0x0A / 0x0D`;
+- DEFINE position = `0x1F` on all four layers.
 
-### 5. The alphanumeric matrix is real Swiss-German QWERTZ hardware
+The real-keyboard photo also confirms that the visible front-panel legends do
+not always match the literal byte values emitted by the PROM.  For example, the
+three keys after `L` and the three keys after `M` are best identified from their
+keycap legend clusters first, and only then associated with the PROM outputs.
+Future host bindings should therefore keep two separate notions:
+
+- front-panel key identity (what the real keycap says);
+- emitted S471 code for the active layer.
+
+### 6. The alphanumeric matrix is real Swiss-German QWERTZ hardware
 
 The dump confirms:
 
@@ -100,7 +121,7 @@ The dump confirms:
 - the current emulator's generic printable ASCII passthrough is a usability
   shortcut, not a faithful hardware model.
 
-### 6. The 7 bottom-row function keys are out of matrix
+### 7. The 7 bottom-row function keys are out of matrix
 
 The 7 bottom-row function keys are out of matrix and must be modeled as a
 function-bitmask (`fonct_bits`) visible only through CLA when `FOUND=0`; they
@@ -109,7 +130,23 @@ should not be generated through the S471 table.
 This should be treated as a validated architectural input, so future work does
 not waste effort trying to hunt those keys inside the 64-position scan table.
 
-### 7. Post-boot regular-key delivery should be CLA-driven, not FIFO-shortcut-driven
+### 8. Photo evidence confirms CAPS/LOCK and NMI/BREAK are separate non-matrix keys
+
+The real-keyboard photo confirms two additional hardware facts:
+
+- `CAPS/LOCK` is a separate latching key and is not part of the 64-position
+   ordinary matrix;
+- `NMI` / `BREAK` is a separate key and is neither part of the ordinary matrix
+   nor one of the 7 bottom-row function keys.
+
+Therefore:
+
+- the caps-like S471 layer should be modeled as a separate latched modifier
+   input, not as an ordinary matrix position;
+- BREAK-family handling remains outside ordinary keycode delivery and outside
+   `fonct_bits`.
+
+### 9. Post-boot regular-key delivery should be CLA-driven, not FIFO-shortcut-driven
 
 Recent runtime probes narrowed the regular-key bridge substantially:
 
@@ -132,7 +169,7 @@ So the required direction is not "make the current emulator trick work better";
 it is "replace emulator shortcuts with a model that is as close as possible to
 the original keyboard hardware."
 
-### 7. The current implementation is knowingly hybrid
+### 10. The current implementation is knowingly hybrid
 
 The current codebase combines three different producer models:
 
@@ -200,7 +237,6 @@ safe to identify from printed legends alone.
 Probable out-of-matrix or separately handled cases include:
 
 - CAPS / LOCK;
-- RETURN;
 - RESET / NMI / BREAK-family keys;
 - the 7 function keys.
 

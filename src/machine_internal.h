@@ -28,30 +28,22 @@ struct Smaky6 {
     /* Z80 CPU */
     Z80 cpu;
 
-    /* Keyboard */
+    /* Keyboard: strict hardware-facing state.
+     * Ordinary matrix keys resolve through the S471 table into key_code/found,
+     * Shift and CAPS/LOCK select the active layer, and the 7 bottom-row
+     * function keys live separately in fonct_bits. */
     struct {
-        uint8_t key_code;
+        uint8_t key_code;          /* latched 7-bit code for the current ordinary key */
         int      found;             /* FOUND latch: 1 = key present, cleared by CLA read */
-        int      regular_bit7_first_pending; /* 1 = first post-boot held regular CLA read returns 0x80|key_code */
         int      reassert_pending;  /* 1 = scanner will reassert FOUND after scan latency */
         uint32_t reassert_cycles;   /* T-state countdown to reassert (≈500 at 2.5 MHz = 200 µs) */
-        int     physically_held;   /* 1 while SDL key is physically down (cleared by KEYUP) */
-        int     boot_key_held;     /* 1 only for the power-on virtual Enter autoboot key */
-        int     shift_pressed;   /* 1 if SHIFT is held (for SHIFT+BREAK detection) */
-        uint8_t fonct_bits;      /* bitmask of the 7 "touches de fonction" (held | latched) */
-        uint8_t fonct_latched;   /* bits toggled by right-click; stay set until right-clicked again */
-        SDL_Scancode repeat_scan; /* scancode of the key whose code was last drained
-                                   * to the SAMOS circ-buf; KEYUP of this scan zeros
-                                   * the SAMOS repeat-countdown register (0x4558). */
-        /* Software FIFO feeding SAMOS circular buffer one key per frame.
-         * keyboard_event() pushes here; keyboard_frame_tick() pops to SAMOS
-         * when the buffer slot is free (ptr == 0x4596 = empty). */
-        uint8_t fifo[64];
-        int     fifo_head;       /* next read index */
-        int     fifo_tail;       /* next write index */
-        int     text_blocked;    /* 1 after first SDL_TEXTINPUT for a held key;
-                                  * cleared on KEYDOWN (non-repeat) and KEYUP to
-                                  * suppress OS key-repeat text injections */
+        int      physically_held;   /* 1 while the current ordinary key is held */
+        int      boot_key_held;     /* 1 only for the power-on virtual Enter autoboot key */
+        int      shift_pressed;     /* current Shift state for verified layer-sensitive keys */
+        int      caps_lock_active;  /* latched CAPS/LOCK state selects the PROM caps layer */
+        SDL_Scancode active_scancode; /* host scancode currently owning the ordinary-key latch */
+        uint8_t  active_matrix_position; /* 0..63 for the held ordinary key; 0xFF = none */
+        uint8_t  fonct_bits;        /* direct state of the 7 bottom-row function keys */
     } kbd;
 
     /* Video */
@@ -152,25 +144,6 @@ struct Smaky6 {
         int flow_budget; /* max flow log lines per run */
         uint16_t last_flow_pc;
         uint32_t flow_spin_count;
-        int      poke_on_pc_enabled;
-        int      poke_on_pc_armed;
-        uint16_t poke_on_pc;
-        uint16_t poke_addr;
-        uint8_t  poke_value;
-        int      poke_done;
-        int      cla_on_pc_enabled;
-        int      cla_on_pc_armed;
-        uint16_t cla_on_pc;
-        uint8_t  cla_value;
-        int      cla_done;
-        int      status_on_pc_enabled;
-        int      status_on_pc_armed;
-        uint16_t status_on_pc;
-        uint8_t  status_value;
-        int      status_done;
-        int      inject_keycode_bit7_first_cla_enabled;
-        int      inject_keycode_bit7_first_cla_armed;
-        int      inject_keycode_bit7_first_cla_done;
         uint16_t last_pc;/* last PC seen by trace hook (avoid duplicate prints) */
         uint16_t last_io19_pc;   /* last PC logged for port 0x19 */
         uint8_t  last_io19_data; /* last value logged for port 0x19 */

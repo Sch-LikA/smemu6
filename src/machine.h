@@ -91,7 +91,7 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code);
 /* Release/clear injected key latch (simulate key-up) */
 void machine_release_key(struct Smaky6 *m);
 
-/* Inject SHIFT + BREAK (Escape 0x1B) for monitor mode entry on boot */
+/* Inject SHIFT + BREAK using the physical ESC/UNDO key code (0x06) for boot-time monitor entry. */
 void machine_inject_shift_break(struct Smaky6 *m);
 
 /* Current Z80 program counter (for debug/trace coordination). */

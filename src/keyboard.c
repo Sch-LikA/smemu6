@@ -1,554 +1,304 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2024-2026 Marcel Prisi
-/* keyboard.c – Smaky 6 keyboard controller (SDL2 → Smaky key codes) */
+/* keyboard.c – strict CLA-centric Smaky 6 keyboard baseline */
 #include "machine_internal.h"
 #include "machine.h"
 #include "keyboard.h"
-#include <string.h>
 
-/*
- * Smaky 6 keyboard code table (partial; extend from doc section 10.4).
- * The keyboard EPROM translates scan position to a 7-bit code.
- * Here we map SDL scancodes directly to Smaky display codes.
- * Bit 7 of the CLA result: 0 = normal key, 1 = no-key / function key.
- *
- * Mapping: SDL_SCANCODE → smaky_code (7-bit)
- * 0x00 = no key / unknown
- */
-/*
- * Non-printable keys handled via SDL_KEYDOWN.
- * Printable characters (letters, digits, punctuation, space) are handled
- * via SDL_TEXTINPUT (keyboard_text_event) so that the host OS applies the
- * correct shift / Caps Lock / dead-key state, giving lowercase by default.
- */
-static const struct { SDL_Scancode scan; uint8_t code; } KEY_TABLE[] = {
-    { SDL_SCANCODE_RETURN,    0x0D },
-    { SDL_SCANCODE_BACKSPACE, 0x08 },
-    { SDL_SCANCODE_TAB,       0x09 },   /* TAB → inserts "DX1:" at command prompt */
-    { SDL_SCANCODE_DELETE,    0x7F },   /* DEL */
-    { SDL_SCANCODE_ESCAPE,    0x06 },   /* Current working mapping: top-left ESC/UNDO now follows the S471 PROM normal-layer result 0x06. */
-    { SDL_SCANCODE_F8,        0x1E },   /* MACRO  → « */
-    { SDL_SCANCODE_F9,        0x1F },   /* DEFINE → » */
+typedef enum {
+    S471_LAYER_NORMAL = 0,
+    S471_LAYER_SHIFT  = 1,
+    S471_LAYER_FNCT   = 2,
+    S471_LAYER_CAPS   = 3,
+} S471Layer;
+
+enum {
+    MATRIX_POS_COUNT = 64,
+    MATRIX_POS_NONE = 0xFF,
 };
-#define KEY_TABLE_LEN (int)(sizeof(KEY_TABLE) / sizeof(KEY_TABLE[0]))
 
-/* Direct field access: struct Smaky6 is fully visible via machine_internal.h */
+typedef uint8_t SmakyMatrixPosition;
 
-void keyboard_init(struct Smaky6 *m)
+static const uint8_t S471_TABLE[4][MATRIX_POS_COUNT] = {
+    {
+        0x06, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+        0x38, 0x39, 0x12, 0x15, 0x30, 0x5C, 0x08, 0x00,
+        0x09, 0x71, 0x77, 0x65, 0x72, 0x74, 0x7A, 0x75,
+        0x69, 0x6F, 0x70, 0x0F, 0x5B, 0x5D, 0x04, 0x00,
+        0x1E, 0x61, 0x73, 0x64, 0x66, 0x67, 0x68, 0x6A,
+        0x6B, 0x6C, 0x1C, 0x1B, 0x27, 0x0D, 0x00, 0x00,
+        0x20, 0x79, 0x78, 0x63, 0x76, 0x62, 0x6E, 0x6D,
+        0x2C, 0x2E, 0x2D, 0x00, 0x0E, 0x1F, 0x00, 0x00,
+    },
+    {
+        0x06, 0x24, 0x22, 0x2A, 0x25, 0x26, 0x28, 0x29,
+        0x3F, 0x40, 0x1D, 0x16, 0x23, 0x60, 0x7F, 0x00,
+        0x0B, 0x51, 0x57, 0x45, 0x52, 0x54, 0x5A, 0x55,
+        0x49, 0x4F, 0x50, 0x2F, 0x3C, 0x3E, 0x05, 0x00,
+        0x1E, 0x41, 0x53, 0x44, 0x46, 0x47, 0x48, 0x4A,
+        0x4B, 0x4C, 0x2B, 0x3D, 0x21, 0x0C, 0x00, 0x00,
+        0x20, 0x59, 0x58, 0x43, 0x56, 0x42, 0x4E, 0x4D,
+        0x3B, 0x3A, 0x5F, 0x00, 0x0E, 0x1F, 0x00, 0x00,
+    },
+    {
+        0x1B, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+        0x18, 0x19, 0x00, 0x5E, 0x10, 0x7E, 0x01, 0x00,
+        0x03, 0x11, 0x17, 0x05, 0x12, 0x14, 0x1A, 0x15,
+        0x09, 0x0F, 0x10, 0x00, 0x7B, 0x7D, 0x07, 0x00,
+        0x1E, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0A,
+        0x0B, 0x0C, 0x00, 0x00, 0x7C, 0x0A, 0x00, 0x00,
+        0x02, 0x19, 0x18, 0x03, 0x16, 0x02, 0x0E, 0x0D,
+        0x00, 0x00, 0x00, 0x00, 0x0E, 0x1F, 0x00, 0x00,
+    },
+    {
+        0x06, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+        0x38, 0x39, 0x12, 0x15, 0x30, 0x5C, 0x08, 0x00,
+        0x09, 0x51, 0x57, 0x45, 0x52, 0x54, 0x5A, 0x55,
+        0x49, 0x4F, 0x50, 0x0F, 0x5B, 0x5D, 0x04, 0x00,
+        0x1E, 0x41, 0x53, 0x44, 0x46, 0x47, 0x48, 0x4A,
+        0x4B, 0x4C, 0x1C, 0x1B, 0x27, 0x0D, 0x00, 0x00,
+        0x20, 0x59, 0x58, 0x43, 0x56, 0x42, 0x4E, 0x4D,
+        0x2C, 0x2E, 0x2D, 0x00, 0x0E, 0x1F, 0x00, 0x00,
+    },
+};
+
+static const struct {
+    SDL_Scancode scan;
+    SmakyMatrixPosition position;
+} HOST_MATRIX_KEYS[] = {
+    { SDL_SCANCODE_ESCAPE,       0 },
+    { SDL_SCANCODE_1,            1 },
+    { SDL_SCANCODE_2,            2 },
+    { SDL_SCANCODE_3,            3 },
+    { SDL_SCANCODE_4,            4 },
+    { SDL_SCANCODE_5,            5 },
+    { SDL_SCANCODE_6,            6 },
+    { SDL_SCANCODE_7,            7 },
+    { SDL_SCANCODE_8,            8 },
+    { SDL_SCANCODE_9,            9 },
+    { SDL_SCANCODE_0,           10 },
+    { SDL_SCANCODE_BACKSLASH,   13 },
+    { SDL_SCANCODE_BACKSPACE,   14 },
+    { SDL_SCANCODE_TAB,         16 },
+    { SDL_SCANCODE_Q,           17 },
+    { SDL_SCANCODE_W,           18 },
+    { SDL_SCANCODE_E,           19 },
+    { SDL_SCANCODE_R,           20 },
+    { SDL_SCANCODE_T,           21 },
+    { SDL_SCANCODE_Z,           22 },
+    { SDL_SCANCODE_U,           23 },
+    { SDL_SCANCODE_I,           24 },
+    { SDL_SCANCODE_O,           25 },
+    { SDL_SCANCODE_P,           26 },
+    { SDL_SCANCODE_LEFTBRACKET, 28 },
+    { SDL_SCANCODE_RIGHTBRACKET,29 },
+    { SDL_SCANCODE_END,         30 },
+    { SDL_SCANCODE_LCTRL,       32 },
+    { SDL_SCANCODE_RCTRL,       32 },
+    { SDL_SCANCODE_A,           33 },
+    { SDL_SCANCODE_S,           34 },
+    { SDL_SCANCODE_D,           35 },
+    { SDL_SCANCODE_F,           36 },
+    { SDL_SCANCODE_G,           37 },
+    { SDL_SCANCODE_H,           38 },
+    { SDL_SCANCODE_J,           39 },
+    { SDL_SCANCODE_K,           40 },
+    { SDL_SCANCODE_L,           41 },
+    { SDL_SCANCODE_RETURN,      45 },
+    { SDL_SCANCODE_SPACE,       48 },
+    { SDL_SCANCODE_Y,           49 },
+    { SDL_SCANCODE_X,           50 },
+    { SDL_SCANCODE_C,           51 },
+    { SDL_SCANCODE_V,           52 },
+    { SDL_SCANCODE_B,           53 },
+    { SDL_SCANCODE_N,           54 },
+    { SDL_SCANCODE_M,           55 },
+    { SDL_SCANCODE_COMMA,       56 },
+    { SDL_SCANCODE_PERIOD,      57 },
+    { SDL_SCANCODE_MINUS,       58 },
+    { SDL_SCANCODE_F9,          61 },
+};
+
+static const struct {
+    SDL_Scancode scan;
+    uint8_t bit;
+} FUNCTION_KEYS[] = {
+    { SDL_SCANCODE_F1, 0x10 }, /* CURSOR */
+    { SDL_SCANCODE_F2, 0x08 }, /* COPY */
+    { SDL_SCANCODE_F3, 0x40 }, /* KILL */
+    { SDL_SCANCODE_F4, 0x20 }, /* PROGRA */
+    { SDL_SCANCODE_F5, 0x04 }, /* SHOW */
+    { SDL_SCANCODE_F6, 0x02 }, /* SEARCH */
+    { SDL_SCANCODE_F7, 0x01 }, /* CHANGE */
+};
+
+/* Select the active S471 lookup layer from the current modifier state. */
+static S471Layer current_layer(const struct Smaky6 *m)
 {
-    m->kbd.key_code          = 0;
-    m->kbd.found             = 0;
-    m->kbd.regular_bit7_first_pending = 0;
-    m->kbd.reassert_pending  = 0;
-    m->kbd.reassert_cycles   = 0;
-    m->kbd.physically_held   = 0;
-    m->kbd.boot_key_held     = 0;
-    m->kbd.shift_pressed   = 0;
-    m->kbd.fonct_bits      = 0;
-    m->kbd.repeat_scan     = SDL_SCANCODE_UNKNOWN;
-    m->kbd.fifo_head       = 0;
-    m->kbd.fifo_tail       = 0;
-    m->kbd.text_blocked    = 0;
-
-    /* Power-on state: the FOUND latch (4013 FF2) powers up SET in practice.
-     * physically_held=1 models the scanner continuously reasserting FOUND
-     * (200µs reassertion) as long as a key is held — here the virtual Enter
-     * key is held from power-on through all boot-phase kbd_wait loops until
-     * EI is executed.  keyboard_frame_tick() releases it when iff1 first
-     * becomes 1.  key_code=0x00 = Enter selects DX0 autoboot. */
-    m->kbd.found             = 1;
-    m->kbd.key_code          = 0x00;
-    m->kbd.regular_bit7_first_pending = 0;
-    m->kbd.physically_held   = 1;
-    m->kbd.boot_key_held     = 1;
+    if (m->kbd.shift_pressed)
+        return S471_LAYER_SHIFT;
+    if (m->kbd.caps_lock_active)
+        return S471_LAYER_CAPS;
+    return S471_LAYER_NORMAL;
 }
 
-/* Called once per 50 Hz frame from the main loop.  Decrements the hold-time
- * countdown and clears the effective key_held state when the countdown expires
- * and the key has been physically released.
- * Also drains one key from the software FIFO into the SAMOS circular buffer
- * when the buffer slot is free (write pointer == 0x4596 = buffer base). */
+/* Drop the currently latched ordinary matrix key while leaving modifiers intact. */
+static void clear_ordinary_key(struct Smaky6 *m)
+{
+    m->kbd.found = 0;
+    m->kbd.physically_held = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = MATRIX_POS_NONE;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
+}
+
+/* Resolve one physical matrix position through the active S471 layer. */
+static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition position)
+{
+    return S471_TABLE[current_layer(m)][position] & 0x7Fu;
+}
+
+/* Latch one ordinary matrix key into the CLA-visible key state. */
+static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
+{
+    m->kbd.key_code = resolve_matrix_code(m, position);
+    m->kbd.found = 1;
+    m->kbd.physically_held = 1;
+    m->kbd.boot_key_held = 0;
+    m->kbd.active_scancode = scan;
+    m->kbd.active_matrix_position = (uint8_t)position;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
+
+    if (m->dbg.trace_kbd) {
+        fprintf(stderr, "[kbd] scancode=%d pos=%u layer=%d code=%02X\n",
+                (int)scan,
+                (unsigned)position,
+                (int)current_layer(m),
+                (unsigned)m->kbd.key_code);
+    }
+}
+
+/* Initialize the strict keyboard model, including the power-on virtual Enter hold. */
+void keyboard_init(struct Smaky6 *m)
+{
+    m->kbd.key_code = 0x00;
+    m->kbd.found = 1;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
+    m->kbd.physically_held = 1;
+    m->kbd.boot_key_held = 1;
+    m->kbd.shift_pressed = 0;
+    m->kbd.caps_lock_active = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = MATRIX_POS_NONE;
+    m->kbd.fonct_bits = 0;
+}
+
+/* No dynamic keyboard-side resources currently need explicit teardown. */
+void keyboard_fini(struct Smaky6 *m)
+{
+    (void)m;
+}
+
+/* Advance the scan-latency countdown that reasserts FOUND while a key stays held. */
 void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles)
 {
-    /* Advance the FOUND-reassert countdown.  Called after every CPU execution
-     * slice so the reassert fires at ~200 µs granularity (500 T-states at 2.5 MHz)
-     * rather than once per 20 ms frame. */
     if (!m->kbd.reassert_pending) return;
     if (cycles >= m->kbd.reassert_cycles) {
         m->kbd.reassert_pending = 0;
-        m->kbd.reassert_cycles  = 0;
+        m->kbd.reassert_cycles = 0;
         if (m->kbd.physically_held)
-            m->kbd.found = 1;   /* scanner refires */
+            m->kbd.found = 1;
     } else {
         m->kbd.reassert_cycles -= cycles;
     }
 }
 
+/* Release the boot-time virtual Enter key once SAMOS has installed its ISR vector. */
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    /* Power-on virtual Enter key: physically_held=1 from keyboard_init() models
-     * the 4013 FF2 FOUND latch being SET at power-on.  The first kbd_wait exits on
-     * the initial found=1.  Subsequent polls are served by keyboard_tick_cycles()
-     * (~500 T-state / 200 µs countdown), matching real hardware's ≤200µs scan cycle.
-     *
-     * Release trigger: the SAMOS 50 Hz ISR vector at bus[0x4566..7] == 0x003E.
-     * This is written by SAMOS init at 0x00CD, AFTER the init kbd_wait exits,
-     * and BEFORE EI enables the ISR.  At this point SAMOS is fully initialised
-     * and the virtual Enter key is no longer needed.
-     *
-     * We do NOT use iff1 as the trigger: EI fires as early as 0x020D during the
-     * Phantom ROM floppy loader, which is before SAMOS init's kbd_wait at 0x00B5.
-     * Using iff1 would release the virtual key too early and hang the machine. */
-    if (m->kbd.boot_key_held) {
-        uint16_t vec = (uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8);
-        if (vec == 0x003Eu) {
-            m->kbd.boot_key_held    = 0;
-            m->kbd.physically_held  = 0;
-            m->kbd.reassert_pending = 0;
-            m->kbd.reassert_cycles  = 0;
-            m->kbd.found            = 0;
-            m->kbd.fifo_head        = m->kbd.fifo_tail;  /* discard pre-SAMOS FIFO */
-        }
-    }
+    if (!m->kbd.boot_key_held) return;
 
-    /* Drain the FIFO into the SAMOS circular buffer once SAMOS is running.
-     * Skip while iff1=0: either pre-SAMOS boot or inside the 50 Hz ISR (Z80
-     * clears IFF1 on INT acknowledgment).  In both cases keys must not be
-     * written to the circular buffer from here. */
-    if (!m->cpu.iff1) return;
-
-    /* Direct write of fonct_bits to the GETFON register (0x4580).
-     * The SAMOS ISR (Stage 2 at 0x016E-0x0170) does update 0x4580, but only
-     * when FOUND=0 AND the ISR reaches Stage 2.  Between ISR ticks (most of
-     * the game loop) 0x4580 holds the PREVIOUS frame's ISR value.  For
-     * programs that poll 0x4580 directly (GETFON syscall) or poll IN A,(0x00)
-     * for real-time function-key state (e.g. Flipper game flippers), we must
-     * keep 0x4580 live at all times.  Writing here (before machine_run_frame)
-     * ensures every GETFON poll in the frame sees the current value.
-     * The ISR's own write at 0x0170 is harmless (writes the same value). */
-    m->bus[0x4580u] = m->kbd.fonct_bits;
-
-    /* Mirror fonct_bits into the SAMOS "last key" latch (0x457E) so that
-     * syscall 0x0E (LD A,(0x457E); OR A; RET) returns the current function-
-     * key bitmask.  Games like FLIPPER.SM read flippers exclusively via
-     * syscall 0x0E and check (result & 0xF0) for left flipper and
-     * (result & 0x0F) for right flipper — which maps exactly to the fonct_bits:
-     *   CURSOR (F1) = bit 4 = 0x10 → AND 0xF0 = 0x10 ≠ 0 → left flipper
-     *   CHANGE (F7) = bit 0 = 0x01 → AND 0x0F = 0x01 ≠ 0 → right flipper
-     * Physical regular-key presses travel via the FIFO→circular-buffer path
-     * and never touch 0x457E in the emulator, so this write does not conflict.
-     * Writing 0x00 when no function key is held releases the flipper each frame,
-     * giving true press-and-hold (not toggle/latch) behaviour. */
-    m->bus[0x457Eu] = m->kbd.fonct_bits;
-    while (m->kbd.fifo_head != m->kbd.fifo_tail) {
-        uint16_t wr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
-        /* Sanity check: if write pointer is outside the circular buffer area,
-         * SAMOS workspace is not yet initialized or was corrupted.
-         * Print a warning and stop — do NOT write to a wrong address. */
-        if (wr < 0x4596u || wr > 0x45B6u) {
-            fprintf(stderr,
-                    "[kbd_tick] write ptr 0x%04X out of range [0x4596,0x45B6]"
-                    " — SAMOS workspace not ready, deferring\n", wr);
-            break;
-        }
-        if (m->bus[wr] == 0x80u) {
-            if (m->dbg.trace_kbd)
-                fprintf(stderr, "[kbd_tick] guard sentinel at 0x%04X — buffer full\n", wr);
-            break;
-        }
-        uint8_t raw  = m->kbd.fifo[m->kbd.fifo_head];
-        uint8_t physical = raw & 0x80u;   /* set by keyboard_event() for real keys */
-        uint8_t code = raw & 0x7Fu;
-        m->kbd.fifo_head = (m->kbd.fifo_head + 1) & 63;
-        m->bus[wr] = code;
-        wr++;
-        m->bus[0x457Cu] = (uint8_t)(wr & 0xFFu);
-        m->bus[0x457Du] = (uint8_t)(wr >> 8);
-        /* Arm SAMOS Stage 4 auto-repeat for physical keystrokes only.
-         * Enter (0x0D) and the current working ESC/UNDO mapping (0x06)
-         * are excluded: arming Enter causes the
-         * ISR to re-inject it 700 ms later, making the line editor process a
-         * spurious empty command; arming ESC would cancel the current line
-         * again after the initial cancel.
-         * keyboard_event() zeroes 0x4558 on KEYUP, so repeat stops on release.
-         * OS-level text repeat is suppressed by text_blocked in keyboard_event(),
-         * so SAMOS Stage 4 is the sole source of key repeat. */
-        if (physical && code != 0x0Du && code != 0x06u) {
-            m->bus[0x4558u] = 0x23u;   /* 35 frames = 700 ms initial delay */
-            m->bus[0x4577u] = code;    /* repeat key code */
-        }
-        if (m->dbg.trace_kbd)
-            fprintf(stderr, "[kbd_tick] circ[0x%04X] <- 0x%02X ('%c')  ptr now 0x%04X  [ptr]=0x%02X\n",
-                    (unsigned)(wr-1), (unsigned)code,
-                    (code >= 0x20 && code < 0x7F) ? (char)code : '?',
-                    (unsigned)wr, (unsigned)m->bus[wr]);
+    if (((uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8)) == 0x003Eu) {
+        m->kbd.boot_key_held = 0;
+        clear_ordinary_key(m);
     }
 }
 
-void keyboard_fini(struct Smaky6 *m) { (void)m; }
-
+/* Translate one SDL keyboard event into strict Smaky matrix, caps, shift, or function-key state. */
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 {
-    /* Handle SHIFT key for modifier combinations (SHIFT+BREAK, SHIFT+ESC) */
-    if (ev->keysym.scancode == SDL_SCANCODE_LSHIFT || 
-        ev->keysym.scancode == SDL_SCANCODE_RSHIFT) {
+    SDL_Scancode scan = ev->keysym.scancode;
+
+    if (scan == SDL_SCANCODE_LSHIFT || scan == SDL_SCANCODE_RSHIFT) {
         m->kbd.shift_pressed = (ev->type == SDL_KEYDOWN) ? 1 : 0;
         return;
     }
 
-    /* "Touches de fonction" — 7 function keys set/clear a bitmask.
-     * keyboard_read_cla() returns this when no regular key is pending.
-     * Primary mapping: F1–F7 (reliable; not intercepted by WM on Linux/Win/Mac).
-     * Secondary mapping: modifier/nav keys for users who prefer them.
-     * Both sets are active simultaneously; holding either fires the same bit. */
-    {
-        static const struct { SDL_Scancode scan; uint8_t bit; } FONCT[] = {
-            /* Primary: F1–F7 (left-to-right keyboard order) */
-            { SDL_SCANCODE_F1,          0x10 }, /* CURSOR  */
-            { SDL_SCANCODE_F2,          0x08 }, /* COPY    */
-            { SDL_SCANCODE_F3,          0x40 }, /* KILL    */
-            { SDL_SCANCODE_F4,          0x20 }, /* PROGRA  */
-            { SDL_SCANCODE_F5,          0x04 }, /* SHOW    */
-            { SDL_SCANCODE_F6,          0x02 }, /* SEARCH  */
-            { SDL_SCANCODE_F7,          0x01 }, /* CHANGE  */
-            /* Secondary: original modifier/nav mappings */
-            { SDL_SCANCODE_END,         0x01 }, /* CHANGE  */
-            { SDL_SCANCODE_HOME,        0x02 }, /* SEARCH  */
-            { SDL_SCANCODE_INSERT,      0x04 }, /* SHOW    */
-            { SDL_SCANCODE_LALT,        0x08 }, /* COPY    */
-            { SDL_SCANCODE_LCTRL,       0x10 }, /* CURSOR  */
-            { SDL_SCANCODE_LGUI,        0x20 }, /* PROGRA  (Left Windows / Super) */
-            { SDL_SCANCODE_RALT,        0x40 }, /* KILL    (AltGr) */
-        };
-        for (int i = 0; i < (int)(sizeof(FONCT)/sizeof(FONCT[0])); i++) {
-            if (FONCT[i].scan == ev->keysym.scancode) {
-                if (ev->type == SDL_KEYDOWN)
-                    m->kbd.fonct_bits |= FONCT[i].bit;
-                else
-                    m->kbd.fonct_bits &= (uint8_t)~FONCT[i].bit;
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd] fonct %s bit=0x%02X fonct_bits=0x%02X\n",
-                            ev->type == SDL_KEYDOWN ? "DOWN" : "UP  ",
-                            FONCT[i].bit, m->kbd.fonct_bits);
-                return;
-            }
-        }
+    if (scan == SDL_SCANCODE_CAPSLOCK) {
+        if (ev->type == SDL_KEYDOWN && !ev->repeat)
+            m->kbd.caps_lock_active = !m->kbd.caps_lock_active;
+        return;
+    }
+
+    for (int i = 0; i < (int)(sizeof(FUNCTION_KEYS) / sizeof(FUNCTION_KEYS[0])); i++) {
+        if (FUNCTION_KEYS[i].scan != scan)
+            continue;
+        if (ev->type == SDL_KEYDOWN)
+            m->kbd.fonct_bits |= FUNCTION_KEYS[i].bit;
+        else if (ev->type == SDL_KEYUP)
+            m->kbd.fonct_bits &= (uint8_t)~FUNCTION_KEYS[i].bit;
+        return;
     }
 
     if (ev->type == SDL_KEYUP) {
-        /* Cancel SAMOS auto-repeat on key release.  Always safe to write: if
-         * SAMOS is not yet running, address 0x4558 is uninitialised RAM and no
-         * repeat is active. */
-        m->bus[0x4558u] = 0u;
-        m->kbd.text_blocked = 0;
+        if (m->kbd.active_scancode == scan)
+            clear_ordinary_key(m);
         return;
     }
-    if (ev->type != SDL_KEYDOWN) return;
-    if (ev->repeat) return;   /* ignore SDL key-repeat; SAMOS handles its own repeat */
 
-    /* New (non-repeated) KEYDOWN: unblock text input for this new keypress. */
-    m->kbd.text_blocked = 0;
+    if (ev->type != SDL_KEYDOWN || ev->repeat)
+        return;
 
-    SDL_Scancode scan = ev->keysym.scancode;
-    /* Track scancode so we can cancel repeat on the matching KEYUP. */
-    m->kbd.repeat_scan = scan;
-
-    /* ESC / UNDO key: current emulator-side working hypothesis.
-     * The current mapping now follows the S471 PROM normal-layer result:
-     *   0x06 — top-left ESC / UNDO working code
-     *
-     * The older 0x04 cancel-path assumption is retained only as a documented
-     * contradiction in the dev notes until CLI.SY is re-audited against runtime.
-     * The SAMOS line editor at 0x577E dispatches on these codes independently.
-     * We currently emit the top-left key code directly through the FIFO path. */
-    for (int i = 0; i < KEY_TABLE_LEN; i++) {
-        if (KEY_TABLE[i].scan == scan) {
-            uint8_t code = KEY_TABLE[i].code;
-            /* Physical keyboard uses FIFO-only delivery.  Do NOT touch the CLA
-             * fields (key_code / found / physically_held / key_hold_frames) here —
-             * those are reserved for machine_inject_key() / the CLA inject path.
-             * Setting them here causes ISR Stage 2 to re-write the key to the
-             * circular buffer every frame (for key_hold_frames frames), which loops
-             * Enter and drops intermediate characters. */
-            int next = (m->kbd.fifo_tail + 1) & 63;
-            if (next != m->kbd.fifo_head) {   /* not full */
-                /* Bit 7 = "physical key" marker: keyboard_frame_tick() uses it
-                 * to arm the SAMOS ISR auto-repeat only for physical keystrokes
-                 * (not for injected or programmatic codes). */
-                m->kbd.fifo[m->kbd.fifo_tail] = code | 0x80u;
-                m->kbd.fifo_tail = next;
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_event] pushed 0x%02X ('%c') to FIFO[%d]"
-                            "  iff1=%d\n",
-                            (unsigned)code,
-                            (code >= 0x20 && code < 0x7F) ? (char)code : '?',
-                            m->kbd.fifo_tail - 1,
-                            m->cpu.iff1);
-            } else {
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_event] FIFO FULL — dropped 0x%02X\n",
-                            (unsigned)code);
-            }
+    for (int i = 0; i < (int)(sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0])); i++) {
+        if (HOST_MATRIX_KEYS[i].scan == scan) {
+            latch_matrix_key(m, scan, HOST_MATRIX_KEYS[i].position);
             return;
         }
     }
-    /* Unknown key: no-op */
 }
 
-/*
- * Unicode (2-byte UTF-8 BMP) → Smaky 7-bit code for Swiss-French accented
- * characters.  The Smaky 6 keyboard EPROM maps these keys to codes 0x0F–0x1D
- * (doc §10.4 p.214).  The real keyboard is uppercase-only, so uppercase and
- * lowercase Unicode variants map to the same Smaky code.
- */
-static const struct { uint16_t unicode; uint8_t code; } ACCENT_TABLE[] = {
-    /* lowercase */
-    { 0x00FC, 0x0F }, /* ü */
-    { 0x00E0, 0x10 }, /* à */
-    { 0x00E2, 0x11 }, /* â */
-    { 0x00E9, 0x12 }, /* é */
-    { 0x00E8, 0x13 }, /* è */
-    { 0x00EB, 0x14 }, /* ë */
-    { 0x00EA, 0x15 }, /* ê */
-    { 0x00EF, 0x16 }, /* ï */
-    { 0x00EE, 0x17 }, /* î */
-    { 0x00F4, 0x18 }, /* ô */
-    { 0x00F9, 0x19 }, /* ù */
-    { 0x00FB, 0x1A }, /* û */
-    { 0x00E4, 0x1B }, /* ä */
-    { 0x00F6, 0x1C }, /* ö */
-    { 0x00E7, 0x1D }, /* ç */
-    /* uppercase variants → same Smaky code */
-    { 0x00DC, 0x0F }, /* Ü */
-    { 0x00C0, 0x10 }, /* À */
-    { 0x00C2, 0x11 }, /* Â */
-    { 0x00C9, 0x12 }, /* É */
-    { 0x00C8, 0x13 }, /* È */
-    { 0x00CB, 0x14 }, /* Ë */
-    { 0x00CA, 0x15 }, /* Ê */
-    { 0x00CF, 0x16 }, /* Ï */
-    { 0x00CE, 0x17 }, /* Î */
-    { 0x00D4, 0x18 }, /* Ô */
-    { 0x00D9, 0x19 }, /* Ù */
-    { 0x00DB, 0x1A }, /* Û */
-    { 0x00C4, 0x1B }, /* Ä */
-    { 0x00D6, 0x1C }, /* Ö */
-    { 0x00C7, 0x1D }, /* Ç */
-};
-#define ACCENT_TABLE_LEN (int)(sizeof(ACCENT_TABLE) / sizeof(ACCENT_TABLE[0]))
-
-/*
- * Feed an SDL_TEXTINPUT event into the keyboard model.
- *
- * SDL_TEXTINPUT is generated by the OS after applying shift, Caps Lock,
- * dead keys, and compose sequences.  This gives us lowercase letters by
- * default and uppercase with Shift — the host keyboard layout does the
- * right thing automatically.
- *
- * ev->text is UTF-8.  We accept:
- *   • Single-byte printable ASCII (0x20–0x7E) — pushed directly.
- *   • 2-byte UTF-8 sequences (0xC0–0xDF lead, 0x80–0xBF cont): decoded to a
- *     Unicode codepoint and looked up in ACCENT_TABLE for Swiss-French chars.
- *   • Everything else (3+ byte sequences, lone surrogates) is silently skipped.
- */
-void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
-{
-    /* SDL_TextInputEvent has no repeat field: the host OS fires a new
-     * SDL_TEXTINPUT for every OS-level key-repeat tick while a key is held.
-     * We suppress all but the first text event per physical keypress using
-     * text_blocked, which is cleared on each non-repeated SDL_KEYDOWN and on
-     * SDL_KEYUP (in keyboard_event()), and set after the first text is pushed. */
-    if (m->kbd.text_blocked) return;
-    m->kbd.text_blocked = 1;
-    const unsigned char *p = (const unsigned char *)ev->text;
-    while (*p != '\0') {
-        uint8_t b0 = *p;
-
-        if (b0 < 0x80) {
-            /* Single-byte ASCII */
-            p++;
-            if (b0 < 0x20 || b0 > 0x7E) continue;  /* skip control / DEL */
-            int next = (m->kbd.fifo_tail + 1) & 63;
-            if (next != m->kbd.fifo_head) {
-                m->kbd.fifo[m->kbd.fifo_tail] = b0 | 0x80u;  /* bit 7 = physical */
-                m->kbd.fifo_tail = next;
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_text] pushed 0x%02X ('%c') to FIFO\n",
-                            (unsigned)b0, (char)b0);
-            } else {
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_text] FIFO FULL — dropped 0x%02X\n",
-                            (unsigned)b0);
-            }
-        } else if ((b0 & 0xE0) == 0xC0 && (p[1] & 0xC0) == 0x80) {
-            /* 2-byte UTF-8 sequence: decode and look up accent table */
-            uint16_t cp = (uint16_t)(((b0 & 0x1F) << 6) | (p[1] & 0x3F));
-            p += 2;
-            uint8_t smaky_code = 0;
-            for (int i = 0; i < ACCENT_TABLE_LEN; i++) {
-                if (ACCENT_TABLE[i].unicode == cp) {
-                    smaky_code = ACCENT_TABLE[i].code;
-                    break;
-                }
-            }
-            if (smaky_code == 0) continue;  /* unmapped codepoint */
-            int next = (m->kbd.fifo_tail + 1) & 63;
-            if (next != m->kbd.fifo_head) {
-                m->kbd.fifo[m->kbd.fifo_tail] = smaky_code | 0x80u;  /* bit 7 = physical */
-                m->kbd.fifo_tail = next;
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_text] accent U+%04X → 0x%02X pushed to FIFO\n",
-                            (unsigned)cp, (unsigned)smaky_code);
-            } else {
-                if (m->dbg.trace_kbd)
-                    fprintf(stderr, "[kbd_text] FIFO FULL — dropped accent U+%04X\n",
-                            (unsigned)cp);
-            }
-        } else {
-            /* 3+ byte sequence or invalid byte: skip one byte and continue */
-            p++;
-        }
-    }
-}
-
+/* Emulate CLA port reads: ordinary keys return bit7 clear, otherwise bit7 set plus function bits. */
 uint8_t keyboard_read_cla(struct Smaky6 *m)
 {
-    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
-
-    if (m->dbg.cla_on_pc_enabled && m->dbg.cla_on_pc_armed &&
-        !m->dbg.cla_done && pc == m->dbg.cla_on_pc) {
-        if (m->kbd.found) {
-            m->kbd.found = 0;
-            if (m->kbd.physically_held) {
-                m->kbd.reassert_pending = 1;
-                m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
-            }
-        }
-        m->dbg.cla_done = 1;
-        if (m->dbg.trace || m->dbg.trace_kbd) {
-            fprintf(stderr, "[inject] CLA pc=%04X -> %02X\n",
-                    (unsigned)pc,
-                    (unsigned)m->dbg.cla_value);
-        }
-        return m->dbg.cla_value;
-    }
-
-    if (m->kbd.found &&
-        (m->kbd.regular_bit7_first_pending ||
-         (m->dbg.inject_keycode_bit7_first_cla_enabled &&
-          m->dbg.inject_keycode_bit7_first_cla_armed &&
-          !m->dbg.inject_keycode_bit7_first_cla_done))) {
-        m->kbd.found = 0;
-        if (m->kbd.physically_held) {
-            m->kbd.reassert_pending = 1;
-            m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
-        }
-        m->kbd.regular_bit7_first_pending = 0;
-        m->dbg.inject_keycode_bit7_first_cla_done = 1;
-        if (m->dbg.trace || m->dbg.trace_kbd) {
-            fprintf(stderr,
-                    "[kbd] first CLA held regular bit7 -> %02X at pc=%04X\n",
-                    (unsigned)(0x80u | (m->kbd.key_code & 0x7Fu)),
-                    (unsigned)pc);
-        }
-        return 0x80u | (m->kbd.key_code & 0x7Fu);
-    }
-
-    /*
-     * Pure hardware model (§10.4 CLAVIER, schematic Nov 1978 — J. Zahn):
-     *
-     *   CLA read (IN A,(0x00)) generates STROBE which simultaneously:
-     *     1. Returns the current latched value to the Z80
-     *     2. Clears both FOUND and FULCLA latches (4013 FF2)
-     *   If the key is still physically held, the scanner reasserts FOUND+FULCLA
-     *   within 200µs (one full scan cycle at 300 kHz).
-     *
-     *   Return value (bit7 encodes FOUND state per §10.4):
-     *     bit7=0, bits6-0=key_code → FOUND was 1 (regular key present)
-     *     bit7=1, bits6-0=fonct    → FOUND was 0 (function keys or idle)
-     *
-     *   Idle (no key, no function keys): returns 0x80.
-     *   kbd_wait (0x00FD / 0x00B5): `AND 0x80; JR NZ, loop` — loops while
-     *   bit7=1 (idle), exits when bit7=0 (regular key).  Confirmed from ROM
-     *   disassembly (byte sequence DB 00 E6 80 20 F8).
-     *
-     * Auto-boot without a keypress:
-     *   On real hardware, the 4013 FF2 FOUND latch powers up SET (in practice).
-     *   The scanner immediately reasserts FOUND as long as a key is physically
-     *   held (200µs reassertion).  The user presses Enter at the Phantom ROM
-     *   boot menu; FOUND=1 persists through both the Phantom ROM kbd_wait AND
-     *   the SAMOS init kbd_wait at 0x00B5.  No second keypress required.
-     *   The emulator models this with physically_held=1 from power-on until EI
-     *   is executed (iff1→1): keyboard_frame_tick() then auto-releases the
-     *   virtual key.  This function needs no phase-detection branching at all.
-     *
-     * This function is identical for all callers: Phantom ROM kbd_wait,
-     * SAMOS 50 Hz ISR (Stage 1 at 0x0160, Stage 2 at 0x0183), and monitor.
-     */
-
     if (m->kbd.found) {
+        uint8_t value = m->kbd.key_code & 0x7Fu;
+
         m->kbd.found = 0;
-        /* Scanner immediately reasserts FOUND if key still held (§10.4: 200µs).
-         * Models a key held down: every CLA read keeps returning the same code. */
-        /* Hardware: scanner reasserts FOUND within ≤200µs after CLA read clears
-         * the latch (one full 8×8 scan at 300 kHz / 32 divider).  At 2.5 MHz
-         * Z80 that is ≈500 T-states.  Store a countdown; keyboard_tick_cycles()
-         * promotes it to found=1 once enough cycles have elapsed. */
         if (m->kbd.physically_held) {
             m->kbd.reassert_pending = 1;
-            m->kbd.reassert_cycles  = SMAKY6_SCAN_REASSERT_TSTATES;
+            m->kbd.reassert_cycles = SMAKY6_SCAN_REASSERT_TSTATES;
         }
-        return m->kbd.key_code & 0x7Fu;   /* bit7=0: regular key */
+
+        return value;
     }
 
-    /* FOUND=0: return function key bitmask (0x80 if none held = idle).
-     * SAMOS ISR Stage 1 (0x015E-0x016D):
-     *   LD (0x4580),0x00; IN A,(0); BIT 7,A; JR NZ,0x016E
-     *   Falls through when bit7=0 → stores key to 0x457E (syscall 0x0E).
-     *   Jumps to 0x016E when bit7=1 → Stage 2: AND 0x7F; LD (0x4580),A
-     *   stores fonct_bits to the GETFON register automatically.
-     * Direct SYS.SY binary audit (2026-05-13) confirmed that Stage 2 reads
-     * 0x4582 at 0x0175, but the init sentinel write is to 0x458A at 0x00A1,
-     * not to 0x4582.  The old "Stage 2 is permanently blocked by 0x4582=0x80"
-     * model is therefore unproven and needs re-audit before relying on it. */
-    return 0x80u | m->kbd.fonct_bits;
+    return 0x80u | (m->kbd.fonct_bits & 0x7Fu);
 }
 
+/* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */
 uint8_t keyboard_read_status(struct Smaky6 *m)
 {
-    /* Port 0x01 (IN): bit2=FOUND (4013 FF2 latch output), bit3 fixed high (pull-up).
-     * All other bits are undefined on hardware; we return 0 for them. */
     uint8_t st = 0x08u;
-    if (keyboard_found(m)) st |= 0x04u;
-    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
-
-    if (m->dbg.status_on_pc_enabled && m->dbg.status_on_pc_armed &&
-        !m->dbg.status_done && pc == m->dbg.status_on_pc) {
-        m->dbg.status_done = 1;
-        if (m->dbg.trace || m->dbg.trace_kbd) {
-            fprintf(stderr, "[inject] STATUS pc=%04X -> %02X\n",
-                    (unsigned)pc,
-                    (unsigned)m->dbg.status_value);
-        }
-        return m->dbg.status_value;
-    }
+    if (m->kbd.found)
+        st |= 0x04u;
     return st;
 }
 
+/* Report the raw FOUND latch state without applying any CLA side effects. */
 int keyboard_found(struct Smaky6 *m)
 {
-    /* Port 0x01 bit 2 is the output of the 4013 FF2 FOUND latch — NOT a raw
-     * "physically held" signal.  The latch is:
-     *   SET   when the scanner detects a pressed key (= found=1)
-     *   RESET by the CLA read STROBE (= found=0 after keyboard_read_cla())
-     *   RE-SET by the scanner within ≤200µs if the key is still held
-     *          (= reassert_pending → found=1 at the next frame tick)
-     *
-     * Returning physically_held here would give bit2=1 even immediately after a
-     * CLA read cleared the latch — contradicting hardware where bit2 follows the
-     * latch, not the raw physical signal.
-     *
-     * Stage 2 reads this port at 0x017E, but its CLA Read #2 is permanently
-     * blocked by the sentinel at 0x0178, so this is dead code while SAMOS runs. */
     return m->kbd.found;
 }

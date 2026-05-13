@@ -486,11 +486,13 @@ void machine_nmi(struct Smaky6 *m)
     z80_nmi(&m->cpu);
 }
 
+/* Raise the 50 Hz interrupt request; machine_run_frame presents the pulse. */
 void machine_int(struct Smaky6 *m)
 {
     m->irq_pending = 1;
 }
 
+/* Reset CPU-visible machine state and restore the power-on virtual Enter hold. */
 void machine_reset(struct Smaky6 *m)
 {
     z80_instant_reset(&m->cpu);
@@ -501,30 +503,45 @@ void machine_reset(struct Smaky6 *m)
      * EI is executed (keyboard_frame_tick releases it on iff1→1). */
     m->kbd.found           = 1;
     m->kbd.key_code        = 0x00;  /* Enter → boot from DX0 */
-    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 1;
-    m->kbd.fifo_head       = 0;
-    m->kbd.fifo_tail       = 0;
+    m->kbd.shift_pressed   = 0;
+    m->kbd.caps_lock_active = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = 0xFFu;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
 }
 
+/* Inject one ordinary CLA-visible keycode directly into the strict keyboard latch. */
 void machine_inject_key(struct Smaky6 *m, uint8_t code)
 {
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
-    m->kbd.regular_bit7_first_pending = 1;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 0;
+    m->kbd.shift_pressed   = 0;
+    m->kbd.caps_lock_active = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = 0xFFu;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
 }
 
+/* Clear the injected ordinary-key latch and stop any pending reassertion. */
 void machine_release_key(struct Smaky6 *m)
 {
     m->kbd.found           = 0;
-    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 0;
     m->kbd.boot_key_held   = 0;
+    m->kbd.shift_pressed   = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = 0xFFu;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
 }
 
+/* Inject the SHIFT + BREAK boot-time combination through the ordinary-key latch. */
 void machine_inject_shift_break(struct Smaky6 *m)
 {
     /* Inject SHIFT + BREAK to trigger monitor mode on real hardware.
@@ -532,18 +549,24 @@ void machine_inject_shift_break(struct Smaky6 *m)
      * kbd_wait sees as nonzero — directing it away from the PDP-11 loader path.
      */
     m->kbd.shift_pressed   = 1;
+    m->kbd.caps_lock_active = 0;
     m->kbd.key_code        = 0x06;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
-    m->kbd.regular_bit7_first_pending = 0;
     m->kbd.physically_held = 1;
     m->kbd.boot_key_held   = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = 0xFFu;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
 }
 
+/* Report the current Z80 PC for debug and prompt-detection helpers. */
 uint16_t machine_get_pc(const struct Smaky6 *m)
 {
     return (uint16_t)Z80_PC(m->cpu);
 }
 
+/* Bypass the hardware keyboard path and append one code to the SAMOS circular buffer. */
 void machine_inject_to_circ_buf(struct Smaky6 *m, uint8_t code)
 {
     /* Directly write a key code into the SAMOS circular keyboard buffer.

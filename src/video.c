@@ -488,13 +488,10 @@ void video_render(struct Smaky6 *m)
             int bh = VIDEO_FKEY_BTN_H;
 
             int active  = (m->kbd.fonct_bits    & FKEYS[i].bit) != 0;
-            int latched = (m->kbd.fonct_latched & FKEYS[i].bit) != 0;
             int hover   = (fmx >= bx && fmx < bx + bw && fmy >= by && fmy < by + bh);
 
-            /* Button fill: yellow=latched, red=held, dim=idle */
-            if (latched)
-                SDL_SetRenderDrawColor(ren, 160, 130,   0, 255);
-            else if (active)
+            /* Strict baseline: function keys are direct held inputs only. */
+            if (active)
                 SDL_SetRenderDrawColor(ren, 200,  30,  30, 255);
             else if (hover)
                 SDL_SetRenderDrawColor(ren, 130,  55,  45, 255);
@@ -503,10 +500,7 @@ void video_render(struct Smaky6 *m)
             SDL_Rect btn = { bx, by, bw, bh };
             SDL_RenderFillRect(ren, &btn);
 
-            /* Button border: bright yellow=latched, bright red=active, dim=idle */
-            if (latched)
-                SDL_SetRenderDrawColor(ren, 255, 220,  60, 255);
-            else if (active)
+            if (active)
                 SDL_SetRenderDrawColor(ren, 255,  80,  80, 255);
             else
                 SDL_SetRenderDrawColor(ren, 130,  50,  50, 255);
@@ -516,9 +510,7 @@ void video_render(struct Smaky6 *m)
             int label_len = (int)strlen(FKEYS[i].label);
             int tx = bx + (bw - label_len * 9) / 2;
             int ty = by + (bh - 8) / 2;
-            if (latched)
-                SDL_SetRenderDrawColor(ren, 255, 255, 180, 255);
-            else if (active)
+            if (active)
                 SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
             else if (hover)
                 SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);

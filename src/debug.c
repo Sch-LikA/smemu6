@@ -42,12 +42,6 @@ void debug_init(struct Smaky6 *m)
     m->dbg.flow_budget = 0;
     m->dbg.last_flow_pc = 0xFFFF;
     m->dbg.flow_spin_count = 0;
-    m->dbg.poke_on_pc_enabled = 0;
-    m->dbg.poke_on_pc_armed = 0;
-    m->dbg.poke_on_pc = 0;
-    m->dbg.poke_addr = 0;
-    m->dbg.poke_value = 0;
-    m->dbg.poke_done = 0;
     m->dbg.last_pc  = 0xFFFF;
     m->dbg.last_io19_pc = 0xFFFF;
     m->dbg.last_io19_data = 0xFF;
@@ -69,19 +63,6 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
     if (pc == m->dbg.last_pc) return;
     m->dbg.last_pc = pc;
-
-    if (m->dbg.poke_on_pc_enabled && m->dbg.poke_on_pc_armed &&
-        !m->dbg.poke_done && pc == m->dbg.poke_on_pc) {
-        memory_write(m, m->dbg.poke_addr, m->dbg.poke_value);
-        m->dbg.poke_done = 1;
-        if (m->dbg.trace || m->dbg.trace_kbd) {
-            fprintf(stderr,
-                    "[inject] pc=%04X RAM[0x%04X] <- 0x%02X\n",
-                    pc,
-                    (unsigned)m->dbg.poke_addr,
-                    (unsigned)m->dbg.poke_value);
-        }
-    }
 
     /* After Phantom ROM is banked out, trace early low-RAM control flow once. */
     if (m->rom_mask[0x0000] == 0 && pc < 0x0800 && ram_pc_printed < 64) {
