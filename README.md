@@ -429,6 +429,10 @@ Runtime note: overlapping printable key presses are queued and promoted one by
 one, so fast typing now reaches the CLI through the visible input path instead
 of stopping after the first printable key.
 
+Function-key note: `F1`..`F7` are program keys, not CLI text-entry keys. They do
+not echo characters at the prompt; they are consumed by software that reads the
+Smaky function-key state.
+
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,
 PROGRA, SHOW, SEARCH, CHANGE).  Left-click and hold to activate a function

@@ -364,13 +364,13 @@ Equivalents: DOS `DEBUG` — Unix `gdb` / `xxd`
 | `SHIFT-BREAK`           | Boot / runtime  | Hard reset → reboot from DX0:                    |
 | `FUNCTION-SHIFT-BREAK`  | Boot            | Reboot from DX1:                                 |
 | `FUNCTION-BREAK`        | Boot            | Memory test (POST)                               |
-| `CHANGE`  (F1)          | Programs        | Program function key                             |
+| `CURSOR`  (F1)          | Programs        | Program function key                             |
 | `SEARCH`  (F2)          | Programs        | Program function key                             |
-| `SHOW`    (F3)          | Programs        | Program function key                             |
-| `COPY`    (F4)          | Programs        | Program function key                             |
-| `CURSOR`  (F5)          | Programs        | Program function key                             |
-| `PROGRA`  (F6)          | Programs        | Program function key                             |
-| `KILL`    (F7)          | Programs        | Program function key / abort transfer            |
+| `KILL`    (F3)          | Programs        | Program function key / abort transfer            |
+| `PROGRA`  (F4)          | Programs        | Program function key                             |
+| `SHOW`    (F5)          | Programs        | Program function key                             |
+| `COPY`    (F6)          | Programs        | Program function key                             |
+| `CHANGE`  (F7)          | Programs        | Program function key                             |
 
 ---
 

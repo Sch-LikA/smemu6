@@ -56,7 +56,9 @@ struct Smaky6 {
         } pending_ordinary[8];
         uint8_t  pending_ordinary_head;
         uint8_t  pending_ordinary_len;
-        uint8_t  fonct_bits;        /* direct state of the 7 bottom-row function keys */
+        uint8_t  fonct_bits;        /* current effective state of the 7 bottom-row function keys */
+        uint8_t  fonct_keyboard_bits; /* host F1..F7 state */
+        uint8_t  fonct_mouse_bits;  /* status-bar button hold state */
     } kbd;
 
     /* Video */

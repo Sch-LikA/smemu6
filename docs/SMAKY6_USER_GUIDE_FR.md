@@ -367,13 +367,13 @@ Pour revenir à la ligne de commande CLI, tapez la commande de sortie du moniteu
 | `SHIFT-BREAK`           | Boot / runtime  | Réinitialisation → redémarrage depuis DX0:         |
 | `FUNCTION-SHIFT-BREAK`  | Boot            | Redémarrage depuis DX1:                            |
 | `FUNCTION-BREAK`        | Boot            | Test mémoire (POST)                                |
-| `CHANGE`  (F1)          | Programmes      | Touche de fonction programme                       |
+| `CURSOR`  (F1)          | Programmes      | Touche de fonction programme                       |
 | `SEARCH`  (F2)          | Programmes      | Touche de fonction programme                       |
-| `SHOW`    (F3)          | Programmes      | Touche de fonction programme                       |
-| `COPY`    (F4)          | Programmes      | Touche de fonction programme                       |
-| `CURSOR`  (F5)          | Programmes      | Touche de fonction programme                       |
-| `PROGRA`  (F6)          | Programmes      | Touche de fonction programme                       |
-| `KILL`    (F7)          | Programmes      | Touche de fonction / arrêt transfert               |
+| `KILL`    (F3)          | Programmes      | Touche de fonction / arrêt transfert               |
+| `PROGRA`  (F4)          | Programmes      | Touche de fonction programme                       |
+| `SHOW`    (F5)          | Programmes      | Touche de fonction programme                       |
+| `COPY`    (F6)          | Programmes      | Touche de fonction programme                       |
+| `CHANGE`  (F7)          | Programmes      | Touche de fonction programme                       |
 
 ---
 

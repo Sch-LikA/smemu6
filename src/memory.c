@@ -9,21 +9,30 @@
 
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
-    if (m->dbg.trace_flow && addr == 0x457Eu) {
+    if (addr == 0x457Eu) {
         uint8_t value = m->bus[addr];
-        uint16_t sp = (uint16_t)Z80_SP(m->cpu);
-        uint16_t ret = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
-        fprintf(stderr,
-            "[kbd-r] pc=%04X [%04X] -> %02X sp=%04X ret=%04X\n",
-                (unsigned)Z80_PC(m->cpu),
-                (unsigned)addr,
-            (unsigned)value,
-            (unsigned)sp,
-            (unsigned)ret);
+        int is_syscall_0e_read = (uint16_t)Z80_PC(m->cpu) == 0x0519u;
+
+        if (is_syscall_0e_read && value == 0x00u && m->kbd.fonct_bits != 0)
+            value = m->kbd.fonct_bits;
+
+        if (m->dbg.trace_flow) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            fprintf(stderr,
+                "[kbd-r] pc=%04X [%04X] -> %02X sp=%04X ret=%04X\n",
+                    (unsigned)Z80_PC(m->cpu),
+                    (unsigned)addr,
+                    (unsigned)value,
+                    (unsigned)sp,
+                    (unsigned)ret);
+        }
         /* Syscall 0x0E reads 0x457E via the 0x0516/0x0519 accessor path.
-         * Consume the byte there so later helper polls do not keep seeing
-         * the same stale Stage 1 key forever. */
-        if ((uint16_t)Z80_PC(m->cpu) == 0x0519u)
+         * Consume only real staged ordinary-key bytes there so later helper
+         * polls do not keep seeing the same stale Stage 1 key forever; held
+         * function bits are synthesized on demand and must remain level-held
+         * while the host key stays down. */
+        if (is_syscall_0e_read && m->bus[addr] != 0x00u)
             m->bus[addr] = 0x00u;
         return value;
     }

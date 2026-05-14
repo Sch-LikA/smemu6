@@ -172,15 +172,15 @@ Compare with your modern keyboard which has 12 function keys of which you only u
 
 | Key      | PC equiv | What it does in theory             | What it does in practice                    |
 |----------|----------|------------------------------------|---------------------------------------------|
-| `CHANGE` | F1       | Change something                   | Depends on the program                      |
+| `CURSOR` | F1       | Move the cursor                    | Depends on the program                      |
 | `SEARCH` | F2       | Search for something               | Depends on the program                      |
-| `SHOW`   | F3       | Show something                     | Depends on the program                      |
-| `COPY`   | F4       | Copy something                     | Depends on the program                      |
-| `CURSOR` | F5       | Move the cursor                    | Depends on the program                      |
-| `PROGRA` | F6       | Program something                  | Depends on the program (very useful)        |
-| `KILL`   | F7       | **Kill something**                 | Aborts a transfer. Perfect name.            |
+| `KILL`   | F3       | **Kill something**                 | Aborts a transfer. Perfect name.            |
+| `PROGRA` | F4       | Program something                  | Depends on the program (very useful)        |
+| `SHOW`   | F5       | Show something                     | Depends on the program                      |
+| `COPY`   | F6       | Copy something                     | Depends on the program                      |
+| `CHANGE` | F7       | Change something                   | Depends on the program                      |
 
-The `KILL` key is the only one with consistent behaviour everywhere.
+The `KILL` key is the one with the most consistently useful behaviour.
 It kills things. That's its job. It's honest.
 
 ---

@@ -314,16 +314,17 @@ En plus des lettres et chiffres normaux, il a **7 touches de fonction** spécial
 
 | Touche   | Sur l'émulateur | Ce que ça fait               |
 |----------|-----------------|------------------------------|
-| `CHANGE` | F1              | Dépend du programme          |
+| `CURSOR` | F1              | Dépend du programme          |
 | `SEARCH` | F2              | Dépend du programme          |
-| `SHOW`   | F3              | Dépend du programme          |
-| `COPY`   | F4              | Dépend du programme          |
-| `CURSOR` | F5              | Dépend du programme          |
-| `PROGRA` | F6              | Dépend du programme          |
-| `KILL`   | F7              | Arrête ce qui est en cours   |
+| `KILL`   | F3              | Arrête ce qui est en cours   |
+| `PROGRA` | F4              | Dépend du programme          |
+| `SHOW`   | F5              | Dépend du programme          |
+| `COPY`   | F6              | Dépend du programme          |
+| `CHANGE` | F7              | Dépend du programme          |
 
-Chaque programme décide ce que font les touches F1 à F6.
-Seul `KILL` (F7) fait toujours la même chose : **arrêter** ce qui est en train de se passer.
+Chaque programme décide ce que font la plupart de ces touches.
+Seule `KILL` (F3 dans le mapping de l'émulateur) signifie généralement
+**arrêter**.
 
 ---
 

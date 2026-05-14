@@ -253,7 +253,9 @@ PROGRA, SHOW, SEARCH, CHANGE).
   modifier+key combinations.
 
 These are modifier-only keys: no character appears on screen when they are
-pressed, matching real hardware behaviour.
+pressed, matching real hardware behaviour. Programs that care about Smaky
+function keys read this state directly; the CLI does not treat them as typed
+text.
 
 **Disk / RESET status bar:** The middle strip shows floppy and Winchester
 drive activity LEDs.  At the right end:

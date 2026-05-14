@@ -259,6 +259,11 @@ static void main_loop_iter(void)
         case SDL_WINDOWEVENT:
             if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
                 L->running = 0;
+            else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                L->m->kbd.fonct_keyboard_bits = 0;
+                L->m->kbd.fonct_mouse_bits = 0;
+                L->m->kbd.fonct_bits = 0;
+            }
             break;
 
         case SDL_KEYDOWN:
@@ -332,6 +337,12 @@ static void main_loop_iter(void)
                 static const uint8_t FKEY_BITS[7] = {
                     0x10, 0x08, 0x40, 0x20, 0x04, 0x02, 0x01
                 };
+                if (ev.button.button == SDL_BUTTON_LEFT &&
+                    ev.type == SDL_MOUSEBUTTONUP &&
+                    L->m->kbd.fonct_mouse_bits != 0) {
+                    L->m->kbd.fonct_mouse_bits = 0;
+                    L->m->kbd.fonct_bits = L->m->kbd.fonct_keyboard_bits;
+                }
                 for (int i = 0; i < 7; i++) {
                     int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
                     int by = VIDEO_FKEY_Y + 1;
@@ -339,9 +350,9 @@ static void main_loop_iter(void)
                         ly >= by && ly < by + VIDEO_FKEY_BTN_H) {
                         if (ev.button.button == SDL_BUTTON_LEFT) {
                             if (ev.type == SDL_MOUSEBUTTONDOWN) {
-                                L->m->kbd.fonct_bits |= FKEY_BITS[i];
-                            } else {
-                                L->m->kbd.fonct_bits &= (uint8_t)~FKEY_BITS[i];
+                                L->m->kbd.fonct_mouse_bits = FKEY_BITS[i];
+                                L->m->kbd.fonct_bits = (uint8_t)(L->m->kbd.fonct_keyboard_bits |
+                                                                 L->m->kbd.fonct_mouse_bits);
                             }
                         }
                         break;

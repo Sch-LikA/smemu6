@@ -260,7 +260,9 @@ PROGRA, SHOW, SEARCH, CHANGE).
   modificateur+touche d'une seule main.
 
 Ces touches sont **exclusivement des modificateurs** — aucun caractère n'est
-écrit à l'écran, conformément au comportement du matériel réel.
+écrit à l'écran, conformément au comportement du matériel réel. Les programmes
+qui en ont besoin lisent directement cet état ; la CLI ne les traite pas comme
+du texte saisi.
 
 ### Barre de disques / boutons RESET et NMI
 

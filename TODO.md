@@ -212,6 +212,9 @@ Current emulator state:
   printable key;
 - function-key aliases (`F1..F7`) remain convenience host bindings for the 7
   bottom-row Smaky function bits;
+- held function keys are now also visible to direct helper readers through
+  syscall `0x0E` when no ordinary staged byte is pending, so programs like
+  `FLIPPER.SM` see stable held `CURSOR` / `CHANGE` input again;
 - FNCT/ALT-layer printable outputs are still not broadly exposed through separate
   host bindings.
 

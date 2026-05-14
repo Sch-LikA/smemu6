@@ -400,11 +400,12 @@ Integration note with redcode/Z80 + Zeta:
 
 - the 7 function keys do not need any fake FIFO -> SAMOS circular-buffer path to
    become visible to software;
-- software sees them naturally through `IN (0x00)` when `FOUND == 0`, because CLA
-   returns `0x80 | fonct_bits`;
-- this matches the redcode/Z80 integration boundary directly, because port I/O is
-   supposed to be handled in the CPU `in` callback during the Z80 port-read cycle;
-- therefore the strict function-key path should remain an I/O-read-visible state
+- `SYS.SY` sees them naturally through `IN (0x00)` when `FOUND == 0`, because CLA
+   returns `0x80 | fonct_bits` and Stage 1 copies that into `0x4580`;
+- direct helper consumers such as syscall `0x0E` still read through the `0x457E`
+   accessor, so the emulator synthesizes held `fonct_bits` there only when no staged
+   ordinary key byte is pending;
+- therefore the strict function-key path remains a hardware-visible read-state
    change, not a synthetic text/buffer injection path.
 
 If a convenience mapping cannot be reconciled with this hardware-first path, the
@@ -545,7 +546,7 @@ should be aiming to make correct first.
 
 What this means concretely:
 
-- **Strict mode**: ordinary matrix keys follow `host position -> S471 table -> regular keycode -> CLA latch path`; function keys update `fonct_bits` only and never synthesize ordinary latched keycodes; space bar remains a normal key unless later hardware evidence shows it is separately wired, in which case it can become a specific special case without changing the overall architecture.
+- **Strict mode**: ordinary matrix keys follow `host position -> S471 table -> regular keycode -> CLA latch path`; function keys update `fonct_bits`, feed GETFON through the normal CLA path, and are synthesized for syscall `0x0E` only when no staged ordinary direct byte is pending; space bar remains a normal key unless later hardware evidence shows it is separately wired, in which case it can become a specific special case without changing the overall architecture.
 
 - **Compatibility mode**: keep `SDL_TEXTINPUT` and other host-friendly typing paths for ordinary printable input; allow extra host aliases such as `Home`, `End`, `Insert`, or similar keys to drive the same `fonct_bits` state as a convenience layer; document those aliases explicitly as non-physical host bindings, not as claims about original keyboard wiring.
 

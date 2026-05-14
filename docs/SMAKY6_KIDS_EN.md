@@ -314,16 +314,17 @@ As well as the normal letters and numbers, it has **7 special function keys**:
 
 | Key      | On the emulator | What it does                 |
 |----------|-----------------|------------------------------|
-| `CHANGE` | F1              | Depends on the program       |
+| `CURSOR` | F1              | Depends on the program       |
 | `SEARCH` | F2              | Depends on the program       |
-| `SHOW`   | F3              | Depends on the program       |
-| `COPY`   | F4              | Depends on the program       |
-| `CURSOR` | F5              | Depends on the program       |
-| `PROGRA` | F6              | Depends on the program       |
-| `KILL`   | F7              | Stops whatever is running    |
+| `KILL`   | F3              | Stops whatever is running    |
+| `PROGRA` | F4              | Depends on the program       |
+| `SHOW`   | F5              | Depends on the program       |
+| `COPY`   | F6              | Depends on the program       |
+| `CHANGE` | F7              | Depends on the program       |
 
-Each program decides what F1 to F6 do.
-Only `KILL` (F7) always does the same thing: **stop** whatever is happening.
+Each program decides what most of these keys do.
+Only `KILL` (F3 in the emulator mapping) is the one you can usually trust to
+mean **stop**.
 
 ---
 

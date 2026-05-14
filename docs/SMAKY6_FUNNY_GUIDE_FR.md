@@ -174,15 +174,15 @@ pensez).
 
 | Touche   | Émul. PC | Ce que ça fait en théorie          | Ce que ça fait en pratique                  |
 |----------|----------|------------------------------------|---------------------------------------------|
-| `CHANGE` | F1       | Changer quelque chose              | Dépend du programme                         |
+| `CURSOR` | F1       | Déplacer le curseur                | Dépend du programme                         |
 | `SEARCH` | F2       | Chercher quelque chose             | Dépend du programme                         |
-| `SHOW`   | F3       | Montrer quelque chose              | Dépend du programme                         |
-| `COPY`   | F4       | Copier quelque chose               | Dépend du programme                         |
-| `CURSOR` | F5       | Déplacer le curseur                | Dépend du programme                         |
-| `PROGRA` | F6       | Programmer quelque chose           | Dépend du programme (très pratique)         |
-| `KILL`   | F7       | **Tuer quelque chose**             | Interrompt un transfert. Nom parfait.        |
+| `KILL`   | F3       | **Tuer quelque chose**             | Interrompt un transfert. Nom parfait.       |
+| `PROGRA` | F4       | Programmer quelque chose           | Dépend du programme (très pratique)         |
+| `SHOW`   | F5       | Montrer quelque chose              | Dépend du programme                         |
+| `COPY`   | F6       | Copier quelque chose               | Dépend du programme                         |
+| `CHANGE` | F7       | Changer quelque chose              | Dépend du programme                         |
 
-La touche `KILL` est la seule dont le comportement est cohérent partout.
+La touche `KILL` est celle dont le comportement est le plus utile de façon cohérente.
 Elle tue les choses. C'est son travail. Elle est honnête.
 
 ---

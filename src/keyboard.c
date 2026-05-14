@@ -136,6 +136,12 @@ static const struct {
     { SDL_SCANCODE_F7, 0x01 }, /* CHANGE */
 };
 
+static void refresh_function_bits(struct Smaky6 *m)
+{
+    m->kbd.fonct_bits = (uint8_t)((m->kbd.fonct_keyboard_bits |
+                                   m->kbd.fonct_mouse_bits) & 0x7Fu);
+}
+
 /* Select the active S471 lookup layer from the current modifier state. */
 static S471Layer current_layer(const struct Smaky6 *m)
 {
@@ -324,6 +330,8 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
+    m->kbd.fonct_keyboard_bits = 0;
+    m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = 0;
 }
 
@@ -395,9 +403,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         if (FUNCTION_KEYS[i].scan != scan)
             continue;
         if (ev->type == SDL_KEYDOWN)
-            m->kbd.fonct_bits |= FUNCTION_KEYS[i].bit;
+            m->kbd.fonct_keyboard_bits |= FUNCTION_KEYS[i].bit;
         else if (ev->type == SDL_KEYUP)
-            m->kbd.fonct_bits &= (uint8_t)~FUNCTION_KEYS[i].bit;
+            m->kbd.fonct_keyboard_bits &= (uint8_t)~FUNCTION_KEYS[i].bit;
+        refresh_function_bits(m);
         return;
     }
 
