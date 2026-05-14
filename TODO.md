@@ -175,7 +175,7 @@ and text) to distinguish them from the red held state.
 
 ## Keyboard
 
-### Re-audit ESC / UNDO hardware code
+### ESC / UNDO runtime reconciliation
 
 External S471 PROM decoding suggests the top-left physical key position emits
 `0x06` on the normal layer, with `0x1B` only on an alternate FNCT/ALT layer.
@@ -190,7 +190,7 @@ Needed next check:
   the Q-row right-end candidate), while the top-left key is really `0x06`;
 - reconcile the live CLI behaviour with the now-switched `0x06` working mapping.
 
-### Full S471 matrix modeling
+### ~~Full S471 matrix modeling~~ ✅ Mostly done
 
 The full four-layer S471 dump is now available.  It confirms exact per-position
 outputs for normal, Shift, FNCT/ALT, and caps-like layers, including:
@@ -221,7 +221,7 @@ Current emulator state:
 - FNCT/ALT-layer printable outputs are still not broadly exposed through separate
   host bindings.
 
-Future work:
+Remaining follow-up:
 
 - add the remaining audited host-position mappings that are still absent from
   `HOST_MATRIX_KEYS[]`;
@@ -473,9 +473,9 @@ Older CLI notes had interpreted two separate codes for cancel/recall:
 - `0x05` (ENQ `>`) — recall the previous command
 
 The emulator now maps `SDL_SCANCODE_ESCAPE` to `0x06` as its current working
-hardware code. The remaining task is to reconcile live CLI behaviour against that
-switch and decide whether the older `0x04` / `0x05` interpretation belongs to a
-different physical key path.
+hardware code. The remaining task is the same one called out above: reconcile
+live CLI behaviour against that switch and decide whether the older `0x04` /
+`0x05` interpretation belongs to a different physical key path.
 
 **Emulator-side auto-repeat fixes** ✅ Done (commit `0ec70d7`):
 1. Enter (`0x0D`) never arms SAMOS ISR Stage 4 auto-repeat (`0x4558`/`0x4577`),
@@ -483,7 +483,7 @@ different physical key path.
 2. Physical keystrokes have bit 7 set in the FIFO entry; injected characters
    (inject-str, etc.) do not.  Auto-repeat is only armed for physical keys.
 
-**TODO — ESC recall (not yet implemented):**
+**TODO — ESC recall convenience feature (not yet implemented):**
 SAMOS native `0x05` recall is unreliable: the line editor overwrites `0x45C0[0]`
 with the cursor `'-'` when initialising a new input session, erasing the previous
 command before the recall handler can read it.
@@ -498,6 +498,14 @@ Implement emulator-side recall instead:
    FIFO **without** bit 7 (no auto-repeat).  SAMOS echoes the characters and
    leaves the cursor at the end of the recalled line, ready for editing.
    Add `#include "machine.h"` to `keyboard.c` for the detection call.
+
+**Keyboard status summary:** the main keyboard bring-up is complete. Remaining
+work is limited to three narrower items:
+1. ESC / UNDO runtime reconciliation (`0x06` hardware mapping vs older `0x04` /
+  `0x05` CLI interpretation).
+2. Optional emulator-side ESC recall convenience feature.
+3. Completeness work for remaining audited host-position mappings / broader
+  FNCT/ALT-layer printable exposure.
 
 **Chargen glyph block `0x0F–0x1F`** — the keyboard EPROM (Prom 2716) maps this range
 to Swiss-French glyphs instead of the standard ASCII C0 control codes.  The full
