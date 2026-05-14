@@ -136,15 +136,18 @@ if(EMSCRIPTEN)
     target_compile_options(smemu6 PRIVATE -s USE_SDL=2)
 
     # Build link flags as a string (target_link_options mis-parses -s KEY=VAL)
-    set(EM_LINK_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,FS] -s EXPORTED_FUNCTIONS=[_main,_smemu6_reset,_smemu6_mount_dx0,_smemu6_mount_dx1,_smemu6_get_version] -s MODULARIZE=0 -s FORCE_FILESYSTEM=1")
+    set(EM_LINK_FLAGS "-s USE_SDL=2 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=67108864 -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,FS,callMain] -s EXPORTED_FUNCTIONS=[_main,_smemu6_reset,_smemu6_mount_dx0,_smemu6_mount_dx1,_smemu6_get_version] -s MODULARIZE=0 -s FORCE_FILESYSTEM=1")
     # Only preload the Phantom boot ROM; chargen is built into the emulator.
     foreach(_rom samos_sys17.rom)
         if(EXISTS "${CMAKE_SOURCE_DIR}/roms/${_rom}")
             string(APPEND EM_LINK_FLAGS " --preload-file \"${CMAKE_SOURCE_DIR}/roms/${_rom}@/roms/${_rom}\"")
         endif()
     endforeach()
-    # Floppies and hard-disk images are NOT preloaded; the user uploads them
-    # via the browser UI and they are written into the virtual FS at runtime.
+    # Preload the bundled floppy library so the launcher can offer built-in
+    # disk selections before the emulator starts.
+    if(EXISTS "${CMAKE_SOURCE_DIR}/floppies")
+        string(APPEND EM_LINK_FLAGS " --preload-file \"${CMAKE_SOURCE_DIR}/floppies@/floppies\"")
+    endif()
     set_target_properties(smemu6 PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS}")
 
     # Copy the web shell and its referenced static assets into the build

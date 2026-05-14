@@ -209,6 +209,17 @@
       font-style: italic;
     }
 
+    .lnch-help {
+      font-size: var(--ui-font-small);
+      color: #7a7060;
+      line-height: 1.45;
+    }
+
+    select.lnch-disk-select {
+      flex: 1 1 148px;
+      min-width: 0;
+    }
+
     .lnch-opts {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -294,9 +305,17 @@
     #btn-start:hover {
       background: linear-gradient(180deg, #4a3830 0%, #382820 100%);
     }
+    #btn-start:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+      box-shadow: 0 2px 0 #1a1410, 0 1px 2px #00000022;
+    }
     #btn-start:active {
       transform: translateY(1px);
       box-shadow: 0 1px 0 #1a1410, 0 1px 3px #00000044;
+    }
+    #btn-start:disabled:active {
+      transform: none;
     }
 
     /* ── Machine (emulator view) ────────────────────────────────────────── */
@@ -645,18 +664,26 @@
     <div class="lnch-row">
       <label class="lbl">DX0</label>
       <div class="lnch-led" id="lnch-led-dx0"></div>
-      <label class="pick-btn" for="lnch-dx0-file">Insert…</label>
+      <select class="lnch-select lnch-disk-select" id="lnch-dx0-select" disabled>
+        <option value="">Loading bundled disks…</option>
+      </select>
+      <label class="pick-btn" for="lnch-dx0-file">Use own…</label>
       <input type="file" id="lnch-dx0-file" accept=".dsk,.DSK">
-      <span class="lnch-fname" id="lnch-dx0-name">no disk</span>
+      <span class="lnch-fname" id="lnch-dx0-name">no disk selected</span>
     </div>
 
     <div class="lnch-row">
       <label class="lbl">DX1</label>
       <div class="lnch-led" id="lnch-led-dx1"></div>
-      <label class="pick-btn" for="lnch-dx1-file">Insert…</label>
+      <select class="lnch-select lnch-disk-select" id="lnch-dx1-select" disabled>
+        <option value="">Loading bundled disks…</option>
+      </select>
+      <label class="pick-btn" for="lnch-dx1-file">Use own…</label>
       <input type="file" id="lnch-dx1-file" accept=".dsk,.DSK">
-      <span class="lnch-fname" id="lnch-dx1-name">no disk</span>
+      <span class="lnch-fname" id="lnch-dx1-name">no disk selected</span>
     </div>
+
+    <div class="lnch-help" id="lnch-disk-note">Loading bundled floppy library…</div>
   </div>
 
   <div class="lnch-section">
@@ -695,7 +722,7 @@
   </div>
 
   <div class="lnch-section" style="padding-bottom: 6px;">
-    <button id="btn-start">&#x25b6;&nbsp;&nbsp;Start</button>
+    <button id="btn-start" disabled>&#x25b6;&nbsp;&nbsp;Start</button>
   </div>
 
 </div>
@@ -768,13 +795,95 @@
 // ── Launcher disk staging ────────────────────────────────────────────────────
 var launchDx0File = null;
 var launchDx1File = null;
+var runtimeReady = false;
+var emulatorStarted = false;
+
+function setLaunchDriveState(drive, label, active) {
+  document.getElementById('lnch-' + drive + '-name').textContent = label;
+  document.getElementById('lnch-led-' + drive).classList.toggle('active', !!active);
+}
+
+function getBundledDriveSelection(drive) {
+  return document.getElementById('lnch-' + drive + '-select').value;
+}
+
+function refreshLaunchDriveState(drive) {
+  var stagedFile = drive === 'dx0' ? launchDx0File : launchDx1File;
+  if (stagedFile) {
+    setLaunchDriveState(drive, stagedFile.name + ' (upload)', true);
+    return;
+  }
+
+  var bundledPath = getBundledDriveSelection(drive);
+  if (bundledPath) {
+    setLaunchDriveState(drive, bundledPath.replace('/floppies/', ''), true);
+    return;
+  }
+
+  setLaunchDriveState(drive, 'no disk selected', false);
+}
+
+function populateBundledDiskSelect(selectId, preferredName) {
+  var select = document.getElementById(selectId);
+  var entries = [];
+
+  try {
+    entries = Module.FS.readdir('/floppies')
+      .filter(function(name) { return /\.dsk$/i.test(name); })
+      .sort(function(left, right) { return left.localeCompare(right); });
+  } catch (err) {
+    entries = [];
+  }
+
+  select.innerHTML = '';
+
+  var emptyOption = document.createElement('option');
+  emptyOption.value = '';
+  emptyOption.textContent = entries.length ? 'No disk' : 'No bundled disks found';
+  select.appendChild(emptyOption);
+
+  entries.forEach(function(name) {
+    var option = document.createElement('option');
+    option.value = '/floppies/' + name;
+    option.textContent = name;
+    if (name === preferredName) option.selected = true;
+    select.appendChild(option);
+  });
+
+  select.disabled = entries.length === 0;
+  return entries;
+}
+
+function stageDiskFile(file, drive) {
+  return new Promise(function(resolve, reject) {
+    if (!file) {
+      resolve('');
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        var buf = new Uint8Array(evt.target.result);
+        var path = '/floppies/user_' + drive + '.dsk';
+        try { Module.FS.unlink(path); } catch (unlinkErr) {}
+        Module.FS.writeFile(path, buf);
+        resolve(path);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = function() {
+      reject(reader.error || new Error('Failed to read disk image'));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 function lnchPickDisk(file, drive) {
-  if (!file) return;
-  if (drive === 'dx0') launchDx0File = file;
-  else                 launchDx1File = file;
-  document.getElementById('lnch-' + drive + '-name').textContent = file.name;
-  document.getElementById('lnch-led-' + drive).classList.add('active');
+  if (drive === 'dx0') launchDx0File = file || null;
+  else                 launchDx1File = file || null;
+  refreshLaunchDriveState(drive);
 }
 document.getElementById('lnch-dx0-file').addEventListener('change', function(e) {
   lnchPickDisk(e.target.files[0], 'dx0');
@@ -782,9 +891,22 @@ document.getElementById('lnch-dx0-file').addEventListener('change', function(e) 
 document.getElementById('lnch-dx1-file').addEventListener('change', function(e) {
   lnchPickDisk(e.target.files[0], 'dx1');
 });
+document.getElementById('lnch-dx0-select').addEventListener('change', function() {
+  launchDx0File = null;
+  document.getElementById('lnch-dx0-file').value = '';
+  refreshLaunchDriveState('dx0');
+});
+document.getElementById('lnch-dx1-select').addEventListener('change', function() {
+  launchDx1File = null;
+  document.getElementById('lnch-dx1-file').value = '';
+  refreshLaunchDriveState('dx1');
+});
 
 // ── Start button ─────────────────────────────────────────────────────────────
-document.getElementById('btn-start').addEventListener('click', function() {
+document.getElementById('btn-start').addEventListener('click', async function() {
+  if (!runtimeReady || emulatorStarted) return;
+
+  var startButton = this;
   var args = ['-no-launcher'];
 
   if (document.getElementById('lnch-nodispoff').checked)  args.push('-no-display-off');
@@ -795,14 +917,39 @@ document.getElementById('btn-start').addEventListener('click', function() {
 
   args.push('-scale', document.getElementById('lnch-scale').value);
 
-  Module.arguments = args;
+  startButton.disabled = true;
+  document.getElementById('lnch-disk-note').textContent = 'Preparing disk images…';
+
+  try {
+    var dx0Path = await stageDiskFile(launchDx0File, 'dx0');
+    var dx1Path = await stageDiskFile(launchDx1File, 'dx1');
+
+    if (!dx0Path) dx0Path = getBundledDriveSelection('dx0');
+    if (!dx1Path) dx1Path = getBundledDriveSelection('dx1');
+
+    if (dx0Path) args.push('-floppy', dx0Path);
+    if (dx1Path) args.push('-floppy2', dx1Path);
+  } catch (err) {
+    document.getElementById('lnch-disk-note').textContent = 'Failed to stage selected disk image.';
+    appendOutput('[web] disk staging failed: ' + (err && err.message ? err.message : err) + '\n');
+    startButton.disabled = false;
+    return;
+  }
 
   document.getElementById('launcher').style.display = 'none';
   document.getElementById('machine').style.display  = 'flex';
+  document.getElementById('status-overlay').classList.remove('hidden');
+  document.getElementById('status-text').textContent = 'Starting…';
+  document.getElementById('dx0-name').textContent = dx0Path ? dx0Path.replace('/floppies/', '') : 'no disk';
+  document.getElementById('dx1-name').textContent = dx1Path ? dx1Path.replace('/floppies/', '') : 'no disk';
+  document.getElementById('led-dx0').classList.toggle('active', !!dx0Path);
+  document.getElementById('led-dx1').classList.toggle('active', !!dx1Path);
 
-  var s = document.createElement('script');
-  s.src = 'smemu6.js';
-  document.body.appendChild(s);
+  emulatorStarted = true;
+  Module.callMain(args);
+  document.getElementById('status-overlay').classList.add('hidden');
+  document.getElementById('btn-reset').disabled = false;
+  document.getElementById('canvas').focus();
 });
 
 // ── Emscripten Module ────────────────────────────────────────────────────────
@@ -814,6 +961,7 @@ function appendOutput(text) {
 
 var Module = {
   canvas: document.getElementById('canvas'),
+  noInitialRun: true,
   print:    function(text) { appendOutput(text + '\n'); },
   printErr: function(text) { appendOutput(text + '\n'); },
 
@@ -831,26 +979,16 @@ var Module = {
       }
     } catch(e) {}
 
-    function writeDisk(file, drive, nameId, ledId) {
-      if (!file) return;
-      document.getElementById(nameId).textContent = file.name;
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        var buf  = new Uint8Array(e.target.result);
-        var path = '/floppies/user_' + drive + '.dsk';
-        try { Module.FS.unlink(path); } catch(ex) {}
-        Module.FS.writeFile(path, buf);
-        Module.ccall('smemu6_mount_' + drive, null, ['string'], [path]);
-        flashLed(ledId);
-      };
-      reader.readAsArrayBuffer(file);
-    }
-    writeDisk(launchDx0File, 'dx0', 'dx0-name', 'led-dx0');
-    writeDisk(launchDx1File, 'dx1', 'dx1-name', 'led-dx1');
+    var bundled = populateBundledDiskSelect('lnch-dx0-select', 'Sys1-H.dsk');
+    populateBundledDiskSelect('lnch-dx1-select', '');
+    refreshLaunchDriveState('dx0');
+    refreshLaunchDriveState('dx1');
 
-    document.getElementById('status-overlay').classList.add('hidden');
-    document.getElementById('btn-reset').disabled = false;
-    document.getElementById('canvas').focus();
+    document.getElementById('lnch-disk-note').textContent = bundled.length
+      ? 'Bundled floppy library ready. Pick a disk or use your own image.'
+      : 'No bundled floppy images were packaged into this build.';
+    document.getElementById('btn-start').disabled = false;
+    runtimeReady = true;
   },
 
   onAbort: function(reason) {
@@ -918,6 +1056,13 @@ document.getElementById('log-toggle').addEventListener('click', function() {
 document.getElementById('canvas').addEventListener('click', function() {
   this.focus();
 });
+
+(function loadRuntimeScript() {
+  var runtimeScript = document.createElement('script');
+  runtimeScript.src = 'smemu6.js';
+  runtimeScript.async = true;
+  document.body.appendChild(runtimeScript);
+})();
 </script>
 </body>
 </html>

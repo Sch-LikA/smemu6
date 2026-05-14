@@ -85,11 +85,12 @@ headers.
 ## Using the emulator
 
 1. Open `http://localhost:8080/` in a browser.
-2. Wait for the ROMs and disk images to load (progress shown on screen).
-3. The emulator starts automatically and boots from the preloaded floppy image
-   (if `floppies/` was available at build time).
-4. Use **Load DX0 / Load DX1** buttons to load a `.dsk` image from your
-   local machine into the virtual filesystem, then click **Reset** to reboot.
+2. Wait for the launcher to finish loading the bundled floppy library.
+3. Pick a built-in disk from the DX0 / DX1 dropdowns, or use **Use own…** to
+  stage your own `.dsk` image before boot.
+4. Click **Start** to launch the emulator with the selected disks.
+5. After the emulator has started, use **Insert…** on the front panel to load a
+  new `.dsk` image into the virtual filesystem, then click **Reset** to reboot.
 
 ## Controls
 
@@ -105,16 +106,16 @@ Same as the native build — see [docs/EMULATOR_GUIDE_EN.md](../docs/EMULATOR_GU
 
 At build time, `--preload-file` bundles:
 
-| Source path | Virtual FS path            |
-| ----------- | -------------------------- |
-| `roms/`     | `/roms/`                   |
-| `floppies/` | `/floppies/` (if present)  |
+- `roms/` -> `/roms/`
+- `floppies/` -> `/floppies/` (bundled library)
 
 ## Notes
 
 - The web shell is now responsive: the launcher, canvas, and front-panel
   controls scale down to narrow screens, and touch targets are enlarged for
   phones and tablets.
+- The launcher preloads the bundled floppy library from `/floppies/` and lets
+  you choose DX0 / DX1 boot disks before starting the emulator.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
   is passed via `Module.arguments`).  Use the HTML controls instead.
 - Sound uses SDL2's push-mode (`SDL_QueueAudio`) — no `SharedArrayBuffer`

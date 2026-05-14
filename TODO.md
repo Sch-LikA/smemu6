@@ -781,22 +781,12 @@ See [web/README.md](web/README.md) for build and serving instructions.
   `max-width: 100%`), `clamp()`-based UI typography, narrow-screen breakpoints
   that stack the front-panel controls below the screen, and 44 px minimum touch
   targets for buttons, toggles, and selects.
-- **Bundled floppy library** — bundle all `.dsk` images from the `floppies/` directory
-  into the Emscripten data package at build time, and offer a selection UI at boot so
-  users can pick a disk without uploading anything:
-  - Add `--preload-file floppies@/floppies` to the `emcc` link flags in
-    `CMakeLists.txt` (web preset only).
-  - In `web/index.html`, before the emulator starts, populate a `<select>` dropdown
-    (or a card grid) with the filenames found under `/floppies/` via the Emscripten
-    virtual FS API (`FS.readdir('/floppies')`), filtered to `*.dsk` / `*.DSK`.
-  - Selecting a disk sets it as the DX0 (or DX1) boot image; the path is passed to
-    the C side via a `smemu6_set_floppy(int drive, const char *vpath)`
-    `EMSCRIPTEN_KEEPALIVE` export before the main loop starts.
-  - A "Use own disk…" option in the same UI still allows the existing
-    `<input type="file">` upload path for user-supplied images.
-  - The dropdown should be shown in a pre-boot splash / configuration panel (ties in
-    with the SDL launcher port item below); if the launcher is not yet ported, show
-    it as an overlay that disappears once the user clicks **Start**.
+- **Bundled floppy library** ✅ Done — the web build now preloads the repository
+  `floppies/` directory into `/floppies`, the launcher populates DX0 / DX1 dropdowns
+  from `FS.readdir('/floppies')` before startup, `Sys1-H.dsk` is preselected for DX0,
+  and clicking **Start** routes the selected bundled image through the existing
+  `-floppy` / `-floppy2` startup path. The existing **Use own…** file picker still
+  stages user-supplied `.dsk` files into the same virtual filesystem before boot.
 - **SDL launcher in browser** — `launcher_run()` is a blocking event loop and
   cannot run as-is under Emscripten.  To enable it: refactor into
   `launcher_init()` + `launcher_frame()` (called from `emscripten_set_main_loop`);
