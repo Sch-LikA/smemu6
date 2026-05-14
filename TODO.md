@@ -566,10 +566,12 @@ Mapped accents (doc §10.4 p.214):
 ### ~~Lowercase character support~~ ✓ DONE
 
 The chargen ROM already has lowercase glyphs (0x61–0x7A).  The fix was on the
-keyboard input side: replaced printable-character entries in `KEY_TABLE[]` with
-an `SDL_TEXTINPUT` handler (`keyboard_text_event()`).  The host OS applies shift /
-Caps Lock so 'a' arrives by default and 'A' with Shift.  The raw byte is pushed to
-the FIFO unchanged, and the chargen renders it correctly.
+keyboard input side: printable host text now enters through `keyboard_text_event()`
+via `SDL_TEXTINPUT`, while Backspace, Tab, Return, function keys, and other
+non-text keys stay on the strict scancode-to-matrix path.  The host OS applies
+shift / Caps Lock so `a` and `A` arrive as intended for the active host layout,
+and the text event is converted into one transient Smaky keycode without binding
+printable input to a specific host physical key position.
 
 ### ~~Display-off mode~~ ✓ DONE
 

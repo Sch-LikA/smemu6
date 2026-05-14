@@ -263,6 +263,8 @@ static void main_loop_iter(void)
                 L->m->kbd.fonct_keyboard_bits = 0;
                 L->m->kbd.fonct_mouse_bits = 0;
                 L->m->kbd.fonct_bits = 0;
+                L->m->kbd.host_text_down_count = 0;
+                memset(L->m->kbd.host_text_down, 0, sizeof(L->m->kbd.host_text_down));
             }
             break;
 
@@ -288,6 +290,10 @@ static void main_loop_iter(void)
 
         case SDL_KEYUP:
             keyboard_event(L->m, &ev.key);
+            break;
+
+        case SDL_TEXTINPUT:
+            keyboard_text_event(L->m, &ev.text);
             break;
 
         case SDL_MOUSEBUTTONDOWN:
@@ -921,6 +927,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     SDL_RenderSetLogicalSize(ren, VIDEO_WIN_W, VIDEO_WIN_H);
+    SDL_StartTextInput();
 
     /* ── Machine init ───────────────────────────────────────────────────── */
     struct Smaky6 *m = machine_create();

@@ -536,10 +536,10 @@ the original hardware is assumed to do.
 
 But it should not remain the primary model for the default hardware-faithful path.
 
-Recommended direction:
+Current direction:
 
-- default mode: strict S471 physical-key emulation;
-- optional compatibility mode: current host-layout-friendly text input.
+- default runtime: strict S471 physical-key emulation for non-text keys, plus `SDL_TEXTINPUT` for printable host text;
+- future optional mode split: keep the current hybrid runtime as the host-friendly default until a fully strict printable path is good enough to stand on its own.
 
 The strict mode is not an optional afterthought.  It is the reference model we
 should be aiming to make correct first.
@@ -548,7 +548,7 @@ What this means concretely:
 
 - **Strict mode**: ordinary matrix keys follow `host position -> S471 table -> regular keycode -> CLA latch path`; function keys update `fonct_bits`, feed GETFON through the normal CLA path, and are synthesized for syscall `0x0E` only when no staged ordinary direct byte is pending; space bar remains a normal key unless later hardware evidence shows it is separately wired, in which case it can become a specific special case without changing the overall architecture.
 
-- **Compatibility mode**: keep `SDL_TEXTINPUT` and other host-friendly typing paths for ordinary printable input; allow extra host aliases such as `Home`, `End`, `Insert`, or similar keys to drive the same `fonct_bits` state as a convenience layer; document those aliases explicitly as non-physical host bindings, not as claims about original keyboard wiring.
+- **Compatibility mode**: keep `SDL_TEXTINPUT` and other host-friendly typing paths for ordinary printable input; in the current runtime this is active for printable keys by default so international host layouts produce the intended character while Backspace, Tab, Return, function keys, BREAK-family handling, and other non-text keys still follow the strict keydown path; document any extra host aliases explicitly as non-physical host bindings, not as claims about original keyboard wiring.
 
 ### H. Model layer selection explicitly
 

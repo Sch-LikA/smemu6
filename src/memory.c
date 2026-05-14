@@ -10,8 +10,8 @@
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
     if (addr == 0x457Eu) {
-        uint8_t value = m->bus[addr];
         int is_syscall_0e_read = (uint16_t)Z80_PC(m->cpu) == 0x0519u;
+        uint8_t value = m->bus[addr];
 
         if (is_syscall_0e_read && value == 0x00u && m->kbd.fonct_bits != 0)
             value = m->kbd.fonct_bits;
@@ -49,6 +49,7 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
         if (old == 0xB6u && data == 0x96u)
             enqueue_advanced = 1;
         if (old != data && enqueue_advanced) {
+        m->kbd.key_code = 0x00;
         m->bus[0x4558u] = 0;
         m->bus[0x4577u] = 0;
         m->kbd.found = 0;

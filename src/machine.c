@@ -509,6 +509,8 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.regular_prefix_armed = 1;
     m->kbd.shift_pressed   = 0;
     m->kbd.caps_lock_active = 0;
+    m->kbd.host_text_down_count = 0;
+    memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.fonct_bits = 0;
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
@@ -531,6 +533,8 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     m->kbd.regular_prefix_armed = 0;
     m->kbd.shift_pressed   = 0;
     m->kbd.caps_lock_active = 0;
+    m->kbd.host_text_down_count = 0;
+    memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.fonct_bits = 0;
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
@@ -551,6 +555,8 @@ void machine_release_key(struct Smaky6 *m)
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.shift_pressed   = 0;
+    m->kbd.host_text_down_count = 0;
+    memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.fonct_bits = 0;
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
@@ -577,6 +583,8 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.boot_key_held   = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
+    m->kbd.host_text_down_count = 0;
+    memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;

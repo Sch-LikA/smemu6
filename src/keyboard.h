@@ -20,6 +20,9 @@ void keyboard_fini(struct Smaky6 *m);
  * the active layer, and F1..F7 update the separate non-matrix function bits. */
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
 
+/* Feed one SDL text-input event into the printable compatibility path. */
+void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);
+
 /* Call once per 50 Hz frame: handles boot-time virtual Enter release. */
 void keyboard_frame_tick(struct Smaky6 *m);
 

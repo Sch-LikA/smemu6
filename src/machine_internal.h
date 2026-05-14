@@ -46,6 +46,8 @@ struct Smaky6 {
         int      regular_prefix_armed; /* 1 until the first post-boot ordinary key claims the validated bit7 prefix */
         int      shift_pressed;     /* current Shift state for verified layer-sensitive keys */
         int      caps_lock_active;  /* latched CAPS/LOCK state selects the PROM caps layer */
+        uint16_t host_text_down_count; /* number of printable host keys currently held down */
+        uint8_t  host_text_down[SDL_NUM_SCANCODES]; /* guards SDL_TEXTINPUT against stray post-keyup events */
         SDL_Scancode active_scancode; /* host scancode currently owning the ordinary-key latch */
         uint8_t  active_matrix_position; /* 0..63 for the held ordinary key; 0xFF = none */
         struct {
