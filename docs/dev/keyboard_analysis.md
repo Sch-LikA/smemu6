@@ -12,6 +12,7 @@ The Smaky 6 keyboard uses a **dedicated encoder EPROM (S471)** that interfaces w
 ### Confirmed hardware latch topology (from schematic Nov 1978 — J. Zahn, and official Smaky 6 doc §10.4 CLAVIER)
 
 Key ICs on the keyboard board:
+
 - **B5 = S471** — keyboard encoder EPROM (scans matrix, generates 7-bit keycode)
 - **B4, B6 = 4051** — 8-channel CMOS mux for key matrix column scanning
 - **A8 = 4013** — dual D flip-flop; **generates the FOUND signal**
@@ -21,6 +22,7 @@ Key ICs on the keyboard board:
 - **A3 = LS 138** — 3-to-8 decoder (I/O address decode, "INTERLOW")
 
 **FOUND and FULCLA latches (4013 FF2):**
+
 - **SET** when the keyboard scanner detects a pressed key during its scan cycle.
 - **RESET by the CLA read itself** — the `IN A,(0x00)` instruction generates a STROBE pulse
   that simultaneously reads the key code and clears both FOUND and FULCLA.
@@ -38,6 +40,7 @@ consecutive keys in scan order, only **3µs** may separate the clear from the ne
 
 **Status register not necessary:** The official doc states *"le registre de status du clavier
 n'est en fait pas nécessaire"* — bit 7 of the CLA byte encodes the FOUND state directly:
+
 - Bit 7 = **0** → FOUND=1, a regular key code is in bits 0–6
 - Bit 7 = **1** → FOUND=0, bits 0–6 carry the **function key** bitmask (F1–F7)
 
@@ -83,7 +86,7 @@ The SAMOS interrupt service routine fires via RST 38h at 50 Hz (every ~20 ms).  
 
 ### Stage 1 — Direct CLA read (0x015B–0x016D)
 
-```
+```asm
 015B  LD HL, 0x4580     ; HL → "last-read" register
 015E  LD (HL), 0x00     ; clear it
 0160  IN A, (0x00)      ; *** CLA READ #1 *** clears FOUND; key in bits 0-6, bit7=0 if present
@@ -102,7 +105,7 @@ Result when key is pressed: key code stored at `0x457E`, `(0x4558)=0`, return.
 
 Only reached when Stage 1's CLA read returned 0x80 (no active key press):
 
-```
+```asm
 016E  AND 0x7F          ; mask bit7 (A = 0)
 0170  LD (HL), A        ; (0x4580) = 0
 0171  INC HL            ; HL = 0x4581
@@ -124,6 +127,7 @@ Only reached when Stage 1's CLA read returned 0x80 (no active key press):
 ```
 
 **What is now proven vs still unresolved:**
+
 - Direct `SYS.SY` binary audit confirms the ISR really reads `0x4582` at `0x0175`.
 - The same audit confirms the init sentinel write at `0x00A1` is to `0x458A`, not `0x4582`.
 - Therefore the old `0x4582=0x80` permanent-block explanation is withdrawn.
@@ -133,7 +137,7 @@ Only reached when Stage 1's CLA read returned 0x80 (no active key press):
     early Stage 3 workspace walk are active even while the workspace is empty.
 - Therefore the current gate is specifically `0x4582 == 0x80`, not `0x4582 == 0`.
 - The precise semantic roles of `0x4581`, `0x4582`, and `0x458B..0x4595` remain
-    unresolved.  The missing piece is now the producer that seeds this workspace.
+    unresolved. The missing piece is now the producer that seeds this workspace.
 
 ### Stage 3 — Circular buffer management (0x019B–0x01DF)
 
@@ -142,17 +146,17 @@ return at `0x016D`.
 
 - Direct disassembly shows Stage 3 starts at `0x019B` with `DE=0x4580` and `HL=0x458A`.
 - `0x458A` is initialised to `0x80` at `0x00A1`; `0x4595` and `0x45B6` are guard
-    sentinels written by the same init block.
+  sentinels written by the same init block.
 - Stage 3 does more than a simple one-byte enqueue: it scans and compacts an
-    internal workspace structure before Stage 4 uses the circular-buffer write pointer
-    at `0x457C`.
+  internal workspace structure before Stage 4 uses the circular-buffer write pointer
+  at `0x457C`.
 - Live trace confirms that the idle-state walk into `0x019B` and `0x01C9` can happen
-    with `0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`.
-    So this path is not itself proof of a key being promoted; it can also be an empty
-    housekeeping pass over the workspace.
+  with `0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`.
+  So this path is not itself proof of a key being promoted; it can also be an empty
+  housekeeping pass over the workspace.
 - The exact semantic roles of `0x4580..0x4582` and `0x458B..` are still under
-    re-audit, so the old simplistic description has been intentionally narrowed to
-    binary-backed facts only.
+  re-audit, so the old simplistic description has been intentionally narrowed to
+  binary-backed facts only.
 
 ### Stage 4 — Auto-repeat (0x01DF–0x0206)
 
@@ -165,7 +169,7 @@ The two key RAM locations are:
 | `0x4558`| `042530`| Repeat countdown  | Set to `0x23` (35 frames = **700 ms**) on first keypress; decremented each ISR frame; when it hits 0 it is reloaded to `3` (3 frames = **60 ms**) for the fast-repeat rate |
 | `0x4577`| `042567`| Repeat key code   | Stores the last key code that was written to the circular buffer; re-injected each time the countdown fires |
 
-```
+```asm
 01DF  LD HL,(0x457C)    ; HL = write pointer
 01E2  DEC HL            ; HL → last-written slot
 01E3  BIT 7,(HL)        ; test "slot filled" marker
@@ -196,13 +200,21 @@ The two key RAM locations are:
 
 | Syscall | Address | Source buffer |
 |---------|---------|---------------|
-| 0x0D (blocking char read) | 0x04F6 | Circular buffer at `0x457C`/`0x458A+` |
-| 0x0E (non-blocking check) | — | `0x457E` (Stage 1 direct store) |
+| 0x0D (blocking char read) | 0x04F6      | Circular buffer at `0x457C`/`0x458A+` |
+| 0x0E (non-blocking check) | 0x0516/0x0519 | `0x457E` (Stage 1 direct store, consumed on read in the emulator model) |
 
 **The CLI uses syscall 0x0D.**  Direct binary audit confirms `0x0509` loops on the
 `0x04F6` circular-buffer routine, while `0x0516` is the separate `0x457E` accessor.
 Therefore normal typed input must reach the circular-buffer path somehow.  Exactly
 how Stage 1, Stage 2, and Stage 3 cooperate post-boot is still under re-audit.
+
+**Validated emulator-side fix (2026-05-14):** later printable matrix keys were still
+failing visibly even after they reached the circular buffer because the direct
+`0x457E` path was effectively sticky.  Runtime trace showed the CLI helper repeatedly
+returning through `0x5B2B` while syscall `0x0E` re-read the same stale byte at
+`pc=0x0519`.  Making the emulator consume `0x457E` on that accessor read removed the
+stale direct-key path, after which the same traced `a s d` run reached visible
+insertions at `pc=0x590F` for all three keys.
 
 ---
 
@@ -594,7 +606,7 @@ bridge, but it is the only defensible remaining place to look.
 ### Three delivery paths
 
 | Caller | Path | Destination |
-|--------|------|-------------|
+| ------ | ---- | ----------- |
 | Physical ordinary key (`SDL_KEYDOWN`/`KEYUP`) | Host scancode position → S471 lookup → CLA-visible `found/key_code` latch; overlapping taps queue in `pending_ordinary[8]` until promoted | `SYS.SY` Stage 1 / 2 / 3 / 4 → SAMOS circular buffer → syscall 0x0D (CLI blocking read) |
 | Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned only when CLA has no ordinary key latched | `0x4580` via GETFON semantics and any callers that read function-bit state through CLA |
 | Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on autoboot hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
@@ -602,6 +614,11 @@ bridge, but it is the only defensible remaining place to look.
 **Syscall 0x0E and function keys:** syscall `0x0E` still reads `0x457E` directly, while the CLI
 blocking read uses the circular buffer.  The strict physical ordinary-key path is now about getting
 `SYS.SY` itself to promote keys into that buffer; it is not a direct `0x457E` service path.
+
+One extra validated emulator detail now matters here: the `0x457E` byte cannot remain sticky after
+that direct accessor reads it.  A stale `0x457E` value caused the CLI helper to keep seeing the
+same direct key through `0x0519`, which masked later printable keys even though they had already
+been enqueued and dequeued correctly through the circular-buffer path.
 
 **FLIPPER.SM analysis:** `FLIPPER.SM` detects flippers exclusively via syscall 0x0E followed by
 `AND 0xF0` (left flipper: CURSOR, fonct\_bit=`0x10`) and `AND 0x0F` (right flipper: CHANGE,
@@ -757,13 +774,13 @@ The CLI blocking read (syscall 0x0D, address `0x04D4`) loops calling the peek
 routine at `0x04F6` until it returns NZ (key present), then calls consume at `0x04E4`.
 
 **Write** (by `keyboard_frame_tick()` or `machine_inject_to_circ_buf()`):
-```
+```asm
 [ptr] = key_code;   ptr++
 ```
 After: `[0x4596] = key`, `ptr = 0x4597`.
 
 **Peek** (`0x04F6`):
-```
+```asm
 HL = (0x457C)         ; load write pointer
 A  = [HL]             ; read [ptr]
 CP 0x80               ; sentinel check
@@ -777,7 +794,7 @@ After writing one key, `[ptr] = [0x4597]`, which is typically `0x00` from uninit
 memory — not `0x80`, so the `CP 0x80` guard does not falsely signal empty.
 
 **Consume** (`0x04E4`):
-```
+```asm
 dec ptr; store       ; ptr = 0x4596
 HL = DE = 0x4596
 A = [0x4596]         ; read character
@@ -793,15 +810,15 @@ Visible prompt-line edits are performed by `CLI.SY`, not by the SAMOS Stage 1 la
 
 - `CLI.SY` line-input routine `0x5857` calls helper `0x5B29` to fetch one key.
 - `0x5B29` uses SAMOS blocking read syscall `0x0D`, not syscall `0x0E`.
-    In disassembly this appears as `RST 20h` at `0x5B2C` followed by byte `0x0D`
-    (rendered by `z80dasm` as `DEC C` because it does not understand the syscall ABI).
+  In disassembly this appears as `RST 20h` at `0x5B2C` followed by byte `0x0D`
+  (rendered by `z80dasm` as `DEC C` because it does not understand the syscall ABI).
 - Normal character insertion then uses helper `0x58DD..0x590F`:
-    - `0x58F8..0x58FD`: load current cursor from `0x7014`, increment it, store back;
-    - `0x5900..0x590B`: if needed, shift the tail right with `LDDR`;
-    - `0x590E`: store the new character into the line buffer;
-    - `0x590F`: return.
+  - `0x58F8..0x58FD`: load current cursor from `0x7014`, increment it, store back;
+  - `0x5900..0x590B`: if needed, shift the tail right with `LDDR`;
+  - `0x590E`: store the new character into the line buffer;
+  - `0x590F`: return.
 - Cursor redraw then uses `0x5A7B..0x5AF9`; trace confirmed `0x5A88` writes `'-'`
-    at the current cursor and later redraws it at the new cursor position.
+  at the current cursor and later redraws it at the new cursor position.
 
 Additional runtime confirmation (2026-05-13): during the live-prompt
 `-poke-at-pc 0x0179 0x4580 0x41` probe, the dequeued `0x41` does reach this exact
@@ -821,12 +838,31 @@ When `SDL_VIDEODRIVER=dummy` is set (CI / automated test mode), SDL delivers **n
 DISPLAY=:0 ./build/smemu6 -floppy floppies/Sys1-H.dsk
 ```
 
+## Trace Regression Check
+
+The repository now includes `tools/check_keyboard_asd_trace.sh`, a small Linux/X11
+regression script for the traced printable matrix-key path. It launches
+`build/smemu6`, discovers the emulator window from the PID banner, injects
+overlapping `a`, `s`, and `d` `keydown`/`keyup` events through `xdotool`, then
+asserts that the trace contains visible prompt-buffer writes for all three
+characters at `pc=0x590F`.
+
+```sh
+tools/check_keyboard_asd_trace.sh
+```
+
+Prerequisites:
+
+- a real X11 display so SDL delivers host keyboard events;
+- `xdotool` on `PATH`;
+- a built emulator at `build/smemu6`.
+
 ---
 
 ## Memory Map Summary
 
 | Address | Purpose |
-|---------|---------|
+| ------- | ------- |
 | `0x457E` | Last key code from Stage 1 (used by syscall 0x0E) |
 | `0x4558` | Debounce / key-repeat countdown (0x23 = 35 frames) |
 | `0x4580` | **Function-key bitmask (GETFON register)** — written by SAMOS ISR Stage 1 (`AND 0x7F; LD (0x4580),A`) from the CLA return value each frame.  Since `keyboard_read_cla()` returns `0x80 | fonct_bits` when no regular key is held, Stage 1 stores exactly `fonct_bits` here automatically.  No extra write from `main.c` needed. |
@@ -890,7 +926,7 @@ coverage falls into three distinct buckets:
 
 | Status | Mapping surface | Current state |
 |--------|-----------------|---------------|
-| Confirmed strict host-position mapping | `Escape`, digits, `Backspace`, `Tab`, letters `A`..`Z`, brackets, backslash, `Return`, `Space`, comma, period, minus | Explicitly mapped in `HOST_MATRIX_KEYS[]` and resolved through the audited S471 layers. |
+| Confirmed strict host-position mapping | `Escape`, digits, `Backspace`, `Tab`, letters `A`..`Z`, brackets, backslash, the ISO post-`L` cluster (`;`, `'`, non-US `\`), `Return`, `Space`, comma, period, minus | Explicitly mapped in `HOST_MATRIX_KEYS[]` and resolved through the audited S471 layers. |
 | Confirmed function-bit mapping | `F1`..`F7` | Exposed as `fonct_bits`; returned on CLA only when no ordinary key is latched. |
 | Remaining convenience / non-physical bindings | `F9`, BREAK / reset host shortcuts | Still documented as emulator conveniences rather than original keyboard-position claims. |
 

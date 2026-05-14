@@ -207,6 +207,9 @@ Current emulator state:
   using host scancode position -> S471 layer lookup -> CLA / `SYS.SY` delivery;
 - overlapping SDL taps are queued as pending ordinary keys and promoted one by one
   once the active latch becomes idle;
+- the direct `0x457E` helper byte is consumed on the `0x0519` accessor read, and
+  new promoted ordinary keys clear any stale helper byte before exposing the next
+  printable key;
 - function-key aliases (`F1..F7`) remain convenience host bindings for the 7
   bottom-row Smaky function bits;
 - FNCT/ALT-layer printable outputs are still not broadly exposed through separate
@@ -218,6 +221,29 @@ Future work:
   `HOST_MATRIX_KEYS[]`;
 - decide whether to add an explicit compatibility text-entry mode on top of the
   strict S471 baseline for accented / host-layout-friendly typing.
+
+### Overlapping printable-key CLI delivery ✅ Done  [confirmed]
+
+The remaining real-keyboard failure after the first matrix-model fix was no
+longer the repeat storm: later printable keys were reaching the circular-buffer
+path, but the CLI helper could still keep seeing a stale Stage 1 direct byte at
+`0x457E`.
+
+Validated result:
+
+- runtime trace showed repeated `pc=0x0519` reads of the same stale `0x457E` byte
+  while later printable keys had already been queued and promoted;
+- consuming `0x457E` on the direct accessor read removed that sticky helper path;
+- clearing `0x457E` again when a new ordinary key is latched stopped promoted keys
+  from inheriting the previous direct byte;
+- the traced overlapping `a s d` sequence now reaches visible CLI writes at
+  `0x45C0..0x45C2` in order.
+
+Regression coverage:
+
+- `tools/check_keyboard_asd_trace.sh` now injects overlapping `keydown`/`keyup`
+  events for `a`, `s`, and `d` against the SDL window;
+- the script asserts visible CLI insertions at `pc=0x590F` for all three keys.
 
 ### Released promoted-key repeat disarm ✅ Done  [confirmed]
 
@@ -251,18 +277,12 @@ The two RAM locations controlling it:
 | `0x4558` | `042530` | Initial-delay countdown. Set to `0x23` (35 frames = **700 ms**) on first keypress; decremented each frame; when it hits zero, reloaded to `3` (3 frames = **60 ms**) for the fast-repeat rate. |
 | `0x4577` | `042567` | Repeat key code register. Stores the last key written to the circular buffer; re-injected each time the countdown fires. |
 
-**Current status:** Physical keyboard still uses a FIFO→circular-buffer path that bypasses
-the low-level CLA workspace producer. The old explanation for this design, namely that
-ISR Stage 2 was permanently blocked by a `0x4582=0x80` sentinel, was withdrawn on
-2026-05-13 after direct `SYS.SY` binary audit showed the init sentinel write is to
-`0x458A`, while Stage 2 reads `0x4582`. Subsequent runtime probes now show that the
-best current hardware hypothesis is a different one: original post-boot regular-key
-delivery likely presents a bit-7-set regular code on the first relevant CLA read, so
-Stage 1 seeds `0x4580` with the regular code while still entering the Stage 2 / Stage 3
-path. That rule is now the default behavior for post-boot `machine_inject_key()` /
-`-inject-keycode` held keys, but not yet for real physical SDL keypresses. SDL key-repeat
-events are still filtered out (`if (ev->repeat) return`), so **holding a key produces
-exactly one initial physical character** and then relies on the SAMOS repeat registers.
+**Current status:** Physical keyboard now uses the strict CLA-facing latch plus
+pending-key promotion model described above, while SAMOS Stage 4 still provides
+the actual post-enqueue repeat timing through `0x4558` and `0x4577`. SDL
+key-repeat events are still filtered out (`if (ev->repeat) return`), so **holding
+a key produces one initial physical character** and then relies on the SAMOS
+repeat registers.
 
 **To implement:** In `keyboard_frame_tick()`, after draining one key from the FIFO into
 the circular buffer, also set `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`.

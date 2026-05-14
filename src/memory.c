@@ -20,6 +20,11 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
             (unsigned)value,
             (unsigned)sp,
             (unsigned)ret);
+        /* Syscall 0x0E reads 0x457E via the 0x0516/0x0519 accessor path.
+         * Consume the byte there so later helper polls do not keep seeing
+         * the same stale Stage 1 key forever. */
+        if ((uint16_t)Z80_PC(m->cpu) == 0x0519u)
+            m->bus[addr] = 0x00u;
         return value;
     }
     return m->bus[addr];
@@ -29,11 +34,17 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
 
-    if (addr == 0x457Cu && m->kbd.release_after_buffer_commit && m->bus[addr] != data) {
+    if (addr == 0x457Cu && m->kbd.release_after_buffer_commit) {
+        uint8_t old = m->bus[addr];
+        int enqueue_advanced = (uint8_t)(old + 1u) == data;
+        if (old == 0xB6u && data == 0x96u)
+            enqueue_advanced = 1;
+        if (old != data && enqueue_advanced) {
         m->bus[0x4558u] = 0;
         m->bus[0x4577u] = 0;
         m->kbd.found = 0;
         m->kbd.physically_held = 0;
+        m->kbd.cla_seen_current = 0;
         m->kbd.release_after_reassert = 0;
         m->kbd.release_after_buffer_commit = 0;
         m->kbd.regular_prefix_pending = 0;
@@ -41,6 +52,7 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
         m->kbd.active_matrix_position = 0xFFu;
         m->kbd.reassert_pending = 0;
         m->kbd.reassert_cycles = 0;
+        }
     }
 
     if (m->dbg.trace_kbd &&

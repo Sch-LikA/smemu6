@@ -231,6 +231,10 @@ matrice incluent les positions auditées pour `A`..`Z`, `0`..`9`, `Space`,
 et tiret. `Shift` sélectionne la couche Shift S471, et `Caps Lock` sélectionne
 la couche « caps-like » auditée.
 
+Les appuis imprimables qui se chevauchent sont maintenant mis en file puis
+promus un par un, ce qui permet à une frappe rapide normale d'atteindre la CLI
+dans l'ordre au lieu de s'arrêter après la première touche imprimable.
+
 Le clavier Smaky 6 utilise une disposition **QWERTZ** (allemand suisse) — si
 votre clavier PC est QWERTY ou AZERTY, certaines positions de ponctuation
 diffèrent, car le mapping est désormais basé sur la position et non sur la
@@ -269,9 +273,10 @@ Winchester.  À droite se trouvent deux boutons :
 
 ### Touches standard
 
-Tous les caractères ASCII imprimables sont transmis directement.
-Le Smaky 6 utilise un clavier **QWERTZ** (allemand suisse) — si votre clavier
-PC est QWERTY ou AZERTY, certaines touches de ponctuation peuvent différer.
+Le clavier Smaky 6 utilise une disposition **QWERTZ** (allemand suisse) — si
+votre clavier PC est QWERTY ou AZERTY, certaines positions de ponctuation
+peuvent différer, car le mapping est désormais basé sur la position et non sur
+la saisie de texte de l'OS hôte.
 
 ---
 
@@ -451,6 +456,12 @@ sans les mélanger à la sortie de l'émulateur :
 ```bash
 ./smemu6 -floppy <disque.dsk> -tracekbd 2>clavier.log
 ```
+
+Pour un test de régression Linux/X11 ciblé du chemin des touches imprimables,
+exécutez `tools/check_keyboard_asd_trace.sh` depuis la racine du dépôt. Le
+script lance l'émulateur, injecte des événements `keydown`/`keyup` qui se
+chevauchent pour `a s d`, puis vérifie que la CLI reçoit bien les trois
+insertions visibles dans l'ordre.
 
 ---
 

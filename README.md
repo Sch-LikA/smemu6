@@ -361,6 +361,9 @@ sector-read errors.
 #### `-tracekbd`
 Log every keyboard CLA read (port `0x00` IN) and status read (port `0x01` IN),
 including the key code returned and the FOUND flip-flop state.
+For a focused Linux/X11 regression check of overlapping printable typing, run
+`tools/check_keyboard_asd_trace.sh`; it injects overlapping `a s d` keydown/keyup
+events and verifies that the CLI receives all three visible insertions in order.
 
 #### `-tracesnd`
 Log every write to **port 0x03** (buzzer bit-bang).  Each line shows the
@@ -393,7 +396,7 @@ Print the short option summary to stderr and exit.
 
 The host keyboard maps to audited Smaky 6 matrix positions.  Ordinary keys are
 resolved through the S471 table in `src/keyboard.c`, then exposed through the
-strict CLA / `SYS.SY` path.  This is now a host-scancode-position model, not an
+strict CLA / `SYS.SY` path.  This is now a host-scancode-position model, not a
 host text-input passthrough.
 
 | Host key                    | Smaky 6 function                                          |
@@ -421,6 +424,10 @@ matches the confirmed special-key outputs it exposes directly, including
 scancode position map into the S471 normal / Shift / Caps layers.  This is a
 strict CLA-centric baseline, but it does not yet expose every original Smaky
 physical position or a separate accented-text compatibility path.
+
+Runtime note: overlapping printable key presses are queued and promoted one by
+one, so fast typing now reaches the CLI through the visible input path instead
+of stopping after the first printable key.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

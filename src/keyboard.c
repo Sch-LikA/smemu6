@@ -105,6 +105,9 @@ static const struct {
     { SDL_SCANCODE_J,           39 },
     { SDL_SCANCODE_K,           40 },
     { SDL_SCANCODE_L,           41 },
+    { SDL_SCANCODE_SEMICOLON,   42 },
+    { SDL_SCANCODE_APOSTROPHE,  43 },
+    { SDL_SCANCODE_NONUSBACKSLASH, 44 },
     { SDL_SCANCODE_RETURN,      45 },
     { SDL_SCANCODE_SPACE,       48 },
     { SDL_SCANCODE_Y,           49 },
@@ -148,6 +151,7 @@ static void clear_ordinary_key(struct Smaky6 *m)
 {
     m->kbd.found = 0;
     m->kbd.physically_held = 0;
+    m->kbd.cla_seen_current = 0;
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = 0;
     m->kbd.regular_prefix_pending = 0;
@@ -166,13 +170,27 @@ static int ordinary_latch_idle(const struct Smaky6 *m)
  * Real hardware keeps FOUND set until CLA reads it; release only stops future reassertion. */
 static void release_ordinary_key(struct Smaky6 *m)
 {
-    m->kbd.physically_held = 0;
+    int pending_delivery = m->kbd.found || m->kbd.reassert_pending;
+    int hold_until_commit = pending_delivery && !m->kbd.cla_seen_current;
+    int seen_by_cla = m->kbd.cla_seen_current;
+
+    m->kbd.physically_held = hold_until_commit;
     m->kbd.release_after_reassert = 0;
-    m->kbd.release_after_buffer_commit = 0;
+    m->kbd.release_after_buffer_commit = hold_until_commit;
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
-    m->kbd.reassert_pending = 0;
-    m->kbd.reassert_cycles = 0;
+    if (!hold_until_commit) {
+        m->kbd.found = 0;
+        m->kbd.reassert_pending = 0;
+        m->kbd.reassert_cycles = 0;
+    } else if (!m->kbd.reassert_pending) {
+        m->kbd.reassert_cycles = 0;
+    }
+
+    if (seen_by_cla) {
+        m->bus[0x4558u] = 0;
+        m->bus[0x4577u] = 0;
+    }
 }
 
 static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position);
@@ -233,8 +251,8 @@ static int promote_pending_ordinary_key(struct Smaky6 *m)
     m->kbd.pending_ordinary_len--;
 
     latch_matrix_key_code(m, scan, position, key_code);
+    m->kbd.regular_prefix_pending = 1;
     if (released) {
-        m->kbd.release_after_reassert = 1;
         m->kbd.release_after_buffer_commit = 1;
     }
 
@@ -264,8 +282,10 @@ static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPos
 static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
+    m->bus[0x457Eu] = 0x00u;
     m->kbd.found = 1;
     m->kbd.physically_held = 1;
+    m->kbd.cla_seen_current = 0;
     m->kbd.boot_key_held = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
@@ -322,12 +342,6 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles)
         m->kbd.reassert_cycles = 0;
         if (m->kbd.physically_held)
             m->kbd.found = 1;
-        if (m->kbd.release_after_reassert) {
-            m->kbd.release_after_reassert = 0;
-            m->kbd.physically_held = 0;
-            m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
-            m->kbd.active_matrix_position = MATRIX_POS_NONE;
-        }
     } else {
         m->kbd.reassert_cycles -= cycles;
     }
@@ -402,10 +416,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 
     for (int i = 0; i < (int)(sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0])); i++) {
         if (HOST_MATRIX_KEYS[i].scan == scan) {
-            if (ordinary_latch_idle(m))
-                latch_matrix_key(m, scan, HOST_MATRIX_KEYS[i].position);
-            else
+            if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
                 queue_ordinary_key(m, scan, HOST_MATRIX_KEYS[i].position);
+            else
+                latch_matrix_key(m, scan, HOST_MATRIX_KEYS[i].position);
             return;
         }
     }
@@ -428,6 +442,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
             m->kbd.regular_prefix_pending = 0;
         }
 
+        m->kbd.cla_seen_current = 1;
         m->kbd.found = 0;
         if (m->kbd.physically_held) {
             m->kbd.reassert_pending = 1;

@@ -228,6 +228,10 @@ host positions for `A`..`Z`, `0`..`9`, `Space`, `Backspace`, `Tab`, `Return`,
 brackets, backslash, comma, period, and minus.  `Shift` selects the S471 Shift
 layer, and `Caps Lock` selects the audited caps-like layer.
 
+Overlapping printable key presses are queued and promoted one by one, so normal
+fast typing now reaches the CLI in order instead of stopping after the first
+printable key.
+
 The Smaky 6 keyboard uses **QWERTZ** layout (Swiss German) — if your PC
 keyboard is QWERTY or AZERTY, some punctuation positions differ because the
 mapping is now position-based rather than text-input-based.
@@ -431,6 +435,11 @@ them with emulator output:
 ```bash
 ./smemu6 -floppy <disk.dsk> -tracekbd 2>kbd.log
 ```
+
+For a focused Linux/X11 regression check of the printable-key path, run
+`tools/check_keyboard_asd_trace.sh` from the repository root. It launches the
+emulator, injects overlapping `a s d` keydown/keyup events, and verifies that
+the CLI receives all three visible insertions in order.
 
 ---
 
