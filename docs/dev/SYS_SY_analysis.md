@@ -337,22 +337,13 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > plain `-inject-keycode 0x41` reproduces the same `C1 -> 0x4580=0x41 -> [45C0]='A'`
 > path without the special diagnostic force flag.  So the low-level injected CLA path
 > is now aligned with the best current hardware hypothesis.
-> The
-> emulator still routes physical
-> keypresses via its FIFO→circular-buffer path:
-> `keyboard_event()` pushes codes to a FIFO, and `keyboard_frame_tick()` drains the
-> entire FIFO each frame into the circular buffer at the current write pointer
-> (`(0x457C)`), stopping only when the `0x80` guard sentinel is hit.  For the
-> post-boot OS-side bridge question, `SYS.SY` remains the only defensible software
-> candidate still under audit, but the unresolved piece is now the producer that seeds
-> the `0x4581..0x4595` workspace rather than the Stage 2 gate itself.
->
-> `keyboard_frame_tick()` also sets the `samos_loaded` flag once it detects that
-> SAMOS has written its 50 Hz ISR vector to `(0x4566)` (`== 0x003E`).  This happens
-> at `0x00CD` in SYS.SY, **after** the SAMOS boot-menu keyboard wait at `0x00B5`.
-> Before `samos_loaded` is set, the `iff1=0` branch of `keyboard_read_cla()` is
-> allowed to pop the FIFO (for physical keys in monitor mode); after it is set,
-> `iff1=0` means "inside the SAMOS ISR" and the FIFO must not be touched there.
+> The emulator no longer uses that old FIFO→circular-buffer shortcut for physical
+> post-boot keys. `keyboard_event()` now resolves host keys through the S471 matrix
+> into the CLA-facing ordinary-key latch, `keyboard_frame_tick()` only releases the
+> virtual boot Enter and promotes pending ordinary keys, and `SYS.SY` remains the
+> component that actually commits ordinary keys into the circular buffer. The repeat
+> countdown is armed from the `0x457C` advance hook once `SYS.SY` commits a still-held
+> key, after which the emulator quiesces the CLA-visible hold so Stage 4 owns repeat.
 >
 > The CLA port read path is used only during the pre-OS boot phase: Phantom ROM
 > `kbd_wait` at `0x00FD` (device-selection prompt) and SAMOS init `kbd_wait` at
@@ -638,7 +629,7 @@ with interrupts still **disabled** (DI from the 12-byte handoff stub).
 ;   This is the trigger the emulator uses to detect "SAMOS is now running"
 ;   (keyboard_frame_tick checks bus[0x4566..7] == 0x003E).
 00CD  LD HL,0x003E
-00D0  LD (0x4566),HL     ; *** ISR vector installed — samos_loaded fires here ***
+00D0  LD (0x4566),HL     ; *** ISR vector installed — emulator releases the virtual boot Enter after this ***
 
 ; ── RST 20h target + display-on ───────────────────────────────────
 00D3  LD HL,0x012D
@@ -689,12 +680,12 @@ immediately:
 Any key pressed during either wait overrides the default (e.g. pressing a
 non-null key at `0x00FD` selects double-sided / Winchester path).
 
-**Emulator note**: `keyboard_read_cla()` returns `0x00` (FOUND asserted,
-code=0x00) when `iff1=0` and no physical key is in the FIFO and
-`samos_loaded=0`.  This mirrors the hardware idle state and makes both waits
-exit without a keypress.  Once `samos_loaded=1` the `iff1=0` guard stops
-applying this idle-return (since `iff1=0` then means "inside the ISR", not
-"Phantom ROM polling").
+**Emulator note**: the current model implements this as a virtual held Enter at
+power-on: `keyboard_init()` starts with `found=1`, `key_code=0x00`, and
+`physically_held=1`. `keyboard_frame_tick()` releases that virtual key only
+after SYS.SY installs the ISR vector at `0x4566 = 0x003E`, so both boot-time
+`kbd_wait` loops still exit without any special `iff1` or `samos_loaded`
+branching.
 
 ---
 

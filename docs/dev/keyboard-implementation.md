@@ -593,54 +593,25 @@ on keyboard-side modifier state.
 - a single physical-key producer path for post-boot regular keys;
 - a mode boundary between strict hardware emulation and host-friendly compatibility input.
 
-## Step-By-Step TODO
+## Remaining TODO
 
-1. Add a checked-in S471 matrix source file to the emulator codebase.
-   Use the full four-layer 64-entry table as the only keycode authority.
+1. Finish the remaining host-position coverage in `HOST_MATRIX_KEYS[]` so the
+   strict matrix path covers more of the audited keyboard surface.
 
-2. Introduce a `physical_position` abstraction.
-   Map host inputs to physical Smaky positions rather than directly to emitted bytes.
+2. Keep re-auditing the exact hardware explanation for the bit-7-prefixed first
+   ordinary CLA read. The behaviour is validated in traces, but the electrical
+   explanation is still an inference.
 
-3. Introduce explicit layer resolution.
-   Resolve normal / Shift / FNCT / caps-like before generating a keycode.
+3. Re-test the top-left ESC / UNDO path against current SAMOS behaviour with
+   the strict `0x06` mapping, without reintroducing the old command-history hack.
 
-4. Split host input into two modes.
-   Add a strict S471 physical-key path and preserve the current text-input path only as compatibility mode.
+4. Decide whether any extra host-layout helpers should exist beyond the current
+   `SDL_TEXTINPUT` printable compatibility layer, and document them explicitly as
+   compatibility rather than hardware truth if they return.
 
-5. Keep physical regular keys on the strict CLA-facing path.
-   Route them through the CLA-facing key state instead.
-
-6. Expand the strict CLA model to the remaining audited host positions.
-   Keep `FOUND=1 -> key_code & 0x7F` and `FOUND=0 -> 0x80 | fonct_bits` as the authoritative contract.
-
-7. Re-test the top-left ESC / UNDO path with `0x06` as the real hardware code.
-   Re-audit CLI behaviour without assuming the old `0x04` story.
-
-8. Add an explicit mapping for the Q-row right-edge candidate.
-   Treat `0x04 / 0x05 / 0x07 / 0x04` as a separate physical key position and test what SAMOS actually does with it.
-
-9. Keep the `0x80 | key_code` path only as an optional compatibility experiment.
-   Use it for controlled probes or transitional testing, not as the strict default model.
-
-10. Rework Backspace, Tab, Return, and Space around physical-position semantics.
-   Stop treating their current normal-layer behaviour as sufficient coverage.
-
-11. Decide how FNCT-layer printable outputs should be exposed on host keyboards.
-    Choose between strict positional bindings, optional compatibility shortcuts, or both.
-
-12. Separate BREAK-family events from ordinary keycode delivery.
-    Keep NMI/reset/boot-path handling outside the ordinary printable key pipeline.
-
-13. Reduce or remove `KEY_TABLE[]` once strict mode is in place.
-    Keep only host compatibility bindings that are still intentionally non-physical.
-
-14. Revalidate auto-repeat after each queue / promotion change.
-   Released promoted keys must clear `0x4558` and `0x4577` once committed so Stage 4 does not re-inject them endlessly.
-
-15. Add focused runtime traces for physical position, resolved layer, resolved code, CLA return, and promotion outcome.
-    Make the strict implementation debuggable without reintroducing shortcut logic.
-
-16. Only after the strict path is validated, decide whether it should replace the current default behaviour.
+5. Keep the trace points around promotion, `0x457C` commit, and repeat-arm /
+   release paths, because that is now the narrowest control surface for future
+   keyboard regressions.
 
 ## Immediate Recommendation
 

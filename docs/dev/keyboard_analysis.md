@@ -64,9 +64,8 @@ init kbd_wait at 0x00B5 ("Disque souple ...").
 
 `keyboard_frame_tick()` releases the virtual key (clears `physically_held` and `found`)
 when the SAMOS ISR vector at `bus[0x4566..7]` is written to `0x003E` (SAMOS init at
-`0x00CD`, **after** the init kbd_wait exits).  FIFO entries queued during the pre-SAMOS
-boot phase are discarded at that point — they were destined for the Phantom ROM boot
-menu, not the CLI.
+`0x00CD`, **after** the init kbd_wait exits).  No `samos_loaded` flag, FIFO handoff, or
+`iff1`-dependent CLA branch is needed in the current model.
 
 No `samos_loaded` flag or `iff1` branch is needed in `keyboard_read_cla()`.  The pure
 hardware model works identically for all callers.
@@ -229,8 +228,13 @@ The SAMOS ISR fires at 50 Hz.  Each frame:
 3. **Stage 2** (no-key path, 0x016E): reads `0x4582` at `0x0175` and returns early only if that byte equals `0x80`.  Direct binary audit of `SYS.SY` on 2026-05-13 confirmed the init sentinel write is to `0x458A` at `0x00A1`, not to `0x4582`, so the old "Stage 2 is permanently blocked" claim is not supported by the binary.
 4. **Runtime Stage 2 / 3 state:** a repo-local trace (`tmp/kbd_stage2_probe_trace.log`) now shows that `SYS.SY` repeatedly executes `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` post-boot with an empty workspace (`0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`, `0x457C = 0x4596`).  So Stage 2 and early Stage 3 are alive at runtime even before any bridge candidate has been identified.
 
-**Current emulator path:** physical keys reach the CLI via `keyboard_frame_tick()`,
-which writes directly to the SAMOS circular buffer at `0x457C`/`0x4596+`.
+**Current emulator path:** physical keys enter through the CLA-facing latch in
+`keyboard_read_cla()`. Ordinary host scancodes resolve through the S471 matrix,
+become `found/key_code`, and are then observed by `SYS.SY`; printable host text
+uses the same ordinary-key path after `SDL_TEXTINPUT` decoding. Once `SYS.SY`
+commits a still-held key into the circular buffer, the emulator arms `0x4558`
+and `0x4577` from the `0x457C` advance hook and drops the CLA-visible hold so
+Stage 4 owns subsequent repeat timing.
 
 **Real post-boot hardware path:** resolved one step further, but still not complete.
 The binary proves that the CLI waits on the circular buffer, and two runtime audits on
@@ -279,20 +283,11 @@ So the remaining open question is now narrower: what producer writes the
 and how a real hardware-originating key becomes represented there given that the
 direct CLA Stage 1 path only updates `0x457E`.
 
-**FIFO-fed comparison (2026-05-13):** a repo-local trace using `-inject-str "A"`
-with `-inject-via-fifo` (`tmp/kbd_fifo_probe_trace.log`) confirms that the
-emulator's physical-key path bypasses the Stage 2 / 3 workspace entirely.  The
-trace shows:
-
-- `keyboard_frame_tick()` writing `0x41` directly to circular-buffer slot `0x4596`;
-- the blocking-read path consuming it and restoring `0x457C` from `0x4597` to
-    `0x4596`;
-- no writes to `0x4581..0x4595` attributable to that key, while the idle Stage 2 / 3
-    pass continues to show `0x4581 = 0x00`, `0x4582 = 0x00`, `0x458A = 0x80`.
-
-That confirms the current emulator's FIFO-fed / physical-key route reaches the CLI
-by direct circular-buffer insertion, not by reproducing the hardware-side producer
-that seeds the SAMOS Stage 2 / 3 workspace.
+**Historical shortcut comparison (2026-05-13):** an earlier repo-local trace using
+`-inject-str "A"` through the old direct circular-buffer path confirmed that a
+shortcut enqueue could reach the CLI without touching the Stage 2 / 3 workspace.
+That observation remains useful as archaeology, but it is **not** the current
+physical-key implementation any more.
 
 **Prompt-time workspace poke probes (2026-05-13):** a temporary
 `-poke-on-prompt <addr> <byte>` probe hook in `src/main.c` now schedules RAM writes
@@ -316,7 +311,7 @@ These probes establish two more constraints on the missing producer:
 
 **Function-bit probe (2026-05-13):** a second prompt-time probe now sets
 `m->kbd.fonct_bits` directly (`-fonct-on-prompt 0x01`), letting the existing
-keyboard model drive a real nonzero `0x4580` through `keyboard_frame_tick()`.
+keyboard model drive a real nonzero `0x4580` through the normal CLA read path.
 That produces the first confirmed non-idle Stage 3 behavior at the live prompt:
 
 - the ISR no-key path rewrites `0x4580` from `0x00` to `0x01` every frame;
@@ -655,59 +650,19 @@ Two release-side details were validated by the `Shift+MSG` CLI traces:
 Validated runtime result (`tmp/manual_shift_msg_noreturn_fix11.log`): manual `Shift+MSG` now produces
 exactly one visible `M`, `S`, `G` insertion at `0x45C0..0x45C2`, with no later trailing `G`.
 
-### ESC key: emulator-side dual behaviour
+### ESC key: current strict mapping
 
-The host `Escape` key maps to two distinct behaviours depending on whether the CLI
-prompt is currently on an empty line:
-
-| Situation | Emulator action | SAMOS receives |
-|-----------|----------------|----------------|
-| Non-empty CLI line | Send `0x04` (`<` EOT, EFFACE) | SAMOS clears the current line |
-| Empty CLI prompt | Re-inject `kbd.prev_cmd` into FIFO | Characters typed char-by-char |
-
-**Why SAMOS native recall (`0x05`) is not used:**  The SAMOS line editor at `0x5A8A`
-writes the cursor character `'-'` (0x2D) directly to `m->bus[0x45C0]` (the first byte
-of the line buffer) as part of display initialization at the start of each new input
-session.  By the time `0x05` (recall) would run, the previous command's first character
-has been overwritten — so recall displays nothing.
-
-**History capture:**  `keyboard_event()` captures the current typed line whenever the
-Return key is pressed and the line is non-empty.  The capture reads
-`m->bus[0x45C0 .. (0x7014)-1]` (line buffer start up to the cursor pointer) and stores
-it in `kbd.prev_cmd[128]` / `kbd.prev_cmd_len`.  This runs *before* the Enter code is
-delivered to the FIFO, so the buffer is still intact.
-
-**Recall re-injection:**  When ESC is pressed on an empty CLI prompt (detected by
-`machine_cli_prompt_visible()`), `keyboard_event()` pushes each byte of `kbd.prev_cmd`
-into the FIFO **without** bit 7 set (treated as injected, not physical).  SAMOS echoes
-each character and leaves the cursor at the end of the line, ready for editing.
-No Enter is appended — the user can modify the recalled line before pressing Return.
-
-```c
-/* On Return press (non-empty line): capture history */
-uint16_t cursor = (uint16_t)m->bus[0x7014u] | ((uint16_t)m->bus[0x7015u] << 8);
-if (cursor > 0x45C0u && cursor <= 0x45C0u + 127u) {
-    int len = (int)(cursor - 0x45C0u);
-    memcpy(m->kbd.prev_cmd, &m->bus[0x45C0u], len);
-    m->kbd.prev_cmd_len = len;
-}
-
-/* On ESC press (empty line): re-inject history */
-for (int i = 0; i < m->kbd.prev_cmd_len; i++) {
-    m->kbd.fifo[m->kbd.fifo_tail] = m->kbd.prev_cmd[i];  /* no bit 7 → no auto-repeat */
-    m->kbd.fifo_tail = (m->kbd.fifo_tail + 1) & 63;
-}
-```
-
-**Empty-line detection** uses `machine_cli_prompt_visible()` (in `machine.c`), which
-scans all 20 video rows for the pattern `*` ` ` `-` (with bit 7 stripped).  A row
-matching this pattern indicates the prompt is at the start of a new empty line.
+The host `Escape` key is currently just the top-left Smaky matrix position
+(`HOST_MATRIX_KEYS[0]`), which resolves through the S471 table to hardware code
+`0x06` in the normal layer. There is no command-history capture or special
+empty-prompt recall path in the current code.
 
 ---
 
-### Autoboot / inject: CLA-based delivery
+### Autoboot / inject: current delivery split
 
-`machine_inject_key()` (used by `-break-to-monitor` and `-inject-str`) sets:
+`machine_inject_key()` is the low-level held-CLA helper used by `-inject-keycode`.
+It sets:
 
 ```c
 m->kbd.key_code        = code;
@@ -715,9 +670,13 @@ m->kbd.found           = 1;
 m->kbd.physically_held = 1;
 ```
 
-While `physically_held=1`, every CLA read returns `key_code` and immediately
-re-asserts `found=1` — exactly as on real hardware with a held key.  `machine_release_key()`
-clears both flags to end the inject.
+While `physically_held=1`, CLA reads continue to observe that ordinary key until
+the emulator explicitly releases it.  Once `SYS.SY` commits the key into the
+circular buffer, the `0x457C` advance hook arms `0x4558` / `0x4577` and then
+quiesces the CLA-visible hold so Stage 4 repeat owns subsequent repeats.
+
+`-inject-str` does **not** use `machine_inject_key()`: `main.c` waits for the CLI
+prompt and then appends characters directly through `machine_inject_to_circ_buf()`.
 
 ### `keyboard_read_cla()` — pure hardware model
 
@@ -777,13 +736,16 @@ dedicated host keyboard scancodes (`Right Ctrl`, `Left Alt`, etc.).
 The CLI blocking read (syscall 0x0D, address `0x04D4`) loops calling the peek
 routine at `0x04F6` until it returns NZ (key present), then calls consume at `0x04E4`.
 
-**Write** (by `keyboard_frame_tick()` or `machine_inject_to_circ_buf()`):
+**Write** (by `SYS.SY` Stage 3 / 4, or by `machine_inject_to_circ_buf()`):
+
 ```asm
 [ptr] = key_code;   ptr++
 ```
+
 After: `[0x4596] = key`, `ptr = 0x4597`.
 
 **Peek** (`0x04F6`):
+
 ```asm
 HL = (0x457C)         ; load write pointer
 A  = [HL]             ; read [ptr]
@@ -793,11 +755,13 @@ OR A                  ; set flags
 SBC HL, DE            ; HL -= 0x4596 (base)
 ; returns NZ if ptr > base (data present), Z if ptr == base (empty)
 ```
+
 Note: peek reads `[ptr]` (the slot *after* the last-written byte), not `[base]`.
 After writing one key, `[ptr] = [0x4597]`, which is typically `0x00` from uninitialized
 memory — not `0x80`, so the `CP 0x80` guard does not falsely signal empty.
 
 **Consume** (`0x04E4`):
+
 ```asm
 dec ptr; store       ; ptr = 0x4596
 HL = DE = 0x4596
@@ -805,8 +769,9 @@ A = [0x4596]         ; read character
 INC HL               ; HL = 0x4597
 LDIR (BC = ptr-base = 0)  ; copies 0 bytes
 ```
+
 After consume: `ptr = 0x4596`, `[0x4596]` retains the consumed character (LDIR did nothing).
-`keyboard_frame_tick()` uses the **guard-sentinel check** (`[wr] != 0x80`), not `ptr == 0x4596`.
+The emulator's repeat-arm hook keys off the same `0x457C` advance event.
 
 ## CLI Visible Character Path (confirmed by CLI.SY disassembly + trace)
 
@@ -873,8 +838,8 @@ Prerequisites:
 | `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait exits; used as the power-on virtual key release trigger in `keyboard_frame_tick()`) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
-| `0x45C0` | **CLI line buffer start** — typed characters stored here; overwritten by `-` cursor at start of each new input session (used for ESC history capture) |
-| `0x7014:0x7015` | **Cursor pointer** (little-endian) — points one past the last typed character in the line buffer; used by ESC history capture to determine line length |
+| `0x45C0` | **CLI line buffer start** — typed characters stored here; overwritten by `-` cursor at start of each new input session |
+| `0x7014:0x7015` | **Cursor pointer** (little-endian) — points one past the last typed character in the line buffer |
 
 ---
 
@@ -882,33 +847,32 @@ Prerequisites:
 
 ### Category 1 — "Touches de fonction" (7 function keys, bitmask)
 
-These 7 keys are **not** sent through the key FIFO.  When no regular key is pressed
+These 7 keys are **not** delivered through the ordinary-key latch / queue. When no regular key is pressed
 (FOUND=0), the CLA port returns a 7-bit bitmask — one bit per function key held.
 The SAMOS `?GETFON` / `GETFON` system calls read this bitmask.
 
 Codes confirmed from doc section 10.4, page 213 (octal):
 
-| Key     | Octal | Hex    | Bit | Primary SDL scancode      | Alt SDL scancode           |
-|---------|-------|--------|-----|---------------------------|----------------------------|
-| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F1`         | `SDL_SCANCODE_LCTRL`       |
-| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F2`         | `SDL_SCANCODE_LALT`        |
-| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F3`         | `SDL_SCANCODE_RALT`        |
-| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F4`         | `SDL_SCANCODE_LGUI`        |
-| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F5`         | `SDL_SCANCODE_INSERT`      |
-| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F6`         | `SDL_SCANCODE_HOME`        |
-| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F7`         | `SDL_SCANCODE_END`         |
+| Key     | Octal | Hex    | Bit | Primary SDL scancode |
+|---------|-------|--------|-----|----------------------|
+| CURSOR  | `020` | `0x10` | 4   | `SDL_SCANCODE_F1`    |
+| COPY    | `010` | `0x08` | 3   | `SDL_SCANCODE_F2`    |
+| KILL    | `100` | `0x40` | 6   | `SDL_SCANCODE_F3`    |
+| PROGRA  | `040` | `0x20` | 5   | `SDL_SCANCODE_F4`    |
+| SHOW    | `004` | `0x04` | 2   | `SDL_SCANCODE_F5`    |
+| SEARCH  | `002` | `0x02` | 1   | `SDL_SCANCODE_F6`    |
+| CHANGE  | `001` | `0x01` | 0   | `SDL_SCANCODE_F7`    |
 
 **Implemented:** `uint8_t fonct_bits` field in `struct kbd`.  `keyboard_event()`
-sets/clears the corresponding bit on `SDL_KEYDOWN`/`SDL_KEYUP` for **both** the
-F1–F7 primary scancodes and the alternative modifier/nav scancodes (End, Home,
-Insert, LAlt, LCtrl, LGui, RAlt).  Mouse clicks on the function-key status bar
-also set/clear bits (left-click = momentary; right-click = latched toggle).
+sets/clears the corresponding bit on `SDL_KEYDOWN`/`SDL_KEYUP` for the F1–F7
+scancodes. Mouse clicks on the function-key status bar also contribute through
+`fonct_mouse_bits` while the button is held.
 
 The SAMOS ISR Stage 2 (`AND 0x7F; LD (0x4580), A`) stores `fonct_bits` to the
 GETFON register automatically when `keyboard_read_cla()` returns `0x80 | fonct_bits`
 (FOUND=0).  No post-frame bus write is needed.
 
-### Category 2 — Special keys in the normal FIFO (codes confirmed from doc p.213)
+### Category 2 — Special keys in the normal matrix path (codes confirmed from doc p.213)
 
 | Key      | Octal | Hex    | Chargen glyph | SDL scancode              |
 |----------|-------|--------|---------------|---------------------------|
