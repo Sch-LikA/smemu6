@@ -17,6 +17,7 @@
       --machine-screen-height: 508;
       --machine-display-scale: 1;
       --machine-shell-chrome: 64;
+      --ui-control-height: 38px;
       --body-font-size: clamp(12px, 1.35vw, 13px);
       --ui-font-small: clamp(0.72rem, 1.3vw, 0.8rem);
       --ui-font-label: clamp(0.78rem, 1.5vw, 0.9rem);
@@ -184,8 +185,8 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      min-height: var(--touch-target);
-      padding: 9px 12px;
+      min-height: var(--ui-control-height);
+      padding: 6px 12px;
       cursor: pointer;
       font-family: inherit;
       font-size: var(--ui-font-label);
@@ -279,8 +280,8 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      min-height: var(--touch-target);
-      padding: 9px 8px;
+      min-height: var(--ui-control-height);
+      padding: 6px 8px;
       font-family: inherit;
       font-size: var(--ui-font-label);
       cursor: pointer;
@@ -459,8 +460,8 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      min-height: var(--touch-target);
-      padding: 9px 12px;
+      min-height: var(--ui-control-height);
+      padding: 6px 12px;
       cursor: pointer;
       font-family: inherit;
       font-size: var(--ui-font-small);
@@ -471,16 +472,6 @@
     }
     label.drive-btn:hover {
       background: linear-gradient(180deg, #eae0c0 0%, #d4cba8 100%);
-    }
-
-    .disk-name {
-      font-size: var(--ui-font-small);
-      color: #7a7060;
-      max-width: min(200px, 52vw);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-style: italic;
     }
 
     #btns {
@@ -497,8 +488,8 @@
       color: #d0c8a8;
       border: 1px solid #181410;
       border-radius: 3px;
-      min-height: var(--touch-target);
-      padding: 9px 14px;
+      min-height: var(--ui-control-height);
+      padding: 6px 14px;
       cursor: pointer;
       font-family: inherit;
       font-size: var(--ui-font-small);
@@ -610,8 +601,7 @@
         min-width: 36px;
       }
 
-      .lnch-fname,
-      .disk-name {
+      .lnch-fname {
         max-width: 100%;
         flex-basis: 100%;
       }
@@ -626,6 +616,10 @@
     }
 
     @media (pointer: coarse) {
+      :root {
+        --ui-control-height: var(--touch-target);
+      }
+
       .lnch-opt {
         min-height: var(--touch-target);
         padding: 6px 0;
@@ -756,7 +750,6 @@
           <label class="drive-btn" for="dx0-file">Insert…</label>
           <input type="file" id="dx0-file" accept=".dsk,.DSK">
         </div>
-        <span class="disk-name" id="dx0-name">no disk</span>
       </div>
       <div class="drive-slot">
         <div class="drive-label-row">
@@ -765,7 +758,6 @@
           <label class="drive-btn" for="dx1-file">Insert…</label>
           <input type="file" id="dx1-file" accept=".dsk,.DSK">
         </div>
-        <span class="disk-name" id="dx1-name">no disk</span>
       </div>
     </div>
     <div id="btns">
@@ -956,8 +948,6 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   document.getElementById('machine').style.display  = 'flex';
   document.getElementById('status-overlay').classList.remove('hidden');
   document.getElementById('status-text').textContent = 'Starting…';
-  document.getElementById('dx0-name').textContent = dx0Path ? dx0Path.replace('/floppies/', '') : 'no disk';
-  document.getElementById('dx1-name').textContent = dx1Path ? dx1Path.replace('/floppies/', '') : 'no disk';
   document.getElementById('led-dx0').classList.toggle('active', !!dx0Path);
   document.getElementById('led-dx1').classList.toggle('active', !!dx1Path);
 
@@ -1033,9 +1023,8 @@ function flashLed(id) {
   setTimeout(function() { led.classList.remove('active'); }, 800);
 }
 
-function loadDiskFile(file, drive, nameId, ledId) {
+function loadDiskFile(file, drive, ledId) {
   if (!file) return;
-  document.getElementById(nameId).textContent = file.name;
   var reader = new FileReader();
   reader.onload = function(e) {
     var buf  = new Uint8Array(e.target.result);
@@ -1050,10 +1039,10 @@ function loadDiskFile(file, drive, nameId, ledId) {
 }
 
 document.getElementById('dx0-file').addEventListener('change', function(e) {
-  loadDiskFile(e.target.files[0], 'dx0', 'dx0-name', 'led-dx0');
+  loadDiskFile(e.target.files[0], 'dx0', 'led-dx0');
 });
 document.getElementById('dx1-file').addEventListener('change', function(e) {
-  loadDiskFile(e.target.files[0], 'dx1', 'dx1-name', 'led-dx1');
+  loadDiskFile(e.target.files[0], 'dx1', 'led-dx1');
 });
 
 document.getElementById('btn-reset').addEventListener('click', function(e) {
