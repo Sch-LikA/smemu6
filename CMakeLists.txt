@@ -147,12 +147,25 @@ if(EMSCRIPTEN)
     # via the browser UI and they are written into the virtual FS at runtime.
     set_target_properties(smemu6 PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS}")
 
-    # Copy web/index.html into the build directory after linking.
+    # Copy the web shell and its referenced static assets into the build
+    # directory after linking.
     add_custom_command(TARGET smemu6 POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/web/index.html"
             "${CMAKE_BINARY_DIR}/index.html"
-        COMMENT "Copying web/index.html to build directory"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/favicon.ico"
+            "${CMAKE_BINARY_DIR}/favicon.ico"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/smaky6-128.png"
+            "${CMAKE_BINARY_DIR}/smaky6-128.png"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/smaky6-256.png"
+            "${CMAKE_BINARY_DIR}/smaky6-256.png"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_SOURCE_DIR}/web/smaky6-logo-header.png"
+            "${CMAKE_BINARY_DIR}/smaky6-logo-header.png"
+        COMMENT "Copying web shell assets to build directory"
     )
 
     target_link_libraries(smemu6 PRIVATE Z80 m)

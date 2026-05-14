@@ -18,12 +18,28 @@ source ./emsdk_env.sh   # add to ~/.bashrc or run before each session
 
 From the project root (after sourcing `emsdk_env.sh`):
 
+If your packaged `emcc` freezes the system cache under `/usr/share/emscripten/cache`
+and the build fails with a `PermissionError` or `FROZEN_CACHE` complaint, create a
+repo-local config and cache first:
+
+```sh
+EM_CONFIG="$PWD/.emscripten-local" emcc --generate-config "$PWD/.emscripten-local"
+
+# Then edit .emscripten-local and add / change:
+#   CACHE = '/absolute/path/to/your/repo/.emscripten-cache'
+#   FROZEN_CACHE = False
+
+mkdir -p .emscripten-cache
+```
+
+After that, run the web configure / build through the same local config:
+
 ```sh
 # Configure (first time or after CMakeLists.txt changes)
-cmake --preset web
+EM_CONFIG="$PWD/.emscripten-local" cmake --preset web
 
 # Build
-cmake --build build-web
+EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 
 # Output files: build-web/smemu6.js  build-web/smemu6.wasm
 # Plus:         build-web/smemu6.data  (preloaded ROMs and floppies)
@@ -34,8 +50,8 @@ cp web/index.html build-web/
 Alternatively, without presets:
 
 ```sh
-emcmake cmake -S . -B build-web -DCMAKE_TOOLCHAIN_FILE=cmake/Emscripten.cmake
-cmake --build build-web
+EM_CONFIG="$PWD/.emscripten-local" emcmake cmake -S . -B build-web -DCMAKE_TOOLCHAIN_FILE=cmake/Emscripten.cmake
+EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 ```
 
 ## Serving locally
@@ -47,18 +63,28 @@ Browsers enforce `SharedArrayBuffer` policies and require a local HTTP server
 # Python 3 (simplest)
 cd build-web
 python3 -m http.server 8080
-# Open http://localhost:8080/smemu6.html
+# Open http://localhost:8080/
 ```
 
 Or use any static file server that sets:
-```
+
+```text
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
+The repository also includes a helper script:
+
+```sh
+tools/serve_web.sh
+```
+
+It serves `build-web/` on `http://127.0.0.1:8080/` with the required COOP/COEP
+headers.
+
 ## Using the emulator
 
-1. Open `http://localhost:8080/smemu6.html` in a browser.
+1. Open `http://localhost:8080/` in a browser.
 2. Wait for the ROMs and disk images to load (progress shown on screen).
 3. The emulator starts automatically and boots from the preloaded floppy image
    (if `floppies/` was available at build time).
@@ -69,20 +95,20 @@ Cross-Origin-Embedder-Policy: require-corp
 
 Same as the native build — see [docs/EMULATOR_GUIDE_EN.md](../docs/EMULATOR_GUIDE_EN.md).
 
-| Host key | Smaky 6 function |
-|----------|-----------------|
-| Pause / F11 | BREAK (NMI → monitor) |
-| Shift+Pause / Shift+F11 | SHIFT+BREAK (hard reset) |
-| Ctrl+Q | Quit (reloads page) |
+| Host key                 | Smaky 6 function         |
+| ------------------------ | ------------------------ |
+| Pause / F11              | BREAK (NMI -> monitor)   |
+| Shift+Pause / Shift+F11  | SHIFT+BREAK (hard reset) |
+| Ctrl+Q                   | Quit (reloads page)      |
 
 ## Preloaded files
 
 At build time, `--preload-file` bundles:
 
-| Source path | Virtual FS path |
-|-------------|----------------|
-| `roms/` | `/roms/` |
-| `floppies/` | `/floppies/` (if present) |
+| Source path | Virtual FS path            |
+| ----------- | -------------------------- |
+| `roms/`     | `/roms/`                   |
+| `floppies/` | `/floppies/` (if present)  |
 
 ## Notes
 
@@ -91,4 +117,4 @@ At build time, `--preload-file` bundles:
 - Sound uses SDL2's push-mode (`SDL_QueueAudio`) — no `SharedArrayBuffer`
   required for audio alone.
 - The file picker in the launcher code is replaced by a JS `<input type="file">`
-  element defined in `web/shell.html`; no native dialog thread is needed.
+  element defined in `web/index.html`; no native dialog thread is needed.

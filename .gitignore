@@ -9,6 +9,8 @@ tmp/
 __pycache__/
 .venv/
 .vscode/
+.emscripten-local
+.emscripten-cache/
 *.pyc
 smaky6_ram*.bin
 private/

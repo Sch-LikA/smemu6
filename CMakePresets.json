@@ -14,7 +14,7 @@
         {
             "name": "web",
             "displayName": "Web (Emscripten)",
-            "description": "WebAssembly build via Emscripten — requires emsdk_env.sh to be sourced",
+            "description": "WebAssembly build via Emscripten — requires emsdk_env.sh to be sourced; if your distro Emscripten package freezes /usr/share/emscripten/cache, create a repo-local .emscripten-local config and .emscripten-cache as described in web/README.md",
             "binaryDir": "${sourceDir}/build-web",
             "generator": "Unix Makefiles",
             "toolchainFile": "${sourceDir}/cmake/Emscripten.cmake",
@@ -25,7 +25,7 @@
         {
             "name": "web-debug",
             "displayName": "Web Debug (Emscripten)",
-            "description": "Debug WebAssembly build — source maps, assertions, no optimisation",
+            "description": "Debug WebAssembly build — source maps, assertions, no optimisation; on frozen-cache distro packages use the same repo-local .emscripten-local/.emscripten-cache workaround as the web preset",
             "binaryDir": "${sourceDir}/build-web-debug",
             "generator": "Unix Makefiles",
             "toolchainFile": "${sourceDir}/cmake/Emscripten.cmake",

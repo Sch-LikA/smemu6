@@ -188,7 +188,7 @@ static SDL_Thread *pick_file_async(PickCtx *ctx)
 /*
  * Emscripten file picker.
  *
- * We trigger a hidden <input type="file"> element defined in shell.html.
+ * We trigger a hidden <input type="file"> element defined in web/index.html.
  * A JS FileReader onchange handler reads the chosen file into the Emscripten
  * virtual FS under /tmp/picked.dsk and then calls back into C via
  * smemu6_pick_done() (exported with EMSCRIPTEN_KEEPALIVE).
@@ -231,7 +231,7 @@ static SDL_Thread *pick_file_async(PickCtx *ctx)
     ctx->result[0] = '\0';
     ctx->state = PICK_RUNNING;
     g_active_pick_ctx = ctx;
-    /* Trigger the hidden file-input element defined in web/shell.html. */
+    /* Trigger the hidden file-input element defined in web/index.html. */
     EM_ASM({
         var inp = document.getElementById('smemu6-file-input');
         if (inp) {
@@ -257,7 +257,7 @@ static SDL_Thread *pick_file_async(PickCtx *ctx)
             };
             inp.click();
         } else {
-            console.warn('smemu6: #smemu6-file-input element not found in shell.html');
+            console.warn('smemu6: #smemu6-file-input element not found in index.html');
             Module._smemu6_pick_cancel();
         }
     });
