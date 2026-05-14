@@ -329,7 +329,7 @@ static void release_ordinary_key(struct Smaky6 *m)
 
 static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position);
 static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position, uint8_t key_code);
-static void latch_direct_key_code(struct Smaky6 *m, uint8_t key_code);
+static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code);
 static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition position);
 
 static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
@@ -360,16 +360,22 @@ static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPo
     return 1;
 }
 
-static int queue_direct_key_code(struct Smaky6 *m, uint8_t key_code)
+static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
+    for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
+        uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
+        if (m->kbd.pending_ordinary[idx].scancode == scan)
+            return 0;
+    }
+
     if (m->kbd.pending_ordinary_len >= PENDING_ORDINARY_CAP)
         return 0;
 
     uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + m->kbd.pending_ordinary_len) % PENDING_ORDINARY_CAP);
-    m->kbd.pending_ordinary[idx].scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.pending_ordinary[idx].scancode = scan;
     m->kbd.pending_ordinary[idx].matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary[idx].key_code = key_code & 0x7Fu;
-    m->kbd.pending_ordinary[idx].released = 1;
+    m->kbd.pending_ordinary[idx].released = 0;
     m->kbd.pending_ordinary_len++;
 
     if (m->dbg.trace_kbd) {
@@ -407,10 +413,10 @@ static int promote_pending_ordinary_key(struct Smaky6 *m)
     m->kbd.pending_ordinary_len--;
 
     if (position == MATRIX_POS_NONE)
-        latch_direct_key_code(m, key_code);
+        latch_direct_key_code(m, scan, key_code);
     else
         latch_matrix_key_code(m, scan, position, key_code);
-    if (released && position != MATRIX_POS_NONE) {
+    if (released) {
         m->kbd.release_after_buffer_commit = 1;
     }
 
@@ -463,19 +469,19 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
     }
 }
 
-static void latch_direct_key_code(struct Smaky6 *m, uint8_t key_code)
+static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
     m->bus[0x457Eu] = 0x00u;
     m->kbd.found = 1;
-    m->kbd.physically_held = 0;
+    m->kbd.physically_held = 1;
     m->kbd.cla_seen_current = 0;
     m->kbd.boot_key_held = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
-    m->kbd.release_after_buffer_commit = 1;
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.release_after_buffer_commit = 0;
+    m->kbd.active_scancode = scan;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.reassert_pending = 0;
     m->kbd.reassert_cycles = 0;
@@ -652,9 +658,9 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
     m->kbd.host_text_down[scan] = 2;
 
     if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
-        queue_direct_key_code(m, key_code);
+        queue_direct_key_code(m, scan, key_code);
     else
-        latch_direct_key_code(m, key_code);
+        latch_direct_key_code(m, scan, key_code);
 }
 
 /* Emulate CLA port reads: ordinary keys return bit7 clear, otherwise bit7 set plus function bits. */
@@ -680,11 +686,6 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         }
 
         return value;
-    }
-
-    if (!m->kbd.physically_held && !m->kbd.reassert_pending && m->kbd.pending_ordinary_len == 0) {
-        m->bus[0x4558u] = 0;
-        m->bus[0x4577u] = 0;
     }
 
     return 0x80u | (m->kbd.fonct_bits & 0x7Fu);

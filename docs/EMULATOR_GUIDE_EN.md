@@ -440,8 +440,10 @@ them with emulator output:
 
 For a focused Linux/X11 regression check of the printable-key path, run
 `tools/check_keyboard_asd_trace.sh` from the repository root. It launches the
-emulator, injects overlapping `a s d` keydown/keyup events, and verifies that
-the CLI receives all three visible insertions in order.
+emulator, waits until the CLI prompt is visible, injects overlapping `a s d`
+keydown/keyup events, and verifies that the CLI receives all three visible
+insertions in order. The script also releases any injected host keys during
+cleanup so it does not leave the desktop input state latched.
 
 ---
 

@@ -287,15 +287,12 @@ key-repeat events are still filtered out (`if (ev->repeat) return`), so **holdin
 a key produces one initial physical character** and then relies on the SAMOS
 repeat registers.
 
-**To implement:** In `keyboard_frame_tick()`, after draining one key from the FIFO into
-the circular buffer, also set `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`.
-The SAMOS ISR will then handle the actual repeat injection autonomously on subsequent
-frames, using the same timing as the real hardware.
-
-✅ Done — `keyboard_frame_tick()` sets `m->bus[0x4558] = 0x23` and `m->bus[0x4577] = code`
-after each drain to the SAMOS circular buffer.  `keyboard_event()` zeros `0x4558` on any
-regular KEYUP while SAMOS is loaded, stopping the countdown when the key is released.
-`repeat_scan` (SDL_Scancode) tracked in `struct kbd`.
+✅ Done — the repeat registers are now armed from the `0x457C` circular-buffer
+advance hook in `src/memory.c`, using the full 16-bit write pointer so Stage 4
+tracks the real committed key code. Once that first enqueue happens, the
+ordinary-key CLA latch is quiesced so later idle CLA polls do not zero `0x4558`
+again through the Stage 1 helper path. Release / commit cleanup still clears
+`0x4558` and `0x4577` explicitly when the key is no longer held.
 
 See [docs/dev/keyboard_analysis.md](docs/dev/keyboard_analysis.md) for the full Stage 4 disassembly.
 

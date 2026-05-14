@@ -43,30 +43,50 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
 
-    if (addr == 0x457Cu && m->kbd.release_after_buffer_commit) {
+    if (addr == 0x457Cu) {
         uint8_t old = m->bus[addr];
+        uint16_t old_ptr = (uint16_t)old | ((uint16_t)m->bus[0x457Du] << 8);
         int enqueue_advanced = (uint8_t)(old + 1u) == data;
         if (old == 0xB6u && data == 0x96u)
             enqueue_advanced = 1;
         if (old != data && enqueue_advanced) {
-        m->kbd.key_code = 0x00;
-        m->bus[0x4558u] = 0;
-        m->bus[0x4577u] = 0;
-        m->kbd.found = 0;
-        m->kbd.physically_held = 0;
-        m->kbd.cla_seen_current = 0;
-        m->kbd.release_after_reassert = 0;
-        m->kbd.release_after_buffer_commit = 0;
-        m->kbd.regular_prefix_pending = 0;
-        m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
-        m->kbd.active_matrix_position = 0xFFu;
-        m->kbd.reassert_pending = 0;
-        m->kbd.reassert_cycles = 0;
+            uint8_t committed_code = m->bus[old_ptr] & 0x7Fu;
+
+            if (m->kbd.physically_held && committed_code != 0x00u) {
+                m->bus[0x4558u] = 0x23u;
+                m->bus[0x4577u] = committed_code;
+
+                if (!m->kbd.release_after_buffer_commit) {
+                    m->kbd.key_code = 0x00;
+                    m->kbd.found = 0;
+                    m->kbd.physically_held = 0;
+                    m->kbd.regular_prefix_pending = 0;
+                    m->kbd.reassert_pending = 0;
+                    m->kbd.reassert_cycles = 0;
+                }
+            }
+
+            if (m->kbd.release_after_buffer_commit) {
+                m->kbd.key_code = 0x00;
+                m->bus[0x4558u] = 0;
+                m->bus[0x4577u] = 0;
+                m->kbd.found = 0;
+                m->kbd.physically_held = 0;
+                m->kbd.cla_seen_current = 0;
+                m->kbd.release_after_reassert = 0;
+                m->kbd.release_after_buffer_commit = 0;
+                m->kbd.regular_prefix_pending = 0;
+                m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+                m->kbd.active_matrix_position = 0xFFu;
+                m->kbd.reassert_pending = 0;
+                m->kbd.reassert_cycles = 0;
+            }
         }
     }
 
     if (m->dbg.trace_kbd &&
-        (addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
+        (addr == 0x4558u || addr == 0x4577u ||
+         addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
          (addr >= 0x4580u && addr <= 0x4595u) ||
          (addr >= 0x4596u && addr <= 0x45B6u))) {
         uint8_t old = m->bus[addr];

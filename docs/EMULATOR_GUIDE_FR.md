@@ -461,9 +461,11 @@ sans les mélanger à la sortie de l'émulateur :
 
 Pour un test de régression Linux/X11 ciblé du chemin des touches imprimables,
 exécutez `tools/check_keyboard_asd_trace.sh` depuis la racine du dépôt. Le
-script lance l'émulateur, injecte des événements `keydown`/`keyup` qui se
-chevauchent pour `a s d`, puis vérifie que la CLI reçoit bien les trois
-insertions visibles dans l'ordre.
+script lance l'émulateur, attend que l'invite CLI soit visible, injecte des
+événements `keydown`/`keyup` qui se chevauchent pour `a s d`, puis vérifie que
+la CLI reçoit bien les trois insertions visibles dans l'ordre. Le nettoyage du
+script relâche aussi les touches injectées pour ne pas laisser l'état clavier
+de l'hôte bloqué.
 
 ---
 

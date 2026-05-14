@@ -158,6 +158,10 @@ Validated runtime and code result:
    state instead of being written directly into the SAMOS circular buffer;
 - overlapping SDL taps are queued as pending ordinary keys and promoted when the
    current latch becomes idle;
+- once `SYS.SY` commits a still-held ordinary key into the circular buffer via
+   the `0x457C` advance hook, the emulator arms `0x4558` / `0x4577` there and
+   then drops the CLA-visible hold so later Stage 1 helper polls do not zero the
+   countdown before Stage 4 can repeat it;
 - released promoted keys are allowed one synthetic reassert so `SYS.SY` can see
    them, then they are dropped again;
 - once `SYS.SY` commits such a released promoted key into the circular buffer,
@@ -167,8 +171,6 @@ Validated runtime and code result:
 What remains as active design work is narrower:
 
 - finish the remaining host-position coverage in `HOST_MATRIX_KEYS[]`;
-- decide whether accented / host-layout-friendly entry should come back as an
-   explicit compatibility layer on top of the strict baseline;
 - keep re-auditing the exact hardware explanation for the bit-7-prefixed first
    ordinary CLA read, which is still validated as behaviour but not yet as a
    pure electrical claim.

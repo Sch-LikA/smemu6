@@ -27,11 +27,14 @@ mkdir -p "$(dirname "$LOG_FILE")"
 rm -f "$LOG_FILE"
 
 pushd "$ROOT_DIR" >/dev/null
-"$EMU_BIN" -no-launcher -floppy "$FLOPPY_IMAGE" -no-display-off -tracekbd -traceflow -timeout "$TIMEOUT_SECS" 2>"$LOG_FILE" &
+"$EMU_BIN" -no-launcher -floppy "$FLOPPY_IMAGE" -no-display-off -trace -tracekbd -traceflow -timeout "$TIMEOUT_SECS" 2>"$LOG_FILE" &
 emu_wrapper_pid=$!
 popd >/dev/null
 
 cleanup() {
+    xdotool keyup a >/dev/null 2>&1 || true
+    xdotool keyup s >/dev/null 2>&1 || true
+    xdotool keyup d >/dev/null 2>&1 || true
     if kill -0 "$emu_wrapper_pid" >/dev/null 2>&1; then
         kill "$emu_wrapper_pid" >/dev/null 2>&1 || true
         wait "$emu_wrapper_pid" >/dev/null 2>&1 || true
@@ -54,6 +57,24 @@ if [[ -z "$emu_pid" ]]; then
     echo "failed to discover emulator PID from $LOG_FILE" >&2
     exit 1
 fi
+
+wait_for_log_pattern() {
+    local pattern="$1"
+    local description="$2"
+
+    for _ in $(seq 1 250); do
+        if [[ -f "$LOG_FILE" ]] && rg -q "$pattern" "$LOG_FILE"; then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "timed out waiting for $description" >&2
+    echo "log: $LOG_FILE" >&2
+    return 1
+}
+
+wait_for_log_pattern '^\[prompt\] frame [0-9]+: appeared \(count=1\)$' 'CLI prompt visibility'
 
 inject_keys() {
     local window_id=""
