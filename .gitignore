@@ -8,6 +8,7 @@ tmp/
 *.d
 __pycache__/
 .venv/
+.vscode/
 *.pyc
 smaky6_ram*.bin
 private/
