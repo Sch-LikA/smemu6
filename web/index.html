@@ -8,6 +8,18 @@
   <link rel="icon" href="smaky6-256.png" type="image/png" sizes="256x256">
   <link rel="apple-touch-icon" href="smaky6-128.png">
   <style>
+    :root {
+      --page-pad-x: clamp(12px, 3vw, 20px);
+      --page-pad-y: clamp(20px, 4vw, 32px);
+      --shell-max-width: 620px;
+      --launcher-max-width: 430px;
+      --body-font-size: clamp(12px, 1.35vw, 13px);
+      --ui-font-small: clamp(0.72rem, 1.3vw, 0.8rem);
+      --ui-font-label: clamp(0.78rem, 1.5vw, 0.9rem);
+      --panel-gap: clamp(10px, 2.4vw, 16px);
+      --touch-target: 44px;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -16,12 +28,13 @@
         radial-gradient(ellipse at 50% 0%, #cec6b4 0%, #a8a090 100%);
       color: #2a2520;
       font-family: 'Courier New', Courier, monospace;
-      font-size: 13px;
+      font-size: var(--body-font-size);
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
-      padding: 32px 16px 40px;
+      padding: var(--page-pad-y) var(--page-pad-x) 40px;
+      overflow-x: hidden;
     }
 
     /* ── Page title ─────────────────────────────────────────────────────── */
@@ -30,17 +43,18 @@
       flex-direction: column;
       align-items: center;
       gap: 4px;
-      margin-bottom: 22px;
+      margin-bottom: clamp(14px, 3vw, 22px);
+      width: min(100%, var(--shell-max-width));
     }
     #title-plate img.logo-img {
       width: 436px;
-      max-width: 90vw;
+      max-width: min(90vw, 436px);
       height: auto;
       display: block;
       filter: drop-shadow(0 4px 14px rgba(0,0,0,0.45));
     }
     .model {
-      font-size: 0.72em;
+      font-size: var(--ui-font-small);
       color: #7a7060;
       letter-spacing: 0.22em;
       text-transform: uppercase;
@@ -61,7 +75,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: var(--panel-gap);
+      width: min(100%, var(--shell-max-width));
     }
 
     /* dark base strip at bottom of machine (like the real one) */
@@ -86,7 +101,7 @@
       border-bottom: 1px solid #b8b094;
     }
     .badge-tagline {
-      font-size: 0.72em;
+      font-size: var(--ui-font-small);
       color: #7a7060;
       letter-spacing: 0.08em;
       font-style: italic;
@@ -103,16 +118,19 @@
     #attribution {
       margin-top: 20px;
       text-align: center;
-      font-size: 0.68em;
+      font-size: var(--ui-font-small);
       color: #7a7060;
       line-height: 1.7;
-      max-width: 460px;
+      max-width: min(100%, 460px);
     }
     #attribution a { color: #5a5040; text-decoration: underline; }
     #attribution a:hover { color: #2a2520; }
 
     /* ── Launcher panel ─────────────────────────────────────────────────── */
-    #launcher { width: 400px; }
+    #launcher {
+      width: min(100%, var(--launcher-max-width));
+      padding-inline: clamp(14px, 3vw, 20px);
+    }
 
     .lnch-section {
       width: 100%;
@@ -121,7 +139,7 @@
       margin-top: 2px;
     }
     .lnch-section-title {
-      font-size: 0.68em;
+      font-size: var(--ui-font-small);
       letter-spacing: 0.14em;
       color: #7a7060;
       text-transform: uppercase;
@@ -136,7 +154,7 @@
     }
     .lnch-row label.lbl {
       width: 36px;
-      font-size: 0.78em;
+      font-size: var(--ui-font-label);
       color: #4a4038;
       letter-spacing: 0.08em;
       flex-shrink: 0;
@@ -162,10 +180,13 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      padding: 3px 10px;
+      min-height: var(--touch-target);
+      padding: 9px 12px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.78em;
+      font-size: var(--ui-font-label);
+      display: inline-flex;
+      align-items: center;
       box-shadow: 0 1px 0 #ffffff66, inset 0 -1px 0 #00000022;
       transition: background 0.1s;
       white-space: nowrap;
@@ -179,7 +200,7 @@
     }
 
     .lnch-fname {
-      font-size: 0.72em;
+      font-size: var(--ui-font-small);
       color: #7a7060;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -191,7 +212,7 @@
     .lnch-opts {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 7px 16px;
+      gap: 10px clamp(12px, 3vw, 16px);
     }
 
     .lnch-opt {
@@ -234,7 +255,7 @@
     input[type=checkbox] { display: none; }
 
     .opt-label {
-      font-size: 0.78em;
+      font-size: var(--ui-font-label);
       color: #4a4038;
     }
 
@@ -243,9 +264,10 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      padding: 3px 6px;
+      min-height: var(--touch-target);
+      padding: 9px 8px;
       font-family: inherit;
-      font-size: 0.78em;
+      font-size: var(--ui-font-label);
       cursor: pointer;
       outline: none;
       box-shadow: 0 1px 0 #ffffff55;
@@ -259,10 +281,11 @@
       color: #e0d8b8;
       border: 1px solid #1a1410;
       border-radius: 4px;
-      padding: 9px;
+      min-height: var(--touch-target);
+      padding: 9px 12px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.88em;
+      font-size: clamp(0.82rem, 1.7vw, 0.92rem);
       letter-spacing: 0.18em;
       text-transform: uppercase;
       box-shadow: 0 2px 0 #1a1410, 0 3px 6px #00000044;
@@ -277,10 +300,15 @@
     }
 
     /* ── Machine (emulator view) ────────────────────────────────────────── */
-    #machine { display: none; }
+    #machine {
+      display: none;
+      width: min(100%, var(--shell-max-width));
+      padding-inline: clamp(12px, 2.6vw, 20px);
+    }
 
     /* Bezel — dark like the real machine's screen surround */
     #bezel {
+      width: 100%;
       background: linear-gradient(170deg, #242020 0%, #1a1616 100%);
       border-radius: 5px;
       padding: 12px 12px 10px;
@@ -296,10 +324,16 @@
       border-radius: 2px;
       overflow: hidden;
       box-shadow: 0 0 20px #00cc0022, inset 0 0 6px #000;
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 512 / 240;
     }
 
     canvas {
       display: block;
+      width: 100%;
+      height: auto;
+      max-width: 100%;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
@@ -346,11 +380,17 @@
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
+      gap: var(--panel-gap);
       padding: 4px 2px 2px;
+      flex-wrap: wrap;
     }
 
-    #drives { display: flex; gap: 14px; flex-wrap: wrap; }
+    #drives {
+      display: flex;
+      gap: clamp(10px, 2vw, 14px);
+      flex-wrap: wrap;
+      flex: 1 1 320px;
+    }
 
     .drive-slot {
       display: flex;
@@ -358,7 +398,12 @@
       align-items: flex-start;
       gap: 3px;
     }
-    .drive-label-row { display: flex; align-items: center; gap: 6px; }
+    .drive-label-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
 
     .drive-led {
       width: 7px; height: 7px;
@@ -374,7 +419,7 @@
     }
 
     .drive-name {
-      font-size: 0.72em;
+      font-size: var(--ui-font-small);
       color: #5a5040;
       letter-spacing: 0.1em;
       font-weight: bold;
@@ -385,10 +430,13 @@
       color: #2a2520;
       border: 1px solid #a8a080;
       border-radius: 3px;
-      padding: 3px 9px;
+      min-height: var(--touch-target);
+      padding: 9px 12px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.75em;
+      font-size: var(--ui-font-small);
+      display: inline-flex;
+      align-items: center;
       box-shadow: 0 1px 0 #ffffff55, inset 0 -1px 0 #00000022;
       transition: background 0.1s;
     }
@@ -397,16 +445,22 @@
     }
 
     .disk-name {
-      font-size: 0.68em;
+      font-size: var(--ui-font-small);
       color: #7a7060;
-      max-width: 150px;
+      max-width: min(200px, 52vw);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       font-style: italic;
     }
 
-    #btns { display: flex; gap: 8px; align-items: center; padding-top: 2px; }
+    #btns {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding-top: 2px;
+      flex: 0 0 auto;
+    }
 
     /* panel buttons — dark keycap style */
     button.panel-btn {
@@ -414,10 +468,11 @@
       color: #d0c8a8;
       border: 1px solid #181410;
       border-radius: 3px;
-      padding: 4px 12px;
+      min-height: var(--touch-target);
+      padding: 9px 14px;
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.75em;
+      font-size: var(--ui-font-small);
       letter-spacing: 0.06em;
       box-shadow: 0 2px 0 #161210, 0 3px 5px #00000033;
       transition: background 0.1s, transform 0.1s, box-shadow 0.1s;
@@ -448,20 +503,21 @@
     #log-toggle {
       background: none; border: none;
       color: #8a8070;
-      font-family: inherit; font-size: 0.7em;
-      cursor: pointer; padding: 2px 0; letter-spacing: 0.06em;
+      font-family: inherit; font-size: var(--ui-font-small);
+      cursor: pointer; padding: 8px 0; letter-spacing: 0.06em;
     }
     #log-toggle:hover { color: #5a5040; }
 
     #output {
       margin-top: 4px;
       width: 100%;
-      height: 60px;
+      min-height: 60px;
+      height: clamp(60px, 16vw, 120px);
       background: #040804;
       border: 1px solid #0e1a0e;
       border-radius: 2px;
       padding: 5px 7px;
-      font-size: 0.7em;
+      font-size: var(--ui-font-small);
       color: #006600;
       overflow-y: auto;
       resize: vertical;
@@ -470,6 +526,103 @@
     #output.hidden { display: none; }
 
     input[type=file] { display: none; }
+
+    @media (max-width: 820px) {
+      :root {
+        --shell-max-width: 100%;
+      }
+
+      .machine-body {
+        width: 100%;
+      }
+
+      #front-panel {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      #drives,
+      #btns,
+      #log-wrap {
+        width: 100%;
+      }
+
+      #btns .panel-btn {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding-bottom: 28px;
+      }
+
+      .machine-body {
+        border-radius: 6px 6px 4px 4px;
+        padding-top: 14px;
+      }
+
+      #launcher,
+      #machine {
+        padding-inline: 14px;
+      }
+
+      .lnch-row,
+      .drive-slot {
+        width: 100%;
+      }
+
+      .lnch-row {
+        flex-wrap: wrap;
+      }
+
+      .lnch-row label.lbl {
+        width: auto;
+        min-width: 36px;
+      }
+
+      .lnch-fname,
+      .disk-name {
+        max-width: 100%;
+        flex-basis: 100%;
+      }
+
+      .lnch-opts {
+        grid-template-columns: 1fr;
+      }
+
+      .drive-label-row {
+        width: 100%;
+      }
+    }
+
+    @media (pointer: coarse) {
+      .lnch-opt {
+        min-height: var(--touch-target);
+        padding: 6px 0;
+      }
+
+      select.lnch-select {
+        min-width: 96px;
+      }
+
+      .toggle-track {
+        width: 36px;
+        height: 20px;
+        border-radius: 10px;
+      }
+
+      .toggle-track::after {
+        top: 3px;
+        left: 3px;
+        width: 12px;
+        height: 12px;
+      }
+
+      input[type=checkbox]:checked + .toggle-track::after {
+        transform: translateX(16px);
+      }
+    }
   </style>
 </head>
 <body>

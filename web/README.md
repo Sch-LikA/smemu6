@@ -112,6 +112,9 @@ At build time, `--preload-file` bundles:
 
 ## Notes
 
+- The web shell is now responsive: the launcher, canvas, and front-panel
+  controls scale down to narrow screens, and touch targets are enlarged for
+  phones and tablets.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
   is passed via `Module.arguments`).  Use the HTML controls instead.
 - Sound uses SDL2's push-mode (`SDL_QueueAudio`) — no `SharedArrayBuffer`

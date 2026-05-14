@@ -772,25 +772,15 @@ See [web/README.md](web/README.md) for build and serving instructions.
   embedded into `smemu6.data` at build time.
 - **CMake integration** — `cmake/Emscripten.cmake` toolchain + `CMakePresets.json`
   "web" preset.  Build with `cmake --preset web && cmake --build build-web`.
-- **HTML shell** — `web/shell.html` custom Emscripten shell with green-phosphor
+- **HTML shell** — `web/index.html` custom Emscripten shell with green-phosphor
   styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
 
 ### Remaining work
-- **Responsive layout for all screen sizes** — the current HTML shell is desktop-only
-  (fixed canvas width).  Make it adapt to smartphones, tablets, and laptops:
-  - Use CSS `max-width: 100vw` + `aspect-ratio` on the canvas so it scales down
-    on narrow screens without horizontal scrolling.
-  - On portrait mobile, stack controls (file buttons, reset, log) below the canvas
-    rather than beside it; use CSS `@media (max-width: …)` breakpoints.
-  - Replace fixed-pixel font sizes with `clamp()` / `vw`-relative values so labels
-    stay legible at all zoom levels.
-  - On touch devices, map tap to mouse click (SDL2 Emscripten already translates
-    touch events, but verify function-key and status-bar buttons have large enough
-    hit targets — minimum 44 × 44 CSS px).
-  - Consider a "fullscreen" button that calls `canvas.requestFullscreen()` on mobile
-    for an immersive experience.
-  - Test at minimum: 375 px wide (iPhone SE), 768 px (iPad), 1280 px (laptop),
-    1920 px (desktop).
+- **Responsive layout for all screen sizes** ✅ Done — `web/index.html` now uses
+  viewport-capped shell widths, scalable canvas sizing (`aspect-ratio` +
+  `max-width: 100%`), `clamp()`-based UI typography, narrow-screen breakpoints
+  that stack the front-panel controls below the screen, and 44 px minimum touch
+  targets for buttons, toggles, and selects.
 - **Bundled floppy library** — bundle all `.dsk` images from the `floppies/` directory
   into the Emscripten data package at build time, and offer a selection UI at boot so
   users can pick a disk without uploading anything:
