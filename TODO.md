@@ -791,7 +791,7 @@ See [web/README.md](web/README.md) for build and serving instructions.
   minimum touch targets for buttons, toggles, and selects.
 - **Bundled floppy library** ✅ Done — the web build now preloads the repository
   `floppies/` directory into `/floppies`, the launcher populates DX0 / DX1 dropdowns
-  from `FS.readdir('/floppies')` before startup, `Sys1-H.dsk` is preselected for DX0,
+  from `FS.readdir('/floppies')` before startup, `Demo_ABC.dsk` is preselected for DX0,
   and clicking **Start** routes the selected bundled image through the existing
   `-floppy` / `-floppy2` startup path. The existing **Use own…** file picker still
   stages user-supplied `.dsk` files into the same virtual filesystem before boot.

@@ -15,6 +15,8 @@
       --launcher-max-width: 430px;
       --machine-screen-width: 512;
       --machine-screen-height: 508;
+      --machine-display-scale: 1;
+      --machine-shell-chrome: 64;
       --body-font-size: clamp(12px, 1.35vw, 13px);
       --ui-font-small: clamp(0.72rem, 1.3vw, 0.8rem);
       --ui-font-label: clamp(0.78rem, 1.5vw, 0.9rem);
@@ -108,13 +110,6 @@
       letter-spacing: 0.08em;
       font-style: italic;
     }
-    #version-badge {
-      display: block;
-      font-size: 0.62em;
-      color: #9a9080;
-      letter-spacing: 0.06em;
-      margin-top: 3px;
-    }
 
     /* ── Attribution footer ────────────────────────────────────────────── */
     #attribution {
@@ -124,6 +119,13 @@
       color: #7a7060;
       line-height: 1.7;
       max-width: min(100%, 460px);
+    }
+    #footer-version {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.72em;
+      letter-spacing: 0.08em;
+      color: #9a9080;
     }
     #attribution a { color: #5a5040; text-decoration: underline; }
     #attribution a:hover { color: #2a2520; }
@@ -323,8 +325,13 @@
     /* ── Machine (emulator view) ────────────────────────────────────────── */
     #machine {
       display: none;
-      width: min(100%, var(--shell-max-width));
-      padding-inline: clamp(12px, 2.6vw, 20px);
+      width: min(
+        100%,
+        calc(
+          (var(--machine-screen-width) * var(--machine-display-scale) + var(--machine-shell-chrome)) * 1px
+        )
+      );
+      padding-inline: 20px;
     }
 
     /* Bezel — dark like the real machine's screen surround */
@@ -345,8 +352,9 @@
       border-radius: 2px;
       overflow: hidden;
       box-shadow: 0 0 20px #00cc0022, inset 0 0 6px #000;
-      width: 100%;
+      width: min(100%, calc(var(--machine-screen-width) * var(--machine-display-scale) * 1px));
       max-width: 100%;
+      margin: 0 auto;
       aspect-ratio: var(--machine-screen-width) / var(--machine-screen-height);
     }
 
@@ -657,7 +665,6 @@
 
   <div class="badge-strip">
     <span class="badge-tagline">Reliving 1978, one Z80 cycle at a time</span>
-    <span id="version-badge"></span>
   </div>
 
   <div class="lnch-section" style="border-top:none; padding-top:0; margin-top:0;">
@@ -714,12 +721,6 @@
         <span class="opt-label">Scanlines</span>
       </label>
 
-      <label class="lnch-opt" for="lnch-nodispoff">
-        <input type="checkbox" id="lnch-nodispoff">
-        <span class="toggle-track"></span>
-        <span class="opt-label">No display-off</span>
-      </label>
-
     </div>
   </div>
 
@@ -734,7 +735,6 @@
 
   <div class="badge-strip">
     <span class="badge-tagline">Reliving 1978, one Z80 cycle at a time</span>
-    <span id="version-badge-machine"></span>
   </div>
 
   <div id="bezel">
@@ -784,7 +784,9 @@
 <input type="file" id="smemu6-file-input" accept=".dsk,.DSK">
 
 <p id="attribution">
+  <span id="footer-version"></span>
   Emulator vibe-coded by Marcel Prisi &mdash; GPL&nbsp;v3.<br>
+  Project page: <a href="https://github.com/Sch-LikA/smemu6" target="_blank" rel="noopener">github.com/Sch-LikA/smemu6</a><br>
   The Smaky&nbsp;6 was designed by <strong>Jean-Daniel Nicoud</strong> and his team at EPFL
   and commercialized by <a href="https://www.epsitec.ch" target="_blank" rel="noopener">Epsitec&nbsp;SA</a>.<br>
   ROM content freely available courtesy of Epsitec&nbsp;SA.<br>
@@ -799,6 +801,17 @@ var launchDx0File = null;
 var launchDx1File = null;
 var runtimeReady = false;
 var emulatorStarted = false;
+
+function syncMachineDisplayScale() {
+  var scaleSelect = document.getElementById('lnch-scale');
+  var scale = parseInt(scaleSelect.value, 10);
+
+  if (!Number.isFinite(scale) || scale < 1) scale = 1;
+  document.documentElement.style.setProperty('--machine-display-scale', String(scale));
+}
+
+syncMachineDisplayScale();
+document.getElementById('lnch-scale').addEventListener('change', syncMachineDisplayScale);
 
 function setLaunchDriveState(drive, label, active) {
   document.getElementById('lnch-' + drive + '-name').textContent = label;
@@ -911,7 +924,8 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   var startButton = this;
   var args = ['-no-launcher'];
 
-  if (document.getElementById('lnch-nodispoff').checked)  args.push('-no-display-off');
+  syncMachineDisplayScale();
+
   if (document.getElementById('lnch-scanlines').checked)  args.push('-scanlines');
 
   var phosphor = document.getElementById('lnch-phosphor').value;
@@ -970,18 +984,16 @@ var Module = {
   onRuntimeInitialized: function() {
     try { Module.FS.mkdir('/floppies'); } catch(e) {}
 
-    // Display build version in both badge strips
+    // Display build version in the footer.
     try {
       var ver = Module.ccall('smemu6_get_version', 'string', [], []);
       if (ver) {
-        var el = document.getElementById('version-badge');
+        var el = document.getElementById('footer-version');
         if (el) el.textContent = ver;
-        var el2 = document.getElementById('version-badge-machine');
-        if (el2) el2.textContent = ver;
       }
     } catch(e) {}
 
-    var bundled = populateBundledDiskSelect('lnch-dx0-select', 'Sys1-H.dsk');
+    var bundled = populateBundledDiskSelect('lnch-dx0-select', 'Demo_ABC.dsk');
     populateBundledDiskSelect('lnch-dx1-select', '');
     refreshLaunchDriveState('dx0');
     refreshLaunchDriveState('dx1');
