@@ -978,10 +978,11 @@ Note: `0x7F` also renders as the solid-filled block glyph ▓ in the chargen ROM
 ### Swiss-French accented characters (Category 3)
 
 Codes `0x0F`–`0x1D` are still the 15 Swiss-French accented characters in the Smaky
-code space, as confirmed by the S471 dump.  The current strict baseline does not
-feed them through a dedicated `SDL_TEXTINPUT` path anymore; exposing them from host
-keyboards again would require either additional audited host-position mappings or an
-explicit compatibility text-entry layer.
+code space, as confirmed by the S471 dump. The current runtime does expose them
+through the printable-text compatibility path in `keyboard_text_event()`: normal
+ASCII text still uses the fresh-text-key gate that suppresses host repeat storms,
+while composed non-ASCII `SDL_TEXTINPUT` events fall back to a one-shot direct-code
+path when SDL does not provide a matching fresh claimable scancode.
 
 The chargen-code assignments remain:
 

@@ -560,10 +560,12 @@ printer / serial drivers interpret them as formatting or accent modifiers.
 | `0x16` | ï / Ï             | | | |
 | `0x17` | î / Î             | | | |
 
-The current keyboard baseline no longer relies on `SDL_TEXTINPUT`.  Ordinary keys are
-resolved by host scancode position through the audited S471 table in `src/keyboard.c`.
-If accented-text compatibility returns later, it should be documented as a separate
-compatibility layer rather than as the core hardware path.
+The current keyboard baseline uses a split model. Ordinary non-text keys are
+resolved by host scancode position through the audited S471 table in `src/keyboard.c`,
+while printable host text still uses `SDL_TEXTINPUT` as a compatibility layer.
+Composed accented input now falls back to a one-shot direct-code path when SDL
+delivers a decoded UTF-8 text event without a matching fresh text scancode. That
+compatibility path is still distinct from the core hardware-faithful matrix path.
 
 ---
 

@@ -205,6 +205,9 @@ Current emulator state:
 
 - ordinary keys now enter through the strict CLA-facing latch in `src/keyboard.c`,
   using host scancode position -> S471 layer lookup -> CLA / `SYS.SY` delivery;
+- printable host text still uses `SDL_TEXTINPUT` compatibility handling, with a
+  one-shot fallback for composed accented characters when SDL delivers decoded
+  text without a fresh claimable host text scancode;
 - overlapping SDL taps are queued as pending ordinary keys and promoted one by one
   once the active latch becomes idle;
 - the direct `0x457E` helper byte is consumed on the `0x0519` accessor read, and

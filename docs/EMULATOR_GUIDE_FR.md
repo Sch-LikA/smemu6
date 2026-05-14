@@ -244,9 +244,12 @@ Note matérielle : le dump complet de la ROM clavier S471 est maintenant
 disponible. L'émulateur correspond déjà aux sorties spéciales confirmées qu'il
 expose directement, notamment `Escape -> 0x06`, `Backspace -> 0x08`,
 `Tab -> 0x09`, `Return -> 0x0D` et `Space -> 0x20`. C'est maintenant une base
-strictement CLA-centrique, mais elle ne couvre pas encore toutes les positions
-physiques originales du Smaky ni un mode de compatibilité séparé pour la saisie
-accentuée.
+strictement CLA-centrique pour les touches non textuelles, tandis que le texte
+imprimable continue de passer par la compatibilité `SDL_TEXTINPUT`. Cette voie
+de compatibilité inclut maintenant un repli « one-shot » pour les caractères
+accentués composés, de sorte que des dispositions hôtes produisant `ü`, `ö`,
+`ä`, `é`, `è`, `ê` ou `ç` atteignent de nouveau la CLI même si SDL n'expose pas
+de scancode texte frais et réclamable pour l'événement composé.
 
 ### Barre de touches de fonction
 

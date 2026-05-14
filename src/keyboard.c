@@ -362,10 +362,12 @@ static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPo
 
 static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
-    for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
-        uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
-        if (m->kbd.pending_ordinary[idx].scancode == scan)
-            return 0;
+    if (scan != SDL_SCANCODE_UNKNOWN) {
+        for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
+            uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
+            if (m->kbd.pending_ordinary[idx].scancode == scan)
+                return 0;
+        }
     }
 
     if (m->kbd.pending_ordinary_len >= PENDING_ORDINARY_CAP)
@@ -375,7 +377,7 @@ static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t ke
     m->kbd.pending_ordinary[idx].scancode = scan;
     m->kbd.pending_ordinary[idx].matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary[idx].key_code = key_code & 0x7Fu;
-    m->kbd.pending_ordinary[idx].released = 0;
+    m->kbd.pending_ordinary[idx].released = (scan == SDL_SCANCODE_UNKNOWN) ? 1 : 0;
     m->kbd.pending_ordinary_len++;
 
     if (m->dbg.trace_kbd) {
@@ -474,13 +476,13 @@ static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t k
     m->kbd.key_code = key_code & 0x7Fu;
     m->bus[0x457Eu] = 0x00u;
     m->kbd.found = 1;
-    m->kbd.physically_held = 1;
+    m->kbd.physically_held = (scan != SDL_SCANCODE_UNKNOWN);
     m->kbd.cla_seen_current = 0;
     m->kbd.boot_key_held = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
-    m->kbd.release_after_buffer_commit = 0;
+    m->kbd.release_after_buffer_commit = (scan == SDL_SCANCODE_UNKNOWN) ? 1 : 0;
     m->kbd.active_scancode = scan;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.reassert_pending = 0;
@@ -634,20 +636,8 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 {
     uint8_t key_code;
-    SDL_Scancode scan;
-
-    if (m->kbd.host_text_down_count == 0) {
-        if (m->dbg.trace_kbd)
-            fprintf(stderr, "[kbd-text] ignored \"%s\" with no text key held\n", ev->text);
-        return;
-    }
-
-    scan = claim_pending_host_text_scancode(m);
-    if (scan == SDL_SCANCODE_UNKNOWN) {
-        if (m->dbg.trace_kbd)
-            fprintf(stderr, "[kbd-text] ignored repeat \"%s\" with no fresh text keydown\n", ev->text);
-        return;
-    }
+    SDL_Scancode scan = SDL_SCANCODE_UNKNOWN;
+    int needs_fresh_text_key = (ev->text[0] != '\0' && ev->text[1] == '\0');
 
     if (!decode_text_input_code(ev->text, &key_code)) {
         if (m->dbg.trace_kbd)
@@ -655,7 +645,24 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
         return;
     }
 
-    m->kbd.host_text_down[scan] = 2;
+    if (needs_fresh_text_key) {
+        if (m->kbd.host_text_down_count == 0) {
+            if (m->dbg.trace_kbd)
+                fprintf(stderr, "[kbd-text] ignored \"%s\" with no text key held\n", ev->text);
+            return;
+        }
+
+        scan = claim_pending_host_text_scancode(m);
+        if (scan == SDL_SCANCODE_UNKNOWN) {
+            if (m->dbg.trace_kbd)
+                fprintf(stderr, "[kbd-text] ignored repeat \"%s\" with no fresh text keydown\n", ev->text);
+            return;
+        }
+
+        m->kbd.host_text_down[scan] = 2;
+    } else if (m->dbg.trace_kbd) {
+        fprintf(stderr, "[kbd-text] fallback direct text \"%s\"\n", ev->text);
+    }
 
     if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
         queue_direct_key_code(m, scan, key_code);

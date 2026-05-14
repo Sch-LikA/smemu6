@@ -239,9 +239,12 @@ mapping is now position-based rather than text-input-based.
 Hardware note: the full S471 keyboard ROM dump is now available.  The emulator
 matches the confirmed special-key outputs it exposes directly, including
 `Escape -> 0x06`, `Backspace -> 0x08`, `Tab -> 0x09`, `Return -> 0x0D`, and
-`Space -> 0x20`.  This is now a strict CLA-centric baseline, but it does not yet
-cover every original Smaky physical position or a separate accented-text
-compatibility mode.
+`Space -> 0x20`.  This is now a strict CLA-centric baseline for non-text keys,
+while printable host text still uses `SDL_TEXTINPUT` compatibility handling.
+That compatibility path now includes a one-shot fallback for composed accented
+characters, so host layouts that emit UTF-8 text such as `ü`, `ö`, `ä`, `é`,
+`è`, `ê`, and `ç` can reach the CLI again even when SDL does not expose a fresh
+claimable text scancode for the composed event.
 
 **Function-key status bar:** The bottom strip of the emulator window shows
 7 clickable buttons — one per Smaky function key (CURSOR, COPY, KILL,

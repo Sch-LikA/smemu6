@@ -551,6 +551,9 @@ What this means concretely:
 - **Strict mode**: ordinary matrix keys follow `host position -> S471 table -> regular keycode -> CLA latch path`; function keys update `fonct_bits`, feed GETFON through the normal CLA path, and are synthesized for syscall `0x0E` only when no staged ordinary direct byte is pending; space bar remains a normal key unless later hardware evidence shows it is separately wired, in which case it can become a specific special case without changing the overall architecture.
 
 - **Compatibility mode**: keep `SDL_TEXTINPUT` and other host-friendly typing paths for ordinary printable input; in the current runtime this is active for printable keys by default so international host layouts produce the intended character while Backspace, Tab, Return, function keys, BREAK-family handling, and other non-text keys still follow the strict keydown path; document any extra host aliases explicitly as non-physical host bindings, not as claims about original keyboard wiring.
+- In the current runtime, composed accented `SDL_TEXTINPUT` events also have a
+   one-shot fallback path when SDL does not expose a matching fresh text scancode,
+   so accented host text can still reach the CLI without re-enabling host repeat.
 
 ### H. Model layer selection explicitly
 
