@@ -13,6 +13,8 @@
       --page-pad-y: clamp(20px, 4vw, 32px);
       --shell-max-width: 620px;
       --launcher-max-width: 430px;
+      --machine-screen-width: 512;
+      --machine-screen-height: 508;
       --body-font-size: clamp(12px, 1.35vw, 13px);
       --ui-font-small: clamp(0.72rem, 1.3vw, 0.8rem);
       --ui-font-label: clamp(0.78rem, 1.5vw, 0.9rem);
@@ -345,7 +347,7 @@
       box-shadow: 0 0 20px #00cc0022, inset 0 0 6px #000;
       width: 100%;
       max-width: 100%;
-      aspect-ratio: 512 / 240;
+      aspect-ratio: var(--machine-screen-width) / var(--machine-screen-height);
     }
 
     canvas {

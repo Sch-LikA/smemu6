@@ -150,9 +150,24 @@ if(EMSCRIPTEN)
     endif()
     set_target_properties(smemu6 PROPERTIES LINK_FLAGS "${EM_LINK_FLAGS}")
 
-    # Copy the web shell and its referenced static assets into the build
-    # directory after linking.
-    add_custom_command(TARGET smemu6 POST_BUILD
+    # Keep the web shell assets in sync even when only HTML/CSS changes and
+    # the smemu6.js target itself does not need to relink.
+    set(WEB_ASSET_SOURCES
+        "${CMAKE_SOURCE_DIR}/web/index.html"
+        "${CMAKE_SOURCE_DIR}/web/favicon.ico"
+        "${CMAKE_SOURCE_DIR}/web/smaky6-128.png"
+        "${CMAKE_SOURCE_DIR}/web/smaky6-256.png"
+        "${CMAKE_SOURCE_DIR}/web/smaky6-logo-header.png"
+    )
+    set(WEB_ASSET_OUTPUTS
+        "${CMAKE_BINARY_DIR}/index.html"
+        "${CMAKE_BINARY_DIR}/favicon.ico"
+        "${CMAKE_BINARY_DIR}/smaky6-128.png"
+        "${CMAKE_BINARY_DIR}/smaky6-256.png"
+        "${CMAKE_BINARY_DIR}/smaky6-logo-header.png"
+    )
+    add_custom_command(
+        OUTPUT ${WEB_ASSET_OUTPUTS}
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/web/index.html"
             "${CMAKE_BINARY_DIR}/index.html"
@@ -168,8 +183,11 @@ if(EMSCRIPTEN)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_SOURCE_DIR}/web/smaky6-logo-header.png"
             "${CMAKE_BINARY_DIR}/smaky6-logo-header.png"
+        DEPENDS ${WEB_ASSET_SOURCES}
         COMMENT "Copying web shell assets to build directory"
     )
+    add_custom_target(smemu6_web_assets DEPENDS ${WEB_ASSET_OUTPUTS})
+    add_dependencies(smemu6 smemu6_web_assets)
 
     target_link_libraries(smemu6 PRIVATE Z80 m)
 else()

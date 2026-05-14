@@ -785,10 +785,10 @@ See [web/README.md](web/README.md) for build and serving instructions.
 
 ### Remaining work
 - **Responsive layout for all screen sizes** ✅ Done — `web/index.html` now uses
-  viewport-capped shell widths, scalable canvas sizing (`aspect-ratio` +
-  `max-width: 100%`), `clamp()`-based UI typography, narrow-screen breakpoints
-  that stack the front-panel controls below the screen, and 44 px minimum touch
-  targets for buttons, toggles, and selects.
+  viewport-capped shell widths, full-window canvas sizing for the complete
+  `512 × 508` machine view, `clamp()`-based UI typography, narrow-screen
+  breakpoints that stack the front-panel controls below the screen, and 44 px
+  minimum touch targets for buttons, toggles, and selects.
 - **Bundled floppy library** ✅ Done — the web build now preloads the repository
   `floppies/` directory into `/floppies`, the launcher populates DX0 / DX1 dropdowns
   from `FS.readdir('/floppies')` before startup, `Sys1-H.dsk` is preselected for DX0,

@@ -112,8 +112,9 @@ At build time, `--preload-file` bundles:
 ## Notes
 
 - The web shell is now responsive: the launcher, canvas, and front-panel
-  controls scale down to narrow screens, and touch targets are enlarged for
-  phones and tablets.
+  controls scale down to narrow screens, the canvas preserves the full
+  `512 × 508` machine window instead of cropping the lower bars, and touch
+  targets are enlarged for phones and tablets.
 - The launcher preloads the bundled floppy library from `/floppies/` and lets
   you choose DX0 / DX1 boot disks before starting the emulator.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
