@@ -7,6 +7,7 @@ developed at EPFL (Lausanne) by Jean-Daniel Nicoud and commercialized by Epsitec
 ~450 units were sold (1979–1983), primarily to Swiss schools.
 
 **Goals:**
+
 - Written in portable C99/C11
 - Primary platform: Linux; also macOS and Windows
 - Display via SDL2
@@ -21,6 +22,7 @@ extracted to `/tmp/smaky6.txt` via `pdftotext`.
 ## Hardware Specifications
 
 ### CPU
+
 - **Zilog Z80** @ **2.5 MHz**
   - Derived from documented loop timing: `DECJ,NE` = 256 × 8 × 0.4 µs = 820 µs → 0.4 µs/cycle
 - Interrupt mode: RST-based
@@ -34,16 +36,14 @@ extracted to `/tmp/smaky6.txt` via `pdftotext`.
 
 #### 32 KB / 48 KB models (original, with discrete ROM chips)
 
-| Range (hex)   | Range (octal)  | Description                                              |
-|---------------|----------------|----------------------------------------------------------|
-| 0x0000–0x0FFF | 000000–007777  | SYSMON ROM (4 KB, 2×2708 or 1×2716 EPROM)               |
-| 0x1000–0x1FFF | 010000–017777  | SAMOS ROM (4 KB, floppy OS, optional)                    |
-| 0x4000–0x44FF | 040000–042377  | Alphanumeric screen buffer (20 rows × 64 cols = 1280 B)  |
-| 0x4500–0x45FF | 042400–042777  | OS workspace / variables (256 B)                         |
-| 0x4600–0x54FF | 043000–052377  | Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×) |
-| 0x4600        | 043000         | Initial stack pointer (SP=0x4600 at boot)                |
-| 0x0000–0x7FFF | —              | 32 KB RAM configuration                                  |
-| 0x0000–0xBFFF | —              | 48 KB RAM configuration (per doc page 0.1-1)             |
+- `0x0000–0x0FFF` / `000000–007777`: SYSMON ROM, 4 KB, using 2×2708 or 1×2716 EPROM.
+- `0x1000–0x1FFF` / `010000–017777`: SAMOS ROM, 4 KB, floppy OS, optional.
+- `0x4000–0x44FF` / `040000–042377`: alphanumeric screen buffer, 20 rows × 64 columns = 1280 B.
+- `0x4500–0x45FF` / `042400–042777`: OS workspace and variables, 256 B.
+- `0x4600–0x54FF` / `043000–052377`: graphic bitmap, 60 rows × 64 bytes = 3840 B, each row displayed 4×.
+- `0x4600` / `043000`: initial stack pointer with `SP=0x4600` at boot.
+- `0x0000–0x7FFF`: 32 KB RAM configuration.
+- `0x0000–0xBFFF`: 48 KB RAM configuration, per doc page `0.1-1`.
 
 #### 64 KB model (Phantom ROM — **this is what we emulate**)
 
@@ -52,27 +52,27 @@ has exactly one physical ROM: the 2 KB SYS17 TMS2716 at 0x0000–0x07FF. Once it
 loaded SYS.SY from the floppy and issued `OUT(0x01),A=0` to bank-switch itself out,
 the CPU runs entirely from RAM — no ROM is present at any address.
 
-| Range (hex)   | Range (octal)  | Description                                              |
-|---------------|----------------|----------------------------------------------------------|
-| 0x0000–0x07FF | 000000–003777  | **Phantom ROM** (2 KB, sole ROM in 64 KB machine)        |
-|               |                | → After `OUT(0x01)`: becomes writable RAM                |
-|               |                | → SYSMON from SYS.SY is LDIR'd here from disk            |
-| 0x0800–0x22FF | 004000–021377  | SAMOS OS from SYS.SY (loaded from disk, ~7 KB)           |
-| 0x0800–0x3FFF | 004000–037777  | Lower RAM (available after SAMOS OS)                     |
-| 0x4000–0x44FF | 040000–042377  | Alphanumeric screen buffer (20 rows × 64 cols = 1280 B)  |
-| 0x4500–0x45FF | 042400–042777  | OS workspace / variables (256 B)                         |
-| 0x4600–0x54FF | 043000–052377  | Graphic bitmap (60 rows × 64 bytes = 3840 B; each row displayed 4×) |
-| 0x4600        | 043000         | Initial stack pointer (SP=0x4600 at Phantom cold-start)  |
-| 0x5500–0x5558 | 052400–052530  | OS-loader self-test stub (copied from Phantom ROM 0x04C2)|
-| 0x8100–0xFFFF | 100400–177777  | Upper RAM (~32 KB)                                       |
+- `0x0000–0x07FF` / `000000–003777`: **Phantom ROM**, 2 KB, the sole ROM in the 64 KB machine.
+  After `OUT(0x01)`, it becomes writable RAM.
+  SYSMON from `SYS.SY` is `LDIR` copied here from disk.
+- `0x0800–0x22FF` / `004000–021377`: SAMOS OS from `SYS.SY`, loaded from disk, about 7 KB.
+- `0x0800–0x3FFF` / `004000–037777`: lower RAM, available after SAMOS OS.
+- `0x4000–0x44FF` / `040000–042377`: alphanumeric screen buffer, 20 rows × 64 columns = 1280 B.
+- `0x4500–0x45FF` / `042400–042777`: OS workspace and variables, 256 B.
+- `0x4600–0x54FF` / `043000–052377`: graphic bitmap, 60 rows × 64 bytes = 3840 B, each row displayed 4×.
+- `0x4600` / `043000`: initial stack pointer with `SP=0x4600` at Phantom cold-start.
+- `0x5500–0x5558` / `052400–052530`: OS-loader self-test stub copied from Phantom ROM `0x04C2`.
+- `0x8100–0xFFFF` / `100400–177777`: upper RAM, about 32 KB.
 
 **Key memory constants (octal → hex):**
+
 - `SALPHA` = 040000₈ = 0x4000 (start of screen)
 - `SAVS`   = 042516₈ = 0x4550 (saved stack pointer)
 - `OUTCAR` = 042520₈ (print routine pointer)
 - `INCAR`  = 042522₈ (input routine pointer)
 
 **System entry points (valid after SYS.SY is loaded into RAM):**
+
 - `RESYS`  = 0x0000 (reset — in SYSMON, installed at 0x0000 after bank-switch)
 - `MON`    = 0x0800 / 4000₈ (SAMOS OS entry, installed at 0x0800)
 - `REMON`  = 0x0803 / 4003₈
@@ -93,14 +93,13 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 
 **Character generator (hardware options):**
 
-| Chip          | Status                              | Notes                                        |
-|---------------|-------------------------------------|----------------------------------------------|
-| TI 74S262     | "current Smaky6" — standard         | 5×7 matrix, 128 chars                        |
-| TMS2716 EPROM | "Smaky6 char gen 2716" — custom     | French accented chars; **dump available** (`roms/chargen.rom`) |
-| Motorola 6571 | Alternative                         | Different character set                      |
-| Versatec      | Alternative                         | Printer compatibility                        |
+- `TI 74S262`: "current Smaky6" standard part, 5×7 matrix, 128 characters.
+- `TMS2716 EPROM`: "Smaky6 char gen 2716" custom part, French accented characters, with dump available at `roms/chargen.rom`.
+- `Motorola 6571`: alternative character set.
+- `Versatec`: alternative for printer compatibility.
 
 **TMS2716 chargen ROM format (confirmed from `Char 2716.HEX` dump):**
+
 - 2048 bytes, 16 bytes per character (128 chars × 16)
 - Address: `A10:A4` = char code (7-bit), `A3:A0` = scan row
 - Rows 0–9 = glyph + descenders; rows 10–11 = blank spacing (always 0); rows 12–15 = unused zeros
@@ -108,6 +107,7 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 - Character cell: **8 px wide × 12 scan lines tall** → 20 rows × 12 px = 240 px/col ✓ → 64 cols × 8 px = 512 px/row ✓
 
 **Two distinct code spaces (doc page 217):**
+
 - *Keyboard code*: output of keyboard EPROM at port CLA (0x00)
 - *Display code*: stored in screen buffer at 0x4000; indexes the TMS2716 chargen EPROM
 - SYSMON ROM performs keyboard → display code translation transparently
@@ -117,29 +117,28 @@ the CPU runs entirely from RAM — no ROM is present at any address.
 Z80 I/O is 6-bit decoded (max port 0x3F).
 Ports confirmed by `roms/samos_sys17.rom` disassembly (z80dasm, 2025); prior entries marked *prior*.
 
-| Port  | Name      | Dir   | Confirmed | Description                                                                   |
-|-------|-----------|-------|-----------|-------------------------------------------------------------------------------|
-| 0x00  | CLA       | R/W   | ✓ ROM/SYS | **Read**: keyboard CLA — current latched key code; bit 7 = 0 → key present, bit 7 = 1 → no key. Used by the autoboot/inject path and now also by the strict physical-key matrix path (`src/keyboard.c` resolves host scancode position -> S471 -> CLA-visible latch). **Write**: video-mode control — bit 0 = display enable, bit 2 = super mode, bit 3 = graphic mode; A=0x00 = display off. See `docs/dev/keyboard_analysis.md`. |
-| 0x01  | —         | Write | ✓ ROM/SYS | **Phantom ROM bank-switch**: `OUT(0x01),A=0` disables the 2 KB Phantom ROM, making RAM 0x0000–0x07FF writable. Written in `hard_reset` (0x0139) and by the OS-loader stub (0x5500). Also written by SYSMON at 0x0048. **Emulator:** clears `rom_mask[0x0000..0x07FF]` so LDIR can install SYSMON there. |
-| 0x02  | PAR       | R/W   | *prior*   | Parallel interface data (bidirectional 8-bit)                                 |
-| 0x03  | SPAR/BEL  | Write | ✓ ROM     | **Sound/beep bit-bang**: RST 0x38 interrupt handler outputs timing pulses here in a tight loop (`out (003h),a; dec a; jr nz`). Also receives a byte read from port 0x04 in serial-to-parallel transfer. Read function (if any) unknown from ROM |
-| 0x04  | USA1?     | Read  | ✓ Schem   | **8251 USART data** — permanent I/O interface                                 |
-| 0x05  | SUSA1?    | R/W   | ✓ Schem   | **8251 USART status/control** — permanent I/O interface                        |
-| 0x06  | CAS       | R/W   | ✓ Schem   | **8251 USART data** — cassette reader interface                                |
-| 0x07  | SCAS      | R/W   | ✓ Schem   | **8251 USART command/status** — cassette reader control                         |
-| 0x08  | RTC       | R/W   | ✓ Schem   | **E405/08 RTC serial interface** (extension board, "Horloge absolue"). Confirmed by extension board schematic (R. Forster, Oct 1979): 3-wire serial — bit 3 = CK (clock), bit 2 = MOSI / I/O-out, bit 0 = MISO / I/O-in. `OUT (0x08),0` resets/deselects; protocol sends 4 control bits then clocks 8×7 bytes. Called RZ50/RZ59 in SAMOS OS source. Backed by 32.768 kHz crystal + 1.5 V battery on extension board. |
-| 0x19  | —         | R/W   | ✓ ROM     | **Floppy control register (IC7 LS475, Plan F5)**. **Write** bit layout: bit1=WRTMOD, bit2=INTON (NMI arm), bit3=MOTORON, bit4=STPDIRIN (step direction toward track 0), bit5=DRISEL1 (select DX0), bit6=DRISEL2 (select DX1), bit7=DRISEL3. Drive selection takes effect whenever any DRISEL bit is written, regardless of MOTORON — the Phantom ROM always writes DRISEL+MOTORON together (`0x2C`/`0x4C`), but SAMOS probes drive presence by writing DRISEL alone (e.g. `0x40` = DX1, no motor) before reading status. Common values: `0x2C` arms DX0 (DRISEL1\|MOTORON\|INTON), `0x4C` arms DX1 (DRISEL2\|MOTORON\|INTON), `0x40` DX1 presence probe (DRISEL2 only), `0x00` stops motor/disarms NMI. **Read** bits: [3:0] = current hard-sector index (0–15); bit 5 = 0 → head at track 0 (setup_sector exits when bit5=0); bit 6 = 0 → seek settled (floppy_seek_sys exits when bit6=0). |
-| 0x1A  | CONT      | R/W   | ✓ ROM     | **Write**: floppy control / Winchester data byte. **Read** (via `IN F,(C)` with C=0x1A): tests bit 7 as a ready/request flag without storing value. |
-| 0x1B  | STAT      | Read  | ✓ ROM     | Floppy controller status (4 direct reads); bits 4, 7 tested. Also: data byte read then compared (checksum / ID match logic). |
-| 0x21  | —         | R/W   | ✓ ROM     | Winchester WD-style base+0: auxiliary status (IN) / data (OUT)               |
-| 0x23  | —         | Write | ✓ ROM     | Winchester WD-style base+2: sector count / sector number                      |
-| 0x24  | —         | Write | ✓ ROM     | Winchester WD-style base+3: cylinder low byte                                 |
-| 0x25  | —         | Write | ✓ ROM     | Winchester WD-style base+4: cylinder high byte                                |
-| 0x26  | —         | Write | ✓ ROM     | Winchester WD-style base+5: drive / head select                               |
-| 0x27  | —         | R/W   | ✓ ROM     | Winchester WD-style base+6: command (OUT) / status (IN); bit 7 = busy, bit 4 = seek-complete |
-| 0x2B  | —         | Write | *prior*   | Winchester unknown (reset or select; 1–2 uses)                                |
+- Port `0x00`, `CLA`, read/write, confirmed `ROM/SYS`: read keyboard CLA with bit 7 clear meaning key present and bit 7 set meaning no key. Used by the power-on virtual Enter path, low-level injection, and the strict physical-key matrix path in `src/keyboard.c`. Writes control video mode with bit 0 enable, bit 2 super mode, and bit 3 graphic mode. `A=0x00` means display off. See `docs/dev/keyboard_analysis.md`.
+- Port `0x01`, unnamed, write, confirmed `ROM/SYS`: Phantom ROM bank-switch. `OUT(0x01),A=0` disables the 2 KB Phantom ROM and makes RAM `0x0000–0x07FF` writable. Written in `hard_reset`, by the OS-loader stub, and by SYSMON. The emulator clears `rom_mask[0x0000..0x07FF]` so `LDIR` can install SYSMON there.
+- Port `0x02`, `PAR`, read/write, prior evidence: parallel-interface data, bidirectional 8-bit.
+- Port `0x03`, `SPAR/BEL`, write, confirmed `ROM`: sound or beep bit-bang, with RST `0x38` outputting timing pulses in a tight loop. Also receives a byte read from port `0x04` in serial-to-parallel transfer. Read function remains unknown from ROM.
+- Port `0x04`, `USA1?`, read, confirmed schematic: 8251 USART data for the permanent I/O interface.
+- Port `0x05`, `SUSA1?`, read/write, confirmed schematic: 8251 USART status or control for the permanent I/O interface.
+- Port `0x06`, `CAS`, read/write, confirmed schematic: 8251 USART data for the cassette reader interface.
+- Port `0x07`, `SCAS`, read/write, confirmed schematic: 8251 USART command or status for cassette-reader control.
+- Port `0x08`, `RTC`, read/write, confirmed schematic: E405/08 RTC serial interface on the extension board, with bit 3 = CK, bit 2 = MOSI or I/O out, bit 0 = MISO or I/O in. `OUT (0x08),0` resets or deselects, then the protocol sends 4 control bits and clocks 8 × 7 bytes. Called `RZ50/RZ59` in SAMOS OS source and backed by a 32.768 kHz crystal plus 1.5 V battery.
+- Port `0x19`, unnamed, read/write, confirmed `ROM`: floppy control register `IC7 LS475`, described in Plan F5. Writes encode `WRTMOD`, `INTON`, `MOTORON`, `STPDIRIN`, `DRISEL1`, `DRISEL2`, and `DRISEL3`. Drive selection takes effect whenever any `DRISEL` bit is written, even without `MOTORON`. Common write values include `0x2C` for DX0, `0x4C` for DX1, `0x40` for DX1 presence probe, and `0x00` for stop or disarm. Reads expose current hard-sector index in bits `[3:0]`, track-0 in bit 5, and seek-settled in bit 6.
+- Port `0x1A`, `CONT`, read/write, confirmed `ROM`: write floppy-control or Winchester data byte. Reads via `IN F,(C)` with `C=0x1A` test bit 7 as a ready or request flag.
+- Port `0x1B`, `STAT`, read, confirmed `ROM`: floppy-controller status, with four direct reads, bits 4 and 7 tested, and data bytes also compared for checksum or ID-match logic.
+- Port `0x21`, unnamed, read/write, confirmed `ROM`: Winchester WD-style base+0 auxiliary status on input and data on output.
+- Port `0x23`, unnamed, write, confirmed `ROM`: Winchester WD-style base+2 sector count or sector number.
+- Port `0x24`, unnamed, write, confirmed `ROM`: Winchester WD-style base+3 cylinder low byte.
+- Port `0x25`, unnamed, write, confirmed `ROM`: Winchester WD-style base+4 cylinder high byte.
+- Port `0x26`, unnamed, write, confirmed `ROM`: Winchester WD-style base+5 drive or head select.
+- Port `0x27`, unnamed, read/write, confirmed `ROM`: Winchester WD-style base+6 command on output and status on input, with bit 7 busy and bit 4 seek-complete.
+- Port `0x2B`, unnamed, write, prior evidence: Winchester unknown, possibly reset or select, with one or two uses.
 
 USART chips (8251 devices, per schematics):
+
 - Port 0x04/0x05: **8251 USART** (permanent I/O interface)
 - Port 0x06/0x07: **8251 USART** (cassette reader)
 - Initialization: Q42 = no parity, ×16 clock divider
@@ -149,86 +148,95 @@ USART chips (8251 devices, per schematics):
 The ROM occupies 0x0000–0x07FF. RST instructions (1-byte `RST n`) are used as fast system calls;
 each vector holds 3–8 bytes then JP/RET:
 
-| RST    | Target  | Name          | Function                                                                    |
-|--------|---------|---------------|-----------------------------------------------------------------------------|
-| RST 00 | 0x0000  | BOOT          | DI; LD SP,0x4600; JP 0x003B — cold start / hard reset                      |
-| RST 08 | 0x0008  | DISPATCH      | `PUSH HL; LD HL,(0x450F); EX (SP),HL; RET` — indirect CALL via RAM pointer at 0x450F |
-| RST 10 | →0x0143 | DISK_HW       | Low-level floppy/disk hardware access (saves BC/AF/HL/DE, uses HL+BC addressing) |
-| RST 18 | →0x011C | MEM_FILL      | Fill 0x4000–0x44FF with 0x20 (space); used to clear screen-RAM/workspace   |
-| RST 20 | →0x01EE | DISK_IO       | Disk I/O dispatch: tests (0x4502) — 0x00 → floppy path, 0xFF → Winchester (JP 0x0339) |
-| RST 28 | →0x0167 | STRCP         | Copy string from (HL) to (DE) until zero byte (like `strcpy`)               |
-| RST 30 | →0x57C0 | OS_ENTRY      | Main OS entry point (address in relocated SAMOS image; only valid after boot)|
-| RST 38 | →0x0106 | INTERRUPT/BEL | IM1 interrupt handler **and** beep: bit-bang timing pulses to port 0x03     |
+- `RST 00`, target `0x0000`, `BOOT`: `DI; LD SP,0x4600; JP 0x003B` for cold start or hard reset.
+- `RST 08`, target `0x0008`, `DISPATCH`: `PUSH HL; LD HL,(0x450F); EX (SP),HL; RET`, an indirect call through RAM pointer `0x450F`.
+- `RST 10`, target `0x0143`, `DISK_HW`: low-level floppy or disk hardware access saving `BC/AF/HL/DE` and using `HL+BC` addressing.
+- `RST 18`, target `0x011C`, `MEM_FILL`: fills `0x4000–0x44FF` with `0x20` space, used to clear screen RAM and workspace.
+- `RST 20`, target `0x01EE`, `DISK_IO`: disk I/O dispatch testing `(0x4502)`, with `0x00` selecting floppy and `0xFF` selecting Winchester by `JP 0x0339`.
+- `RST 28`, target `0x0167`, `STRCP`: copy string from `(HL)` to `(DE)` until zero byte, like `strcpy`.
+- `RST 30`, target `0x57C0`, `OS_ENTRY`: main OS entry point in the relocated SAMOS image, only valid after boot.
+- `RST 38`, target `0x0106`, `INTERRUPT/BEL`: IM1 interrupt handler and beep generator, bit-banging timing pulses to port `0x03`.
 
 ### RAM Workspace at 0x4500 (confirmed from samos_sys17.rom)
 
 The OS keeps a small workspace just above the stack (SP=0x4600):
 
-| Address | Width | Name        | Contents / purpose                                               |
-|---------|-------|-------------|------------------------------------------------------------------|
-| 0x4500  | 1     | CMD_BASE    | Base value ORed with command offsets before `OUT (0x19),A`; encodes drive, heads, etc. |
-| 0x4501  | 1     | FLAG1       | 0xFF or 0x00; tested in boot to select startup message           |
-| 0x4502  | 1     | DISK_SEL    | 0x00 = floppy active, 0xFF = Winchester active (RST 20 dispatch) |
-| 0x4503  | 2     | CUR_TRK?    | Current track/sector state (HL stored here)                      |
-| 0x4505  | 2     | BUF_PTR?    | Buffer pointer (HL stored here)                                  |
-| 0x4507  | 1     | RETRY_CNT?  | Retry/error counter                                              |
-| 0x4509  | 2     | SEC_PTR?    | Sector data pointer (DE stored here)                             |
-| 0x450B  | 2     | MISC        | Misc pointer (HL stored here)                                    |
-| 0x450F  | 2     | RST8_VEC    | RST 08 indirect dispatch target (changed at runtime)             |
+- `0x4500`, width `1`, `CMD_BASE`: base value ORed with command offsets before `OUT (0x19),A`, encoding drive, heads, and related state.
+- `0x4501`, width `1`, `FLAG1`: `0xFF` or `0x00`, tested during boot to select startup message.
+- `0x4502`, width `1`, `DISK_SEL`: `0x00` means floppy active, `0xFF` means Winchester active for RST 20 dispatch.
+- `0x4503`, width `2`, `CUR_TRK?`: current track or sector state, with `HL` stored here.
+- `0x4505`, width `2`, `BUF_PTR?`: buffer pointer, with `HL` stored here.
+- `0x4507`, width `1`, `RETRY_CNT?`: retry or error counter.
+- `0x4509`, width `2`, `SEC_PTR?`: sector-data pointer, with `DE` stored here.
+- `0x450B`, width `2`, `MISC`: misc pointer, with `HL` stored here.
+- `0x450F`, width `2`, `RST8_VEC`: RST 08 indirect dispatch target, changed at runtime.
 
 ### Boot Sequence (confirmed from samos_sys17_annotated.asm — Phantom SYS17 ROM)
 
-**Phase A — Device selection (user input required)**
+#### Phase A — Device selection (user input required)
+
 1. **0x0000**: `DI; LD SP,0x4600; JP boot_main (0x003B)`
 2. **0x003B**: `OUT (0x19),A` — probe floppy (first write may set `seek_busy`)
 3. `OUT (0x00),A` — **video mode init** (A=0x01 = alpha-mode enable; write-only, no effect on FOUND)
 4. `CALL kbd_wait (0x00FD)` — **wait for keypress** (spins `IN A,(0x00)`, bit 7 = no key)
 
    According to the manual (p.24, "POSSIBILITES OFFERTES PAR LA ROM PHANTOM"):
-   - **SHIFT-BREAK**            → boot from DX0: (single-sided floppy path, A=0x20)
-   - **FUNCTION-SHIFT-BREAK**  → boot from DX1:
-   - **BREAK**                  → PDP-11 loader from USART 14
-   - **FUNCTION-BREAK**        → memory test (POST)
+
+- **SHIFT-BREAK**: boot from `DX0:`, the single-sided floppy path with `A=0x20`.
+- **FUNCTION-SHIFT-BREAK**: boot from `DX1:`.
+- **BREAK**: PDP-11 loader from USART 14.
+- **FUNCTION-BREAK**: memory test, the POST path.
 
    In the Phantom ROM code, the key-code value at kbd_wait#1 is checked:
-   - **Key = SHIFT+BREAK (0x1B)**: alternate monitor entry path →
-     display `"ROM de chargement rev 1-7"` banner (see `-break-to-monitor` flag)
-   - Key = 0x00 (Enter / neutral) → `LD A,0x20` → single-sided floppy (DX0:)
-   - Key ≠ 0 (other) → `SLA A` → `A=0x40` → double-sided / Winchester path
-5. `LD (0x4500),A` — store drive-control byte in OS workspace
-6. `RST 18h` — `screen_clear`: fill alpha plane 0x4000–0x44FF with spaces; zero workspace 0x4600–0x54FF
-7. Copy `"ROM de chargement rev 1-7"` banner to alpha plane at 0x4000; short beep (`RST 38h`)
-8. `LD (0x4502),0` — clear Winchester flag
 
-**Phase B — Floppy path (NC from floppy_seek_sys)**
-9. `CALL floppy_seek_sys (0x016E)`: OUT(0x19, ctrl) → poll bit 6 (0=settled) with timeout B=0x9C
-   - **NC** (settled): display `"Disque souple"` at alpha plane 0x4080
-   - **CY** (timeout / no disk): set `(0x4502)=0xFF` (Winchester flag); fall through to Phase D
-10. Copy 12-byte `hard_reset` stub from ROM 0x0137 → RAM 0x57C0
-11. `LD (0x4501),0xFF` — set double-sided flag
-12. `RST 20h` → `block_copy (0x01EE)`: calls `setup_sector (0x021D)` — seek to track 0 (polls bit 5);
+- `SHIFT+BREAK (0x1B)`: alternate monitor entry path displaying the `ROM de chargement rev 1-7` banner, matching the `-break-to-monitor` flag path.
+- `0x00` key, Enter or neutral: `LD A,0x20`, selecting single-sided floppy `DX0:`.
+- Any nonzero key: `SLA A`, giving `A=0x40`, selecting the double-sided or Winchester path.
+
+1. `LD (0x4500),A` — store drive-control byte in OS workspace.
+2. `RST 18h` — `screen_clear`: fill alpha plane `0x4000–0x44FF` with spaces and zero workspace `0x4600–0x54FF`.
+3. Copy `"ROM de chargement rev 1-7"` banner to alpha plane at `0x4000`; short beep through `RST 38h`.
+4. `LD (0x4502),0` — clear Winchester flag.
+
+#### Phase B — Floppy path (NC from floppy_seek_sys)
+
+1. `CALL floppy_seek_sys (0x016E)`: `OUT(0x19, ctrl)` then poll bit 6 with `0=settled` and timeout `B=0x9C`.
+
+- `NC`, settled: display `Disque souple` at alpha plane `0x4080`.
+- `CY`, timeout or no disk: set `(0x4502)=0xFF` as the Winchester flag and fall through to Phase D.
+
+1. Copy the 12-byte `hard_reset` stub from ROM `0x0137` to RAM `0x57C0`.
+2. `LD (0x4501),0xFF` — set double-sided flag.
+3. `RST 20h` → `block_copy (0x01EE)`: calls `setup_sector (0x021D)`, seeking track 0 by polling bit 5;
     patches RAM indirect vectors:
-    - `(0x450B) ← 0x0210` (print_str / motor-stop return stub)
-    - `(0x450F) ← 0x025A` (floppy_stream_read entry)
-13. `OUT (0x19, base+0x0C)` — **motor on + NMI enable** (bits 2+3); this is the trigger for `nmi_armed` in emulator
-14. `EI; JR $-2` — **spin here**, 50 Hz IRQ allowed; **waits for Micropolis sector-hole NMI**
 
-**Phase C — NMI fires (sector-hole, ~80 Hz on real hardware)**
-15. Z80 NMI → 0x0066 (`nmi_handler`)
-16. `OR A; CALL print_str (0x0210, NC)` → stops motor (`OUT(0x19,0)`, clears `nmi_armed`)
-17. `CALL kbd_wait (0x00FD)` — **wait for second keypress** (user presses any key to start OS load)
-    - Key = 0 → `JP 0x046D` (PDP11 paper-tape loader path — see Phase E)
-    - Key ≠ 0 → copy OS-loader stub and run
-18. `LD HL,0x04C2; LD DE,0x5500; LD BC,0xB300; LDIR` — copy 179-byte OS-loader stub from ROM → RAM
-19. `JP 0x5500` — **execute OS-loader stub**: sets up stack, clears display, reads `SYS.SY` sectors
+- `(0x450B) ← 0x0210` for the `print_str` or motor-stop return stub.
+- `(0x450F) ← 0x025A` for the `floppy_stream_read` entry.
+
+1. `OUT (0x19, base+0x0C)` — motor on plus NMI enable with bits 2 and 3; this triggers `nmi_armed` in the emulator.
+2. `EI; JR $-2` — spin here with 50 Hz IRQ allowed while waiting for Micropolis sector-hole NMI.
+
+#### Phase C — NMI fires (sector-hole, about 80 Hz on real hardware)
+
+1. Z80 NMI enters `0x0066`, `nmi_handler`.
+2. `OR A; CALL print_str (0x0210, NC)` stops the motor with `OUT(0x19,0)` and clears `nmi_armed`.
+3. `CALL kbd_wait (0x00FD)` waits for the second keypress, the user confirmation to start OS load.
+
+- Key `0`: `JP 0x046D`, the PDP-11 paper-tape loader path from Phase E.
+- Nonzero key: copy the OS-loader stub and run it.
+
+1. `LD HL,0x04C2; LD DE,0x5500; LD BC,0xB300; LDIR` copies the 179-byte OS-loader stub from ROM to RAM.
+2. `JP 0x5500` executes the OS-loader stub, which sets up stack, clears display, and reads `SYS.SY` sectors
     from floppy via patched RST vector (`floppy_stream_read`) into RAM, then jumps to OS entry
 
-**Phase D — Winchester fallback**
+#### Phase D — Winchester fallback
+
 - `CALL winchester_init (0x030C)`: polls port 0x27 for status 0x50 (READY+SEEK_COMPLETE); sends RESTORE
   - **NC**: display `"Disque dur"`; continue at Phase B step 10 (same path)
   - **CY**: display `"Disque inactif"`; `DI; JR $-2` — dead loop
 
-**Phase E — USART paper-tape fallback (0x046D–0x04C1)**
+#### Phase E — USART paper-tape fallback (0x046D–0x04C1)
+
 - Reached when key = 0 at the second `kbd_wait` (step 17 above).
 - The ROM contains a **complete paper-tape / PDP-11-style bootstrap loader** at 0x046D–0x04C1.
 - Polls USART 1 status (port 0x05, bit 1 = RX ready), reads bytes from port 0x04,
@@ -244,6 +252,7 @@ The OS keeps a small workspace just above the stack (SP=0x4600):
 
 Current extracted system image `SYS.SY` is a **1-H** build, not the earlier **1-0** monitor variant.
 The string table in the relocated RAM image contains:
+
 - `MON 1-H` at SYS.SY offset `0x07EC` (inside the 0x0000–0x07FF SYSMON portion)
 - `HEXA` at `0x07F4`
 - `OCTAL` at `0x0D72`
@@ -252,6 +261,7 @@ The string table in the relocated RAM image contains:
 - `SAMOS 1-H` at `0x1094`
 
 **Not found in this image:**
+
 - `MONITEUR 1-0`
 - `adresse de début`
 
@@ -259,6 +269,7 @@ So the current boot floppy is from the later `1-H` monitor/system family; the ex
 French monitor prompt strings appear to belong to a different system image or revision.
 
 **Verified monitor entry/dispatch points** (from `roms/syssy_ram_0000_22ff.asm`):
+
 - `0x0941`: monitor command loop setup; initializes workspace and then reads a command character
 - `0x0976`: compares first command byte with `'O'`
 - `0x097B`: compares first command byte with `'S'`
@@ -267,6 +278,7 @@ French monitor prompt strings appear to belong to a different system image or re
 - `0x099B`: compares with `'M'`
 
 **Verified command behavior fragments:**
+
 - `'O'` toggles numeric display base at `0x0BBA`: bit 6 of workspace byte `0x454A` is flipped,
   then the monitor prints either `OCTAL` (`0x0D72`) or `HEXA` (`0x07F4`).
 - Monitor documentation also states that **`0x5600`** and **`0x4100`** are common starting
@@ -290,6 +302,7 @@ French monitor prompt strings appear to belong to a different system image or re
   `0x0AAD–0x0B44`.
 
 **Startup relation to SAMOS:**
+
 - The relocated image also embeds `SAMOS 1-H` at `0x1094` and the filenames `CLI.SY`, `ER.SY`,
   `LP.SY`, `ST.SY` at `0x10D5–0x10E8`, confirming this SYS.SY is the matching 1-H system set.
 - After the loader handoff, the emulator visibly reaches this 1-H family banner (`SYS 1-H * 64 K`
@@ -299,36 +312,32 @@ French monitor prompt strings appear to belong to a different system image or re
 
 All Smaky 6 file names follow the convention `NAME.EX` where `.EX` is the extension:
 
-| Extension | Type                                              |
-|-----------|---------------------------------------------------|
-| `.SY`     | System file (OS, must be on boot disk)            |
-| `.SM`     | Executable program (assembled binary)             |
-| `.MC`     | Macro file (CLI command batch script)             |
-| `.BS`     | BASIC source file                                 |
-| `.SR`     | Assembler source file (SMILE)                     |
-| `.DR`     | Directory (sub-directory container)               |
-| `.LS`     | Listing file (assembler output)                   |
-| `.ST`     | Symbol table (used with `.REF`; e.g. `FLO.ST`, `SM6.ST`) |
-| `.IM`     | Image file (1-bpp graphic plane bitmap)           |
-| `.HP`     | Help file (read by HELP command)                  |
-| `.INT`    | Interrupt driver (e.g. FPRINT.INT.SM)             |
+- `.SY`: system file, the OS and related boot-disk content.
+- `.SM`: executable program, assembled binary.
+- `.MC`: macro file, CLI command batch script.
+- `.BS`: BASIC source file.
+- `.SR`: assembler source file for SMILE.
+- `.DR`: directory, a sub-directory container.
+- `.LS`: listing file, assembler output.
+- `.ST`: symbol table, used with `.REF`, for example `FLO.ST` and `SM6.ST`.
+- `.IM`: image file, a 1-bpp graphic-plane bitmap.
+- `.HP`: help file, read by the HELP command.
+- `.INT`: interrupt driver, for example `FPRINT.INT.SM`.
 
 ### CLI Peripheral Names
 
 The CLI addresses I/O devices using `$` prefix names. These appear in XFER, APPEND,
 PRINT etc. commands:
 
-| Name   | Direction | Hardware                                  |
-|--------|-----------|-------------------------------------------|
-| `$PR`  | Input     | Paper reader — USART 4 (20 mA loop)       |
-| `$PP`  | Output    | Paper punch — USART 4                     |
-| `$PI`  | Input     | Parallel interface input                  |
-| `$PO`  | Output    | Parallel interface output                 |
-| `$MI`  | Input     | Modem in — USART 6                        |
-| `$MO`  | Output    | Modem out — USART 6                       |
-| `$LP`  | Output    | Line printer (overlay via LP.SY)          |
-| `$KEY` | Input     | Keyboard                                  |
-| `$DIS` | Output    | Display                                   |
+- `$PR`, input: paper reader on USART 4, 20 mA loop.
+- `$PP`, output: paper punch on USART 4.
+- `$PI`, input: parallel interface input.
+- `$PO`, output: parallel interface output.
+- `$MI`, input: modem in on USART 6.
+- `$MO`, output: modem out on USART 6.
+- `$LP`, output: line printer via `LP.SY` overlay.
+- `$KEY`, input: keyboard.
+- `$DIS`, output: display.
 
 Any peripheral transfer can be aborted with the **KILL** function key,
 which sends an end-of-file to SAMOS.
@@ -340,26 +349,24 @@ which sends an end-of-file to SAMOS.
 - QWERTZ Swiss-ROM layout with French-accented lower-case characters
 - **Physical keyboard delivery (post-boot)**: the emulator now routes physical ordinary keys through the strict CLA-facing path. `keyboard_event()` resolves host scancode positions through the S471 table, latches the resulting key into the CLA-visible `found/key_code` state, and queues overlapping taps in `pending_ordinary[8]` until the active latch becomes idle. `SYS.SY` Stage 1 / 2 / 3 / 4 then performs the actual circular-buffer promotion seen by CLI blocking reads.
 - **Released promoted-key repeat disarm**: manual `Shift+MSG` tracing showed that a released promoted key must clear both SAMOS repeat bytes `0x4558` and `0x4577` once `SYS.SY` commits it via the `0x457C` advance hook. Clearing only the emulator latch was not enough; Stage 4 would otherwise re-inject the same key endlessly ~700 ms later. `tmp/manual_shift_msg_noreturn_fix11.log` validates the corrected single `M`,`S`,`G` insertion path.
-- **Autoboot / raw-key injection delivery**: `machine_inject_key()` still drives the same CLA-facing fields (`found`, `key_code`, `physically_held`) and applies the currently validated first-read bit-7 prefix model for held post-boot regular injections. So the injected low-level path and the physical strict path now share the same CLA-side state machine.
+- **Power-on virtual Enter / raw-key injection delivery**: `machine_inject_key()` still drives the same CLA-facing fields (`found`, `key_code`, `physically_held`) and applies the currently validated first-read bit-7 prefix model for held post-boot regular injections. So the injected low-level path and the physical strict path now share the same CLA-side state machine.
 - **ESC / UNDO mapping audit**: the emulator now follows the S471 PROM result and uses `0x06` as the current working top-left ESC / UNDO code.  The remaining contradiction is with the older CLI audit that had pointed at `0x04` for the cancel path, so the next runtime check must reconcile the live CLI behaviour with this switched `0x06` mapping.
 - **Full keyboard matrix audit**: the full S471 dump is now available and confirms four 64-entry layers (normal, Shift, FNCT/ALT, caps-like). The emulator now uses that strict per-position matrix model for the currently mapped host scancodes; the remaining work is to extend coverage to the still-unmapped physical positions and decide whether a separate compatibility text-entry layer should exist.
-- Port 0x00 CLA read is used by the power-on autoboot path and by low-level raw-key injection probes. Port 0x01 bit 2 reflects whether a CLA-side key is currently held when SAMOS re-checks FOUND after debounce.
+- Port 0x00 CLA read is used by the power-on virtual Enter path and by low-level raw-key injection probes. Port 0x01 bit 2 reflects whether a CLA-side key is currently held when SAMOS re-checks FOUND after debounce.
 - See `docs/dev/keyboard_analysis.md` for the full pipeline, circular buffer mechanics, and confirmed working model.
 - Key matrix → keyboard code done by hardware EPROM lookup
 - Full key/ASCII table documented in section 10.4 of the PDF
 - Bit 7 of port 0x00 read: 0 = key latched, 1 = no key; also bit 2 of port 0x01 = FOUND status
 
-**Special key combinations (manual p.24 / Phantom ROM behaviour)**
+#### Special key combinations (manual p.24 / Phantom ROM behaviour)
 
-| Combo                   | Emulator key        | Action                                              |
-|-------------------------|---------------------|-----------------------------------------------------|
-| SHIFT-BREAK             | Shift+Pause / Shift+F11 | **Hard reset → boot from DX0:**                 |
-| FUNCTION-SHIFT-BREAK    | (not yet mapped)    | Boot from DX1:                                      |
-| BREAK                   | Pause / F11         | NMI → monitor (or PDP-11 loader at boot prompt)    |
-| FUNCTION-BREAK          | (not yet mapped)    | Memory test (POST)                                  |
-| TAB (in CLI)            | Tab                 | Inserts `DX1:` into the command line               |
-| ESC (in CLI)            | Escape              | Cancel current line; if empty, recall previous line |
-| KILL (function key)     | (not yet mapped)    | Abort current peripheral transfer                   |
+- `SHIFT-BREAK`: emulator key `Shift+Pause` or `Shift+F11`, hard reset and boot from `DX0:`.
+- `FUNCTION-SHIFT-BREAK`: not yet mapped in the emulator, boot from `DX1:`.
+- `BREAK`: `Pause` or `F11`, NMI to monitor or PDP-11 loader at boot prompt.
+- `FUNCTION-BREAK`: not yet mapped, memory test POST.
+- `TAB` in CLI: `Tab`, inserts `DX1:` into the command line.
+- `ESC` in CLI: `Escape`, cancel current line or recall previous line if empty.
+- `KILL` function key: `F3`, abort the current peripheral transfer.
 
 **Emulator flag `-break-to-monitor`**: auto-injects SHIFT-BREAK at frame 100 (~2 sec)
 to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banner).
@@ -401,7 +408,7 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
   alone lists the current directory; `CLEAR` returns to the root.  The emulator
   transparently serves all sectors from the flat image regardless of filesystem
   structure — no emulator-side changes are required for `.DR` support.
-  `../smaky6-tools/smaky6_samos.py list` shows sub-entries indented with `> `.
+  `../smaky6-tools/smaky6_samos.py list` shows sub-entries indented with `>`.
 
 ### Winchester Hard Disk
 
@@ -414,29 +421,25 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
 
 **Known disk images** (in `harddisks/`):
 
-| File        | Contents                                    | Files | Used    |
-|-------------|---------------------------------------------|-------|---------|
-| SM6WIN0.DSK | System disk: SAMOS boot, SMILE, BASIC, docs | 32    | ~263 KB |
-| SM6WIN1.DSK | Games/demos disk (BACT, CHESS, GO, …)       | 25    | ~87 KB  |
+- `SM6WIN0.DSK`: system disk with SAMOS boot, SMILE, BASIC, and docs, 32 files, about 263 KB used.
+- `SM6WIN1.DSK`: games and demos disk with BACT, CHESS, GO, and others, 25 files, about 87 KB used.
 
 `SM6WIN0` SM programs load across 0x2C33–0x8C75 (OS + utilities mix).
 `SM6WIN1` programs all load at 0x6000 (pure SMILE game area, no OS internals).
 
 **I/O port map** (reverse-engineered from `SYS` and `TDISK` disassembly):
 
-| Port | Oct  | Dir    | Function                                              |
-|------|------|--------|-------------------------------------------------------|
-| 0x18 | 030  | OUT    | Data byte write to Winchester (byte-wide transfer)    |
-| 0x19 | 031  | R/W    | Main control (OUT) / status (IN) — command handshake  |
-| 0x1A | 032  | OUT    | Shared with Micropolis floppy CONT (motor/step)       |
-| 0x1B | 033  | IN     | Shared with Micropolis floppy STAT (track-0, ready)   |
-| 0x21 | 041  | R/W    | Secondary data / auxiliary status                     |
-| 0x23 | 043  | OUT    | Sector count or sector address                        |
-| 0x24 | 044  | OUT    | Cylinder / LBA low byte                               |
-| 0x25 | 045  | OUT    | Cylinder / LBA mid byte                               |
-| 0x26 | 046  | OUT    | Drive / head select or CHS high                       |
-| 0x27 | 047  | R/W    | Command (OUT) / status (IN) — WD-style register       |
-| 0x2B | 053  | OUT    | Unknown — 1–2 uses (possibly reset or drive select)   |
+- Port `0x18`, octal `030`, output: data-byte write to Winchester for byte-wide transfer.
+- Port `0x19`, octal `031`, read/write: main control on output and status on input for command handshake.
+- Port `0x1A`, octal `032`, output: shared with Micropolis floppy `CONT`, covering motor or step.
+- Port `0x1B`, octal `033`, input: shared with Micropolis floppy `STAT`, exposing track-0 and ready.
+- Port `0x21`, octal `041`, read/write: secondary data or auxiliary status.
+- Port `0x23`, octal `043`, output: sector count or sector address.
+- Port `0x24`, octal `044`, output: cylinder or LBA low byte.
+- Port `0x25`, octal `045`, output: cylinder or LBA mid byte.
+- Port `0x26`, octal `046`, output: drive or head select, or CHS high.
+- Port `0x27`, octal `047`, read/write: command on output and status on input, a WD-style register.
+- Port `0x2B`, octal `053`, output: unknown, with one or two uses, possibly reset or drive select.
 
 The register block 0x21–0x27 maps well onto a **WD1000/WD1001/WD1002-style** controller
 (Data, WPC, SecCnt, SecNum, CylLo, CylHi, Cmd/Stat), suggesting the Smaky 6 Winchester
@@ -452,7 +455,9 @@ listed for that port.
 images — the 16 MB size is now a recognised geometry (no warning). Create a blank Winchester
 image with `smaky6_samos.py create <out.dsk> --winchester`.
 
-### Serial / Parallel Peripherals- 2× USART: 20mA/EIA serial (one paper reader, one cassette/modem)
+### Serial / Parallel Peripherals
+
+- 2× USART: 20mA/EIA serial, one paper reader and one cassette or modem.
 - Parallel: bidirectional 8-bit with ARRIVE/OCCUPE (READY/FULL) handshake
 - EIA/V24 serial adapter available externally
 - COBUS 800 Kbits/s network on expansion bus
@@ -466,13 +471,11 @@ image with `smaky6_samos.py create <out.dsk> --winchester`.
 
 ### 32 KB / 48 KB machines (original discrete-ROM design)
 
-| ROM              | Chip            | Size  | Contents                                    | Status                                             |
-|------------------|-----------------|-------|---------------------------------------------|----------------------------------------------------|
-| SYSMON           | 2×2708 or 1×2716| 4 KB  | Monitor, system calls, boot                 | Physical machine; dump pending                     |
-| SAMOS (full)     | 2716            | 4 KB  | Full SAMOS OS (floppy driver, filesystem)   | Physical machine; dump pending                     |
-| Chargen TMS2716  | 2716            | 2 KB  | Display code → pixel bitmap (LSB-first)     | **Available** `roms/chargen.rom`                   |
-| Keyboard EPROM   | 2716            | 2 KB  | Smaky native scan position → key code table | Reconstructible from doc §10.4                     |
-| BASIC ROM        | multiple        | TBD   | BASIC interpreter (optional)                | Low priority                                       |
+- `SYSMON`: chip `2×2708 or 1×2716`, size 4 KB, holding monitor, system calls, and boot logic. Physical machine dump still pending.
+- `SAMOS (full)`: chip `2716`, size 4 KB, full SAMOS OS with floppy driver and filesystem. Physical machine dump still pending.
+- `Chargen TMS2716`: chip `2716`, size 2 KB, display code to pixel bitmap in LSB-first order. Available at `roms/chargen.rom`.
+- `Keyboard EPROM`: chip `2716`, size 2 KB, Smaky-native scan position to key-code table. Reconstructible from doc §10.4.
+- `BASIC ROM`: multiple chips, size TBD, optional BASIC interpreter, low priority.
 
 ### 64 KB machine (Phantom ROM design — **this is what we emulate**)
 
@@ -481,45 +484,41 @@ has a single 2 KB ROM (SYS17 TMS2716). After boot it bank-switches itself out vi
 `OUT(0x01),A=0`; SYSMON and SAMOS are thereafter loaded from SYS.SY on the floppy
 into RAM. The CPU then runs entirely from RAM — no ROM exists at any address.
 
-| ROM / resource   | Chip            | Size    | Contents                                    | Status                                              |
-|------------------|-----------------|---------|---------------------------------------------|-----------------------------------------------------|
-| **Phantom SYS17**| TMS2716         | **2 KB**| **The only ROM** — boot, floppy seek, NMI handler, OS-loader/self-test stub, glyph renderer | **Available** `roms/samos_sys17.rom`; fully annotated |
-| Chargen TMS2716  | 2716            | 2 KB    | Display code → pixel bitmap (LSB-first)     | **Available** `roms/chargen.rom`                    |
-| FDC ROM          | 8048 or similar | 512 B   | Floppy disk controller firmware             | **Available** `roms/SMAKY6 FDC` (raw, inverted?)   |
-| Keyboard lookup  | —               | 256 B   | German QWERTZ scan code → ASCII table       | **Available** `roms/SMAKY6 IBM Tastatur`            |
-| Mem decode PROM  | 74S287          | 256 B   | Address decode for memory expansion card    | **Available** `roms/74S287-PROM-MEM-STE.bin`        |
-| SYS.SY (disk)   | —               | 8960 B  | SYSMON (0x0000–0x07FF) + SAMOS OS (0x0800–0x22FF); loaded into RAM at boot | **Available** on floppy images; extracted to `/tmp/SYS.SY` |
+- `Phantom SYS17`: chip `TMS2716`, size `2 KB`, the only ROM, holding boot, floppy seek, NMI handler, OS-loader or self-test stub, and glyph renderer. Available at `roms/samos_sys17.rom` and fully annotated.
+- `Chargen TMS2716`: chip `2716`, size `2 KB`, display code to pixel bitmap in LSB-first order. Available at `roms/chargen.rom`.
+- `FDC ROM`: `8048` or similar, size `512 B`, floppy-disk controller firmware. Available at `roms/SMAKY6 FDC`, possibly raw or inverted.
+- `Keyboard lookup`: no separate chip label here, size `256 B`, German QWERTZ scan-code to ASCII table. Available at `roms/SMAKY6 IBM Tastatur`.
+- `Mem decode PROM`: chip `74S287`, size `256 B`, address decode for the memory expansion card. Available at `roms/74S287-PROM-MEM-STE.bin`.
+- `SYS.SY` on disk: size `8960 B`, holding SYSMON at `0x0000–0x07FF` and SAMOS OS at `0x0800–0x22FF`, loaded into RAM at boot. Available on floppy images and historically extracted to `/tmp/SYS.SY`.
 
 **ROM reconstruction (32 KB / 48 KB machines only):** SYSMON and SAMOS assembly listings
 are fully printed in the PDF (octal address + opcode columns). `../smaky6-tools/smaky6_rom_extract.py`
 parses these to reconstruct binaries with OCR error correction. Not needed for the
 64 KB Phantom emulation — SYS.SY on disk serves the equivalent purpose.
 
-**ASCALM assembler:** The original CALM-Z80 cross-assembler (Patrick Faeh,
-https://www.pf-soft.ch/ascalm.php) runs under DOSBox. Will NOT be reimplemented.
+**ASCALM assembler:** The original CALM-Z80 cross-assembler by Patrick Faeh,
+<https://www.pf-soft.ch/ascalm.php>, runs under DOSBox. It will not be reimplemented.
 
 ---
 
 ## Architecture Decisions
 
-| Decision      | Choice               | Rationale                                              |
-|---------------|----------------------|--------------------------------------------------------|
-| Language      | C99/C11              | Portable, no C++ needed for Phase 1                    |
-| Build         | CMake                | Cross-platform Linux/macOS/Windows                     |
-| Display       | SDL2                 | Standard, cross-platform, handles input too            |
-| CPU core      | redcode/Z80          | ANSI C, LGPL-3.0, highest accuracy (zexall/zexdoc)    |
-| CPU integration| CMake FetchContent  | Clean subproject, no vendoring                         |
-| Font fallback | TI 74S262 synthetic  | TMS2716 dump now available (`roms/chargen.rom`); synthetic kept as fallback |
-| Floppy images | Flat sector dump     | 163,840 bytes, 256 bytes/sector sequential             |
-| Disk format   | Custom (Smaky 6)     | NOT FOS — FOS is Smaky 8+ only                        |
-| MAME          | Phase 2 wrapper      | Reuse C model, thin C++ MAME driver                    |
-| MiSTer FPGA   | Phase 3 RTL          | Keep hardware model clean for translation              |
+- `Language`: `C99/C11`, portable and sufficient for Phase 1 without C++.
+- `Build`: `CMake`, cross-platform for Linux, macOS, and Windows.
+- `Display`: `SDL2`, standard and cross-platform, also handling input.
+- `CPU core`: `redcode/Z80`, ANSI C, LGPL-3.0, and highest accuracy with `zexall/zexdoc`.
+- `CPU integration`: `CMake FetchContent`, keeping it a clean subproject without vendoring.
+- `Font fallback`: TI 74S262 synthetic fallback, with `roms/chargen.rom` now available.
+- `Floppy images`: flat sector dump, `163,840` bytes with `256` bytes per sector.
+- `Disk format`: custom Smaky 6 format, explicitly not FOS, which is Smaky 8+ only.
+- `MAME`: Phase 2 wrapper reusing the C model with a thin C++ MAME driver.
+- `MiSTer FPGA`: Phase 3 RTL, keeping the hardware model clean for translation.
 
 ---
 
 ## Project Structure
 
-```
+```text
 smemu6/
 ├── CMakeLists.txt              Top-level; FetchContent for redcode/Z80 and SDL2
 ├── PLAN.md                     This file
@@ -546,7 +545,7 @@ smemu6/
 │   └── SM6WIN1.DSK             16 MB Winchester image: games disk (25 entries)
 ├── floppies/
 │   ├── decoded/                102 flat .img files decoded from KryoFlux captures
-│   └── 1 Systeme_1HComplet.dsk Original floppy image
+│   └── Sys1-H.dsk              Representative shipped floppy image
 ├── tools/
 │   ├── smaky6_samos.py         Disk image tool: list, extract, add, image render
 │   ├── smaky6_fuse.py          FUSE filesystem mount for disk images
@@ -557,7 +556,25 @@ smemu6/
 
 ---
 
-## Implementation Phases
+## Current Snapshot
+
+This section is intended to stay current. The phase-by-phase material below is
+an archived engineering log and may intentionally mention removed flags,
+historical media names, or intermediate hypotheses.
+
+- Boot status: native builds boot from DX0 automatically; `-autoboot` has been removed.
+- Current CLI examples should use `-floppy`, for example `./build/smemu6 -floppy floppies/Sys1-H.dsk`.
+- Prompt-time automation currently relies on `-inject-str`, `-inject-at-prompt`,
+  `-inject-at-frame`, `-inject-delay`, and `-inject-hold-frames`.
+- `-scrdump` is most useful together with `-no-display-off` when tracing prompt-visible runs.
+
+---
+
+## Archived Implementation Log
+
+The sections below preserve the investigation timeline that led to the current
+emulator behavior. Treat them as dated progress notes rather than the primary
+source for current CLI usage.
 
 ### Phase 1A — Skeleton & CPU ✅
 
@@ -567,72 +584,71 @@ smemu6/
 
 ### Phase 1B — Display ✅ (geometry corrected)
 
-4. `video.c`: SDL2 texture **512×240**, graphic blit (64 bytes/row, LSB-first), alpha overlay, 3 modes
-5. TMS2716 chargen ROM loaded from `roms/chargen.rom`; 74S262 synthetic fallback
+1. `video.c`: SDL2 texture **512×240**, graphic blit with 64 bytes per row in LSB-first order, alpha overlay, and 3 modes.
+2. TMS2716 chargen ROM loaded from `roms/chargen.rom`, with 74S262 synthetic fallback.
    - Confirmed: 16 bytes/char, rows 0–9 glyph+descenders, rows 10–11 blank, bit0 = leftmost pixel
    - Character cell 8×12 (20 rows × 12 px = 240 = VIDEO_PX_H); descenders on g/j/p/q/y in rows 8–9
 
 ### Phase 1C — Keyboard ✅
 
-6. `keyboard.c`: SDL2 → Smaky key codes, FOUND flip-flop, port 0x00
+1. `keyboard.c`: SDL2 to Smaky key codes, FOUND flip-flop, and port `0x00` handling.
 
 ### Phase 1D — Interrupts ✅
 
-7. 50 Hz timer → `machine_int()`; `irq_pending` → `z80_int()`; RST 38h returned by int_fetch
-8. NMI: SDL_SCANCODE_PAUSE / F11 → `machine_nmi()`
+1. 50 Hz timer to `machine_int()`, with `irq_pending` feeding `z80_int()`, and RST `38h` returned by `int_fetch`.
+2. NMI mapped from `SDL_SCANCODE_PAUSE` or `F11` to `machine_nmi()`.
 
 ### Phase 1E — Storage ✅ (basic)
 
-9. `floppy.c`: flat image I/O, rotating sector counter, port 0x1A (write) / 0x1B (read)
+1. `floppy.c`: flat image I/O, rotating sector counter, port `0x1A` write and `0x1B` read.
    - Auto-detect 40-track vs 77-track from file size
-10. `usart.c`: 8251-style status/data stub; ports 0x04–0x07
+2. `usart.c`: 8251-style status or data stub for ports `0x04–0x07`.
 
 ### Phase 1F — Sound ✅
 
-11. `sound.c`: SDL2 audio square wave, `sound_set_bit()` for RST-38 bit-bang beep on port 0x03
+1. `sound.c`: SDL2 audio square wave, with `sound_set_bit()` for the RST-38 bit-bang beep on port `0x03`.
 
 ### Phase 1G — Debug ✅
 
-12. `debug.c`: F12 toggle single-step; register dump; memory hexdump
+1. `debug.c`: F12 toggles single-step, plus register dump and memory hexdump.
 
 ### Phase 1H — Boot & NMI ✅ (completed)
 
-13. Wired all confirmed I/O ports in `machine.c`; corrected `int_fetch` to return 0xFF (RST 38h)
-14. Loaded `roms/samos_sys17.rom` (Phantom 2 KB) at 0x0000–0x07FF
-15. Replaced artificial key-injection + countdown-NMI with hardware-accurate sector-hole NMI:
+1. Wired all confirmed I/O ports in `machine.c` and corrected `int_fetch` to return `0xFF` for RST `38h`.
+2. Loaded `roms/samos_sys17.rom`, the Phantom 2 KB ROM, at `0x0000–0x07FF`.
+3. Replaced the artificial key-injection plus countdown-NMI path with hardware-accurate sector-hole NMI:
     - `nmi_armed` flag in `fdc` set when port 0x19 is written with bits 2+3 set (motor+NMI-enable),
       cleared on any other write (e.g. motor-stop = 0x00)
     - `floppy_tick()` calls `z80_nmi()` each 50 Hz frame while `nmi_armed` and disk mounted
     - No artificial key injection; user must press physical keys at both keyboard prompts
-16. USART paper-tape boot path (0x046D–0x04C1) identified and documented:
+4. USART paper-tape boot path `0x046D–0x04C1` identified and documented:
     - Reached via key=0 at the post-NMI prompt; reads binary from USART 1 (ports 0x04/0x05)
     - Predates floppy drives; intended for PDP-11 paper-tape reader on 20 mA current-loop serial
     - USART stub in `usart.c` returns status=0x06 (TX ready, no RX data) — adequate for now
 
 ### Phase 1I — End-to-end floppy boot ✅ (completed)
 
-17. **Verified complete boot sequence** — all milestones hit in order:
+1. **Verified complete boot sequence** — all milestones hit in order:
 
-    | PC     | Milestone            | Notes |
-    |--------|----------------------|-------|
-    | 0x003B | `boot_main`          | Cold reset entry |
-    | 0x003E | `kbd_wait#1`         | Waits for boot-device key |
-    | 0x0057 | `floppy_seek_sys`    | After Enter (key=0x00) → single-sided floppy selected |
-    | 0x016E | `floppy_seek_sys`    | Inner seek routine |
-    | 0x01EE | `block_copy`         | Sets up floppy workspace + NMI-enable |
-    | 0x021D | `setup_sector`       | Seeks to track 0, sector 3 |
-    | 0x0066 | `nmi_handler`        | Sector-hole NMI fires (50×/s from `floppy_tick`) |
-    | 0x006A | `kbd_wait#2`         | Waits for OS-load key |
-    | 0x0070 | `LDIR stub→0x5500`   | Space (non-zero) → copies 179-byte stub to RAM |
-    | 0x007B | `JP 0x5500`          | ROM jumps to copied stub |
-    | 0x5500 | `stub entry`         | OS-loader stub executing; streams SYS.SY via `floppy_stream_read` |
+  - `0x003B`, `boot_main`: cold-reset entry.
+  - `0x003E`, `kbd_wait#1`: waits for boot-device key.
+  - `0x0057`, `floppy_seek_sys`: after Enter `key=0x00`, single-sided floppy selected.
+  - `0x016E`, `floppy_seek_sys`: inner seek routine.
+  - `0x01EE`, `block_copy`: sets up floppy workspace plus NMI-enable.
+  - `0x021D`, `setup_sector`: seeks track 0, sector 3.
+  - `0x0066`, `nmi_handler`: sector-hole NMI fires, about `50×/s` from `floppy_tick` in the emulator.
+  - `0x006A`, `kbd_wait#2`: waits for OS-load key.
+  - `0x0070`, `LDIR stub→0x5500`: Space or other nonzero key copies the 179-byte stub to RAM.
+  - `0x007B`, `JP 0x5500`: ROM jumps to the copied stub.
+  - `0x5500`, `stub entry`: OS-loader stub executing and streaming `SYS.SY` via `floppy_stream_read`.
 
     Screen messages confirmed:
+
     - `ROM de chargement rev 1-7` (boot banner, r00)
     - `Disque souple` (floppy path selected, r02)
     - SYS.SY sector data streaming visible in `[scr r00]` output
 
-18. **Bugs fixed in this phase:**
+2. **Bugs fixed in this phase:**
     - **`seek_busy` reset loop**: Port 0x19 write handler was resetting `seek_busy=2` on every
       step-pulse write, causing `setup_sector`'s bit-5 poll to never see settled state.
       **Fix**: removed `seek_busy` simulation entirely; bits 4/5/6 of port 0x19 reads return 0
@@ -648,13 +664,13 @@ smemu6/
     - **`pkill -9 -x smemu6`** is the reliable way to kill the emulator (plain `kill $(pgrep ...)`
       fails when SIGTERM is ignored by SDL event loop).
 
-19. **Two-keypress sequence for floppy boot:**
+3. **Two-keypress sequence for floppy boot:**
     1. **Enter** at `kbd_wait#1` → key code 0x00 → single-sided floppy path (A=0x20)
     2. **Any non-Enter key** (e.g. Space) at `kbd_wait#2` → LDIR stub → OS load
 
 ### Phase 1J — Boot flow and SYS.SY analysis ✅ (completed)
 
-20. **Full boot flow reverse-engineered** — corrected earlier misunderstandings:
+1. **Full boot flow reverse-engineered** — corrected earlier misunderstandings:
 
     - **SYS.SY layout** (8960 bytes, sectors 3–38):
       - Bytes 0x0000–0x07FF (2 KB): SYSMON monitor code — runs at RAM 0x0000 after Phantom ROM bank-switch
@@ -681,7 +697,7 @@ smemu6/
       SYS.SY is NOT loaded during cold boot via this Phantom ROM design — SYS.SY is loaded
       on demand by the user (via SAMOS commands / RST 08h dispatching to floppy_stream_read at 0x025A).
 
-21. **"Garbled" screen explained** — two separate issues:
+2. **"Garbled" screen explained** — two separate issues:
 
     a. **RAM test trashes alpha plane**: `0x5534: CALL 0x55AB` tests 4 × 16 KB banks starting at
        0x4000 (alpha screen), 0x8000, 0xC000, 0x0000 — writes 0xAA/0x55 patterns to screen RAM.
@@ -692,61 +708,61 @@ smemu6/
        permanently — `video_set_mode()` is never called from machine.c, so the graphic overlay
        is invisible. The "4 dots" and animated boot logo are on the graphic plane we can't see.
 
-22. **Port 0x01 — still unimplemented** (write-through Phantom ROM):
+3. **Port 0x01 — still unimplemented** (write-through Phantom ROM):
     The stub writes `OUT(0x01),A` which should disable the Phantom ROM (switch 0x0000 reads from ROM
     to RAM). Currently a no-op; ROM content stays permanently visible. Not critical for current
     operation since the stub itself never reads from 0x0000 after that point.
 
 ### Phase 1K — Video super-mode investigation ✅ (completed)
 
-23. **Exhaustive I/O port search** — scanned all `OUT` instructions in both `samos_sys17.rom`
+1. **Exhaustive I/O port search** — scanned all `OUT` instructions in both `samos_sys17.rom`
     and `SYS.SY` (8960 bytes). No port acts as a simple alpha/graphic plane select.
 
     - ROM ports: 0x00, 0x01, 0x03, 0x19, 0x1A, 0x21, 0x23, 0x24, 0x25, 0x26, 0x27
     - SYS.SY ports: 0x00, 0x01, 0x03, 0x08, 0x0B, 0x18, 0x19, 0x1A, 0x1C, 0x2B, 0xC5
 
-24. **Port 0x08 re-identified** — previously documented as "Display mode + 50 Hz interrupt control".
+2. **Port 0x08 re-identified** — previously documented as "Display mode + 50 Hz interrupt control".
     Disassembly proves it is a **SPI-style bit-serial interface** (bit0=MISO, bit2=MOSI, bit3=CLK).
     Used in OS ~0x5D53–0x5DCA to transmit 4 bits and receive 8×7 bytes. Target peripheral unknown.
 
-25. **Port 0x0B identified** — bit-serial shift clock strobe. Used in a tight loop at ~0x5ADA–0x5B10
+3. **Port 0x0B identified** — bit-serial shift clock strobe. Used in a tight loop at about `0x5ADA–0x5B10`
     to serialise multi-byte values one bit per `OUT` pulse.
 
-26. **Port 0x18 identified** — floppy-related byte stream: `IN F,(C)` bit-7 polling + `OUT(0x18),A`
+4. **Port 0x18 identified** — floppy-related byte stream: `IN F,(C)` bit-7 polling plus `OUT(0x18),A`
     block transfer in OS ~0x7010–0x703F. Mirrors the Phantom ROM's 0x1B stream pattern.
 
-27. **Port 0x01 confirmed as Phantom ROM bank-switch** (NOT unknown): written A=0 in `hard_reset`
+5. **Port 0x01 confirmed as Phantom ROM bank-switch** (not unknown): written `A=0` in `hard_reset`
     (0x0139), in SYSMON (0x0048), and by the OS-loader stub. Disables the 2 KB Phantom ROM,
     exposing writable RAM at 0x0000–0x07FF for SYSMON installation.
 
-28. **OS load address corrected**: SYS.SY OS section (bytes 0x0800–0x22FF) uses JP targets in
+6. **OS load address corrected**: SYS.SY OS section, bytes `0x0800–0x22FF`, uses JP targets in
     range 0x0800–0x22FF and SYSMON-call targets 0x0000–0x07FF. Conclusion: OS loads at
     **RAM 0x0800** (not 0x5700 as previously believed). Directory `entry=0x5700` refers to
     the OS-loader stub mid-point, not the OS binary base.
 
-29. **Video mode conclusion**: The graphic plane is written by `draw_glyph_list` at 0x55C9 with
+7. **Video mode conclusion**: the graphic plane is written by `draw_glyph_list` at `0x55C9` with
     no accompanying I/O port write to switch display mode. Hardware likely composites both planes
     simultaneously (graphic as overlay) without a mode register. **Fix**: emulator should always
     composite graphic plane over alpha — `VMODE_ALPHA` should still show graphic pixels.
     See Phase 1L.
 
-30. **Documented in** `docs/SYS_SY_analysis.md` (294 lines) and `roms/samos_sys17_annotated.asm`.
+8. **Documented in** `docs/SYS_SY_analysis.md` and `roms/samos_sys17_annotated.asm`.
 
 ### Phase 1L — Video compositing and Phantom ROM bank-switch ✅ DONE
 
-31. **Fix video renderer**: always composite graphic plane over alpha plane regardless of mode.
+1. **Fix video renderer**: always composite the graphic plane over alpha regardless of mode.
     In `video.c`, `render_frame()` should: render alpha glyphs → then OR graphic pixels on top.
     Remove dependency on `vmode` for basic display; keep mode enum for future reference.
     **DONE**: `video_render()` now always renders alpha first, then composites graphic on top.
     `(void)mode` suppresses the now-unused variable; `video_set_mode()` kept for future use.
 
-32. **Implement port 0x01 bank-switch** in `machine.c` + `memory.c`:
+2. **Implement port 0x01 bank-switch** in `machine.c` and `memory.c`:
     - `memory.c`: add `memory_unprotect_rom(struct Smaky6*, uint16_t base, uint16_t len)` to zero
       `rom_mask[]` entries, making ROM-shadowed addresses writable.
     - `machine.c` port 0x01 write handler: call `memory_unprotect_rom(m, 0x0000, 0x0800)`.
     **DONE**: both implemented; builds clean.
 
-33. **NATHALIE.IM** — confirmed as genuine bitmap content on the floppy disk.
+3. **NATHALIE.IM** — confirmed as genuine bitmap content on the floppy disk.
   Directory entry: load=`0x4601`, size=`3840` bytes = `60 × 64` bytes = `512 × 60` raw pixels,
   with an aspect-corrected presentation of roughly `512 × 240` on the original display.
   The load address is `0x4601` — 1 byte past the graphic base `0x4600` — so the image
@@ -758,7 +774,7 @@ smemu6/
 
 ### Phase 1M — Phantom ROM replaces all other ROMs ✅ DONE
 
-34. **Architecture clarification**: The Smaky 6 "64 KB Phantom" machine has exactly ONE
+1. **Architecture clarification**: the Smaky 6 "64 KB Phantom" machine has exactly one
     ROM chip — the 2 KB Phantom ROM (samos_sys17.rom, TMS2716) at 0x0000–0x07FF.
     It contains the full boot sequence, floppy controller driver, directory scanner,
     and OS installer.  There is no separate SYSMON ROM and no SAMOS ROM.
@@ -767,18 +783,18 @@ smemu6/
 
 ### Phase 1N — Boot flow investigation and INT fix ✅ DONE
 
-35. **Root cause found**: `z80_int_fetch` was returning `0xFFu` (RST 38h = beep handler)
+1. **Root cause found**: `z80_int_fetch` was returning `0xFFu`, RST `38h`, the beep handler,
     always.  During floppy loading, the real hardware puts `0xCFu` (RST 08h) on the
     data bus (the floppy controller drives the bus in IM 0).  RST 08h is the indirect
     dispatch vector: `PUSH HL; LD HL,(0x450F); EX (SP),HL; RET` → calls floppy_stream_read
     (0x025A).  With 0xFF, the block_copy spin loop (`EI; JR $-2`) only called the beep
     handler on every INT and never read any floppy data.
 
-36. **Phantom ROM never sets IM 1 or IM 2** — no `ED 56` or `ED 5E` instruction anywhere
+2. **Phantom ROM never sets IM 1 or IM 2** — no `ED 56` or `ED 5E` instruction anywhere
     in the 2 KB ROM.  Z80 remains in IM 0 (power-on default).  The comment "uses IM1"
     in `machine.c` was wrong.
 
-37. **Two INT sources, two opcodes** (IM 0 bus-driven):
+3. **Two INT sources, two opcodes** in IM 0 bus-driven mode:
     - Floppy controller (motor+INT enabled via port 0x19 bits 2+3): places 0xCF = RST 08h
       on the data bus → indirect call through (0x450F) = floppy_stream_read.
     - Display frame timer (50 Hz, SAMOS running after Phantom bank-switch): places 0xFF =
@@ -786,17 +802,17 @@ smemu6/
     We distinguish the two by `m->fdc.nmi_armed` (set when both bits 2+3 are asserted).
     **DONE**: `z80_int_fetch` now returns `0xCFu` when `nmi_armed`, `0xFFu` otherwise.
 
-38. **NMI handler at 0x0066 is NOT part of normal floppy boot** (earlier docs were wrong):
+4. **NMI handler at `0x0066` is not part of normal floppy boot**; earlier docs were wrong:
     - Path A (any keypress, A=0 / Enter): → "Chargeur PDP11" PDP11 paper-tape loader path at 0x046D
       (reads binary via USART-1 in PDP-11 paper-tape format, jumps to loaded entry).
     - Path B (any non-zero key): → copies self-test stub to 0x5500, runs diagnostics.
 
-39. **Self-test stub at RAM 0x5500 is an INFINITE DIAGNOSTIC POST LOOP** (not an OS loader):
+5. **Self-test stub at RAM `0x5500` is an infinite diagnostic POST loop**, not an OS loader:
     Fills screen, bank-switches Phantom ROM out, draws boot logo, runs RAM test
     (AA/55/00/FF patterns) on four 16 KB banks, displays results, beeps, restarts.
     Loop at 0x5557: `JR 0x5500` — never returns.
 
-40. **True SYS.SY loading path** (floppy_boot, 0x0090):
+6. **True SYS.SY loading path** at `floppy_boot`, `0x0090`:
     a. Copy 12-byte SYSMON-installer stub (ROM[0x0137]) to RAM 0x57C0 via LDIR.
     b. block_copy #1 (RST 20h): read 32 floppy directory sectors into RAM 0x5800.
        Each sector: INT fires → RST 08h → floppy_stream_read (0x025A) reads 260 bytes.
@@ -805,63 +821,67 @@ smemu6/
     e. Return to IX+19/20 entry point → executes RST 30h → JP (0x57C0):
        `DI; XOR A; OUT(01h),A; LD DE,0000h; LDIR; JP 0000h` → boot SYSMON in RAM.
 
-41. **block_copy completion** (0x0300): when all sectors read, (0x450F) is patched to
+7. **`block_copy` completion** at `0x0300`: when all sectors are read, `(0x450F)` is patched to
     0x0300. Next INT → RST 08h → 0x0300: stack-manipulates to replace spin-loop PC with
     0x0210 (motor-off stub) then 0x00AE (block_copy caller), exits cleanly.
 
-42. **Annotated ASM corrected** (`roms/samos_sys17_annotated.asm`):
+8. **Annotated ASM corrected** in `roms/samos_sys17_annotated.asm`:
     - Steps 9–11 in header now correctly describe INT (not NMI) for floppy loading.
     - NMI handler role clarified as user-BREAK path only.
     - Step 11 now describes the self-test POST loop (not an OS loader).
 
-### Phase 1O — End-to-end auto-boot validation (in progress)
+### Phase 1O — End-to-end auto-boot validation (historical)
 
-43. **IM0 interrupt acknowledge wiring fixed**: redcode/Z80 uses `cpu.inta` for the
+1. **IM0 interrupt acknowledge wiring fixed**: redcode/Z80 uses `cpu.inta` for the
   interrupt acknowledge data byte. Wiring only `int_fetch` left the IM0 acknowledge at
   default `0xFF`, so floppy `RST 08h` never triggered. `machine_create()` now wires both
   `m->cpu.inta` and `m->cpu.int_fetch` to `z80_int_fetch`.
 
-44. **Floppy sector-ID source corrected**: `floppy_read_data()` now returns the sector ID from
+2. **Floppy sector-ID source corrected**: `floppy_read_data()` now returns the sector ID from
   workspace `0x4508` (ROM-computed expected ID) instead of `0x4503`. This removed repeated
   ID-mismatch retries and allowed `block_copy#1` to complete (`PC=00AE`) and proceed to
   `block_copy#2` (`PC=00EB`).
 
-45. **Directory decode validated for SYS.SY load target**: at `PC=00EB`, traced IX fields show
+3. **Directory decode validated for SYS.SY load target**: at `PC=00EB`, traced IX fields show
   `count=0003 sec=0026 load=6000 entry=57C0`. This confirms the loader destination is
   `0x6000` (not alpha screen RAM `0x4000–0x44FF`).
 
-46. **Screen-corruption hypothesis tested**: with trace enabled and targeted write probes,
+4. **Screen-corruption hypothesis tested**: with trace enabled and targeted write probes,
   no floppy-stream payload writes were observed into `0x4000–0x44FF` while INT-driven loading
   was active. Visible screen changes around "Disque souple" are therefore from normal UI/status
   rendering during loader progress, not misdirected SYS.SY payload writes.
 
-47. **Relocated 64K system banner now appears on screen**: after the `0x57C0 -> 0x0000`
+5. **Relocated 64K system banner now appears on screen**: after the `0x57C0 -> 0x0000`
   handoff and subsequent port-0x01 behavior fixes, the alpha display advances beyond the loader
   banner and shows:
-  - `SYS 1-H * 64 K`
-  - `SAMOS 1-H`
+
+- `SYS 1-H * 64 K`
+- `SAMOS 1-H`
+
   This is strong evidence that the copied RAM image is alive and executing its own startup/UI
   code, not merely looping inside the original Phantom loader.
 
-48. **Post-handoff control-flow interpretation corrected again**: the repeated trace hits at
+6. **Post-handoff control-flow interpretation corrected again**: the repeated trace hits at
   `0x046D` were previously labeled as `usart_paper_boot` using Phantom-ROM addresses. Disassembly
   of the dumped RAM image shows that once SYS.SY is installed at `0x0000`, the same addresses map
   to different code. The current visible `SYS 1-H * 64 K / SAMOS 1-H` text therefore represents
   progress inside relocated SAMOS/SYSMON startup, and the remaining blocker is now the branch
   after this banner rather than the earlier floppy-load phase.
 
-49. **Visible “screen corruption” has an emulator rendering cause**: `video_render()` was drawing
+7. **Visible “screen corruption” has an emulator rendering cause**: `video_render()` was drawing
   the graphic plane on top of text unconditionally, even while the machine remained in
   `VMODE_ALPHA`. Since the OS workspace starts at `0x4500` and overlaps the graphic plane base,
   ordinary workspace bytes were being displayed as random white bitmap pixels. This explains why
   `SYS 1-H * 64 K` / `SAMOS 1-H` could still be read underneath a noisy screen.
 
-50. **Controlled graphics-debug switches added to emulator CLI**:
-  - `-vmode alpha|graphic|super` forces display plane composition mode.
-  - `-gfxbits lsb|msb` toggles bitmap byte bit order for on-screen rendering experiments.
+8. **Controlled graphics-debug switches added to emulator CLI**:
+
+- `-vmode alpha|graphic|super` forces display-plane composition mode.
+- `-gfxbits lsb|msb` toggles bitmap-byte bit order for on-screen rendering experiments.
+
   These knobs allow repeatable A/B comparisons without patching source between runs.
 
-51. **Display-related I/O audit on relocated SYS.SY image (0x0000–0x22FF)**:
+9. **Display-related I/O audit on relocated SYS.SY image `0x0000–0x22FF`**:
   - Observed active use of port `0x08` (`OUT` burst + one `IN`) around routine `0x0E58–0x0ECA`.
   - Observed active writes to port `0x18` around `0x2110–0x213F`.
   - No direct `IN/OUT` hits for ports `0x0B`, `0x1C`, or `0xC5` in this loaded RAM slice.
@@ -895,7 +915,7 @@ smemu6/
   - In this exact startup path, no observed runtime reads from port `0x11` or decoded `0xCD`.
   - Current blocker remains a SYS.SY post-banner hardware-state wait loop, not Phantom ROM boot loading.
 
-### Phase 1P — Post-banner stall root cause (next)
+### Phase 1P — Post-banner stall root cause (historical plan)
 
 56. **Disassemble and label the live `0x1F89` path**:
   - Map `0x1F22/0x1F2D/0x1F37/0x1F66/0x1F89/0x21E8` in the relocated `SYS.SY` image.
@@ -996,8 +1016,8 @@ smemu6/
 
 ### Phase 1R — Prompt bring-up and regression lock-in ✅ DONE
 
-76. **Full boot to CLI verified**: with the Phase 1Q FDC fixes in place, the emulator now
-    boots completely from `floppies/1 Systeme_1HComplet.dsk` without ERROR 033:
+76. **Full boot to CLI verified**: with the Phase 1Q FDC fixes in place, the emulator booted
+  completely from the then-current system floppy image without ERROR 033:
     - `ROM de chargement rev 1-7` (Phantom ROM banner)
     - `Disque souple  simple face` (floppy selected)
     - `SYS 1-H * 64 K` / `SAMOS 1-H` (relocated OS banner)
@@ -1010,7 +1030,7 @@ smemu6/
 77. **Minimal reproducible boot command**:
     ```
     SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-      ./build/smemu6 -floppy "floppies/1 Systeme_1HComplet.dsk" -timeout 35
+      ./build/smemu6 -floppy "floppies/Sys1-H.dsk" -timeout 35
     ```
     `-autoboot` is no longer required for basic boot (see Phase 1S item 78).
     It is still needed when `-inject-str` must fire after SAMOS loads.
@@ -1143,6 +1163,12 @@ $FLUXENGINE read -c smaky6 -s drive:0 --copy-flux-to capture.flux -o smaky6.img
 5. 50 Hz interrupt: verify fires at ~50 Hz; timer advances correctly
 6. Floppy test: mount `.img`; boot SAMOS; confirm directory listing works
 7. Cross-platform build: CMake on Linux, macOS, Windows (MSYS2/MSVC)
+
+### Archived note — superseded stall-detector experiment
+
+The note below is preserved for archaeology. It predates the later finding that
+the post-banner `0x1F89` interrupt loop was valid startup behavior rather than a
+real CPU hang; see Phase 1P items 65–67 for the corrected interpretation.
 
 53. **CPU stall detection implemented to handle infinite loops** ✅ (completed):
     - **Problem**: After SYSMON displays banners (`SYS 1-H * 64 K` / `SAMOS 1-H`), CPU enters command-processing loop

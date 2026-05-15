@@ -250,8 +250,8 @@ Equivalents: DOS `.EXE` / `.COM` — Unix `./program`
 > LOAD
 ```
 
-Reloads the last executed program from disk.  Useful after a crash or to quickly
-re-run the same program.
+Built-in CLI command. Its exact no-argument semantics still need confirmation
+against primary evidence.
 
 ---
 

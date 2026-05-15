@@ -18,6 +18,10 @@ Stage 3 / 4 toggle `0x458B` and advance the circular buffer, and that a
 live-prompt `0x0179` poke proves the promoted payload follows `0x4580`, not
 `0x4581`.
 
+Historical note: this analysis keeps the original reverse-engineering paths and
+capture names for reproducibility. Current public-facing emulator examples use
+shipped media names such as `floppies/Sys1-H.dsk` and the `-floppy` flag.
+
 ---
 
 ## Error Code Decode (ER.SY)
@@ -32,38 +36,36 @@ French text string.
 
 ### Complete error code table (from manual p.24 + ER.SY French strings)
 
-| Code (dec) | Code (oct) | English message (manual)  | French string (ER.SY)          |
-|------------|------------|---------------------------|--------------------------------|
-|  1         | 001        | Write protect file        | fichier protégé écriture       |
-|  2         | 002        | Read protect file         | fichier protégé lecture        |
-|  4         | 004        | Permanent file            | fichier permanent              |
-|  5         | 005        | Line too long             | ligne trop longue              |
-|  6         | 006        | End of file               | fin de fichier                 |
-|  7         | 007        | File end overflow         | dépassement fin de fichier     |
-| 10         | 012        | File in use for writing   | fichier ouvert en écriture     |
-| 11         | 013        | File already exist        | fichier déjà existant          |
-| 12         | 014        | File does not exist       | **fichier inexistant**         |
-| 13         | 015        | Illegal filename          | nom de fichier illégal         |
-| 14         | 016        | Illegal reservation       | réservation illégale           |
-| 16         | 020        | Cannot load file          | chargement impossible          |
-| 17         | 021        | Out of file               | plus de fichier                |
-| 20         | 024        | File in use for reading   | fichier ouvert en lecture      |
-| 21         | 025        | Unknown device            | périphérique inconnu           |
-| 22         | 026        | Channel error             | erreur de canal                |
-| 23         | 027        | File(s) in use            | fichier(s) en cours            |
-| 24         | 030        | All channels in use       | tous les canaux occupés        |
-| 25         | 031        | Directory full            | répertoire plein               |
-| 26         | 032        | Disk full                 | disque plein                   |
-| 30         | 036        | Device timeout            | timeout périphérique           |
-| 31         | 037        | Write protect tab set     | languette de protection        |
-| 32         | 040        | Write error               | **erreur d'écriture**          |
-| 33         | 041        | Read error                | **erreur de lecture**          |
-| 34         | 042        | No starting address       | pas d'adresse de départ        |
-| 35         | 043        | Bad load                  | **chargement erroné**          |
-| 36         | 044        | Buffer full               | tampon plein                   |
-| 110        | 156        | Illegal order             | ordre illégal                  |
-| 114        | 162        | System error              | erreur système                 |
-| 115        | 163        | Map error                 | erreur de map                  |
+- Decimal `1`, octal `001`: `Write protect file` / `fichier protégé écriture`.
+- Decimal `2`, octal `002`: `Read protect file` / `fichier protégé lecture`.
+- Decimal `4`, octal `004`: `Permanent file` / `fichier permanent`.
+- Decimal `5`, octal `005`: `Line too long` / `ligne trop longue`.
+- Decimal `6`, octal `006`: `End of file` / `fin de fichier`.
+- Decimal `7`, octal `007`: `File end overflow` / `dépassement fin de fichier`.
+- Decimal `10`, octal `012`: `File in use for writing` / `fichier ouvert en écriture`.
+- Decimal `11`, octal `013`: `File already exist` / `fichier déjà existant`.
+- Decimal `12`, octal `014`: `File does not exist` / `fichier inexistant`.
+- Decimal `13`, octal `015`: `Illegal filename` / `nom de fichier illégal`.
+- Decimal `14`, octal `016`: `Illegal reservation` / `réservation illégale`.
+- Decimal `16`, octal `020`: `Cannot load file` / `chargement impossible`.
+- Decimal `17`, octal `021`: `Out of file` / `plus de fichier`.
+- Decimal `20`, octal `024`: `File in use for reading` / `fichier ouvert en lecture`.
+- Decimal `21`, octal `025`: `Unknown device` / `périphérique inconnu`.
+- Decimal `22`, octal `026`: `Channel error` / `erreur de canal`.
+- Decimal `23`, octal `027`: `File(s) in use` / `fichier(s) en cours`.
+- Decimal `24`, octal `030`: `All channels in use` / `tous les canaux occupés`.
+- Decimal `25`, octal `031`: `Directory full` / `répertoire plein`.
+- Decimal `26`, octal `032`: `Disk full` / `disque plein`.
+- Decimal `30`, octal `036`: `Device timeout` / `timeout périphérique`.
+- Decimal `31`, octal `037`: `Write protect tab set` / `languette de protection`.
+- Decimal `32`, octal `040`: `Write error` / `erreur d'écriture`.
+- Decimal `33`, octal `041`: `Read error` / `erreur de lecture`.
+- Decimal `34`, octal `042`: `No starting address` / `pas d'adresse de départ`.
+- Decimal `35`, octal `043`: `Bad load` / `chargement erroné`.
+- Decimal `36`, octal `044`: `Buffer full` / `tampon plein`.
+- Decimal `110`, octal `156`: `Illegal order` / `ordre illégal`.
+- Decimal `114`, octal `162`: `System error` / `erreur système`.
+- Decimal `115`, octal `163`: `Map error` / `erreur de map`.
 
 **Note**: The CLI displays errors in **octal** (`ERROR 033` = decimal 27 = `0x1B`).
 This tripped us up early — `0x4554=0x1B` at ERROR 033 is the octal display value 33₈ = 27₁₀.
@@ -94,21 +96,17 @@ located in the on-disk directory as a "SY"-type entry (special loader type). The
 Phantom ROM bootloader reads it from sectors 3–38 of track 0 and distributes its
 content into two separate RAM regions.
 
-| Property          | Value                                              |
-|-------------------|----------------------------------------------------|
-| File size         | 8960 bytes (0x2300)                                |
-| Sectors occupied  | 35 sectors × 256 bytes = 8960 bytes                |
-| Disk start        | Track 0, sector 3 (after 3 directory sectors)      |
-| Directory `load`  | 0x60C0 — sector/track encoding for SY-type files,  |
-|                   | **NOT** a RAM load address                         |
-| Directory `entry` | 0x5700 — likely the OS-loader stub entry, not the  |
-|                   | OS binary load address (see below)                 |
+- `File size`: 8960 bytes (`0x2300`).
+- `Sectors occupied`: 35 sectors × 256 bytes = 8960 bytes.
+- `Disk start`: track 0, sector 3, after the 3 directory sectors.
+- `Directory load`: `0x60C0`, a sector/track encoding for `SY`-type files, **not** a RAM load address.
+- `Directory entry`: `0x5700`, likely the OS-loader stub entry rather than the OS binary load address.
 
 ---
 
 ## Binary Layout
 
-```
+```text
 Offset 0x0000–0x07FF  (2048 bytes)  SYSMON monitor
 Offset 0x0800–0x22FF  (7168 bytes)  SAMOS OS proper
 ```
@@ -124,16 +122,14 @@ of SYS.SY to RAM 0x0000, installing it in place of the now-hidden Phantom ROM.
 
 **SYSMON RST table** (from SYS.SY bytes 0x0000–0x003F, confirmed from raw binary):
 
-| RST    | Raw bytes (6–7)              | Decoded                                          | Via pointer  |
-|--------|------------------------------|--------------------------------------------------|--------------|
-| RST 00 | `F3 31 30 45 C3 05 01`       | `DI; LD SP,0x4530; JP 0x0105`                   | —            |
-| RST 08 | `E5 2A 62 45 E3 C9`          | `PUSH HL; LD HL,(0x4562); EX (SP),HL; RET`      | `(0x4562)`   |
-| RST 10 | `E5 2A 64 45 E3 C9`          | `PUSH HL; LD HL,(0x4564); EX (SP),HL; RET`      | `(0x4564)`   |
-| RST 18 | `E5 2A 4C 45 E3 C9`          | `PUSH HL; LD HL,(0x454C); EX (SP),HL; RET`      | `(0x454C)`   |
-| RST 20 | `E5 2A 5C 45 E3 C9`          | `PUSH HL; LD HL,(0x455C); EX (SP),HL; RET`      | **`(0x455C)`** — **SAMOS syscall dispatcher** |
-| RST 28 | `E5 2A 68 45 E3 C9`          | `PUSH HL; LD HL,(0x4568); EX (SP),HL; RET`      | `(0x4568)`   |
-| RST 30 | `E5 2A 6A 45 E3 C9`          | `PUSH HL; LD HL,(0x456A); EX (SP),HL; RET`      | `(0x456A)`   |
-| RST 38 | `E5 2A 66 45 E3 C9`          | `PUSH HL; LD HL,(0x4566); EX (SP),HL; RET`      | `(0x4566)`   |
+- `RST 00`: raw bytes `F3 31 30 45 C3 05 01`, decoded as `DI; LD SP,0x4530; JP 0x0105`.
+- `RST 08`: raw bytes `E5 2A 62 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x4562); EX (SP),HL; RET`, via `(0x4562)`.
+- `RST 10`: raw bytes `E5 2A 64 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x4564); EX (SP),HL; RET`, via `(0x4564)`.
+- `RST 18`: raw bytes `E5 2A 4C 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x454C); EX (SP),HL; RET`, via `(0x454C)`.
+- `RST 20`: raw bytes `E5 2A 5C 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x455C); EX (SP),HL; RET`, via `(0x455C)`, the SAMOS syscall dispatcher pointer.
+- `RST 28`: raw bytes `E5 2A 68 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x4568); EX (SP),HL; RET`, via `(0x4568)`.
+- `RST 30`: raw bytes `E5 2A 6A 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x456A); EX (SP),HL; RET`, via `(0x456A)`.
+- `RST 38`: raw bytes `E5 2A 66 45 E3 C9`, decoded as `PUSH HL; LD HL,(0x4566); EX (SP),HL; RET`, via `(0x4566)`.
 
 **RST 20h = SAMOS syscall:** `(0x455C)` is initialized to `0x012D` (the syscall
 dispatcher) by SYSMON startup at `0x00D3`: `LD HL,0x012D; LD (0x455C),HL`.
@@ -147,12 +143,10 @@ SYSMON vectors at 0x0000–0x003F are all indirect calls through RAM pointers in
 
 **SYSMON I/O ports used** (from SYS.SY bytes 0x0000–0x01FF):
 
-| Offset | Addr  | Instruction       | Notes                                           |
-|--------|-------|-------------------|-------------------------------------------------|
-| 0x0048 | 0x0048| `OUT (0x01),A`    | Phantom ROM bank-switch                         |
-| 0x00E3 | 0x00E3| `OUT (0x00),A`    | **Video mode init** (value 0x01 = alpha-only enable) |
-| 0x02BC | 0x02BC| `OUT (0x00),A`    | **Video mode set** (syscall tail — all mode changes) |
-| 0x0158 | 0x0158| `OUT (0x19),A`    | Floppy control                                  |
+- `0x0048`: `OUT (0x01),A`, Phantom ROM bank-switch.
+- `0x00E3`: `OUT (0x00),A`, video-mode init with value `0x01` for alpha-only enable.
+- `0x02BC`: `OUT (0x00),A`, common video-mode set tail for runtime mode changes.
+- `0x0158`: `OUT (0x19),A`, floppy control.
 
 #### SYSMON 1-H monitor strings and command decoder
 
@@ -161,16 +155,15 @@ not the earlier `1-0` variant.
 
 **Verified embedded strings in the SYSMON / early OS image:**
 
-| SYS.SY offset | String | Notes |
-|---------------|--------|-------|
-| 0x07EC | `MON 1-H` | Monitor version string inside the 0x0000–0x07FF SYSMON portion |
-| 0x07F4 | `HEXA` | Numeric-display mode label |
-| 0x0C1A | `LOAD` | Loader/serial input path string |
-| 0x0D72 | `OCTAL` | Alternate numeric-display mode label |
-| 0x0ACC | `SZ-H-VNC  A   B   C   D   E    DE     HL   IX ^SP IY ^(SP) I PC` | Register dump header |
-| 0x1094 | `SAMOS 1-H` | Matching OS-family banner |
+- `0x07EC`: `MON 1-H`, the monitor version string inside the `0x0000–0x07FF` SYSMON portion.
+- `0x07F4`: `HEXA`, numeric-display mode label.
+- `0x0C1A`: `LOAD`, loader or serial-input path string.
+- `0x0D72`: `OCTAL`, alternate numeric-display mode label.
+- `0x0ACC`: `SZ-H-VNC  A   B   C   D   E    DE     HL   IX ^SP IY ^(SP) I PC`, register dump header.
+- `0x1094`: `SAMOS 1-H`, matching OS-family banner.
 
 **Strings not present in this image:**
+
 - `MONITEUR 1-0`
 - `adresse de début`
 
@@ -179,16 +172,15 @@ that the older French monitor prompts come from a different system revision.
 
 **Verified monitor entry/dispatch points** (from relocated disassembly `roms/syssy_ram_0000_22ff.asm`):
 
-| RAM addr | Role |
-|----------|------|
-| 0x0941 | Main monitor command-loop setup |
-| 0x0976 | Compare first command byte with `'O'` |
-| 0x097B | Compare first command byte with `'S'` |
-| 0x0991 | Compare with `'='` |
-| 0x0996 | Compare with `'P'` |
-| 0x099B | Compare with `'M'` |
+- `0x0941`: main monitor command-loop setup.
+- `0x0976`: compare first command byte with `'O'`.
+- `0x097B`: compare first command byte with `'S'`.
+- `0x0991`: compare with `'='`.
+- `0x0996`: compare with `'P'`.
+- `0x099B`: compare with `'M'`.
 
 **Command behavior we can support from data flow:**
+
 - `'O'` toggles the numeric display base at `0x0BBA` by flipping bit 6 of workspace byte `0x454A`;
   the monitor then prints either `OCTAL` (`0x0D72`) or `HEXA` (`0x07F4`).
 - Separate monitor documentation states that **`0x5600`** and **`0x4100`** are common starting
@@ -218,17 +210,15 @@ never in the gap between 0x2300 and 0x5700.
 
 **OS jump table** (at RAM 0x0800, SYS.SY file offset 0x0800):
 
-| RAM addr | JP target | Classification |
-|----------|-----------|----------------|
-| 0x0800   | 0x0941    | OS internal    |
-| 0x0803   | 0x094D    | OS internal    |
-| 0x0806   | 0x0A5F    | OS internal    |
-| 0x0809   | 0x011D    | SYSMON call    |
-| 0x080C   | 0x0941    | OS internal    |
-| 0x0818   | 0x0BDA    | OS internal    |
-| 0x081B   | 0x0095    | SYSMON call    |
-| 0x081E   | 0x0965    | OS internal    |
-| 0x0821   | 0x0BD3    | OS internal    |
+- `0x0800 -> 0x0941`: OS internal.
+- `0x0803 -> 0x094D`: OS internal.
+- `0x0806 -> 0x0A5F`: OS internal.
+- `0x0809 -> 0x011D`: SYSMON call.
+- `0x080C -> 0x0941`: OS internal.
+- `0x0818 -> 0x0BDA`: OS internal.
+- `0x081B -> 0x0095`: SYSMON call.
+- `0x081E -> 0x0965`: OS internal.
+- `0x0821 -> 0x0BD3`: OS internal.
 
 The OS makes direct CALL/JP into SYSMON (0x011D, 0x0095, etc.), so SYSMON must
 be present in RAM 0x0000–0x07FF before any OS code executes.
@@ -239,24 +229,20 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 
 ### SYSMON section (0x0000–0x07FF)
 
-| Port  | Dir | Address       | Description                                              |
-|-------|-----|---------------|----------------------------------------------------------|
-| 0x00  | W   | 0x00E3        | **Video mode control** — init write (alpha-only, value 0x01) |
-| 0x00  | W   | 0x02BC        | **Video mode control** — all runtime mode-switch writes  |
-| 0x01  | W   | 0x0048        | **Dual function:** `data=0x00` → Phantom ROM bank-switch (disable 2 KB ROM, make 0x0000–0x07FF writable RAM). `data≠0x00` → **ISR ACK** for the 50 Hz tick. In the current unified emulator model this ACK does not mutate keyboard state. |
-| 0x19  | W   | 0x0158        | Floppy control register                                  |
+- Port `0x00`, write, address `0x00E3`: video-mode control init write, alpha-only with value `0x01`.
+- Port `0x00`, write, address `0x02BC`: video-mode control for all runtime mode-switch writes.
+- Port `0x01`, write, address `0x0048`: dual function. `data = 0x00` bank-switches out Phantom ROM and makes `0x0000–0x07FF` writable RAM; `data != 0x00` acknowledges the 50 Hz ISR. In the current unified emulator model this ACK does not mutate keyboard state.
+- Port `0x19`, write, address `0x0158`: floppy control register.
 
 ### OS section (0x0800–0x22FF)
 
-| Port  | Dir | RAM addr | Description                                                           |
-|-------|-----|----------|-----------------------------------------------------------------------|
-| 0x00  | R   | 0x0960   | **Keyboard CLA** — reads current latched key code (bit 7=0 → key present) |
-| 0x00  | R   | 0x0983   | **Keyboard CLA** — second read in ISR debounce path (feeds circular buffer) |
-| 0x01  | R   | 0x097E   | **Keyboard status** — bit 2 = FOUND (re-checked after debounce wait). Per §10.4 CLAVIER: "not necessary" since bit 7 of CLA already encodes FOUND. |
-| 0x00  | W   | 0x09D8   | **Video mode control** — restore saved mode from workspace `(0x4549)` |
-| 0x00  | W   | 0x11D6   | **Video mode control** — restore shadow `(0x457F)` after ISR          |
-| 0x00  | W   | 0x192B   | **Video mode control** — hard reset / init, writes alpha (0x01)       |
-| 0x00  | W   | 0x1FD9   | **Video mode control** — display off, writes 0x00 (`XOR A`)           |
+- Port `0x00`, read, RAM `0x0960`: keyboard CLA, reading the current latched key code, with bit 7 clear meaning a key is present.
+- Port `0x00`, read, RAM `0x0983`: second keyboard CLA read in the ISR debounce path, feeding the circular buffer.
+- Port `0x01`, read, RAM `0x097E`: keyboard status, where bit 2 is FOUND, re-checked after the debounce wait. Per §10.4 CLAVIER, this is "not necessary" because CLA bit 7 already encodes FOUND.
+- Port `0x00`, write, RAM `0x09D8`: restore saved video mode from workspace `(0x4549)`.
+- Port `0x00`, write, RAM `0x11D6`: restore shadow `(0x457F)` after the ISR.
+- Port `0x00`, write, RAM `0x192B`: hard reset or init, writing alpha mode `0x01`.
+- Port `0x00`, write, RAM `0x1FD9`: display off, writing `0x00` via `XOR A`.
 
 > **Note:** port `0x00` READS (IN A,(0x00) / `keyboard_read_cla`) are the
 > keyboard CLA path and have nothing to do with video.
@@ -348,17 +334,18 @@ be present in RAM 0x0000–0x07FF before any OS code executes.
 > The CLA port read path is used only during the pre-OS boot phase: Phantom ROM
 > `kbd_wait` at `0x00FD` (device-selection prompt) and SAMOS init `kbd_wait` at
 > `0x00B5` (boot-menu / second keypress), both of which poll `IN A,(0x00)` with
-> interrupts disabled.  After SAMOS is running, the autoboot injection path
+> interrupts disabled.  After SAMOS is running, the low-level injection path
 > (`machine_inject_key()`) also uses CLA fields.
 > See `docs/dev/keyboard_analysis.md` for the full pipeline description.
-| 0x03  | W   | 0x5B0F          | Buzzer/beep                                      |
-| 0x08  | R/W | 0x5D58–0x5DCA  | **3-wire synchronous serial (E405/08 RTC)** (see detail below) |
-| 0x0B  | W   | 0x5ADB–0x5B37  | **Bit-serial shift clock** (see detail below)     |
-| 0x18  | W   | 0x7010–0x703F  | Floppy-related byte stream (bit7 ready; `IN F,(C)` poll) |
-| 0x19  | R/W | multiple        | Floppy control (same as ROM)                     |
-| 0x1A  | W   | 0x70A2          | Floppy CONT                                      |
-| 0x1C  | W   | 0x63C0, 0x6583, 0x6594 | Unknown — disk DMA or acknowledge         |
-| 0x2B  | W   | 0x6B8E, 0x6DAB  | Winchester reset/select                          |
+
+- Port `0x03`, write, address `0x5B0F`: buzzer or beep.
+- Port `0x08`, read/write, addresses `0x5D58–0x5DCA`: 3-wire synchronous serial for the E405/08 RTC, detailed below.
+- Port `0x0B`, write, addresses `0x5ADB–0x5B37`: bit-serial shift clock, detailed below.
+- Port `0x18`, write, addresses `0x7010–0x703F`: floppy-related byte stream, with bit 7 ready polling via `IN F,(C)`.
+- Port `0x19`, read/write, multiple addresses: floppy control, same class as the ROM path.
+- Port `0x1A`, write, address `0x70A2`: floppy CONT.
+- Port `0x1C`, write, addresses `0x63C0`, `0x6583`, and `0x6594`: unknown, likely disk DMA or acknowledge.
+- Port `0x2B`, write, addresses `0x6B8E` and `0x6DAB`: Winchester reset or select.
 
 #### Port 0x08 — 3-wire synchronous serial interface (E405/08 RTC)
 
@@ -377,7 +364,7 @@ Z80 receive: `RRA; RR (HL)` → first received bit lands at bit0 of `(HL)`.
 
 Protocol (disassembled from OS ~0x5D53–0x5D9A):
 
-```
+```text
 PUSH DE, PUSH BC, PUSH AF
 EX DE,HL
 XOR A
@@ -427,32 +414,28 @@ OUT (0x08), A          ; deselect
 
 **Bit assignments for port 0x08 (confirmed from R. Forster schematic, Oct 1979):**
 
-| Bit | Direction | Function                                |
-|-----|-----------|-----------------------------------------|
-| 0   | Bidir     | Serial data (MISO on IN, data on OUT)   |
-| 1   | Output    | CS / direction control (high during tx) |
-| 2   | Output    | CS / direction control (high during tx) |
-| 3   | Output    | CLK                                     |
+- Bit `0`, bidirectional: serial data, MISO on `IN` and data on `OUT`.
+- Bit `1`, output: CS or direction control, high during transmit.
+- Bit `2`, output: CS or direction control, high during transmit.
+- Bit `3`, output: CLK.
 
 **Target confirmed**: E405/08 RTC (IC5, extension board).
 
 Register layout (7 bytes, BCD, confirmed empirically from SAMOS display output):
 
-| Byte | Content  | Range  | SAMOS field            |
-|------|----------|--------|------------------------|
-| 0    | hours    | 00–23  | time **hh**            |
-| 1    | minutes  | 00–59  | time **mm**            |
-| 2    | day      | 01–31  | date **DD**            |
-| 3    | month    | 01–12  | date **MM**            |
-| 4    | year     | 00–99  | date **YY**            |
-| 5    | weekday  | 1–7    | day name (1=Mon…7=Sun) |
-| 6    | seconds  | 00–59  | time **ss**            |
+- Byte `0`: `hours`, range `00–23`, SAMOS field `hh`.
+- Byte `1`: `minutes`, range `00–59`, SAMOS field `mm`.
+- Byte `2`: `day`, range `01–31`, SAMOS field `DD`.
+- Byte `3`: `month`, range `01–12`, SAMOS field `MM`.
+- Byte `4`: `year`, range `00–99`, SAMOS field `YY`.
+- Byte `5`: `weekday`, range `1–7`, SAMOS day-name field with `1=Mon` through `7=Sun`.
+- Byte `6`: `seconds`, range `00–59`, SAMOS field `ss`.
 
 #### Port 0x0B — Bit-serial shift clock
 
 Protocol (disassembled from OS ~0x5ADA–0x5B10):
 
-```
+```text
 wait_loop:
   CALL 0x0BD3         ; = RST 20h (E7), then bytes 0x14, 0x47, 0x83, 0x5F, 0x78 = LD B,A
   OUT (0x0B), A       ; strobe: output one bit
@@ -471,7 +454,7 @@ Target peripheral: unknown serial device.
 
 Protocol (disassembled from OS ~0x7008–0x7040):
 
-```
+```text
 LD A, 0x28
 LD B, 0x28            ; 40 bytes to transfer
 LD C, 0x18            ; port number in C
@@ -491,7 +474,7 @@ Almost certainly a second floppy data channel or a Winchester DMA port.
 
 ### Normal boot path
 
-```
+```text
 Phantom ROM (0x0000–0x07FF, ROM)
   │
   ├─ boot_main (0x003B): keyboard probe → drive-control byte stored at (0x4500)
@@ -533,7 +516,7 @@ SYSMON (RAM 0x0000–0x07FF) + SAMOS OS (RAM 0x0800–0x22FF):
 
 ### NMI / user BREAK path (NOT part of normal boot)
 
-```
+```text
 nmi_handler (0x0066)  — triggered by BREAK key only:
   ├─ OR A; CALL 0x0210 → stop motor
   ├─ CALL kbd_wait (0x00FD) → wait for keypress
@@ -546,29 +529,29 @@ nmi_handler (0x0066)  — triggered by BREAK key only:
 
 ---
 
-## SAMOS Init: RST Dispatch, kbd_wait Autoboot, and Runtime Code Patching
+## SAMOS Init: RST Dispatch, kbd_wait Default Boot, and Runtime Code Patching
 
 ### RST Dispatch Table (SYSMON 0x0000–0x003D)
 
 All eight RST instructions use an identical 6-byte trampoline:
-```
+
+```text
 PUSH HL
 LD HL,(0x45xx)   ; load a function pointer from OS workspace
 EX (SP),HL       ; swap: target on stack, saved HL back in register
 RET              ; jump to target — caller's return address is on the stack below
 ```
+
 This makes every RST a **1-byte indirect syscall** whose destination is a live RAM word.
 Swapping RST targets at runtime changes which function fires for that syscall number.
 
-| RST   | Workspace ptr | Initial target | Purpose                      |
-|-------|--------------|----------------|------------------------------|
-| RST 08h | `(0x4562)` | –              | Floppy stream / sector INT   |
-| RST 10h | `(0x4564)` | –              | (reserved)                   |
-| RST 18h | `(0x454C)` | –              | Screen / display call        |
-| RST 20h | `(0x455C)` | `0x012D`       | General OS call (installed at 0x00D6) |
-| RST 28h | `(0x4568)` | –              | Floppy / block-copy call     |
-| RST 30h | `(0x456A)` | –              | Jump via (0x57C0) handoff    |
-| RST 38h | `(0x4566)` | `0x003E`       | **50 Hz ISR** (installed at 0x00D0) |
+- `RST 08h`: workspace pointer `(0x4562)`, initial target not identified here, used for floppy stream or sector INT.
+- `RST 10h`: workspace pointer `(0x4564)`, reserved.
+- `RST 18h`: workspace pointer `(0x454C)`, used for screen or display calls.
+- `RST 20h`: workspace pointer `(0x455C)`, initial target `0x012D`, general OS call installed at `0x00D6`.
+- `RST 28h`: workspace pointer `(0x4568)`, used for floppy or block-copy calls.
+- `RST 30h`: workspace pointer `(0x456A)`, jumping via the `(0x57C0)` handoff.
+- `RST 38h`: workspace pointer `(0x4566)`, initial target `0x003E`, the 50 Hz ISR installed at `0x00D0`.
 
 ### SAMOS Init Sequence (0x0095–0x0104)
 
@@ -663,7 +646,7 @@ with interrupts still **disabled** (DI from the 12-byte handoff stub).
 0104  RET
 ```
 
-### kbd_wait Autoboot Behaviour
+### kbd_wait Default-Boot Behaviour
 
 **Confirmed on real hardware**: the Smaky 6 boots to the CLI with no keypress.
 
@@ -672,10 +655,8 @@ The hardware keyboard controller continuously asserts FOUND=1 with code `0x00`
 **idle resting state**, not a latched event.  Both kbd_waits therefore exit
 immediately:
 
-| Wait site | Who calls it | Returns A= | Effect |
-|-----------|-------------|-----------|--------|
-| Phantom ROM `0x00FD` | `boot_main` | `0x00` | Select DX0 floppy boot (default) |
-| SAMOS init `0x00B5`  | `0x0095`    | `0x00` | Proceed with default USART/boot config |
+- Phantom ROM `0x00FD`, called by `boot_main`, returns `A = 0x00`, selecting default `DX0` floppy boot.
+- SAMOS init `0x00B5`, called by `0x0095`, returns `A = 0x00`, proceeding with default USART or boot config.
 
 Any key pressed during either wait overrides the default (e.g. pressing a
 non-null key at `0x00FD` selects double-sided / Winchester path).
@@ -710,22 +691,18 @@ immediately mirrored there. All mode-state queries should read `(0x457F)`.
 
 ### Port 0x00 bit encoding
 
-| Bit | Mask | Meaning                                    |
-|-----|------|--------------------------------------------|
-|  0  | 0x01 | Display enable (always 1 during operation) |
-|  1  | 0x02 | Small-points mode ('P' flag)               |
-|  2  | 0x04 | Graphics layer active                      |
-|  3  | 0x08 | Graphics-only (suppress alpha layer)       |
+- Bit `0`, mask `0x01`: display enable, always `1` during operation.
+- Bit `1`, mask `0x02`: small-points mode, the `P` flag.
+- Bit `2`, mask `0x04`: graphics layer active.
+- Bit `3`, mask `0x08`: graphics-only, suppressing the alpha layer.
 
 ### MODE command → syscall → port value
 
-| CLI command | SAMOS syscall | Handler  | Port 0x00 value |
-|-------------|---------------|----------|------------------|
-| `MODE A`    | `RST 20h/0x11`| `0x02DE` | `0x01` — alpha only |
-| `MODE G`    | `RST 20h/0x12`| `0x02E6` | `0x0D` — graphics only (0x01\|0x04\|0x08) |
-| `MODE G P`  | `RST 20h/0x12`| `0x02E6` | `0x0F` — graphics + small points |
-| `MODE 2`    | `RST 20h/0x13`| `0x02EE` | `0x05` — both layers (0x01\|0x04) |
-| `MODE 2 P`  | `RST 20h/0x13`| `0x02EE` | `0x07` — both + small points |
+- `MODE A`: syscall `RST 20h/0x11`, handler `0x02DE`, writing `0x01` for alpha only.
+- `MODE G`: syscall `RST 20h/0x12`, handler `0x02E6`, writing `0x0D` for graphics only as `0x01 | 0x04 | 0x08`.
+- `MODE G P`: syscall `RST 20h/0x12`, handler `0x02E6`, writing `0x0F` for graphics plus small points.
+- `MODE 2`: syscall `RST 20h/0x13`, handler `0x02EE`, writing `0x05` for both layers as `0x01 | 0x04`.
+- `MODE 2 P`: syscall `RST 20h/0x13`, handler `0x02EE`, writing `0x07` for both layers plus small points.
 
 The carry flag into the syscall encodes the 'P' sub-argument (set by CLI.SY
 if the user typed `G P` or `2 P`).
@@ -779,18 +756,20 @@ RST 20h dispatcher annotated listing.
 
 ---
 
-## Current Runtime Status (Phase 1Q / Phase 1R — 2026-05-07)
+## Historical Runtime Snapshot (Phase 1Q / Phase 1R — 2026-05-07)
 
 ### Full boot confirmed
 
-The emulator boots completely from `floppies/1 Systeme_1HComplet.dsk` to the CLI
+At that point in the bring-up, the emulator booted completely from the working
+system floppy image to the CLI
 directory listing. All files visible: SYS.SY, CLI.SY, ER.SY, FLO.ST, SMILE.SM,
 CCOPY.SM, etc.
 
-Minimal reproducible boot command:
-```
+Historical boot command used during that phase:
+
+```text
 SDL_VIDEODRIVER=dummy SDL_RENDER_DRIVER=software \
-  ./build/smemu6 -disk "floppies/1 Systeme_1HComplet.dsk" -timeout 35
+  ./build/smemu6 -floppy "floppies/Sys1-H.dsk" -timeout 35
 ```
 
 ### Root cause of former ERROR 033 — two FDC bugs fixed in `src/floppy.c`
@@ -824,11 +803,9 @@ by port 0x19 DRISEL1/DRISEL2 bits), not from bit 4 of the port 0x1A write value
 
 ### Key workspace addresses (SYS.SY FDC protocol)
 
-| Address | Role |
-|---------|------|
-| `0x2B88` | Drive control base value; bit 6 selects track variable (`0x2B8B` or `0x2B8C`) |
-| `0x2B8B` | Expected/current track for drive A, head 0 |
-| `0x2B8C` | Expected/current track for drive A, head 1 (double-sided) |
-| `0x2B92` | Target track for next seek |
-| `0x2BA3` | Sector table base — 16 entries × 2 bytes, entry[hole] = RAM destination |
-| `0x4554` | Current error code |
+- `0x2B88`: drive control base value, with bit 6 selecting track variable `0x2B8B` or `0x2B8C`.
+- `0x2B8B`: expected or current track for drive A, head 0.
+- `0x2B8C`: expected or current track for drive A, head 1, for double-sided media.
+- `0x2B92`: target track for the next seek.
+- `0x2BA3`: sector table base, 16 entries × 2 bytes, where `entry[hole]` is the RAM destination.
+- `0x4554`: current error code.

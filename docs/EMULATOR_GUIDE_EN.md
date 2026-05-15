@@ -16,28 +16,25 @@ see `docs/SMAKY6_USER_GUIDE_EN.md`.
 6. [Keyboard mapping](#6-keyboard-mapping)
 7. [Display options](#7-display-options)
 8. [Floppy images](#8-floppy-images)
-9. [Automation and scripting](#9-automation-and-scripting)
-10. [Debugging and tracing](#10-debugging-and-tracing)
-11. [RAM dumps](#11-ram-dumps)
-12. [Troubleshooting](#12-troubleshooting)
+9. [Sound](#9-sound)
+10. [Automation and scripting](#10-automation-and-scripting)
+11. [Debugging and tracing](#11-debugging-and-tracing)
+12. [RAM dumps](#12-ram-dumps)
+13. [Troubleshooting](#13-troubleshooting)
 
 ---
 
 ## 1. Requirements
 
-| Dependency | Minimum version | Purpose |
-|------------|----------------|---------|
-| CMake | 3.16 | Build system |
-| SDL2 | 2.0 | Window, keyboard, display |
-| C compiler | C11 (gcc / clang) | Compilation |
-| git | any | FetchContent for Z80 core |
+- `CMake`: version 3.16 or newer, for the build system.
+- `SDL2`: version 2.0 or newer, for the window, keyboard, and display.
+- `C compiler`: C11-capable compiler such as `gcc` or `clang`.
+- `git`: any recent version, used by FetchContent for the Z80 core.
 
 Optional (for PDF generation only):
 
-| Dependency | Purpose |
-|------------|---------|
-| pandoc | Markdown → PDF conversion |
-| lualatex | PDF engine used by pandoc |
+- `pandoc`: Markdown → PDF conversion.
+- `lualatex`: PDF engine used by `pandoc`.
 
 ---
 
@@ -66,10 +63,8 @@ The resulting binary is `build/smemu6`.
 Place ROM files in `roms/` (relative to the repository root).
 The build system copies them automatically into `build/roms/`.
 
-| File | Size | Required | Description |
-|------|------|----------|-------------|
-| `roms/samos_sys17.rom` | 2 KB | **Yes** | Phantom bootloader ROM (SYS17 TMS2716) |
-| `roms/chargen.rom` | 2 KB | Optional | Character generator PROM |
+- `roms/samos_sys17.rom`: 2 KB, required. Phantom bootloader ROM (SYS17 TMS2716).
+- `roms/chargen.rom`: 2 KB, optional. Character generator PROM.
 
 > **Note:** If `chargen.rom` is absent, the emulator uses a built-in synthetic
 > character table. Text will be legible but may differ slightly from the
@@ -133,13 +128,11 @@ python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hos
 
 ### Floppy drives
 
-| Option | Description |
-|--------|-------------|
-| `-floppy <img>` | Mount a floppy image on drive **DX0:** |
-| `-floppy-hostdir <dir>` | Build a writable in-memory DX0 overlay from a host directory at startup; native builds only |
-| `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
-| `-floppy2-hostdir <dir>` | Build a writable in-memory DX1 overlay from a host directory at startup; native builds only |
-| `-dump-vfd-manifest <file>` | Dump the planned host-directory virtual floppy layout as JSON; requires `-floppy-hostdir` or `-floppy2-hostdir`; use `-` for stdout |
+- `-floppy <img>`: mount a floppy image on drive **DX0:**.
+- `-floppy-hostdir <dir>`: build a writable in-memory DX0 overlay from a host directory at startup; native builds only.
+- `-floppy2 <img>`: mount a floppy image on drive **DX1:**.
+- `-floppy2-hostdir <dir>`: build a writable in-memory DX1 overlay from a host directory at startup; native builds only.
+- `-dump-vfd-manifest <file>`: dump the planned host-directory virtual floppy layout as JSON; requires `-floppy-hostdir` or `-floppy2-hostdir`; use `-` for stdout.
 
 Current host-directory floppy limitations:
 
@@ -198,36 +191,30 @@ Example sidecar:
 
 ### Hard disk (Winchester)
 
-| Option | Description |
-|--------|-------------|
-| `-harddisk <img>` | Mount a Winchester image on hard-disk drive 0 (SM6WIN0) |
-| `-harddisk2 <img>` | Mount a Winchester image on hard-disk drive 1 (SM6WIN1) |
+- `-harddisk <img>`: mount a Winchester image on hard-disk drive 0 (SM6WIN0).
+- `-harddisk2 <img>`: mount a Winchester image on hard-disk drive 1 (SM6WIN1).
 
 **Hardware note:** On a Winchester-equipped Smaky 6 the hard disk occupies the
 DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
-| Configuration | Options |
-|---------------|---------|
-| Floppy-only (DX0) | `-floppy <img>` |
-| Two floppies (DX0 + DX1) | `-floppy <img> -floppy2 <img>` |
-| Winchester (DX0) + floppy (DX1) | `-harddisk <img> -floppy2 <img>` |
-| Winchester only | `-harddisk <img>` |
+- Floppy-only (DX0): `-floppy <img>`.
+- Two floppies (DX0 + DX1): `-floppy <img> -floppy2 <img>`.
+- Winchester (DX0) + floppy (DX1): `-harddisk <img> -floppy2 <img>`.
+- Winchester only: `-harddisk <img>`.
 
 ### Boot control
 
-| Option | Description |
-|--------|-------------|
-| `-break-to-monitor` | Inject SHIFT+BREAK to enter the SYSMON monitor at startup |
-| `-no-launcher` | Skip the startup configuration dialog and boot directly with the supplied media/options |
+- `-break-to-monitor`: inject SHIFT+BREAK to enter the SYSMON monitor at startup.
+- `-no-launcher`: skip the startup configuration dialog and boot directly with the supplied media/options.
 
 ### String injection
 
-| Option | Description |
-|--------|-------------|
-| `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter and `\f` to wait for the next CLI prompt before continuing. |
-| `-inject-keycode <hex>` | Inject one raw keyboard code through the low-level CLA path once the CLI prompt is stable. Post-boot injected held keys now use the emulator's current best hardware model: the first CLA read returns a bit-7-set regular code, which can produce visible CLI text. |
-| `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
-| `-inject-hold-frames <f>` | Hold `-inject-keycode` active for `f` ISR frames before releasing it (default `1`). |
+- `-inject-str <s>`: inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter and `\f` to wait for the next CLI prompt before continuing.
+- `-inject-keycode <hex>`: inject one raw keyboard code through the low-level CLA path once the CLI prompt is stable. Post-boot injected held keys now use the emulator's current best hardware model: the first CLA read returns a bit-7-set regular code, which can produce visible CLI text.
+- `-inject-at-prompt <n>`: fire the configured injection on the `n`th visible CLI prompt transition instead of the first one. Default: `1`.
+- `-inject-at-frame <n>`: fire `-inject-keycode` or `-inject-str` at absolute frame `n` instead of waiting for a CLI prompt.
+- `-inject-delay <f>`: wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`.
+- `-inject-hold-frames <f>`: hold `-inject-keycode` active for `f` ISR frames before releasing it. Default: `1`.
 
 `-inject-str` is still the normal way to type commands automatically. `-inject-keycode` now follows the low-level CLA model closely enough to reproduce the visible post-boot `A` path in audit runs, but it remains a reverse-engineering / low-level testing tool rather than the normal command-entry mechanism.
 
@@ -246,30 +233,24 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
 ### Display
 
-| Option | Description |
-|--------|-------------|
-| `-vmode <m>` | Force video mode: `alpha` (text only), `graphic` (graphics only), `super` (text + graphics) |
-| `-gfxbits <b>` | Nibble bit order: `msb` (default, hardware-correct) or `lsb` |
-| `-scale <n>` | Integer window scale 1–8 (default `1` → 512 × 508 pixels) |
-| `-scanlines` | Draw CRT-style scanline overlay (darkens every other output row) |
-| `-phosphor <c>` | Screen phosphor colour: `green` (default, P31 `#00E700`) or `white` (`#E8E8E8`) |
-| `-phosphor-decay <f>` | Per-frame persistence decay `0.0`–0.99 (default `0.70` ≈ P31); simulates phosphor remanence between display-off frames |
-| `-no-phosphor` | Disable phosphor persistence (instant pixel decay) |
-| `-no-display-off` | Ignore display-blank writes to port `0x00`; screen stays visible at all times |
-| `-verbose-video` | Log display on/off and video mode changes to stderr |
+- `-vmode <m>`: force video mode: `alpha` (text only), `graphic` (graphics only), or `super` (text + graphics).
+- `-gfxbits <b>`: nibble bit order: `msb` (default, hardware-correct) or `lsb`.
+- `-scale <n>`: integer window scale 1–8; default `1` gives a `512 × 508` window.
+- `-scanlines`: draw a CRT-style scanline overlay that darkens every other output row.
+- `-phosphor <c>`: screen phosphor colour, either `green` (default, P31 `#00E700`) or `white` (`#E8E8E8`).
+- `-phosphor-decay <f>`: per-frame persistence decay `0.0`–0.99; default `0.70` approximates P31 remanence between display-off frames.
+- `-no-phosphor`: disable phosphor persistence.
+- `-no-display-off`: ignore display-blank writes to port `0x00`; the screen stays visible at all times.
+- `-verbose-video`: log display on/off and video mode changes to stderr.
 
 ### Timing and timeouts
 
-| Option | Description |
-|--------|-------------|
-| `-timeout <s>` | Global wall-clock timeout in seconds (`0` = off; default 45 s when `-trace` is active) |
+- `-timeout <s>`: global wall-clock timeout in seconds. `0` disables it; the default is 45 s when `-trace` is active.
 
 ### Sound
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-no-beeper` | — | Silence the machine's 1-bit buzzer (beeper is **on** by default) |
-| `-drive-sound` | — | Enable synthesized floppy drive sounds: motor whir, head-step clicks, and sector-hole ticks (off by default) |
+- `-no-beeper`: silence the machine's 1-bit buzzer. The beeper is on by default.
+- `-drive-sound`: enable synthesized floppy drive sounds: motor whir, head-step clicks, and sector-hole ticks. Off by default.
 
 ---
 
@@ -281,20 +262,18 @@ audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 
 ### Special keys
 
-| PC key | Smaky 6 function |
-|--------|-----------------|
-| `F1` | **CURSOR** function key |
-| `F2` | **COPY** function key |
-| `F3` | **KILL** function key |
-| `F4` | **PROGRA** function key |
-| `F5` | **SHOW** function key |
-| `F6` | **SEARCH** function key |
-| `F7` | **CHANGE** function key |
-| `F9` | **DEFINE** (`0x1F`) via the current strict matrix map |
-| `End` | Current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted) |
-| `F11` or `Pause` | **BREAK** (top-right key) — triggers NMI → drops into SYSMON monitor |
-| `Shift+F11` or `Shift+Pause` | **SHIFT+BREAK** — hard reset (reboots from DX0:) |
-| `Escape` | **ESC / UNDO** (top-left key) — current working mapping emits `0x06` |
+- `F1`: **CURSOR** function key.
+- `F2`: **COPY** function key.
+- `F3`: **KILL** function key.
+- `F4`: **PROGRA** function key.
+- `F5`: **SHOW** function key.
+- `F6`: **SEARCH** function key.
+- `F7`: **CHANGE** function key.
+- `F9`: **DEFINE** (`0x1F`) via the current strict matrix map.
+- `End`: current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted).
+- `F11` or `Pause`: **BREAK** (top-right key), triggers NMI and drops into SYSMON monitor.
+- `Shift+F11` or `Shift+Pause`: **SHIFT+BREAK**, hard reset and reboot from DX0:.
+- `Escape`: **ESC / UNDO** (top-left key), current working mapping emits `0x06`.
 
 Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
 `Left Windows / Super`, `AltGr`, and `Delete` are not part of the current documented
@@ -342,6 +321,7 @@ text.
 
 **Disk / RESET status bar:** The middle strip shows floppy and Winchester
 drive activity LEDs.  At the right end:
+
 - **BREAK** button — left-click fires an NMI (same as `F11` / `Pause`).
 - **RESET** button — requires **two clicks**: first click arms the button
   (blinks orange for 3 s); second click confirms the hard reset.  Clicking
@@ -358,11 +338,9 @@ The Smaky 6 has two independent display layers:
 
 The `-vmode` flag controls which layers are rendered:
 
-| Value | What is shown |
-|-------|--------------|
-| `alpha` | Text layer only |
-| `graphic` | Graphics layer only |
-| `super` | Both layers overlaid (normal operation) |
+- `alpha`: text layer only.
+- `graphic`: graphics layer only.
+- `super`: both layers overlaid, normal operation.
 
 The `-scale` flag sets the integer zoom level. The default is 1 (512 × 508);
 scale 2 gives a 1024 × 1016 window, comfortable on most monitors.  Add
@@ -380,10 +358,8 @@ adjust the persistence strength, or `-no-phosphor` to disable it entirely.
 
 The emulator reads **Micropolis raw sector images** in two sizes:
 
-| Image size    | Geometry                  | Notes                        |
-|---------------|---------------------------|------------------------------|
-| 163 840 bytes | 40 tracks × 16 × 256 B    | Standard single-sided 5.25" |
-| 315 392 bytes | 77 tracks × 16 × 256 B    | Extended (77-track drives)   |
+- `163 840 bytes`: 40 tracks × 16 × 256 B, standard single-sided 5.25" image.
+- `315 392 bytes`: 77 tracks × 16 × 256 B, extended 77-track-drive image.
 
 Track count is auto-detected from the image size.
 
@@ -395,8 +371,8 @@ The `floppies/` directory in the repository is the conventional location.
 Use the tools from the companion project `../smaky6-tools/`:
 
 ```bash
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk list
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk list
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk extract-all private/extracted/
 ```
 
 ### Subdirectories (`.DR` files)
@@ -408,10 +384,10 @@ component omits the `.DR` suffix. Use forms such as `LIST NAME`,
 alone lists the current directory; `CLEAR` returns to the root.
 
 Inside the emulator, subdirectories work transparently — the floppy image
-contains all sectors and no special handling is required.  When listing a
-disk image with `smaky6_samos.py`, sub-entries are shown indented with `> `:
+contains all sectors and no special handling is required. When listing a
+disk image with `smaky6_samos.py`, sub-entries are shown indented with `>`:
 
-```
+```text
 17  U          DR  Directory   509  609 …
     > EDISK    SM  SMILE prog  512  525 …
     > TDISK    SM  SMILE prog  525  531 …
@@ -471,10 +447,15 @@ The emulator can be driven non-interactively by combining `-inject-str` and `-ti
 ```bash
 ./smemu6 \
   -floppy <disk.dsk> \
+    -no-display-off \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>screen.txt
 ```
+
+`-scrdump` is most useful together with `-no-display-off`; many SAMOS boot and
+CLI paths blank the display between updates, so using both options keeps the
+prompt visible and makes the dumped rows readable.
 
 **Run with tracing for debugging:**
 
@@ -502,19 +483,17 @@ The emulator can be driven non-interactively by combining `-inject-str` and `-ti
 These flags are intended for emulator development and reverse-engineering.
 They produce output on **stderr**.
 
-| Flag | What it traces |
-|------|---------------|
-| `-trace` | Z80 program counter at key boot milestones |
-| `-traceflow` | Control flow in low RAM after OS handoff |
-| `-tracekbd` | Every keyboard status port read and CLA write |
-| `-tracesnd` | Every write to port `0x03` (buzzer) |
-| `-trace08` | All `IN`/`OUT` traffic on port `0x08` |
-| `-trace11` | All reads from port `0x11` |
-| `-trace19` | All writes to port `0x19` (floppy control) |
-| `-tracecd` | All reads from port `0xCD` (Winchester DMA/status register) |
-| `-trace-win` | Every Winchester controller command (RESTORE, SEEK, READ, WRITE) with CHS and LBA |
-| `-tracefdc` | Focused floppy ID/checksum stream events |
-| `-scrdump` | Changed screen rows printed to stderr each frame |
+- `-trace`: Z80 program counter at key boot milestones.
+- `-traceflow`: control flow in low RAM after OS handoff.
+- `-tracekbd`: every keyboard status-port read and CLA write.
+- `-tracesnd`: every write to port `0x03` (buzzer).
+- `-trace08`: all `IN`/`OUT` traffic on port `0x08`.
+- `-trace11`: all reads from port `0x11`.
+- `-trace19`: all writes to port `0x19` (floppy control).
+- `-tracecd`: all reads from port `0xCD` (Winchester DMA/status register).
+- `-trace-win`: every Winchester controller command (RESTORE, SEEK, READ, WRITE) with CHS and LBA.
+- `-tracefdc`: focused floppy ID/checksum stream events.
+- `-scrdump`: changed screen rows printed to stderr each frame.
 
 **Tip:** Combine with shell redirection to capture traces without mixing
 them with emulator output:
@@ -563,7 +542,7 @@ objdump -b binary -m z80 -D snapshot.bin | less
 
 ## 13. Troubleshooting
 
-**Black screen / no video after boot**
+### Black screen / no video after boot
 
 Try forcing a video mode:
 
@@ -571,7 +550,7 @@ Try forcing a video mode:
 ./smemu6 -floppy <disk.dsk> -vmode alpha
 ```
 
-**Graphics appear inverted or garbled**
+### Graphics appear inverted or garbled
 
 The graphic plane uses nibble-interleaved encoding with MSB-left by default
 (hardware-verified). If images still look wrong, you can force the bit order:
@@ -580,7 +559,7 @@ The graphic plane uses nibble-interleaved encoding with MSB-left by default
 ./smemu6 -floppy <disk.dsk> -gfxbits lsb
 ```
 
-**Emulator exits immediately with error 043**
+### Emulator exits immediately with error 043
 
 The floppy image may be unreadable or in the wrong format.
 Check the file size: a valid image is 163 840 bytes (40-track) or 315 392 bytes (77-track).
@@ -589,18 +568,23 @@ Check the file size: a valid image is 163 840 bytes (40-track) or 315 392 bytes 
 wc -c myimage.dsk
 ```
 
-**Keyboard input not reaching the emulator**
+### Keyboard input not reaching the emulator
 
 Make sure the SDL window has focus (click on it). The emulator only
 processes keyboard events when its window is focused.
 
-**`-inject-str` never fires**
+### `-inject-str` never fires
 
 Check that the SAMOS `>` prompt is actually visible when you expect injection to
 happen. The emulator only injects when `machine_cli_prompt_visible()` detects
 the prompt in video RAM.
 
-**How to generate / update the PDF manuals**
+### `-scrdump` output is sparse or the prompt never becomes readable
+
+Use `-no-display-off -scrdump` together. `-scrdump` alone only reports changed
+rows, and normal SAMOS display-blanking can hide the prompt between frames.
+
+### How to generate / update the PDF manuals
 
 ```bash
 ./tools/generate_pdfs.sh

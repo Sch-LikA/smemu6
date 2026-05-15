@@ -252,8 +252,8 @@ de la même façon.  Le système les distingue automatiquement.
 > LOAD
 ```
 
-Recharge le dernier programme exécuté depuis la disquette.  Utile après un plantage
-ou pour relancer rapidement le même programme.
+Commande intégrée du CLI. Sa sémantique exacte sans argument doit encore être
+confirmée à partir de sources primaires.
 
 ---
 

@@ -223,6 +223,8 @@ valides sont :
 |--------|-------------|
 | `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée et `\f` pour attendre l'invite CLI suivante avant de continuer. |
 | `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA bas niveau une fois l'invite CLI stable. Les touches maintenues injectées post-boot utilisent maintenant le meilleur modèle matériel actuel de l'émulateur : la première lecture CLA renvoie un code régulier avec bit 7 positionné, ce qui peut produire du texte visible dans la CLI. |
+| `-inject-at-prompt <n>` | Déclenche l'injection configurée à la `n`ième apparition visible de l'invite CLI au lieu de la première (défaut `1`). |
+| `-inject-at-frame <n>` | Déclenche `-inject-keycode` ou `-inject-str` à la trame absolue `n` au lieu d'attendre une invite CLI. |
 | `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Maintient `-inject-keycode` actif pendant `f` trames d'ISR avant relâchement (défaut `1`). |
 
@@ -408,8 +410,8 @@ Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
 Utilisez les outils du projet compagnon `../smaky6-tools/` :
 
 ```bash
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk list
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk list
+python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk extract-all private/extracted/
 ```
 
 ### Sous-répertoires (fichiers `.DR`)
@@ -489,10 +491,16 @@ L'émulateur peut être piloté de manière non interactive en combinant
 ```bash
 ./smemu6 \
   -floppy <disque.dsk> \
+    -no-display-off \
     -inject-str "LIST\n" \
     -timeout 20 \
     -scrdump 2>ecran.txt
 ```
+
+`-scrdump` est surtout utile avec `-no-display-off` ; de nombreux chemins de
+démarrage et de CLI de SAMOS éteignent l'affichage entre deux mises à jour,
+donc l'association des deux options garde l'invite visible et rend les lignes
+dumpées lisibles.
 
 **Exécuter avec traçage pour le débogage :**
 
@@ -619,6 +627,12 @@ ne traite les événements clavier que lorsque sa fenêtre est au premier plan.
 Vérifiez que l'invite `>` de SAMOS est bien visible au moment attendu.
 L'émulateur n'injecte que lorsque `machine_cli_prompt_visible()` détecte
 l'invite dans la mémoire vidéo.
+
+**La sortie `-scrdump` est pauvre ou l'invite ne devient jamais lisible**
+
+Utilisez `-no-display-off -scrdump` ensemble. `-scrdump` seul ne rapporte que
+les lignes modifiées, et le blanking vidéo normal de SAMOS peut masquer
+l'invite entre les trames.
 
 **Comment générer / mettre à jour les PDF des manuels**
 

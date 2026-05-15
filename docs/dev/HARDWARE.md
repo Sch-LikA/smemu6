@@ -3,6 +3,16 @@
 *Based on nine original Epsitec schematics and documents (J. Zahn November 1978,
 R. Forster October 1979) and reverse-engineering of the SAMOS 2-8 ROM images.*
 
+Reading guide:
+
+- Sections that describe boards, chips, buses, memory ranges, and port wiring are
+  intended as stable hardware reference material.
+- Subsections explicitly labeled `emulator mapping` describe the current Smemu6
+  implementation choice for presenting or approximating that hardware.
+- Dated runtime-audit notes record how emulator behavior was checked against the
+  available evidence. They are kept as provenance, but they should not be read as
+  stronger than the underlying schematic or ROM evidence.
+
 ---
 
 ## Table of Contents
@@ -32,22 +42,21 @@ by Jean-Daniel Nicoud and commercialized by Epsitec (~450 units, 1979–1983).
 
 The machine is organized on a **backplane with plug-in boards**:
 
-| Board        | Schematic document             | Content                                       |
-|--------------|-------------------------------|-----------------------------------------------|
-| PROCESSEUR   | doc-227 (J. Zahn, Nov 1978)   | Z80, clock, 8251 USARTs, NMI, bus control     |
-| MÉMOIRE      | doc-228 (J. Zahn, Nov 1978)   | DRAM banks, ROM sockets, address decode       |
-| AFFICHAGE    | doc-229 (J. Zahn, Nov 1978)   | Scan counters, pixel clock, DMA HOLD logic    |
-| CARACTÈRES   | doc-230 (J. Zahn, Nov 1978)   | Char-gen, serializers, line buffers, parallel |
-| Ext. board   | doc-230-memext (R. Forster, Oct 1979) | 32K DRAM + Phantom ROM + RTC + SIRING ||
-| CLAVIER      | doc-231 (J. Zahn, Nov 1978)   | Keyboard scan matrix, encoder (S471), counters |
-| Floppy ctrl  | doc-189-191 (3 sheets)        | Micro-floppy serialisation / decode / IRQ     |
-| Par. I/O     | doc-219-225 (J. Zahn, 7 pp)   | Parallel interface description + port map    |
+- `PROCESSEUR`: doc-227 (J. Zahn, Nov 1978). Z80, clock, 8251 USARTs, NMI, bus control.
+- `MÉMOIRE`: doc-228 (J. Zahn, Nov 1978). DRAM banks, ROM sockets, address decode.
+- `AFFICHAGE`: doc-229 (J. Zahn, Nov 1978). Scan counters, pixel clock, DMA HOLD logic.
+- `CARACTÈRES`: doc-230 (J. Zahn, Nov 1978). Char-gen, serializers, line buffers, parallel.
+- `Ext. board`: doc-230-memext (R. Forster, Oct 1979). 32K DRAM, Phantom ROM, RTC, and SIRING.
+- `CLAVIER`: doc-231 (J. Zahn, Nov 1978). Keyboard scan matrix, encoder (S471), counters.
+- `Floppy ctrl`: doc-189-191 (3 sheets). Micro-floppy serialisation, decode, and IRQ.
+- `Par. I/O`: doc-219-225 (J. Zahn, 7 pp). Parallel interface description and port map.
 
 Hardware versions:
+
 - **32 KB model** — 2 × 8 × 4116 DRAM on mainboard; fixed SYSMON + SAMOS ROMs at 0x0000–0x1FFF.
 - **48 KB model** — as above plus one extra DRAM bank.
-- **64 KB Phantom model** — mainboard 32 KB DRAM + **extension board** (32 KB DRAM
-  + 2 KB Phantom ROM + RTC + SIRING connector); single 2 KB Phantom bootstrap ROM at
+- **64 KB Phantom model** — mainboard 32 KB DRAM plus an **extension board** (32 KB DRAM,
+  2 KB Phantom ROM, RTC, and SIRING connector); single 2 KB Phantom bootstrap ROM at
   0x0000–0x07FF that bank-switches itself out after loading the OS from floppy.
   *This is the variant documented and emulated here.*
 
@@ -57,14 +66,12 @@ Hardware versions:
 
 ### 2.1 Processor
 
-| Parameter        | Value                                                  |
-|------------------|--------------------------------------------------------|
-| CPU              | Zilog Z80 (NMOS, 40-pin DIP)                           |
-| Clock            | **12.0576 MHz** crystal → ÷5 divider → **2.4115 MHz** |
-|                  | Rounded in documentation to **2.5 MHz**                |
-| T-states / frame | 50,000 (2.5 MHz ÷ 50 Hz)                              |
-| Interrupt mode   | **IM 0** (never changed by Phantom ROM or SAMOS)       |
-| Reset            | Power-on + RESET signal from front panel               |
+- `CPU`: Zilog Z80 (NMOS, 40-pin DIP).
+- `Clock`: **12.0576 MHz** crystal divided by 5 gives **2.4115 MHz**.
+  Rounded in documentation to **2.5 MHz**.
+- `T-states / frame`: 50,000 (2.5 MHz ÷ 50 Hz).
+- `Interrupt mode`: **IM 0**; never changed by Phantom ROM or SAMOS.
+- `Reset`: power-on plus RESET signal from the front panel.
 
 The 12.0576 MHz master oscillator is also the pixel clock for the video
 subsystem (see §4).  The CPU clock is derived by a divide-by-5 prescaler on the
@@ -72,21 +79,19 @@ PROCESSEUR board; confirmed by schematic annotation.
 
 ### 2.2 Bus control signals
 
-| Signal       | Pin | Direction | Description                                              |
-|--------------|-----|-----------|----------------------------------------------------------|
-| `HOLDAL`     | 31  | →CPU      | BUSREQ from display board (AFFICHAGE) — steals bus cycles for DMA |
-| `HOLDBL`     | 33  | →CPU      | Second BUSREQ source (reserved / Winchester)             |
-| `HOLDA`      | 30  | ←CPU      | BUSACK — display board grants bus when asserted          |
-| `NMILOW`     | 17  | →CPU      | NMI (active-low), driven by BREAK key and floppy sector sensor |
-| `INTREDYLOW` | 21  | →CPU      | INT from display frame timer (50 Hz RST 38h)             |
-| `INTRECLOW`  | 23  | →CPU      | INT from USART (data-ready; not used by SAMOS 2-8)       |
-| `RESETL`     | 26  | →CPU      | Power-on / front-panel RESET                             |
-| `PETRIL`     | 36  | →CPU      | WAIT (not used in standard configuration)                |
-| `MREQL`      | 19  | ←CPU      | Memory request                                           |
-| `IORL`       | 20  | ←CPU      | I/O request                                              |
-| `WRL`        | 22  | ←CPU      | Write strobe                                             |
-| `M1L`        | 27  | ←CPU      | M1 (opcode fetch / INT acknowledge)                      |
-| `RFSH`       | 28  | ←CPU      | DRAM refresh (fed to RAS logic on MÉMOIRE board)         |
+- `HOLDAL` (pin 31, to CPU): BUSREQ from the display board (`AFFICHAGE`); steals bus cycles for DMA.
+- `HOLDBL` (pin 33, to CPU): second BUSREQ source, reserved or Winchester-related.
+- `HOLDA` (pin 30, from CPU): BUSACK; display board gets the bus when asserted.
+- `NMILOW` (pin 17, to CPU): active-low NMI, driven by BREAK key and floppy sector sensor.
+- `INTREDYLOW` (pin 21, to CPU): INT from the display frame timer, the 50 Hz `RST 38h` source.
+- `INTRECLOW` (pin 23, to CPU): INT from USART data-ready; not used by SAMOS 2-8.
+- `RESETL` (pin 26, to CPU): power-on or front-panel RESET.
+- `PETRIL` (pin 36, to CPU): WAIT; not used in the standard configuration.
+- `MREQL` (pin 19, from CPU): memory request.
+- `IORL` (pin 20, from CPU): I/O request.
+- `WRL` (pin 22, from CPU): write strobe.
+- `M1L` (pin 27, from CPU): opcode fetch or INT acknowledge.
+- `RFSH` (pin 28, from CPU): DRAM refresh, fed to the RAS logic on the `MÉMOIRE` board.
 
 The display board asserts `HOLDAL` during every horizontal blanking period to
 fetch one byte from video RAM, keeping the screen populated without CPU
@@ -102,25 +107,21 @@ does not model stolen cycles (effect on timing is negligible at 2.5 MHz).
 Addresses confirmed in **octal** on the MÉMOIRE schematic:
 `040000` = 0x4000, `046000` = 0x4600, `100000` = 0x8000.
 
-| Address range      | Octal range          | Size   | Description                                       |
-|--------------------|----------------------|--------|---------------------------------------------------|
-| `0x0000–0x07FF`    | 000000–003777        | 2 KB   | **Phantom ROM** (TMS2716 EPROM, "SYS17")          |
-|                    |                      |        | Becomes writable RAM after `OUT (01h), A=00h`     |
-| `0x0800–0x3FFF`    | 004000–037777        | ~14 KB | Lower RAM (SAMOS OS loaded here from floppy)      |
-| `0x4000–0x44FF`    | 040000–042377        | 1280 B | **Alpha (text) framebuffer** — 20 rows × 64 cols  |
-| `0x4500–0x45FF`    | 042400–042777        | 256 B  | SAMOS OS workspace (CLI buffer, current filename) |
-| `0x4600–0x54FF`    | 043000–052377        | 3840 B | **Graphic framebuffer** — 60 rows × 64 bytes      |
-| `0x5500–0x77FF`    | 052400–073777        | ~8 KB  | SYS.SY code (loaded by Phantom from floppy)       |
-| `0x7800–0xFFFF`    | 076000–177777        | ~32 KB | Upper RAM                                         |
+- `0x0000–0x07FF` (`000000–003777`): 2 KB. **Phantom ROM** (TMS2716 EPROM, `SYS17`).
+  Becomes writable RAM after `OUT (01h), A=00h`.
+- `0x0800–0x3FFF` (`004000–037777`): about 14 KB of lower RAM; SAMOS OS is loaded here from floppy.
+- `0x4000–0x44FF` (`040000–042377`): 1280 B. **Alpha (text) framebuffer**, 20 rows × 64 columns.
+- `0x4500–0x45FF` (`042400–042777`): 256 B. SAMOS OS workspace, including CLI buffer and current filename.
+- `0x4600–0x54FF` (`043000–052377`): 3840 B. **Graphic framebuffer**, 60 rows × 64 bytes.
+- `0x5500–0x77FF` (`052400–073777`): about 8 KB of `SYS.SY` code loaded by Phantom from floppy.
+- `0x7800–0xFFFF` (`076000–177777`): about 32 KB of upper RAM.
 
 ### 3.2 DRAM (MÉMOIRE board)
 
-| Component         | Part number | Count | Capacity           |
-|-------------------|-------------|-------|--------------------|
-| DRAM chips        | Intel 4116  | 16    | 16K × 1-bit each   |
-| Bank 1 (E20–E27)  | 8 × 4116    | —     | 16 KB              |
-| Bank 2 (F20–F27)  | 8 × 4116    | —     | 16 KB              |
-| **Total**         | —           | —     | **32 KB** (initial revision) |
+- `DRAM chips`: Intel 4116, 16 devices, each `16K × 1-bit`.
+- `Bank 1 (E20–E27)`: `8 × 4116`, for 16 KB.
+- `Bank 2 (F20–F27)`: `8 × 4116`, for 16 KB.
+- `Total`: **32 KB** on the initial revision.
 
 The 4116 requires **three supply voltages**: +12 V, +5 V, −5 V.  Address
 multiplexing (RAS/CAS) is handled by LS 158 multiplexers (F19, E19) on the
@@ -144,12 +145,10 @@ ROM chip-select is generated by an **LS 138** (D20) decoding A11–A13.
 Two cascaded **LS 139** demultiplexers (E17, top; E17, bottom) decode A14–A15
 into four 16 KB quadrant-selects:
 
-| A15 A14 | Region       | Select signal |
-|---------|--------------|---------------|
-| 0  0    | 0000–3FFF    | lower RAM / ROM |
-| 0  1    | 4000–7FFF    | video + OS    |
-| 1  0    | 8000–BFFF    | upper RAM     |
-| 1  1    | C000–FFFF    | upper RAM     |
+- `A15 A14 = 0 0`: `0000–3FFF`, lower RAM or ROM.
+- `A15 A14 = 0 1`: `4000–7FFF`, video and OS.
+- `A15 A14 = 1 0`: `8000–BFFF`, upper RAM.
+- `A15 A14 = 1 1`: `C000–FFFF`, upper RAM.
 
 The `MOVROM` signal (latched by D18/D19 flip-flop on receipt of
 `OUT (01h), A=00h`) disables the Phantom ROM chip-select, exposing the
@@ -163,18 +162,16 @@ Horloge absolue + SIRING 7910", designed by Ronald Forster, Epsitec, October 197
 In the 64 KB Phantom model the mainboard ROM sockets (C21–C24) are **unpopulated**.
 All ROM and the upper 32 KB of RAM live on this plug-in extension board.
 
-| Component       | Part      | Count | Function                                         |
-|-----------------|-----------|-------|--------------------------------------------------|
-| IC1             | TMS2716   | 1     | **Phantom ROM** — 2 KB EPROM at 0x0000–0x07FF    |
-| IC16–IC31       | 4116 DRAM | 16    | **Upper 32 KB RAM** — 0x8000–0xFFFF              |
-| IC5             | E405/08   | 1     | **RTC** (Horloge absolue, chip: **E405**, port: **0x08**) — serial, 32.768 kHz |
-| IC2, IC10       | LS158     | 2     | Row/column address MUX for DRAM                  |
-| IC3             | 1/2 LS139 | 1     | RAS / bank decoder                               |
-| IC8             | S287      | 1     | Extension bus interface + address decode         |
-| IC11            | 81LS95    | 1     | Octal tri-state data bus driver                  |
-| IC14, IC15      | C175      | 2     | Quad D latch — DRAM data line buffers            |
-| —               | 32 kHz XTAL | 1  | Crystal for RTC                                  |
-| —               | 1.5 V cell  | 1  | Battery backup for RTC                           |
+- `IC1`: TMS2716, one device. **Phantom ROM**, 2 KB EPROM at `0x0000–0x07FF`.
+- `IC16–IC31`: 4116 DRAM, 16 devices. **Upper 32 KB RAM** at `0x8000–0xFFFF`.
+- `IC5`: `E405/08`, one device. **RTC** (`Horloge absolue`), chip `E405`, port `0x08`, serial at 32.768 kHz.
+- `IC2`, `IC10`: LS158, two devices. Row/column address mux for DRAM.
+- `IC3`: half LS139, one device. RAS or bank decoder.
+- `IC8`: S287, one device. Extension bus interface and address decode.
+- `IC11`: 81LS95, one device. Octal tri-state data-bus driver.
+- `IC14`, `IC15`: C175, two devices. Quad D latches for DRAM data-line buffers.
+- Crystal: 32 kHz XTAL, one device, for the RTC.
+- Battery: 1.5 V cell, one device, for RTC backup.
 
 **Phantom ROM (IC1)**: The TMS2716 EPROM is on this board, not the mainboard.
 Its chip-select (`sel0`) is driven by IC8 (S287) and is disabled when the
@@ -205,6 +202,7 @@ slash notation.  **E405/08 (IC5) is the only such chip across all nine
 schematics.**
 
 Serial interface (3-wire synchronous bit-bang, proprietary — predates SPI):
+
 - **CK** — serial clock (toggled by Z80 I/O write)
 - **I/O** — bidirectional data line (MOSI on write, MISO on read)
 - **CS** — implicit chip-select (bits 1–2 held high during a transaction)
@@ -214,15 +212,13 @@ byte).  Command 0b1111 (0x0F) = read; 0b0111 (0x07) = write.
 
 Register layout (7 bytes, BCD, confirmed empirically from SAMOS display):
 
-| Byte | Content  | Range  | SAMOS field         |
-|------|----------|--------|---------------------|
-| 0    | hours    | 00–23  | time **hh**         |
-| 1    | minutes  | 00–59  | time **mm**         |
-| 2    | day      | 01–31  | date **DD**         |
-| 3    | month    | 01–12  | date **MM**         |
-| 4    | year     | 00–99  | date **YY**         |
-| 5    | weekday  | 1–7    | day name (1=Mon…7=Sun) |
-| 6    | seconds  | 00–59  | time **ss**         |
+- Byte 0: `hours`, range `00–23`, SAMOS field `hh`.
+- Byte 1: `minutes`, range `00–59`, SAMOS field `mm`.
+- Byte 2: `day`, range `01–31`, SAMOS field `DD`.
+- Byte 3: `month`, range `01–12`, SAMOS field `MM`.
+- Byte 4: `year`, range `00–99`, SAMOS field `YY`.
+- Byte 5: `weekday`, range `1–7`, day name where `1=Mon` and `7=Sun`.
+- Byte 6: `seconds`, range `00–59`, SAMOS field `ss`.
 
 **SIRING / 7910**: The board title suffix "SIRING 7910" is the Epsitec
 internal board designation. "7910" is the date code (October 1979).
@@ -242,23 +238,20 @@ The display is driven by two independent hardware planes that share the same
 Z80 address space.  A dedicated scan-counter board (AFFICHAGE, sheet 11-1)
 generates composite video without CPU intervention using **DMA HOLD cycles**.
 
-| Plane    | Address range   | Content                          |
-|----------|-----------------|----------------------------------|
-| Alpha    | 0x4000–0x44FF   | Character codes (ASCII, 7-bit)   |
-| Graphic  | 0x4600–0x54FF   | Bitmap pixels (1 bpp)            |
+- `Alpha`: `0x4000–0x44FF`, character codes (ASCII, 7-bit).
+- `Graphic`: `0x4600–0x54FF`, bitmap pixels (1 bpp).
 
 Display modes are set by `OUT (00h), A`:
 
-| `A` value | Mode constant | Description                       |
-|-----------|---------------|-----------------------------------|
-| `0x01`    | ALPHA         | Text only (alpha plane)           |
-| `0x0D`    | GRAPHIC       | Bitmap only (suppress alpha)      |
-| `0x0F`    | GRAPHIC+P     | Bitmap + small-points mode        |
-| `0x05`    | SUPER         | Superimposed (alpha + graphic)    |
-| `0x07`    | SUPER+P       | Superimposed + small-points       |
-| `0x00`    | OFF           | Display blanked                   |
+- `0x01` (`ALPHA`): text only, alpha plane.
+- `0x0D` (`GRAPHIC`): bitmap only, suppress alpha.
+- `0x0F` (`GRAPHIC+P`): bitmap plus small-points mode.
+- `0x05` (`SUPER`): superimposed alpha plus graphic.
+- `0x07` (`SUPER+P`): superimposed plus small-points.
+- `0x00` (`OFF`): display blanked.
 
 Port 0x00 bit encoding:
+
 - bit 0 = ENALPHA/display enable
 - bit 1 = small-points ('P') mode
 - bit 2 = ENGRA (graphics layer active)
@@ -266,15 +259,13 @@ Port 0x00 bit encoding:
 
 ### 4.2 Alpha (text) plane
 
-| Parameter        | Value                                               |
-|------------------|-----------------------------------------------------|
-| Columns          | 64                                                  |
-| Rows             | 20                                                  |
-| Cell size        | 8 × 8 pixels (displayed as 8 px wide × 8 px tall)  |
-| Character ROM    | **74S262** + **2716 EPROM** (2 KB, 128 chars × 16 bytes) |
-| Character set    | 7-bit ASCII; no lowercase on original hardware      |
-| Bit order        | Bit 0 = leftmost pixel (LSB-first)                  |
-| Total buffer     | 1280 bytes at 0x4000                                |
+- `Columns`: 64.
+- `Rows`: 20.
+- `Cell size`: 8 × 8 pixels, displayed as 8 px wide × 8 px tall.
+- `Character ROM`: **74S262** plus **2716 EPROM** (2 KB, 128 chars × 16 bytes).
+- `Character set`: 7-bit ASCII; no lowercase on original hardware.
+- `Bit order`: bit 0 is the leftmost pixel, LSB-first.
+- `Total buffer`: 1280 bytes at `0x4000`.
 
 The character generator is a two-stage pipeline: a **74S262** parallel-load
 shift register serializes the 8 pixel bits from the 2716, then a second
@@ -285,16 +276,14 @@ in French) but is not used by SAMOS 2-8 and is not emulated.
 
 ### 4.3 Graphic (bitmap) plane
 
-| Parameter        | Value                                                          |
-|------------------|----------------------------------------------------------------|
-| Logical rows     | **60** (stored rows in RAM)                                    |
-| Bytes per row    | 64                                                             |
-| Total bytes      | 3840 (60 × 64) at 0x4600–0x54FF                               |
-| Pixel encoding   | **Nibble-interleaved**: high nibble → even scan line, low nibble → odd scan line |
-| Bit order        | Bit 3 of nibble = leftmost pixel (**MSB-first** within nibble) |
-| Native size      | 256 × 120 px (64 bytes × 4 px/nibble = 256 wide; 60 pairs × 2 lines = 120 tall) |
-| Display size     | 512 × 480 (2× horizontal, 4× vertical stretch) |
-| Pixel aspect     | ~1:1 on output (square pixels at 2× stretch match original CRT ~4:3 frame) |
+- `Logical rows`: **60**, stored rows in RAM.
+- `Bytes per row`: 64.
+- `Total bytes`: 3840 (`60 × 64`) at `0x4600–0x54FF`.
+- `Pixel encoding`: **nibble-interleaved**. High nibble is the even scan line; low nibble is the odd scan line.
+- `Bit order`: bit 3 of the nibble is the leftmost pixel, **MSB-first** within each nibble.
+- `Native size`: 256 × 120 px (`64 bytes × 4 px/nibble = 256` wide; `60 pairs × 2 lines = 120` tall).
+- `Display size`: 512 × 480, with 2× horizontal and 4× vertical stretch.
+- `Pixel aspect`: about 1:1 on output; square pixels at 2× stretch match the original CRT's approximate 4:3 frame.
 
 **Why 60 byte-pairs?**  The AFFICHAGE scan counter counts 240 active lines.  The DMA
 address counter increments once every 2 lines (not 4), giving 120 unique line addresses
@@ -307,15 +296,13 @@ character shows through where the graphic bit = 0.
 
 ### 4.4 Timing (AFFICHAGE board)
 
-| Parameter           | Value                                    |
-|---------------------|------------------------------------------|
-| Pixel clock         | **12.0576 MHz** (master crystal)         |
-| Pixels per line     | 512 active + ~88 blanking = 600 total    |
-| Line rate           | 12.0576 MHz ÷ 600 ≈ **20.1 kHz**        |
-| Active lines        | 240                                      |
-| Frame rate          | **50 Hz** (PAL-region CRT sync)          |
-| Lines per frame     | ~401 (240 active + ~161 V-blank)         |
-| Phosphor            | **P31 green** (peak emission ~530 nm)    |
+- `Pixel clock`: **12.0576 MHz**, the master crystal.
+- `Pixels per line`: 512 active plus about 88 blanking, 600 total.
+- `Line rate`: `12.0576 MHz ÷ 600 ≈ 20.1 kHz`.
+- `Active lines`: 240.
+- `Frame rate`: **50 Hz**, matching PAL-region CRT sync.
+- `Lines per frame`: about 401 (`240 active + ~161 V-blank`).
+- `Phosphor`: **P31 green**, peak emission around 530 nm.
 
 The scan counter board generates the `HOLDAL` signal once per pixel clock
 period during H-blank to steal one bus cycle and fetch the next character/bitmap
@@ -324,7 +311,7 @@ so the CRT DAC stream is continuous even when the CPU holds the bus.
 
 ### 4.5 SDL2 rendering (emulator mapping)
 
-```
+```text
 Physical pixel buffer : 512 × 240 (1 bpp → ARGB8888)
 Lit pixel colour      : #00E700  (P31 green phosphor)
 Background colour     : #000800  (dark phosphor glow)
@@ -344,6 +331,8 @@ float is multiplied into the green channel before rendering, so pixels linger
 beyond the frame in which they were drawn — matching the slow fade of a real P31
 phosphor screen.  Configurable via `-phosphor-decay <0.0..0.99>` or disabled
 entirely with `-no-phosphor`.
+
+## 5. Keyboard Interface
 
 ### 5.0 Hardware block diagram
 
@@ -450,7 +439,7 @@ When a pressed key is found the scanner **stops immediately** (`FOUND=1`, `FULCL
 scan counter frozen).  The CPU reads a perfectly stable, debounced keycode.
 This is why no key FIFO is needed: hardware guarantees exactly one key visible at a time.
 
-```
+```text
 Normal:    scan → scan → scan → scan → …
 Key held:  scan → DETECT → FREEZE → HOLD stable keycode → wait for IN A,(00h)
 Release:   STROBE clears FOUND+FULCLA → scan restarts → next key (or FOUND=0)
@@ -468,6 +457,7 @@ Release:   STROBE clears FOUND+FULCLA → scan restarts → next key (or FOUND=0
   SHIFT+BREAK generates **RESET(LOW)** instead.
 
 **FOUND vs FULCLA distinction:**
+
 - **FOUND** is *level-sensitive*: reflects whether a physical key is currently pressed.
   It is re-asserted within 200 µs if the key is still held when the scan restarts.
 - **FULCLA** is *event-sensitive* (latched): set once when the key is first detected,
@@ -483,11 +473,9 @@ latched by a flip-flop (the "FOUND" flip-flop) and read by the CPU via I/O.
 
 ### 5.2 Port protocol
 
-| Port | Direction | Name | Function                                        |
-|------|-----------|------|-------------------------------------------------|
-| 0x00 | Read      | CLA  | bits[6:0] = key code; bit 7 = NOT-FOUND (1 if no key) |
-| 0x00 | Write     | MODE | Display mode register (see §4.1 — same address!) |
-| 0x01 | Read      | ST   | bit 3 = always 1; bit 2 = **FOUND** (level: key held) |
+- `0x00`, read, `CLA`: bits `[6:0]` are the key code; bit 7 is `NOT-FOUND` and is 1 if no key is present.
+- `0x00`, write, `MODE`: display mode register, the same address described in §4.1.
+- `0x01`, read, `ST`: bit 3 is always 1; bit 2 is **FOUND**, a level indication that a key is held.
 
 Reading port 0x00 **clears FOUND and FULCLA** and **resumes the scan counter**.
 
@@ -497,19 +485,17 @@ Reading port 0x00 **clears FOUND and FULCLA** and **resumes the scan counter**.
 
 ### 5.3 Special keys
 
-| Key               | Code / action                                          |
-|-------------------|--------------------------------------------------------|
-| BREAK (ESC)       | Generates **NMI** — fires NMILOW pin 17 of Z80         |
-| SHIFT+BREAK       | Boot from DX0: (captured before NMI in Phantom ROM)    |
-| FUNCTION+SHIFT+BREAK | Boot from DX1:                                    |
-| FUNCTION+BREAK    | Memory POST test                                       |
-| FUNCTION keys F1–F7 | 7-bit bitmask returned by CLA when FOUND=0 (see §5.5) |
-| KILL              | Bit 6 of the function-key bitmask                      |
-| TAB               | Code `0x09`; SAMOS CLI inserts `DX1:` at prompt        |
-| MACRO             | Code `0x1E` (`«`); replays recorded keystroke sequence  |
-| DEFINE            | Code `0x1F` (`»`); starts keystroke recording           |
-| BACKSPACE         | Code `0x08`; erases previous character                 |
-| DELETE            | Code `0x7F` (▓ block glyph in chargen); deletes current |
+- `BREAK (ESC)`: generates **NMI** and fires `NMILOW` on pin 17 of the Z80.
+- `SHIFT+BREAK`: boot from `DX0:`, captured before NMI in the Phantom ROM.
+- `FUNCTION+SHIFT+BREAK`: boot from `DX1:`.
+- `FUNCTION+BREAK`: memory POST test.
+- `FUNCTION keys F1–F7`: returned as a 7-bit bitmask by CLA when `FOUND=0`; see §5.5.
+- `KILL`: bit 6 of the function-key bitmask.
+- `TAB`: code `0x09`; SAMOS CLI inserts `DX1:` at the prompt.
+- `MACRO`: code `0x1E` (`«`); replays a recorded keystroke sequence.
+- `DEFINE`: code `0x1F` (`»`); starts keystroke recording.
+- `BACKSPACE`: code `0x08`; erases the previous character.
+- `DELETE`: code `0x7F` (block glyph in the chargen); deletes the current character.
 
 ### 5.4 Key layout
 
@@ -545,20 +531,24 @@ is pending at `0x457E`, which is what programs like `FLIPPER.SM` rely on.
 ### 5.6 Swiss-French accent codes
 
 Codes `0x0F–0x1D` in the Smaky 6 chargen map to the 15 Swiss-French accented
-characters.  They are dual-use: the chargen ROM renders the glyph, and the SAMOS
-printer / serial drivers interpret them as formatting or accent modifiers.
+characters. They are dual-use: the chargen ROM renders the glyph, and the SAMOS
+printer or serial drivers interpret them as formatting or accent modifiers.
 
-| Hex    | Char (lower/upper) | | Hex    | Char (lower/upper) |
-|--------|--------------------|-|--------|--------------------|
-| `0x0F` | ü / Ü             | | `0x18` | ô / Ô             |
-| `0x10` | à / À             | | `0x19` | ù / Ù             |
-| `0x11` | â / Â             | | `0x1A` | û / Û             |
-| `0x12` | é / É             | | `0x1B` | ä / Ä             |
-| `0x13` | è / È             | | `0x1C` | ö / Ö             |
-| `0x14` | ë / Ë             | | `0x1D` | ç / Ç             |
-| `0x15` | ê / Ê             | | | |
-| `0x16` | ï / Ï             | | | |
-| `0x17` | î / Î             | | | |
+- `0x0F`: `ü / Ü`
+- `0x10`: `à / À`
+- `0x11`: `â / Â`
+- `0x12`: `é / É`
+- `0x13`: `è / È`
+- `0x14`: `ë / Ë`
+- `0x15`: `ê / Ê`
+- `0x16`: `ï / Ï`
+- `0x17`: `î / Î`
+- `0x18`: `ô / Ô`
+- `0x19`: `ù / Ù`
+- `0x1A`: `û / Û`
+- `0x1B`: `ä / Ä`
+- `0x1C`: `ö / Ö`
+- `0x1D`: `ç / Ç`
 
 The current keyboard baseline uses a split model. Ordinary non-text keys are
 resolved by host scancode position through the audited S471 table in `src/keyboard.c`,
@@ -574,36 +564,34 @@ compatibility path is still distinct from the core hardware-faithful matrix path
 All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 0x00–0x3F alias to 0x40–0x7F, 0x80–0xBF, 0xC0–0xFF.
 
-| Port (masked) | RD / WR | Name        | Description                                              |
-|---------------|---------|-------------|----------------------------------------------------------|
-| `0x00`        | R       | CLA         | Keyboard character latch; reading clears FOUND flip-flop |
-| `0x00`        | W       | MODE        | Display mode register (see §4.1)                         |
-| `0x01`        | R       | ST          | Keyboard status: bit 2 = FOUND, bit 3 = 1               |
-| `0x01`        | W       | MOVROM / ACK| `=0x00`: bank-switch Phantom ROM out; else ISR ACK       |
-| `0x02`        | R/W     | PAR         | Parallel port data (bidirectional)                       |
-| `0x03`        | R       | SPAR        | Parallel port status                                     |
-| `0x03`        | W       | BEEP        | **Sound bit-bang**: bit 0 toggles the buzzer             |
-| `0x04`        | R/W     | USART0-DATA | 8251 USART "permanent I/O" (C15) — data register         |
-| `0x05`        | R/W     | USART0-CMD  | 8251 USART "permanent I/O" — status / command            |
-| `0x06`        | R/W     | USART1-DATA | 8251 USART "cassette" (C13) — data register              |
-| `0x07`        | R/W     | USART1-CMD  | 8251 USART "cassette" — status / command                 |
-| `0x08`        | R/W     | RTC         | **E405/08 RTC** 3-wire synchronous serial (Horloge absolue): bit3=CK, bit2/1=CS, bit0=data (MISO on IN) |
-| `0x11`        | R       | (unknown)   | Unknown device; returns 0x00 (stub)                      |
-| `0x19`        | R/W     | FDC-CTRL    | Floppy control / sector index (see §7)                   |
-| `0x1A`        | R/W     | FDC-CONT    | Floppy continuation / step-pulse register                |
-| `0x1B`        | R       | FDC-DATA    | Floppy streaming data byte                               |
-| `0x20`        | R       | WIN-DATA-R  | Winchester data register (IN) — read next sector byte    |
-| `0x20`        | W       | WIN-DATA-W  | Winchester data register (OUT) — write sector byte (stub)|
-| `0x21`        | R       | WIN-ERR     | Winchester error register — `0x00` = no error            |
-| `0x21`        | W       | WIN-PRECOMP | Write pre-compensation cylinder (ignored)                |
-| `0x23`        | W       | WIN-SEC     | Sector number: bits[4:0], 0-based (0–31)                 |
-| `0x24`        | W       | WIN-CYL-LO  | Cylinder low byte                                        |
-| `0x25`        | W       | WIN-CYL-HI  | Cylinder high byte (Phantom always 0 → max 255 cyls)     |
-| `0x26`        | W       | WIN-SDH     | SDH: bits[2:0]=head (0–5), bit[3]=drive select (0/1)     |
-| `0x27`        | R       | WIN-STATUS  | `0xFF`=no image, `0x50`=RDY+SC, `0x58`=RDY+SC+DRQ       |
-| `0x27`        | W       | WIN-CMD     | `0x1n`=RESTORE, `0x2n`=READ SECTOR, `0x3n`=WRITE(stub)  |
-| `0x2B`        | W       | WIN-?       | Unknown register — no-op                                 |
-| `0x0D` (=0xCD)| R       | WIN-DMA     | Winchester DMA / status (returns 0x00)                   |
+- `0x00`, read, `CLA`: keyboard character latch; reading clears the FOUND flip-flop.
+- `0x00`, write, `MODE`: display mode register; see §4.1.
+- `0x01`, read, `ST`: keyboard status, where bit 2 is FOUND and bit 3 is 1.
+- `0x01`, write, `MOVROM / ACK`: `0x00` banks the Phantom ROM out; any other write is ISR acknowledge.
+- `0x02`, read/write, `PAR`: bidirectional parallel-port data.
+- `0x03`, read, `SPAR`: parallel-port status.
+- `0x03`, write, `BEEP`: sound bit-bang; bit 0 toggles the buzzer.
+- `0x04`, read/write, `USART0-DATA`: 8251 USART `permanent I/O` data register.
+- `0x05`, read/write, `USART0-CMD`: 8251 USART `permanent I/O` status or command register.
+- `0x06`, read/write, `USART1-DATA`: 8251 USART `cassette` data register.
+- `0x07`, read/write, `USART1-CMD`: 8251 USART `cassette` status or command register.
+- `0x08`, read/write, `RTC`: **E405/08 RTC** 3-wire synchronous serial interface; bit 3 is `CK`, bits 2 and 1 are `CS`, bit 0 is data (`MISO` on `IN`).
+- `0x11`, read, unknown: unconfirmed device; current stub returns `0x00`.
+- `0x19`, read/write, `FDC-CTRL`: floppy control or sector index; see §7.
+- `0x1A`, read/write, `FDC-CONT`: floppy continuation or step-pulse register.
+- `0x1B`, read, `FDC-DATA`: floppy streaming data byte.
+- `0x20`, read, `WIN-DATA-R`: Winchester data register for the next sector byte.
+- `0x20`, write, `WIN-DATA-W`: Winchester data register during write-sector; currently a stub.
+- `0x21`, read, `WIN-ERR`: Winchester error register; `0x00` means no error.
+- `0x21`, write, `WIN-PRECOMP`: write pre-compensation cylinder; ignored.
+- `0x23`, write, `WIN-SEC`: sector number, bits `[4:0]`, zero-based `0–31`.
+- `0x24`, write, `WIN-CYL-LO`: cylinder low byte.
+- `0x25`, write, `WIN-CYL-HI`: cylinder high byte; Phantom always writes 0, so maximum 255 cylinders.
+- `0x26`, write, `WIN-SDH`: bits `[2:0]` select head `0–5`, bit `[3]` selects drive `0` or `1`.
+- `0x27`, read, `WIN-STATUS`: `0xFF` means no image, `0x50` means `RDY+SC`, `0x58` means `RDY+SC+DRQ`.
+- `0x27`, write, `WIN-CMD`: `0x1n` is RESTORE, `0x2n` is READ SECTOR, `0x3n` is WRITE and is currently a stub.
+- `0x2B`, write, `WIN-?`: unknown register; treated as a no-op.
+- `0x0D` (`0xCD` masked), read, `WIN-DMA`: Winchester DMA or status register; currently returns `0x00`.
 
 ---
 
@@ -611,48 +599,40 @@ All I/O is decoded with a **6-bit address mask** (`port & 0x3F`); ports
 
 ### 7.1 Drive hardware
 
-| Parameter       | Value                                                 |
-|-----------------|-------------------------------------------------------|
-| Drive type      | **Micropolis** 5.25" hard-sectored, single-sided      |
-| Tracks          | 40 (standard) or 77 (extended); auto-detected from image size |
-| Sectors         | **16 hard sectors** per track (physical index holes)  |
-| Bytes / sector  | **256**                                               |
-| Capacity        | 40-track: 163,840 bytes; 77-track: 315,392 bytes      |
-| Speed           | **300 RPM**                                           |
-| Sector rate     | 300 RPM × 16 sectors = **80 sector-pulses / second**  |
-| Drive names     | DX0: (lower, drive A), DX1: (upper, drive B)          |
+- `Drive type`: **Micropolis** 5.25-inch hard-sectored, single-sided.
+- `Tracks`: 40 standard or 77 extended; auto-detected from image size.
+- `Sectors`: **16 hard sectors** per track, using physical index holes.
+- `Bytes / sector`: **256**.
+- `Capacity`: 40-track images are 163,840 bytes; 77-track images are 315,392 bytes.
+- `Speed`: **300 RPM**.
+- `Sector rate`: `300 RPM × 16 sectors = 80 sector pulses per second`.
+- `Drive names`: `DX0:` is the lower drive, drive A; `DX1:` is the upper drive, drive B.
 
 ### 7.2 Port protocol (bit-banged discrete logic)
 
 **Port 0x1A — CONT (write, Plan F4 step/motor control):**
 
-| Bit | Name        | Function                                             |
-|-----|-------------|------------------------------------------------------|
-| 0   | MOTOR       | 1 = spindle motor on                                 |
-| 1   | HEAD_LOAD   | 1 = head loaded (pressed against disk)               |
-| 2   | STEP_PULSE  | 0→1 rising edge = one track step                     |
-| 3   | DIRECTION   | 1 = step toward track 0 (inward); 0 = away           |
+- Bit 0, `MOTOR`: 1 turns the spindle motor on.
+- Bit 1, `HEAD_LOAD`: 1 loads the head against the disk.
+- Bit 2, `STEP_PULSE`: a `0→1` rising edge is one track step.
+- Bit 3, `DIRECTION`: 1 steps toward track 0, inward; 0 steps away.
 
 > **Note:** bit 4 of port 0x1A writes is **not** drive select.  Drive selection
 > is controlled solely via port 0x19 DRISEL1 (bit 5) / DRISEL2 (bit 6) — see below.
 
 **Port 0x1A — CONT (read):**
 
-| Bit | Name      | Function                           |
-|-----|-----------|------------------------------------|
-| 7   | BYTE_READY| 1 = next streaming byte available  |
+- Bit 7, `BYTE_READY`: 1 means the next streaming byte is available.
 
 **Port 0x19 — CTRL (write / Phantom ROM mode, IC7 LS475 Plan F5):**
 
-| Bit | Name     | Function                                                          |
-|-----|----------|-------------------------------------------------------------------|
-| 1   | WRTMOD   | Write mode                                                        |
-| 2   | INTON    | Interrupt / NMI arm                                               |
-| 3   | MOTORON  | Spindle motor on                                                  |
-| 4   | STPDIRIN | Step direction (1 = toward track 0)                               |
-| 5   | DRISEL1  | Drive select: **1 = DX0** (drive A)                               |
-| 6   | DRISEL2  | Drive select: **1 = DX1** (drive B)                               |
-| 7   | DRISEL3  | Third drive select (not used on standard Smaky 6)                 |
+- Bit 1, `WRTMOD`: write mode.
+- Bit 2, `INTON`: interrupt or NMI arm.
+- Bit 3, `MOTORON`: spindle motor on.
+- Bit 4, `STPDIRIN`: step direction; 1 means toward track 0.
+- Bit 5, `DRISEL1`: drive select, **1 = DX0** or drive A.
+- Bit 6, `DRISEL2`: drive select, **1 = DX1** or drive B.
+- Bit 7, `DRISEL3`: third drive select, not used on a standard Smaky 6.
 
 Drive selection takes effect whenever any DRISEL bit (bits 5/6) is written,
 regardless of MOTORON.  The Phantom ROM always writes DRISEL together with MOTORON
@@ -665,15 +645,14 @@ Common written values: `0x2C` = DX0 arm (DRISEL1\|MOTORON\|INTON), `0x4C` = DX1 
 
 **Port 0x19 — CTRL (read):**
 
-| Bits  | Function                                          |
-|-------|---------------------------------------------------|
-| [3:0] | Current sector index (0–15, hard-sector counter)  |
-| [6]   | SEEK_BUSY (1 = head still settling after step)    |
+- Bits `[3:0]`: current sector index `0–15`, the hard-sector counter.
+- Bit `[6]`: `SEEK_BUSY`; 1 means the head is still settling after a step.
 
 **Port 0x1B — DATA (read):**
 
 Streaming byte from current sector.  Protocol per sector read:
-```
+
+```text
 byte 0      : sync / gap marker
 byte 1      : sector ID (track × 16 + sector)
 bytes 2–257 : 256 data bytes
@@ -697,41 +676,37 @@ acknowledge cycle returns **RST 08h (0xCF)** instead of the normal
 
 ### 8.1 Drive hardware
 
-| Parameter       | Value                                                      |
-|-----------------|-------------------------------------------------------------|
-| Controller      | WD1000/WD1001/WD1002-compatible (confirmed from Phantom ROM disassembly; chip identification courtesy of M. Pierre-Yves Rochat) |
-| Sectors/track   | **32** (sector index masked with `0x1F` in ROM at 0x0380)   |
-| Heads/cylinder  | **6** (`C=6` divisor in CHS decomposition loop at 0x0380)   |
-| Bytes/sector    | **256** (INIR with `B=0` → 256 iterations)                  |
-| Max cylinders   | **255** (Phantom always writes `0` to CYL_HI port 0x25)     |
-| Drive capacity  | 255 × 6 × 32 × 256 ≈ **12 MB** per drive                   |
-| Drive names     | SM6WIN0 (drive 0), SM6WIN1 (drive 1)                        |
-| Image format    | Flat binary; `harddisks/SM6WIN0.DSK` / `SM6WIN1.DSK`        |
+- `Controller`: WD1000-, WD1001-, or WD1002-compatible, confirmed from Phantom ROM disassembly; chip identification courtesy of M. Pierre-Yves Rochat.
+- `Sectors/track`: **32**; the ROM masks the sector index with `0x1F` at `0x0380`.
+- `Heads/cylinder`: **6**; `C=6` is the divisor in the CHS decomposition loop at `0x0380`.
+- `Bytes/sector`: **256**; `INIR` with `B=0` gives 256 iterations.
+- `Max cylinders`: **255**; Phantom always writes 0 to the `CYL_HI` port `0x25`.
+- `Drive capacity`: `255 × 6 × 32 × 256 ≈ 12 MB` per drive.
+- `Drive names`: `SM6WIN0` for drive 0 and `SM6WIN1` for drive 1.
+- `Image format`: flat binary, typically `harddisks/SM6WIN0.DSK` or `SM6WIN1.DSK`.
 
 ### 8.2 Port protocol (WD1000/WD1001/WD1002-compatible register set)
 
 All Winchester registers are at ports `0x20–0x27` and `0x2B`
 (decoded with the 6-bit mask `port & 0x3F`).
 
-| Port   | R/W | Register        | Description                                                           |
-|--------|-----|-----------------|-----------------------------------------------------------------------|
-| `0x20` | R   | Data (IN)       | Read next byte from sector buffer (256 bytes, use INIR)               |
-| `0x20` | W   | Data (OUT)      | Write next byte during WRITE SECTOR (stub — discarded)                |
-| `0x21` | R   | Error           | Error bits after last command: `0x00` = no error                      |
-| `0x21` | W   | Write precomp   | Write pre-compensation cylinder (ignored)                             |
-| `0x23` | W   | Sector number   | Sector within track: bits[4:0], 0-based (0–31)                        |
-| `0x24` | W   | Cylinder low    | Low byte of cylinder address                                          |
-| `0x25` | W   | Cylinder high   | High byte of cylinder (Phantom always writes 0 → max 255 cylinders)   |
-| `0x26` | W   | SDH             | bits[2:0] = head (0–5), bit[3] = drive select (0 or 1)                |
-| `0x27` | R   | Status          | `0xFF` = no image (BSY), `0x50` = RDY+SC (idle), `0x58` = RDY+SC+DRQ |
-| `0x27` | W   | Command         | `0x1n` = RESTORE, `0x2n` = READ SECTOR, `0x3n` = WRITE SECTOR (stub) |
-| `0x2B` | W   | (unknown)       | Purpose not confirmed from schematics; treated as no-op               |
+- `0x20`, read, `Data (IN)`: read the next byte from the 256-byte sector buffer, typically with `INIR`.
+- `0x20`, write, `Data (OUT)`: write the next byte during WRITE SECTOR; currently stubbed and discarded.
+- `0x21`, read, `Error`: error bits after the last command; `0x00` means no error.
+- `0x21`, write, `Write precomp`: write pre-compensation cylinder; ignored.
+- `0x23`, write, `Sector number`: sector within track, bits `[4:0]`, zero-based `0–31`.
+- `0x24`, write, `Cylinder low`: low byte of the cylinder address.
+- `0x25`, write, `Cylinder high`: high byte of the cylinder; Phantom always writes 0, so at most 255 cylinders.
+- `0x26`, write, `SDH`: bits `[2:0]` select head `0–5`, bit `[3]` selects drive `0` or `1`.
+- `0x27`, read, `Status`: `0xFF` means no image and `BSY`, `0x50` means `RDY+SC` idle, `0x58` means `RDY+SC+DRQ`.
+- `0x27`, write, `Command`: `0x1n` is RESTORE, `0x2n` is READ SECTOR, `0x3n` is WRITE SECTOR and is stubbed.
+- `0x2B`, write, unknown: purpose not confirmed from schematics; treated as a no-op.
 
 ### 8.3 CHS → LBA mapping
 
 Confirmed from Phantom ROM disassembly at `0x0370–0x0398`:
 
-```
+```text
 sector   = DE & 0x1F                   (5-bit field, 0-based)
 track    = DE >> 5                     (packed 16-bit address DE, bits[15:5])
 head     = track mod 6
@@ -748,19 +723,15 @@ Disk images are flat arrays of 256-byte sectors indexed by LBA.
 
 ### 8.4 Status register values
 
-| Value  | Meaning                                                                     |
-|--------|-----------------------------------------------------------------------------|
-| `0xFF` | No image mounted — BSY set; `winchester_init` loop times out → *Disque inactif* |
-| `0x50` | RDY (bit 6) + SC (bit 4) — drive ready, idle                                |
-| `0x58` | RDY + SC + DRQ (bit 3) — data available for read (or write buffer ready)    |
+- `0xFF`: no image mounted, `BSY` set; `winchester_init` times out and reports *Disque inactif*.
+- `0x50`: `RDY` (bit 6) plus `SC` (bit 4), drive ready and idle.
+- `0x58`: `RDY + SC + DRQ` (bit 3), data available for read or write buffer ready.
 
 ### 8.5 Command set
 
-| Command | Code   | Action                                                            |
-|---------|--------|-------------------------------------------------------------------|
-| RESTORE | `0x1n` | Seek to cylinder 0; reset state; return to IDLE                   |
-| READ    | `0x2n` | CHS→LBA, load 256 bytes from image into buffer, set DRQ           |
-| WRITE   | `0x3n` | Enter WRITING phase; accept 256 bytes via port 0x20 (stub — bytes discarded) |
+- `RESTORE`, `0x1n`: seek to cylinder 0, reset state, and return to `IDLE`.
+- `READ`, `0x2n`: do `CHS→LBA`, load 256 bytes from the image into the buffer, and set `DRQ`.
+- `WRITE`, `0x3n`: enter `WRITING` phase and accept 256 bytes via port `0x20`; currently stubbed and discarded.
 
 Commands execute **instantaneously** (no BSY delay) — the emulator is
 synchronous and the Phantom ROM polls port 0x27 in a tight loop.
@@ -778,10 +749,8 @@ a READ command sets DRQ, the CPU reads port 0x20 directly via `INIR`.
 
 Two **Intel 8251** USART chips are on the PROCESSEUR board (doc-227, J. Zahn):
 
-| Instance   | Schematic ref | Schematic label       | I/O ports     | Connected to                   |
-|------------|--------------|----------------------|---------------|--------------------------------|
-| USART 0    | C15          | `adc 4 (permanent I/O)` | 0x04 / 0x05 | Permanent I/O — paper tape reader / modem / RS-232 |
-| USART 1    | C13          | `adc 8 (cassette)`   | 0x06 / 0x07   | Cassette tape interface |
+- `USART 0`: schematic ref `C15`, labeled `adc 4 (permanent I/O)`, on ports `0x04 / 0x05`, connected to permanent I/O such as paper-tape reader, modem, or RS-232.
+- `USART 1`: schematic ref `C13`, labeled `adc 8 (cassette)`, on ports `0x06 / 0x07`, connected to the cassette interface.
 
 The `adc N` label is J. Zahn's notation for "adresse de canal N"
 (channel address N), encoding the base I/O port of the device.
@@ -790,6 +759,7 @@ Each 8251 uses the standard data/status/command register pair.  Port `+0` is
 data; port `+1` is status (read) / command (write).
 
 Status register bits (8251 standard):
+
 - bit 0 = RXRDY (receive data ready)
 - bit 1 = TXRDY (transmit register empty)
 - bit 2 = TXEMPTY (transmit shift register empty)
@@ -801,10 +771,8 @@ PROCESSEUR schematic connecting to a header).
 
 ## 10. Parallel Interface
 
-| Port  | Direction | Name  | Description                                           |
-|-------|-----------|-------|-------------------------------------------------------|
-| 0x02  | R/W       | PAR   | 8-bit bidirectional data                              |
-| 0x03  | R         | SPAR  | Status: bit 0 = RDYP (rx ready), bit 1 = FULP (tx full), bits 6–7 = S6/S7 |
+- `0x02`, read/write, `PAR`: 8-bit bidirectional data.
+- `0x03`, read, `SPAR`: status where bit 0 is `RDYP` (receive ready), bit 1 is `FULP` (transmit full), and bits 6–7 are `S6/S7`.
 
 The parallel port is used for printer output (`LP.SY`) and external peripherals.
 The CARACTÈRES board hosts the parallel interface logic alongside the character
@@ -816,9 +784,7 @@ generator (confirmed on schematic sheet 11-3 by the `INTERFACE PARALLÈLE` label
 
 The Smaky 6 has a single **bit-banged buzzer** (piezo / small loudspeaker):
 
-| Port | Bit | Function                            |
-|------|-----|-------------------------------------|
-| 0x03 | 0   | Buzzer level (0 or 1)               |
+- `0x03`, bit 0: buzzer level, either 0 or 1.
 
 The SAMOS `RST 38h` interrupt handler (50 Hz) toggles this bit at the desired
 frequency to produce square-wave beeps.  Typical frequencies: 440–4000 Hz.
@@ -837,43 +803,59 @@ The Z80 operates in **Interrupt Mode 0** throughout (never altered by any
 firmware).  In IM 0 the interrupting device places a **full opcode** on the data
 bus during the INT acknowledge M1 cycle.
 
-### 11.1 Two interrupt sources share the single INT line
+### 12.1 Two interrupt sources share the single INT line
 
-| Source                  | Opcode on bus | Vector | Handler                              |
-|-------------------------|---------------|--------|--------------------------------------|
-| Display frame timer (50 Hz) | `0xFF` (RST 38h) | 0x0038 | SAMOS frame ISR: keyboard, beeper, floppy ticks |
-| Floppy sector-hole NMI  | `0xCF` (RST 08h) | 0x0008 | Floppy stream-read: `LD HL,(0x450F); EX (SP),HL; RET` → 0x025A |
+- Display frame timer (50 Hz): opcode `0xFF` (`RST 38h`), vector `0x0038`, handler is the SAMOS frame ISR for keyboard, beeper, and floppy ticks.
+- Floppy sector-hole NMI: opcode `0xCF` (`RST 08h`), vector `0x0008`, handler is the floppy stream-read path `LD HL,(0x450F); EX (SP),HL; RET`, which dispatches to `0x025A`.
 
 The arbitration rule is simple: if `fdc.nmi_armed` is set (port 0x19 written
 with bits 2+3 = 1), return RST 08h; otherwise return RST 38h.
 
-### 11.2 NMI (BREAK key)
+### 12.2 NMI (BREAK key)
 
 The BREAK key drives **NMILOW** (Z80 pin 17) directly.  The NMI vector is at
 0x0066 and enters the monitor / reboot menu.
 
-```
+```text
 SHIFT + BREAK     → reboot from DX0:
 FUNCTION + BREAK  → memory POST
 BREAK alone       → drop to SAMOS monitor
 ```
 
-### 11.3 50 Hz frame interrupt
+### 12.3 50 Hz frame interrupt
 
 Generated by the AFFICHAGE board's vertical-sync counter.  In SAMOS 2-8:
 
+The first item below is a stable code-path summary from the audited `SYS.SY`
+image. The dated items that follow are preserved as emulator-backed audit notes
+for how that path behaved in live runs.
+
 1. **Stage 1** (RST 38h entry, 0x015B–0x016D): reads CLA (port 0x00).  If bit7=0 (regular key), stores to 0x457E (syscall 0x0E) and returns early.  If bit7=1, stores `CLA & 0x7F` to 0x4580 (GETFON register) and falls into Stage 2.  In the emulator model, a staged ordinary byte in `0x457E` is consumed when the `0x0516/0x0519` accessor reads it, while held function bits are synthesized on that accessor only when no staged ordinary byte is pending.
-2. **Stage 2** (0x016E–0x0183): reads `0x4582` (`INC HL; INC HL; LD A,(HL); CP 0x80; RET Z`).  A direct audit of `SYS.SY` on 2026-05-13 confirmed that the init code writes `0x80` to `0x458A` at `0x00A1`, not to `0x4582`.  The old claim that Stage 2 is "permanently blocked by 0x4582=0x80" is therefore withdrawn.
-3. **Runtime Stage 2 / 3 audit result** (2026-05-13): a post-boot trace from the live `Sys1-H.dsk` CLI prompt showed `SYS.SY` repeatedly executing `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` with `0x4582 = 0x00`, `0x4581 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`.  So Stage 2 and early Stage 3 are active during normal runtime, and the gate is specifically `0x4582 == 0x80`, not merely `0x4582 == 0`.
-4. **Held-CLA audit result** (2026-05-13): holding a raw CLA key (`0x41`) for 20 ISR frames at the live CLI prompt repeatedly re-entered Stage 1 (`0x0162`/`0x0169`) and rewrote `0x457E`, but did not seed the `0x4581..0x4595` workspace, did not change `0x457C`, and did not alter the Stage 2 / 3 idle-state values above.  So a plain held CLA key is not the producer that feeds the post-boot circular-buffer path.
-5. **Beeper toggle, floppy tick, screen refresh** follow.
-6. **ISR ACK**: `OUT (01h), A=08h` — acknowledges the 50 Hz tick.
+2. **Stage 2** (0x016E–0x0183): reads `0x4582` (`INC HL; INC HL; LD A,(HL); CP 0x80; RET Z`).
+
+   Archived audit notes:
+
+   - A direct audit of `SYS.SY` on 2026-05-13 confirmed that the init code writes
+     `0x80` to `0x458A` at `0x00A1`, not to `0x4582`. The older claim that Stage 2
+     is "permanently blocked by 0x4582=0x80" is therefore withdrawn.
+   - A post-boot trace from the live `Sys1-H.dsk` CLI prompt showed `SYS.SY`
+     repeatedly executing `0x0175 -> 0x0179 -> 0x019B -> 0x01C9 -> 0x01DF` with
+     `0x4582 = 0x00`, `0x4581 = 0x00`, `0x458A = 0x80`, and `0x457C = 0x4596`.
+     So Stage 2 and early Stage 3 are active during normal runtime, and the gate
+     is specifically `0x4582 == 0x80`, not merely `0x4582 == 0`.
+   - Holding a raw CLA key (`0x41`) for 20 ISR frames at the live CLI prompt
+     repeatedly re-entered Stage 1 (`0x0162`/`0x0169`) and rewrote `0x457E`, but
+     did not seed the `0x4581..0x4595` workspace, did not change `0x457C`, and did
+     not alter the Stage 2 / 3 idle-state values above. So a plain held CLA key is
+     not the producer that feeds the post-boot circular-buffer path.
+3. **Beeper toggle, floppy tick, screen refresh** follow.
+4. **ISR ACK**: `OUT (01h), A=08h` — acknowledges the 50 Hz tick.
 
 ---
 
 ## 13. Boot Sequence (Phantom ROM)
 
-```
+```text
 POWER-ON / RESET
     │
     ▼
@@ -919,11 +901,9 @@ All timing in the machine derives from a single **12.0576 MHz** master crystal.
 A typical FPGA board provides a 50 MHz or 100 MHz oscillator; use the board's
 PLL/MMCM to synthesize the required frequencies:
 
-| Domain         | Frequency       | Derived by                    | Notes                                              |
-|----------------|-----------------|-------------------------------|----------------------------------------------------|
-| Pixel clock    | **12.0576 MHz** | PLL output                    | Master oscillator; drives AFFICHAGE scan counter   |
-| CPU clock      | **2.4115 MHz**  | Pixel clock ÷ 5               | Implement as a clock-enable (CE) on the master domain, not a true divided clock |
-| RTC oscillator | **32.768 kHz**  | Separate CMOS crystal module  | Asynchronous to CPU; 2-FF synchronizer required at I/O domain crossing |
+- `Pixel clock`: **12.0576 MHz**, from PLL output. Master oscillator driving the `AFFICHAGE` scan counter.
+- `CPU clock`: **2.4115 MHz**, derived as pixel clock divided by 5. Implement this as a clock-enable on the master domain, not a true divided clock.
+- `RTC oscillator`: **32.768 kHz**, from a separate CMOS crystal module. Asynchronous to CPU; requires a 2-FF synchronizer at the I/O-domain crossing.
 
 **Recommended practice**: run all synchronous logic on the 12.0576 MHz master domain.
 Use a 5-cycle CE counter to gate the Z80 softcore's clock enable.  Never feed a true
@@ -932,12 +912,10 @@ clock-domain boundaries.
 
 Approximation for common boards:
 
-| Board oscillator | PLL ratio to get ~12.0576 MHz | Actual output   | Error   |
-|------------------|-------------------------------|-----------------|---------|
-| 50 MHz           | × 12 ÷ 50 (or × 6 ÷ 25)     | 12.000 MHz      | −0.05%  |
-| 100 MHz          | × 6 ÷ 50                     | 12.000 MHz      | −0.05%  |
-| 48 MHz (USB)     | × 4 ÷ 16 (= exact)           | 12.000 MHz      | −0.05%  |
-| 27 MHz (HDMI)    | × 4 ÷ 9 + fine-tune          | ~12.000 MHz     | <0.1%   |
+- `50 MHz`: multiply by 12 and divide by 50, or multiply by 6 and divide by 25. Actual output `12.000 MHz`, error `−0.05%`.
+- `100 MHz`: multiply by 6 and divide by 50. Actual output `12.000 MHz`, error `−0.05%`.
+- `48 MHz (USB)`: multiply by 4 and divide by 16. Actual output `12.000 MHz`, error `−0.05%`.
+- `27 MHz (HDMI)`: multiply by 4 and divide by 9 with fine-tuning. Actual output about `12.000 MHz`, error under `0.1%`.
 
 A 0.05% error from 12.000 vs 12.0576 MHz is inaudible and invisible at the frame
 rate (50.02 Hz vs 50.24 Hz); the Smaky 6 is not time-locked to a broadcast signal.
@@ -946,12 +924,10 @@ rate (50.02 Hz vs 50.24 Hz); the Smaky 6 is not time-locked to a broadcast signa
 
 **Z80 implementation choices:**
 
-| Option               | Notes                                                                    |
-|----------------------|--------------------------------------------------------------------------|
-| TV80 (Verilog)       | Cycle-accurate; exposes full bus; IM 0 verified; recommended             |
-| T80 (VHDL)           | Well-tested; used in MiSTer cores; also exposes `IntE` / data-bus input  |
-| Real Z80A / Z80B     | 5 V NMOS; needs 3.3 V level shifters; no softcore overhead               |
-| ZXNEXT Z80N          | Custom Z80 extension; avoid unless specifically targeting ZX Next boards |
+- `TV80` (Verilog): cycle-accurate, exposes the full bus, IM 0 verified, and recommended.
+- `T80` (VHDL): well-tested, used in MiSTer cores, and also exposes `IntE` plus a data-bus input.
+- `Real Z80A / Z80B`: 5 V NMOS parts needing 3.3 V level shifters, with no softcore overhead.
+- `ZXNEXT Z80N`: custom Z80 extension; avoid unless specifically targeting ZX Next boards.
 
 **Bus arbitration — HOLD cycles (§2.2):**
 
@@ -959,7 +935,7 @@ The AFFICHAGE board asserts `HOLDAL` (`BUSREQ`) once per scan line during the 88
 pixel-clock H-blank window to fetch one display byte via DMA.  Implement as a
 bus-arbiter FSM with three states:
 
-```
+```text
 IDLE → REQUESTING (assert BUSREQ) → ACTIVE (bus granted, drive addr, latch byte) → IDLE
 ```
 
@@ -968,6 +944,7 @@ the next M-cycle boundary (≤ 5 pixel clocks = 1 T-state).  Latch the display b
 release `BUSREQ` well within the 88-clock window.
 
 **INT and WAIT:**
+
 - `PETRIL` (WAIT): not driven in standard configuration — tie to VCC (inactive).
 - `INTREDYLOW` (INT): generated by V-sync counter (line 240) at 50 Hz.
 - `INTRECLOW` (USART data-ready INT): not used by SAMOS 2-8; pull high (inactive).
@@ -976,16 +953,14 @@ release `BUSREQ` well within the 88-clock window.
 
 **FPGA BRAM allocation (64 KB total):**
 
-| Region              | Address range       | Size    | BRAM type          | Notes                                                  |
-|---------------------|---------------------|---------|--------------------|--------------------------------------------------------|
-| Phantom ROM         | 0x0000–0x07FF       | 2 KB    | Initialized ROM    | Pre-load `samos_sys17.rom`; CS disabled by MOVROM latch |
-| Lower RAM           | 0x0800–0x3FFF       | ~14 KB  | Single-port BRAM   | —                                                      |
-| Alpha framebuffer   | 0x4000–0x44FF       | 1280 B  | **Dual-port BRAM** | Port A = CPU R/W; Port B = display DMA read            |
-| OS workspace        | 0x4500–0x45FF       | 256 B   | Single-port BRAM   | Not accessed by display DMA                            |
-| Graphic framebuffer | 0x4600–0x54FF       | 3840 B  | **Dual-port BRAM** | Port A = CPU R/W; Port B = display DMA read            |
-| SYS.SY area         | 0x5500–0x77FF       | ~8 KB   | Single-port BRAM   | Loaded from floppy at boot                             |
-| Upper RAM           | 0x8000–0xFFFF       | 32 KB   | BRAM or ext. SRAM  | Extension board; 16× 4116 = 32 KB on original hardware |
-| Character gen ROM   | (separate block)    | 2 KB    | Initialized ROM    | 128 chars × 16 bytes; loaded from `chargen.rom`        |
+- `Phantom ROM`: `0x0000–0x07FF`, 2 KB, initialized ROM. Pre-load `samos_sys17.rom`; chip select is disabled by the `MOVROM` latch.
+- `Lower RAM`: `0x0800–0x3FFF`, about 14 KB, single-port BRAM.
+- `Alpha framebuffer`: `0x4000–0x44FF`, 1280 B, **dual-port BRAM**. Port A is CPU read/write; port B is display DMA read.
+- `OS workspace`: `0x4500–0x45FF`, 256 B, single-port BRAM. Not accessed by display DMA.
+- `Graphic framebuffer`: `0x4600–0x54FF`, 3840 B, **dual-port BRAM**. Port A is CPU read/write; port B is display DMA read.
+- `SYS.SY area`: `0x5500–0x77FF`, about 8 KB, single-port BRAM. Loaded from floppy at boot.
+- `Upper RAM`: `0x8000–0xFFFF`, 32 KB, BRAM or external SRAM. This is the extension-board RAM, 16 × 4116 on original hardware.
+- `Character gen ROM`: separate block, 2 KB, initialized ROM. Holds 128 characters × 16 bytes, loaded from `chargen.rom`.
 
 Total: 64 KB data RAM + 2 KB chargen ROM = 66 KB = 528 Kbit of BRAM.
 
@@ -1001,7 +976,7 @@ RAM block at the same addresses.
 
 #### 15.4.1 Scan counter — horizontal and vertical timing
 
-```
+```text
 Pixel counter : 0–599 (modulo 600)
   Active pixels : 0–511  (512 px)
   H-blank       : 512–599 (88 px = ~7.3 µs @ 12.0576 MHz)
@@ -1021,6 +996,7 @@ that fires `HOLDAL`.
 #### 15.4.2 Video output options
 
 **Composite video (original — 20.1 kHz non-standard):**
+
 - H-sync: active-low pulse, ~57 pixel clocks wide (4.7 µs).
 - V-sync: active-low, ~3 lines (PAL-style; exact width from AFFICHAGE schematic).
 - Video level: 0 = black (0.3 V into 75 Ω), 1 = white (1.0 V).
@@ -1029,6 +1005,7 @@ that fires `HOLDAL`.
   with a CRT or with an external scan converter (GBS-8220 or similar).
 
 **VGA output (31.5 kHz / 60 Hz — recommended for FPGA prototyping):**
+
 - Use a line-doubling scan converter implemented in FPGA BRAM.
 - Pixel clock for VGA 640×480@60: 25.175 MHz; derive from PLL alongside 12.0576 MHz.
 - Map the 512-pixel Smaky line to VGA 640 columns by centering (64 blank px each side).
@@ -1036,13 +1013,14 @@ that fires `HOLDAL`.
 - VSYNC polarity: negative (active-low) for 640×480@60; HSYNC: negative.
 
 **HDMI output (best quality):**
+
 - Use a DVI/HDMI TMDS IP core (e.g. `hdmi` from projf.io or digilent's DVI core).
 - Target 720×576@50 Hz or 640×480@60 Hz for standard EDID compatibility.
 - Scale 512×240 native to target resolution with integer or bilinear scaling.
 
 #### 15.4.3 Character generator pipeline (CARACTÈRES board)
 
-```
+```text
 Pixel col ÷ 8 → char column index
 Line ÷ 12     → char row index            (12 scan lines per char row)
 Line mod 12   → scan line within char cell (0–7 for glyph, 8–11 for spacing)
@@ -1061,7 +1039,7 @@ inter-row gap.
 
 #### 15.4.4 Graphic plane pipeline
 
-```
+```text
 Scan pair index = active_line ÷ 2        (0–119; 120 unique RAM lines)
 BRAM address = (scan_pair ÷ 2) × 64 + col  (60 unique byte-pair rows × 64 cols)
 
@@ -1080,9 +1058,11 @@ Each nibble produces 4 native pixels; each native pixel = 2 master pixel clocks 
 ```
 
 Superimpose mode (ENALPHA + ENGRA both set):
-```
+
+```text
 video_out = graphic_px ? LIT : alpha_px
 ```
+
 Priority: graphic pixel 1 always wins over alpha character pixel.
 
 #### 15.4.5 DMA line-buffer ping-pong
@@ -1090,7 +1070,7 @@ Priority: graphic pixel 1 always wins over alpha character pixel.
 The AFFICHAGE board uses two Intel 2101 (256×4 bit) SRAMs as ping-pong line
 buffers — one fills from DMA while the other serializes to the CRT pipeline:
 
-```
+```text
 Frame N, line L:
   Buffer A → serialize to CRT output (reading)
   Buffer B → DMA fill for line L+1 during H-blank (writing)
@@ -1111,10 +1091,8 @@ The Z80 runs in **IM 0** throughout (see §12).  During the INT acknowledge
 M-cycle (`M1` + `IORQ` both asserted), an interrupt controller must place an
 opcode on the data bus:
 
-| Condition          | Opcode on bus | RST vector | Handler purpose                 |
-|--------------------|---------------|------------|---------------------------------|
-| `fdc_nmi_armed = 0`| `0xFF`        | 0x0038     | 50 Hz SAMOS frame ISR           |
-| `fdc_nmi_armed = 1`| `0xCF`        | 0x0008     | Floppy sector-hole stream-read  |
+- When `fdc_nmi_armed = 0`, drive opcode `0xFF`, vector `0x0038`, for the 50 Hz SAMOS frame ISR.
+- When `fdc_nmi_armed = 1`, drive opcode `0xCF`, vector `0x0008`, for the floppy sector-hole stream-read path.
 
 **Bus driver requirement**: during the INT ack cycle, the data bus must be driven
 by the interrupt logic (not the memory).  In a real-Z80 design: a 74HCT245
@@ -1138,7 +1116,7 @@ SPI flash, or USB mass storage as the backing medium.
 
 **Hard-sector NMI timing:**
 
-```
+```text
 Sector period   = 60 s ÷ (300 RPM × 16 sectors) = 12.5 ms
 NMI rate        = 80 Hz
 Sector index    = free-running modulo-16 counter driven by 12.5 ms timer
@@ -1150,7 +1128,7 @@ and increment the sector index register (port 0x19 bits[3:0]).
 
 **Sector byte-stream state machine:**
 
-```
+```text
 State IDLE:
   Waiting for Z80 to read port 0x1B
   Byte-ready flag (port 0x1A bit 7) = 1 (always asserted)
@@ -1179,7 +1157,7 @@ The WD1000/WD1001/WD1002 register set (§8) maps cleanly to a small FSM.
 
 **DMA implementation (replacing the CPU INIR loop):**
 
-```
+```text
 1. CPU writes READ command to port 0x27.
 2. Controller asserts HOLDBL (BUSREQ to Z80).
 3. After BUSACK: DMA engine issues 256 write cycles on the bus,
@@ -1198,7 +1176,7 @@ the emulator).
 sector is 512 bytes; use the first 256 bytes of each SD sector to match the Smaky
 sector size, or pack two Smaky sectors per SD sector for efficiency.
 
-```
+```text
 SD sector number = CHS_to_LBA(cylinder, head, sector)
 LBA = cylinder × 192 + head × 32 + sector
 ```
@@ -1208,9 +1186,11 @@ LBA = cylinder × 192 + head × 32 + sector
 **Option A — Soft RTC (all in FPGA, no external chip):**
 
 Synthesize 32.768 kHz from the master clock:
-```
+
+```text
 CE period = 12_057_600 ÷ 32_768 ≈ 368 master cycles per RTC tick
 ```
+
 Drive a 7-byte BCD register file with the E405 register layout (§3.5 table).
 Implement the 3-wire serial decode (4-bit command + 7-byte read/write) as a
 simple FSM on port 0x08.  On FPGA reset, load default values (e.g. 00:00:00
@@ -1224,15 +1204,13 @@ E405 3-wire serial reads/writes to DS3231 I²C transactions.
 
 E405 → DS3231 register mapping:
 
-| E405 byte | E405 content | DS3231 register | DS3231 address |
-|-----------|--------------|-----------------|----------------|
-| 0         | hours (BCD)  | Hours           | 0x02           |
-| 1         | minutes (BCD)| Minutes         | 0x01           |
-| 2         | day (BCD)    | Date            | 0x04           |
-| 3         | month (BCD)  | Month           | 0x05           |
-| 4         | year (BCD)   | Year            | 0x06           |
-| 5         | weekday (1–7)| Day             | 0x03           |
-| 6         | seconds (BCD)| Seconds         | 0x00           |
+- E405 byte 0, `hours (BCD)`: DS3231 `Hours`, address `0x02`.
+- E405 byte 1, `minutes (BCD)`: DS3231 `Minutes`, address `0x01`.
+- E405 byte 2, `day (BCD)`: DS3231 `Date`, address `0x04`.
+- E405 byte 3, `month (BCD)`: DS3231 `Month`, address `0x05`.
+- E405 byte 4, `year (BCD)`: DS3231 `Year`, address `0x06`.
+- E405 byte 5, `weekday (1–7)`: DS3231 `Day`, address `0x03`.
+- E405 byte 6, `seconds (BCD)`: DS3231 `Seconds`, address `0x00`.
 
 Both chips use BCD encoding.  DS3231 weekday is 1–7 with the same 1=Monday
 convention as the Smaky 6 (confirm against local calendar at integration time).
@@ -1250,12 +1228,10 @@ an 8-bit × 256 LUT stored in BRAM or LUT RAM.
 
 Key FPGA signals:
 
-| Signal   | Direction | Description                                           |
-|----------|-----------|-------------------------------------------------------|
-| `FOUND`  | output    | 1-bit D register: set on valid key strobe             |
-| `CLA`    | output    | 7-bit key code register; cleared to 0 on `IN (00h)`  |
-| `NMI#`   | output    | Pulse from BREAK key (also F11/Pause scan code)       |
-| `SHIFT`  | internal  | Latched shift state at BREAK key press time           |
+- `FOUND`, output: 1-bit D register set on a valid key strobe.
+- `CLA`, output: 7-bit key-code register, cleared to 0 on `IN (00h)`.
+- `NMI#`, output: pulse from BREAK key, also mapped from F11 or Pause scan code.
+- `SHIFT`, internal: latched shift state at BREAK key press time.
 
 **FOUND flip-flop**: set by the PS/2 receiver on a valid make-code strobe.
 Cleared on the first `IN A,(00h)` (CLA read, port 0x00).
@@ -1263,6 +1239,7 @@ Cleared on the first `IN A,(00h)` (CLA read, port 0x00).
 **SHIFT + BREAK boot convention:**
 At the moment BREAK fires, the PS/2 receiver must latch the current SHIFT state.
 The CLA byte returned on the subsequent `IN (00h)` during Phantom ROM boot is:
+
 - `0x00` (NUL/Enter) → boot DX0:
 - `0x60` (SHIFT modifier bit set) → boot DX1:
 (See Phantom ROM analysis; the exact encoding is inferred from firmware behaviour.)
@@ -1271,11 +1248,9 @@ The CLA byte returned on the subsequent `IN (00h)` during Phantom ROM boot is:
 
 Ports 0x02/0x03 (CARACTÈRES board):
 
-| Port | R/W | Signal | FPGA implementation                           |
-|------|-----|--------|-----------------------------------------------|
-| 0x02 | R/W | PAR    | 8-bit bidirectional I/O register; direction controlled by SPAR FULP flag |
-| 0x03 | R   | SPAR   | 2-bit status: bit0=RDYP (ext. READY), bit1=FULP (output full) |
-| 0x03 | W   | BEEP   | 1-bit buzzer register (bit 0)                 |
+- `0x02`, read/write, `PAR`: 8-bit bidirectional I/O register; direction controlled by the `SPAR FULP` flag.
+- `0x03`, read, `SPAR`: 2-bit status, with bit 0 = `RDYP` (external READY) and bit 1 = `FULP` (output full).
+- `0x03`, write, `BEEP`: 1-bit buzzer register on bit 0.
 
 Centronics printer interface: connect PAR to data lines D0–D7, assert a
 STROBE pulse on write, sample BUSY (→ FULP bit 1) from printer.
@@ -1285,15 +1260,19 @@ STROBE pulse on write, sample BUSY (→ FULP bit 1) from printer.
 The buzzer bit (port 0x03 bit 0) is a 1-bit output.  Two FPGA output options:
 
 **Direct 1-bit output (simplest):**
-```
+
+```text
 FPGA GPIO → 33 Ω series resistor → 8 Ω speaker (+ capacitor for DC blocking)
 ```
+
 Audible but low fidelity.  Safe for a small piezo buzzer.
 
 **RC-filtered output:**
-```
+
+```text
 FPGA GPIO → 3.3 kΩ → node → 10 nF to GND → speaker / line out
 ```
+
 Corner frequency ≈ 4.8 kHz, sufficiently above the 440–4000 Hz beep range.
 The RC filter also eliminates FPGA switching noise.
 
@@ -1311,10 +1290,8 @@ Two Intel 8251 instances (§9) at 0x04–0x07.  Replace with open-source UART co
 - Baud rate: strapped on original hardware.  On FPGA, use a configurable clock
   divider or synthesize exact baud rates from the 12.0576 MHz master.
 
-| Instance | Ports     | Physical interface | Typical baud |
-|----------|-----------|--------------------|-------------|
-| USART 0  | 0x04/0x05 | RS-232 (DB9) or USB-UART | 1200–9600 |
-| USART 1  | 0x06/0x07 | Cassette audio (600 baud FSK) or second RS-232 | 600–4800 |
+- `USART 0`: ports `0x04/0x05`, physical interface `RS-232 (DB9) or USB-UART`, typical baud `1200–9600`.
+- `USART 1`: ports `0x06/0x07`, physical interface `cassette audio (600 baud FSK) or second RS-232`, typical baud `600–4800`.
 
 For cassette emulation (USART 1): a Kansas City Standard (KCS) FSK modulator/
 demodulator can be added as an FPGA block to read/write `.wav` files on SD card.
@@ -1324,30 +1301,26 @@ demodulator can be added as an FPGA block to read/write `.wav` files on SD card.
 An all-FPGA implementation eliminates the ±12 V / −5 V rails required by the
 4116 DRAM chips.  Expected power rails:
 
-| Rail     | Min current | Usage                                               |
-|----------|-------------|-----------------------------------------------------|
-| +3.3 V   | 300 mA      | FPGA I/O banks, SRAM, UART transceivers, LED drivers |
-| Core voltage | 200 mA  | Device-specific (1.0–1.2 V for iCE40/ECP5/Artix-7) |
-| +5 V     | 50 mA       | Only if using a real Z80A chip; use level shifters  |
+- `+3.3 V`: minimum 300 mA, for FPGA I/O banks, SRAM, UART transceivers, and LED drivers.
+- `Core voltage`: minimum 200 mA, device-specific, typically `1.0–1.2 V` for iCE40, ECP5, or Artix-7.
+- `+5 V`: minimum 50 mA, only if using a real Z80A chip with level shifters.
 
 A standard USB 5 V (500 mA) supply is sufficient for an iCE40 or ECP5 based
 design.  Artix-7 boards typically have on-board regulators accepting 5–12 V.
 
 ### 15.14 Recommended FPGA Targets
 
-| Board (approx. cost) | FPGA                  | BRAM budget | Open toolchain | Notes |
-|----------------------|-----------------------|-------------|----------------|-------|
-| iCE40 HX8K Breakout (~$25) | Lattice iCE40 HX8K | 32 × 4 Kbit | IceStorm + nextpnr | Tight on BRAM; needs careful packing; no PLL for exact 12.0576 MHz |
-| iCE40 UP5K Breakout (~$10) | Lattice iCE40 UP5K | 1 Mbit SPRAM | IceStorm + nextpnr | Single-port SPRAM only; dual-port video RAM requires time-multiplexing |
-| Colorlight 5A-75B (~$15) | Lattice ECP5-25F | 56 × 18 Kbit | nextpnr-ecp5/Yosys | Comfortable; HDMI output possible; open toolchain |
-| Colorlight i5 / i9 (~$25) | Lattice ECP5-25/45F | same | nextpnr-ecp5/Yosys | Adds DDR3 for frame buffer if needed |
-| Digilent Arty A7-35T (~$130) | Xilinx Artix-7 35T | 1.8 Mbit | Vivado webpack (free) | Most comfortable; PLL can hit 12.0576 MHz exactly; easy prototyping |
-| **Tang Nano 2K** (~$5) | Gowin GW1NZ-2 | 72 Kbit BSRAM, no PSRAM | Gowin EDA / apicula | **Insufficient** — BRAM exhausted by video RAM alone; no RAM for CPU space; LUT count too low; see §15.14 note |
-| **Tang Nano 4K** (~$8) | Gowin GW1NSR-4C | 180 Kbit BSRAM + 64 Mbit PSRAM | Gowin EDA (free) / apicula+nextpnr | Tight but feasible with careful optimisation; see §15.14.1 |
-| **Tang Nano 9K** (~$10) | Gowin GW1NR-9C | 468 Kbit BSRAM + 64 Mbit PSRAM | Gowin EDA (free) / apicula+nextpnr (experimental) | Recommended Gowin target; see §15.14.2 |
-| **Altera DE1** (educational) | Altera Cyclone II EP2C20 | 239 Kbit M4K | Quartus II 13.0sp1 (free) | See §15.14.3 |
-| **MiSTer FPGA** (DE10-Nano) | Intel Cyclone V SX 5CSEBA6 | 5.5 Mbit M10K | Quartus Prime Lite (free) | See §15.14.4 |
-| **1ChipMSX** (Kay Nishi / MSX Assoc., 2006) | Altera Cyclone EP1C12 | 208 Kbit M4K + 32 MB SDRAM | Quartus II 11.0sp1 (legacy) | See §15.14.5 |
+- `iCE40 HX8K Breakout` (~$25): Lattice iCE40 HX8K, `32 × 4 Kbit` BRAM, `IceStorm + nextpnr`. Tight on BRAM, needs careful packing, and has no PLL for exact `12.0576 MHz`.
+- `iCE40 UP5K Breakout` (~$10): Lattice iCE40 UP5K, `1 Mbit SPRAM`, `IceStorm + nextpnr`. Single-port SPRAM only, so dual-port video RAM needs time-multiplexing.
+- `Colorlight 5A-75B` (~$15): Lattice ECP5-25F, `56 × 18 Kbit` BRAM, `nextpnr-ecp5/Yosys`. Comfortable fit with possible HDMI output and an open toolchain.
+- `Colorlight i5 / i9` (~$25): Lattice ECP5-25/45F with the same toolchain, adding DDR3 if a frame buffer is needed.
+- `Digilent Arty A7-35T` (~$130): Xilinx Artix-7 35T, `1.8 Mbit` BRAM, `Vivado webpack`. Most comfortable option; PLL can hit `12.0576 MHz` exactly.
+- `Tang Nano 2K` (~$5): Gowin GW1NZ-2, `72 Kbit BSRAM` and no PSRAM, `Gowin EDA / apicula`. **Insufficient**; BRAM is exhausted by video RAM alone and there is no RAM left for CPU space.
+- `Tang Nano 4K` (~$8): Gowin GW1NSR-4C, `180 Kbit BSRAM + 64 Mbit PSRAM`, `Gowin EDA / apicula+nextpnr`. Tight but feasible with careful optimization; see §15.14.1.
+- `Tang Nano 9K` (~$10): Gowin GW1NR-9C, `468 Kbit BSRAM + 64 Mbit PSRAM`, `Gowin EDA / apicula+nextpnr` experimental support. Recommended Gowin target; see §15.14.2.
+- `Altera DE1` (educational): Altera Cyclone II EP2C20, `239 Kbit M4K`, `Quartus II 13.0sp1`. See §15.14.3.
+- `MiSTer FPGA` (DE10-Nano): Intel Cyclone V SX 5CSEBA6, `5.5 Mbit M10K`, `Quartus Prime Lite`. See §15.14.4.
+- `1ChipMSX` (Kay Nishi / MSX Assoc., 2006): Altera Cyclone EP1C12, `208 Kbit M4K + 32 MB SDRAM`, `Quartus II 11.0sp1`. See §15.14.5.
 
 **Minimum viable target**: the ECP5-based Colorlight boards (used in LED-wall
 controllers) are widely available and have sufficient BRAM, PLLs, and I/O for
@@ -1359,14 +1332,12 @@ Tang Nano 2K is definitively insufficient (see note below).
 **Tang Nano 2K — why it is insufficient:**
 The GW1NZ-2 provides only 2,304 LUTs, 72 Kbit BSRAM, and no on-chip PSRAM:
 
-| Resource        | GW1NZ-2 available | Smaky 6 minimum | Verdict |
-|-----------------|-------------------|-----------------|---------|
-| LUTs            | 2,304             | ~4,000–4,500    | Short by ~2×  |
-| Block SRAM      | 72 Kbit (4 blocks)| ~74 Kbit for video RAM + chargen + Phantom ROM alone | Already over budget |
-| On-chip RAM     | none              | 64 KB CPU space | No solution |
-| External SRAM   | none on-board     | —               | No solution |
-| HDMI / VGA      | none on-board     | Required        | No output path |
-| SD card         | none on-board     | Required        | No storage path |
+- `LUTs`: 2,304 available versus about `4,000–4,500` needed. Short by roughly 2×.
+- `Block SRAM`: 72 Kbit across 4 blocks versus about 74 Kbit needed just for video RAM, chargen, and Phantom ROM. Already over budget.
+- `On-chip RAM`: none available versus 64 KB CPU space required. No solution.
+- `External SRAM`: none on-board. No solution.
+- `HDMI / VGA`: none on-board, but video output is required. No output path.
+- `SD card`: none on-board, but storage is required. No storage path.
 
 The BSRAM alone is the hard blocker: the dual-port alpha framebuffer (1280 B),
 graphic framebuffer (3840 B), chargen ROM (2 KB), and Phantom ROM (2 KB) together
@@ -1379,49 +1350,43 @@ The Tang Nano 4K (GW1NSR-4C) sits between the 2K and 9K: it has the same 64 Mbit
 on-chip PSRAM as the 9K but only 4,608 LUTs and 180 Kbit BSRAM.  A complete Smaky 6
 implementation is feasible but requires careful resource management.
 
-| Feature         | Specification                                                        |
-|-----------------|----------------------------------------------------------------------|
-| FPGA            | Gowin GW1NSR-4C — 4,608 LUTs, 3,456 flip-flops, 1 PLL               |
-| Block SRAM      | 10 × 18 Kbit BSRAM = **180 Kbit** (~22 KB)                          |
-| On-chip PSRAM   | **64 Mbit (8 MB)** — same die as GW1NR-9C; same PSRAM controller     |
-| Video output    | **HDMI** (micro-HDMI connector) — native TMDS pins                   |
-| Keyboard        | No PS/2 — add via PMOD/GPIO header                                   |
-| Mass storage    | **TF (microSD)** slot — on-board                                     |
-| Audio           | No DAC — buzzer via GPIO → RC filter                                 |
-| Programming     | USB-C (on-board BL702 JTAG bridge)                                   |
-| Toolchain       | Gowin EDA Education Edition (free) / `apicula` + `nextpnr-himbaechel` (GW1N-4 experimental) |
+- `FPGA`: Gowin GW1NSR-4C with 4,608 LUTs, 3,456 flip-flops, and 1 PLL.
+- `Block SRAM`: `10 × 18 Kbit BSRAM = 180 Kbit`, about 22 KB.
+- `On-chip PSRAM`: **64 Mbit (8 MB)**, same die family and PSRAM controller class as the GW1NR-9C.
+- `Video output`: **HDMI** on the micro-HDMI connector with native TMDS pins.
+- `Keyboard`: no PS/2 connector; add one through PMOD or GPIO.
+- `Mass storage`: on-board **TF (microSD)** slot.
+- `Audio`: no DAC; buzzer via GPIO through an RC filter.
+- `Programming`: USB-C through the on-board BL702 JTAG bridge.
+- `Toolchain`: Gowin EDA Education Edition or `apicula` plus `nextpnr-himbaechel`, with GW1N-4 support still experimental.
 
 **BSRAM constraint analysis** (10 × 18 Kbit = 180 Kbit = ~22 KB):
 
-| Block               | Size    | BSRAM blocks | Port type needed |
-|---------------------|---------|-------------|-----------------|
-| Alpha framebuffer   | 1280 B  | 1           | Dual-port (CPU + DMA) |
-| Graphic framebuffer | 3840 B  | 3           | Dual-port (CPU + DMA) |
-| Character gen ROM   | 2048 B  | 1           | Single-port (read-only) |
-| Phantom ROM         | 2048 B  | 1           | Single-port (read-only) |
-| Ping-pong line buffers (×2) | 128 B each | 1 (shared) | Dual-port |
-| **Subtotal (required)** | ~9.4 KB | **7 blocks** | — |
-| USART FIFOs, misc   | ~256 B  | 1           | Single-port |
-| **Total required**  | ~9.7 KB | **8 blocks** | — |
-| **Remaining**       | 1.4 KB  | **2 blocks** | Available for extra buffering |
+- `Alpha framebuffer`: 1280 B, 1 BSRAM block, dual-port for CPU plus DMA.
+- `Graphic framebuffer`: 3840 B, 3 BSRAM blocks, dual-port for CPU plus DMA.
+- `Character gen ROM`: 2048 B, 1 BSRAM block, single-port read-only.
+- `Phantom ROM`: 2048 B, 1 BSRAM block, single-port read-only.
+- `Ping-pong line buffers (×2)`: 128 B each, 1 shared BSRAM block, dual-port.
+- `Subtotal (required)`: about 9.4 KB, **7 blocks**.
+- `USART FIFOs, misc`: about 256 B, 1 BSRAM block, single-port.
+- `Total required`: about 9.7 KB, **8 blocks**.
+- `Remaining`: about 1.4 KB, **2 blocks**, available for extra buffering.
 
 At 8 of 10 blocks consumed, the BSRAM budget is tight but workable.  No BSRAM
 can be used for the CPU address space — it must go entirely into PSRAM.
 
 **LUT constraint analysis** (4,608 LUTs available):
 
-| Subsystem                    | Estimated LUT cost | Notes |
-|------------------------------|--------------------|-------|
-| TV80 / T80 Z80 softcore      | ~1,500–2,000       | Depends on pipeline depth and register implementation |
-| Video scan FSM + serializers | ~400–600           | Scan counter, two shift registers, MUX, line-buffer arbiter |
-| Floppy controller FSM        | ~200–300           | Sector timer, byte-stream state machine, step/direction logic |
-| Winchester controller FSM    | ~150–200           | Register file + simple FSM |
-| RTC (soft option A)          | ~100–150           | 7-byte BCD register file + serial decode |
-| Keyboard PS/2 receiver       | ~100–150           | Shift register + translation ROM address decode |
-| USART × 2 (simple 8-N-1)     | ~200–300           | One small UART core each |
-| PSRAM controller             | ~300–500           | Gowin IP core (uses LUT-based glue) |
-| Bus arbiter + glue           | ~150–200           | MOVROM latch, address decode, INT controller |
-| **Total estimated**          | **~3,100–4,200**   | Within 4,608 LUT budget at low-to-mid estimate |
+- `TV80 / T80 Z80 softcore`: about `1,500–2,000` LUTs, depending on pipeline depth and register implementation.
+- `Video scan FSM + serializers`: about `400–600` LUTs for scan counter, shift registers, mux, and line-buffer arbiter.
+- `Floppy controller FSM`: about `200–300` LUTs for sector timer, byte-stream state machine, and step logic.
+- `Winchester controller FSM`: about `150–200` LUTs for the register file and simple FSM.
+- `RTC (soft option A)`: about `100–150` LUTs for the 7-byte BCD register file and serial decode.
+- `Keyboard PS/2 receiver`: about `100–150` LUTs for the shift register and translation-ROM address decode.
+- `USART × 2 (simple 8-N-1)`: about `200–300` LUTs.
+- `PSRAM controller`: about `300–500` LUTs using the Gowin IP core and LUT-based glue.
+- `Bus arbiter + glue`: about `150–200` LUTs for the `MOVROM` latch, address decode, and INT controller.
+- `Total estimated`: about `3,100–4,200` LUTs, within the 4,608-LUT budget at low-to-mid estimates.
 
 The design **fits** in the LUT budget at optimistic estimates; it becomes risky at
 pessimistic estimates.  Practical mitigation strategies:
@@ -1458,17 +1423,15 @@ The Tang Nano 9K is an ultra-low-cost (~$10) Gowin FPGA board that ships with
 an HDMI connector, SD card slot, and on-chip PSRAM — making it one of the most
 capable boards per dollar for a retro-computer core:
 
-| Feature         | Specification                                                        |
-|-----------------|----------------------------------------------------------------------|
-| FPGA            | Gowin GW1NR-9C — 8064 LUTs, 6480 flip-flops, 2 PLLs                 |
-| Block SRAM      | 26 × 18 Kbit BSRAM = **468 Kbit** (~58 KB) — all video RAM + chargen fit in BRAM with room to spare |
-| On-chip PSRAM   | **64 Mbit (8 MB)** pseudo-SRAM — use for full 64 KB CPU address space; no external SRAM needed |
-| Video output    | **HDMI** (on-board micro-HDMI connector) — native TMDS pins; use an open HDMI TMDS core |
-| Keyboard        | No PS/2 connector — add via PMOD or use 4-pin GPIO header with 4.7 kΩ pull-ups |
-| Mass storage    | **TF (microSD) card** slot — on-board; use for floppy / Winchester images |
-| Audio           | No on-board DAC — buzzer output via GPIO → RC filter → speaker (§15.11) |
-| Programming     | **USB-C** (on-board BL702 USB-JTAG bridge) — no separate programmer needed |
-| Toolchain       | **Gowin EDA** (Education Edition, free license from Gowin website) **or** experimental open-source: `apicula` + `nextpnr-himbaechel` (GW1N-9 support in progress as of 2025) |
+- `FPGA`: Gowin GW1NR-9C with 8,064 LUTs, 6,480 flip-flops, and 2 PLLs.
+- `Block SRAM`: `26 × 18 Kbit BSRAM = 468 Kbit`, about 58 KB. All video RAM plus chargen fit in BRAM with room to spare.
+- `On-chip PSRAM`: **64 Mbit (8 MB)** pseudo-SRAM, enough for the full 64 KB CPU address space without external SRAM.
+- `Video output`: **HDMI** on the on-board micro-HDMI connector with native TMDS pins; pair it with an open HDMI TMDS core.
+- `Keyboard`: no PS/2 connector; add one by PMOD or a 4-pin GPIO header with 4.7 kΩ pull-ups.
+- `Mass storage`: on-board **TF (microSD) card** slot for floppy and Winchester images.
+- `Audio`: no on-board DAC; buzzer output via GPIO through an RC filter to speaker, as in §15.11.
+- `Programming`: **USB-C** through the on-board BL702 USB-JTAG bridge, with no separate programmer needed.
+- `Toolchain`: **Gowin EDA** Education Edition or experimental open-source `apicula` plus `nextpnr-himbaechel`, with GW1N-9 support still in progress.
 
 **PSRAM note**: the GW1NR-9C integrates a 64 Mbit HyperRAM-compatible PSRAM
 die in the same package as the FPGA fabric.  This PSRAM is single-port and has
@@ -1485,13 +1448,11 @@ space (0x0000–0xFFFF = 64 KB), PSRAM is ample but introduces wait states:
 
 **BRAM allocation on GW1NR-9C** (26 × 18 Kbit = 468 Kbit):
 
-| Block               | Size    | BRAM blocks used |
-|---------------------|---------|-----------------|
-| Alpha framebuffer   | 1280 B  | 1 × 18 Kbit      |
-| Graphic framebuffer | 3840 B  | 3 × 18 Kbit      |
-| Character gen ROM   | 2048 B  | 1 × 18 Kbit      |
-| Phantom ROM         | 2048 B  | 1 × 18 Kbit      |
-| **Total**           | ~9.2 KB | **7 blocks** (19 free for FIFO, line buffers, CPU pipeline) |
+- `Alpha framebuffer`: 1280 B, using 1 × 18 Kbit block.
+- `Graphic framebuffer`: 3840 B, using 3 × 18 Kbit blocks.
+- `Character gen ROM`: 2048 B, using 1 × 18 Kbit block.
+- `Phantom ROM`: 2048 B, using 1 × 18 Kbit block.
+- `Total`: about 9.2 KB, using **7 blocks**, leaving 19 free for FIFOs, line buffers, and CPU pipeline support.
 
 Remaining 19 BSRAM blocks (342 Kbit) are available for the ping-pong line
 buffers (§15.4.5), USART FIFOs, and any additional buffering.
@@ -1502,13 +1463,15 @@ provides a proven 720×480p or 640×480p HDMI output module with a 25 MHz pixel
 clock (easily co-generated by the PLL alongside 12.0576 MHz).
 
 **PLL configuration**: the GW1NR-9C has two PLLs.  Use PLL0 to generate:
+
 - 12.0576 MHz (Smaky master / pixel clock) from the 27 MHz on-board oscillator
   using ratio 12/27 → 12.000 MHz (0.05% error; acceptable — see §15.1).
 - 25.175 MHz (VGA/HDMI pixel clock) from the same PLL using a second output.
 
 **Toolchain**: Gowin EDA Education Edition is free but requires online
 registration.  The open-source `apicula` project (reverse-engineered bitstream)
-+ `nextpnr-himbaechel` backend adds GW1N-9 support; synthesis via Yosys.
+
+- `nextpnr-himbaechel` backend adds GW1N-9 support; synthesis via Yosys.
 As of mid-2025 basic BRAM and PLL primitives are supported but the PSRAM
 controller requires the Gowin IP core library (proprietary).  A hybrid flow
 (Yosys synthesis → Gowin place-and-route) is also possible.
@@ -1517,20 +1480,19 @@ controller requires the Gowin IP core library (proprietary).  A hybrid flow
 
 The Terasic DE1 is a classic university FPGA board, still widely available second-hand:
 
-| Feature         | Specification                                                       |
-|-----------------|---------------------------------------------------------------------|
-| FPGA            | Altera Cyclone II EP2C20F484C7 — 20,060 LEs, 52 M4K blocks         |
-| Embedded RAM    | 52 × 4 Kbit M4K = **239 Kbit** (~29 KB) — sufficient for video RAM and chargen; main 64 KB RAM must use on-board SRAM |
-| External SRAM   | **512 KB** (2× IS61LV25616AL, 10 ns) — single-port; use for main CPU address space |
-| Video output    | **VGA** (4-bit R/G/B DAC per channel via resistor ladder) — native; perfect for scan-doubled 640×480@60 Hz |
-| Keyboard        | **PS/2** connector — native; direct connection to keyboard FSM (§15.9) |
-| Mass storage    | **SD card** slot — use for floppy and Winchester disk images         |
-| Audio output    | 24-bit Wolfson WM8731 codec — can drive the buzzer output via I²S   |
-| Programming     | USB Blaster (on-board) — programming and JTAG debug                 |
-| Toolchain       | Altera Quartus II 13.0sp1 (last version supporting Cyclone II; free Web Edition) |
+- `FPGA`: Altera Cyclone II EP2C20F484C7 with 20,060 LEs and 52 M4K blocks.
+- `Embedded RAM`: `52 × 4 Kbit M4K = 239 Kbit`, about 29 KB. Sufficient for video RAM and chargen, while main 64 KB RAM should use the on-board SRAM.
+- `External SRAM`: **512 KB** using 2 × IS61LV25616AL, 10 ns, single-port. Use this for the main CPU address space.
+- `Video output`: **VGA** with 4-bit R/G/B DAC per channel via resistor ladder; ideal for scan-doubled `640×480@60 Hz`.
+- `Keyboard`: native **PS/2** connector for direct connection to the keyboard FSM in §15.9.
+- `Mass storage`: **SD card** slot for floppy and Winchester images.
+- `Audio output`: 24-bit Wolfson WM8731 codec, able to drive buzzer output over I²S.
+- `Programming`: on-board USB Blaster for programming and JTAG debug.
+- `Toolchain`: Altera Quartus II 13.0sp1, the last Cyclone II-supporting free Web Edition.
 
 **Memory map implementation note**: the on-board SRAM (512 KB) is ample for the
 entire 64 KB address space.  Allocate:
+
 - SRAM bank 0 (lower 256 KB): CPU address space 0x0000–0xFFFF (mapped to SRAM A[15:0]).
 - Retain M4K BRAM for: alpha framebuffer (dual-port), graphic framebuffer (dual-port),
   character generator ROM.
@@ -1548,18 +1510,17 @@ oscillator using integer ratios (50 × 12 ÷ 50 = 12.000 MHz; error < 0.05%).
 MiSTer is the dominant open-source retro-computing FPGA platform.  A Smaky 6
 core would integrate naturally into the MiSTer ecosystem:
 
-| Feature         | Specification                                                       |
-|-----------------|---------------------------------------------------------------------|
-| FPGA            | Intel Cyclone V SX 5CSEBA6U23I7 — 41,500 ALMs, hard ARM Cortex-A9 HPS |
-| Embedded RAM    | 312 M10K blocks × 10 Kbit = **5.5 Mbit** — all 66 KB fit entirely in BRAM; dual-port trivially available |
-| External RAM    | Optional 128 MB DDR3 add-on board (MiSTer SDRAM module) — not required for Smaky 6 |
-| Video output    | **HDMI** (native FPGA pins via ADV7513 on I/O board) — MiSTer framework handles scaler and EDID |
-| Keyboard        | **USB keyboard** via HPS USB hub — MiSTer framework handles PS/2 emulation and key remapping |
-| Mass storage    | **SD card** via HPS — MiSTer framework provides OSD file selector for disk images |
-| Audio           | Analog audio via I/O board 3.5 mm jacks — MiSTer framework provides volume control |
-| Toolchain       | Intel Quartus Prime Lite (free) + MiSTer build scripts              |
+- `FPGA`: Intel Cyclone V SX 5CSEBA6U23I7 with 41,500 ALMs and a hard ARM Cortex-A9 HPS.
+- `Embedded RAM`: `312 M10K blocks × 10 Kbit = 5.5 Mbit`. All 66 KB fit entirely in BRAM, with dual-port use trivial.
+- `External RAM`: optional 128 MB DDR3 add-on board, the MiSTer SDRAM module; not required for Smaky 6.
+- `Video output`: **HDMI** via native FPGA pins through the ADV7513 on the I/O board; MiSTer handles scaler and EDID.
+- `Keyboard`: **USB keyboard** through the HPS USB hub, with MiSTer providing PS/2 emulation and key remapping.
+- `Mass storage`: **SD card** through HPS, with MiSTer OSD file selection for disk images.
+- `Audio`: analog audio via 3.5 mm jacks on the I/O board, with MiSTer volume control.
+- `Toolchain`: Intel Quartus Prime Lite plus MiSTer build scripts.
 
 **MiSTer framework advantages** for a Smaky 6 core:
+
 - **OSD (On-Screen Display)**: built-in overlay for loading floppy / Winchester images from SD card, selecting ROM files, and setting options — replaces the command-line launcher entirely.
 - **TV80 precedent**: the TV80 Z80 softcore is already used in proven MiSTer cores (ZX Spectrum, CPC, MSX, Colecovision); the integration path is well-documented.
 - **Scan doubler / scaler**: MiSTer's `video_mixer` module handles 15 kHz → HDMI upscaling, so the Smaky 6's 20.1 kHz composite timing can be fed directly and displayed on any HDMI monitor.
@@ -1581,21 +1542,20 @@ generation, and MiSTer top-level wiring can be reused verbatim.
 The 1ChipMSX is a commercial board that implemented the complete MSX-2+ computer
 on a single Altera Cyclone FPGA chip plus SDRAM:
 
-| Feature         | Specification                                                       |
-|-----------------|---------------------------------------------------------------------|
-| FPGA            | Altera Cyclone EP1C12Q240C8 — 12,060 LEs, 52 M4K blocks            |
-| Embedded RAM    | 52 × 4 Kbit M4K = **208 Kbit** (~26 KB) — insufficient for full 64 KB; see note below |
-| External SDRAM  | **32 MB** (2× 16 MB SDRAM) — use for CPU address space 0x0000–0xFFFF |
-| Video output    | **VGA** (analog RGB) + composite — native on board                  |
-| Keyboard        | **PS/2** connector — native                                         |
-| Mass storage    | **SD card** slot — use for floppy / Winchester images                |
-| Audio           | **PSG** (AY-3-8910) + DAC on board — buzzer output can use DAC      |
-| Toolchain       | Altera Quartus II 11.0sp1 (last version supporting Cyclone I; free Web Edition) — no open-source toolchain available |
+- `FPGA`: Altera Cyclone EP1C12Q240C8 with 12,060 LEs and 52 M4K blocks.
+- `Embedded RAM`: `52 × 4 Kbit M4K = 208 Kbit`, about 26 KB, which is insufficient for the full 64 KB and needs the note below.
+- `External SDRAM`: **32 MB** using 2 × 16 MB SDRAM, for CPU address space `0x0000–0xFFFF`.
+- `Video output`: **VGA** analog RGB plus composite, native on board.
+- `Keyboard`: native **PS/2** connector.
+- `Mass storage`: **SD card** slot for floppy and Winchester images.
+- `Audio`: **PSG** (`AY-3-8910`) plus on-board DAC, so the buzzer can use the DAC.
+- `Toolchain`: Altera Quartus II 11.0sp1, the last Cyclone I-supporting free Web Edition, with no open-source toolchain available.
 
 **BRAM constraint**: the EP1C12's 208 Kbit M4K blocks provide only ~26 KB of
 embedded BRAM.  This is insufficient to hold the full 64 KB address space in BRAM.
 
 Recommended allocation:
+
 - **Dual-port BRAM** (M4K): alpha framebuffer (1280 B), graphic framebuffer (3840 B),
   character generator ROM (2 KB) — total ~7 KB; fits in ~14 M4K blocks.
 - **SDRAM**: entire 64 KB CPU address space — access via an SDRAM controller
@@ -1625,11 +1585,9 @@ computer FPGA projects; none require a commercial licence.
 
 ### 15.15.1 Z80 CPU
 
-| Core       | Language | Repository / source                         | Notes |
-|------------|----------|---------------------------------------------|-------|
-| **TV80**   | Verilog  | `https://github.com/hutch2/tv80`            | Cycle-accurate; full IM 0/1/2; used in MiSTer ZX Spectrum, CPC, MSX, Colecovision cores; exposes `int_vector` input for IM 0 opcode injection |
-| **T80**    | VHDL     | `https://github.com/sorgelig/T80` (MiSTer fork) | Derived from opencores T80; typically ~10–15% smaller than TV80; used in 1ChipMSX and MiSTer MSX core; also exposes full bus |
-| **Z80 opencores** | VHDL | `https://opencores.org/projects/t80` | Original T80; less actively maintained than the MiSTer fork |
+- `TV80`: Verilog, `https://github.com/hutch2/tv80`. Cycle-accurate with full IM 0/1/2 support; used in MiSTer ZX Spectrum, CPC, MSX, and Colecovision cores; exposes `int_vector` input for IM 0 opcode injection.
+- `T80`: VHDL, `https://github.com/sorgelig/T80` as the MiSTer fork. Derived from opencores T80, usually about 10–15% smaller than TV80, used in 1ChipMSX and MiSTer MSX, and exposes the full bus.
+- `Z80 opencores`: VHDL, `https://opencores.org/projects/t80`. Original T80, less actively maintained than the MiSTer fork.
 
 **Recommendation**: use **TV80** for Verilog-based designs (Colorlight, iCE40,
 Artix-7); use the **MiSTer T80 fork** for VHDL designs (1ChipMSX, DE1) or when
@@ -1644,16 +1602,15 @@ sampled during the INT ack M-cycle.  Drive it with `8'hFF` (RST 38h) or `8'hCF`
 No cycle-exact open 8251 clone is in wide use.  The recommended approach is a
 simple 8-N-1 UART core with an 8251-compatible register interface wrapper:
 
-| Core                  | Language    | Repository / source                                     | Notes |
-|-----------------------|-------------|---------------------------------------------------------|-------|
-| **simple_uart**       | Verilog     | `https://github.com/ben-marshall/uart`                  | Minimal, configurable baud rate; add 8251 register wrapper (see below) |
-| **uart** (UART16550)  | Verilog     | `https://opencores.org/projects/uart16550`              | Full 16550; register-compatible superset of 8251; overkill but proven |
-| **ACIA 6850**         | VHDL        | `https://github.com/hoglet67/ACIA`                      | 6850-style; shares RXRDY/TXRDY paradigm with 8251; easy to adapt |
-| **Minimig UART**      | Verilog     | Inside `https://github.com/MiSTer-devel/Minimig-AGA_MiSTer` | Simple two-register UART, already adapted for retro-computer use |
+- `simple_uart`: Verilog, `https://github.com/ben-marshall/uart`. Minimal and configurable; add an 8251 register wrapper.
+- `uart` (`UART16550`): Verilog, `https://opencores.org/projects/uart16550`. Full 16550, a register-compatible superset of 8251; overkill but proven.
+- `ACIA 6850`: VHDL, `https://github.com/hoglet67/ACIA`. 6850-style core sharing the `RXRDY/TXRDY` paradigm, easy to adapt.
+- `Minimig UART`: Verilog, inside `https://github.com/MiSTer-devel/Minimig-AGA_MiSTer`. Simple two-register UART already adapted for retro-computer use.
 
 **8251 register wrapper** (minimal, for ports 0x04–0x07):
 
 The SAMOS firmware only reads three status bits (§9):
+
 - bit 0 = RXRDY (receive data ready)
 - bit 1 = TXRDY (transmit register empty)
 - bit 2 = TXEMPTY (transmit shift register empty)
@@ -1666,11 +1623,9 @@ after the Phantom ROM sets up the USART.
 
 ### 15.15.3 PS/2 Keyboard Receiver
 
-| Core                | Language | Repository / source                                   | Notes |
-|---------------------|----------|-------------------------------------------------------|-------|
-| **ps2_keyboard**    | Verilog  | `https://github.com/alangarf/ps2_keyboard_controller` | Clean scan-code receiver; outputs make/break + scan code; MIT licence |
-| **ps2**             | VHDL     | `https://opencores.org/projects/ps2`                  | Keyboard + mouse; well-tested; used in various opencores retro projects |
-| **MiSTer ps2**      | Verilog  | Inside MiSTer framework (`sys/ps2.v`)                 | Handles extended codes and key repeat; already integrated with USB→PS/2 bridge on DE10-Nano |
+- `ps2_keyboard`: Verilog, `https://github.com/alangarf/ps2_keyboard_controller`. Clean scan-code receiver with make/break output and MIT license.
+- `ps2`: VHDL, `https://opencores.org/projects/ps2`. Keyboard plus mouse, well-tested, and used in various opencores retro projects.
+- `MiSTer ps2`: Verilog, inside the MiSTer framework at `sys/ps2.v`. Handles extended codes and repeat, already integrated with the USB-to-PS/2 bridge on DE10-Nano.
 
 **Key translation ROM**: implement as a 256×8 Verilog parameter array (inferred
 as LUT RAM on iCE40/ECP5 or as BRAM on Gowin/Xilinx/Altera).  Source the mapping
@@ -1680,11 +1635,9 @@ physical position and layer rather than by host text-input translation.
 
 ### 15.15.4 I²C Master (for DS3231 RTC bridge, §15.8 Option B)
 
-| Core               | Language | Repository / source                                   | Notes |
-|--------------------|----------|-------------------------------------------------------|-------|
-| **i2c_master**     | Verilog  | `https://github.com/alexforencich/verilog-i2c`        | Clean, parameterised; MIT licence; widely used in FPGA designs |
-| **i2c_master** (opencores) | VHDL | `https://opencores.org/projects/i2c`             | Wishbone interface; slightly heavier; original reference design |
-| **tiny_i2c**       | Verilog  | `https://github.com/emard/ulx3s-misc/tree/master/examples/i2c` | Minimal (~50 LUTs); sufficient for a single DS3231 transaction |
+- `i2c_master`: Verilog, `https://github.com/alexforencich/verilog-i2c`. Clean, parameterized, MIT-licensed, and widely used.
+- `i2c_master` from opencores: VHDL, `https://opencores.org/projects/i2c`. Wishbone interface, slightly heavier, original reference design.
+- `tiny_i2c`: Verilog, `https://github.com/emard/ulx3s-misc/tree/master/examples/i2c`. Minimal, around 50 LUTs, and sufficient for a single DS3231 transaction.
 
 The DS3231 → E405 protocol bridge (§15.8) requires only single-byte random-read
 and random-write I²C transactions at 100 kHz (standard mode); any of the above
@@ -1692,12 +1645,10 @@ cores is adequate.
 
 ### 15.15.5 SPI Master / SD Card Controller
 
-| Core                   | Language | Repository / source                                     | Notes |
-|------------------------|----------|---------------------------------------------------------|-------|
-| **sd_card** (GHDL)     | VHDL     | `https://github.com/emard/vhdl-sd-card`                 | Full SD/SDHC read support; proven on ECP5 and iCE40 |
-| **sdspi**              | Verilog  | `https://github.com/ZipCPU/sdspi`                       | SPI-mode SD; MIT; used in ZipCPU projects; configurable sector size |
-| **sd_controller**      | Verilog  | `https://github.com/mczerski/SD-card-controller-FPGA`   | Simple CMD17/CMD18 read; minimal; easy to integrate |
-| **Gowin PSRAM IP**     | Gowin IP | Gowin EDA IP Catalog (`PSRAM_Memory_Interface_HS_V2`)   | Required for Tang Nano 4K/9K on-chip PSRAM; proprietary but free with Gowin EDA licence |
+- `sd_card` (GHDL): VHDL, `https://github.com/emard/vhdl-sd-card`. Full SD or SDHC read support, proven on ECP5 and iCE40.
+- `sdspi`: Verilog, `https://github.com/ZipCPU/sdspi`. SPI-mode SD, MIT-licensed, used in ZipCPU projects, with configurable sector size.
+- `sd_controller`: Verilog, `https://github.com/mczerski/SD-card-controller-FPGA`. Simple CMD17/CMD18 reader, minimal and easy to integrate.
+- `Gowin PSRAM IP`: Gowin IP from the Gowin EDA IP Catalog as `PSRAM_Memory_Interface_HS_V2`. Required for Tang Nano 4K/9K on-chip PSRAM; proprietary but free with a Gowin EDA license.
 
 **Sector mapping for Smaky 6**: map Smaky LBA (§8.3) directly to the SD block
 number (both are 512-byte-sector-indexed — Smaky sectors are 256 bytes; pack two
@@ -1705,13 +1656,11 @@ per SD sector, or use the first 256 bytes of each 512-byte SD sector).
 
 ### 15.15.6 HDMI / DVI Output
 
-| Core                  | Language      | Repository / source                                   | Notes |
-|-----------------------|---------------|-------------------------------------------------------|-------|
-| **hdmi** (Project F)  | SystemVerilog | `https://github.com/projf/fpga-display-controller`    | Clean TMDS encoder; tested on Arty A7, ECP5, iCE40 UP5K; MIT licence |
-| **HDMI** (sylefeb)    | Verilog       | `https://github.com/sylefeb/Silice` (examples/hdmi)   | Used in Silice retro-computer demos; simple and portable |
-| **hdmi_tx**           | Verilog       | `https://github.com/hdl-util/hdmi`                    | Full-featured; audio channel support; useful if buzzer audio over HDMI is desired |
-| **DVI** (MiSTer)      | Verilog       | Inside MiSTer framework (`sys/hdmi.sv`)               | Handles all EDID and HDMI handshake for DE10-Nano; not portable to other boards |
-| **Gowin TMDS**        | Gowin IP      | Gowin EDA IP Catalog (`HDMI_TX`)                      | Required for Tang Nano 4K/9K micro-HDMI output; uses dedicated TMDS I/O |
+- `hdmi` (Project F): SystemVerilog, `https://github.com/projf/fpga-display-controller`. Clean TMDS encoder, tested on Arty A7, ECP5, and iCE40 UP5K, under MIT license.
+- `HDMI` (sylefeb): Verilog, `https://github.com/sylefeb/Silice` in `examples/hdmi`. Used in Silice retro-computer demos, simple and portable.
+- `hdmi_tx`: Verilog, `https://github.com/hdl-util/hdmi`. Full-featured with audio-channel support, useful if buzzer audio over HDMI matters.
+- `DVI` (MiSTer): Verilog, inside the MiSTer framework at `sys/hdmi.sv`. Handles EDID and HDMI handshake for DE10-Nano, but is not portable.
+- `Gowin TMDS`: Gowin IP from the Gowin EDA IP Catalog as `HDMI_TX`. Required for Tang Nano 4K and 9K micro-HDMI output using dedicated TMDS I/O.
 
 **For the Smaky 6**: the HDMI core needs to accept a 1-bit pixel input (LIT/BG),
 a 512-pixel-wide active area, and a 50 Hz / 240-line frame rate.  Feed it through
@@ -1720,12 +1669,10 @@ a scan-doubler (one line buffer BRAM, read back at 2×) to reach standard
 
 ### 15.15.7 SDRAM Controller (for DE1, 1ChipMSX)
 
-| Core                  | Language | Repository / source                                   | Notes |
-|-----------------------|----------|-------------------------------------------------------|-------|
-| **sdram** (pipelined) | Verilog  | `https://github.com/hdl-util/sdram-controller`        | Supports 16-bit SDRAM; pipelined; easy to adapt to 8-bit data bus |
-| **SDRAM** (MiSTer)    | Verilog  | `https://github.com/MiSTer-devel/Template_MiSTer/blob/master/sys/sdram.sv` | Standard MiSTer SDRAM module; 32-bit bus internally, 8/16-bit exposed; used by all MiSTer cores |
-| **1ChipMSX SDRAM**    | VHDL     | `https://github.com/gnogni/1chipmsx` (`src/sdram/`)  | Already validated against EP1C12 + 32 MB SDRAM; directly reusable for 1ChipMSX port |
-| **SDRAM** (Hamsterworks) | VHDL  | `http://hamsterworks.co.nz/mediawiki/index.php/SDRAM_Memory_Module` | Tutorial-grade; very readable; good starting point for custom implementations |
+- `sdram` (pipelined): Verilog, `https://github.com/hdl-util/sdram-controller`. Supports 16-bit SDRAM, pipelined, and easy to adapt to an 8-bit bus.
+- `SDRAM` (MiSTer): Verilog, `https://github.com/MiSTer-devel/Template_MiSTer/blob/master/sys/sdram.sv`. Standard MiSTer SDRAM module with a 32-bit internal bus and 8- or 16-bit exposed paths.
+- `1ChipMSX SDRAM`: VHDL, `https://github.com/gnogni/1chipmsx` under `src/sdram/`. Already validated against EP1C12 plus 32 MB SDRAM and directly reusable for a 1ChipMSX port.
+- `SDRAM` (Hamsterworks): VHDL, `http://hamsterworks.co.nz/mediawiki/index.php/SDRAM_Memory_Module`. Tutorial-grade and readable, a good starting point for custom work.
 
 **Wait-state integration**: after issuing a CPU read to SDRAM, assert `PETRIL`
 (Z80 WAIT) for 2–3 clock cycles (§15.3 / §15.14.3).  The SDRAM controller's
@@ -1733,12 +1680,10 @@ a scan-doubler (one line buffer BRAM, read back at 2×) to reach standard
 
 ### 15.15.8 Video Scan Doubler / Scaler
 
-| Core                  | Language | Repository / source                                   | Notes |
-|-----------------------|----------|-------------------------------------------------------|-------|
-| **scandoubler**       | Verilog  | MiSTer framework (`sys/scandoubler.v`)                | 1-bit greyscale (adaptable); line-buffer ping-pong; output at 31.5 kHz |
-| **video_mixer**       | Verilog  | MiSTer framework (`sys/video_mixer.sv`)               | Full pipeline: scandoubler + OSD overlay + HDMI output; DE10-Nano specific |
-| **scanline_doubler**  | Verilog  | `https://github.com/hdl-util/scan-doubler`            | Simple 2-line BRAM buffer; parameterisable width; portable |
-| **HDMI scaler** (GBS-8200 FPGA) | Verilog | `https://github.com/ramapcsx2/gbs-control` | Full retro-scaler; overkill for direct FPGA use but documents the algorithm |
+- `scandoubler`: Verilog, MiSTer framework `sys/scandoubler.v`. 1-bit greyscale and adaptable, with ping-pong line buffering and `31.5 kHz` output.
+- `video_mixer`: Verilog, MiSTer framework `sys/video_mixer.sv`. Full pipeline including scandoubler, OSD overlay, and HDMI output, specific to DE10-Nano.
+- `scanline_doubler`: Verilog, `https://github.com/hdl-util/scan-doubler`. Simple 2-line BRAM buffer, parameterizable width, and portable.
+- `HDMI scaler` from GBS-8200 FPGA work: Verilog, `https://github.com/ramapcsx2/gbs-control`. Full retro-scaler, overkill for direct use but useful algorithm documentation.
 
 For the Smaky 6's 512×240@50 Hz native resolution, a simple line-doubler
 (buffer each line in BRAM, play back twice) producing 512×480@50 Hz is
@@ -1747,42 +1692,38 @@ standard 640×480 VGA/HDMI timing.
 
 ### 15.15.9 Summary Table
 
-| Original chip / function  | Recommended open core(s)                          | Section  |
-|---------------------------|---------------------------------------------------|----------|
-| Z80 CPU                   | TV80 (Verilog) / T80 MiSTer fork (VHDL)           | §15.15.1 |
-| Intel 8251 USART ×2       | simple_uart + 8251 register wrapper               | §15.15.2 |
-| PS/2 keyboard receiver    | ps2_keyboard (Verilog) / opencores ps2 (VHDL)     | §15.15.3 |
-| E405 RTC (3-wire serial)  | Custom FSM (§15.8 Option A) **or** i2c_master + DS3231 bridge | §15.15.4 |
-| SD card / storage backend | sdspi / sd_card (VHDL) / Gowin PSRAM IP           | §15.15.5 |
-| HDMI / DVI output         | hdmi (Project F) / Gowin TMDS IP / MiSTer hdmi.sv | §15.15.6 |
-| SDRAM controller          | sdram (hdl-util) / MiSTer sdram.sv / 1ChipMSX SDRAM | §15.15.7 |
-| Scan doubler              | scandoubler (MiSTer) / scanline_doubler (hdl-util) | §15.15.8 |
-| 74S262 shift register     | 8-bit PISO shift register — trivial FPGA primitive; no external core needed | — |
-| Intel 2101 line buffer    | 64-byte dual-port BRAM primitive — inferred by synthesiser from `reg [7:0] buf[0:63]` | — |
-| WD1000/1002 Winchester    | No open clone; implement as a simple FSM (§15.7) — the register set is minimal | — |
-| Micropolis FDC            | No open clone; implement as a custom sector-timer + byte-stream FSM (§15.6) | — |
+- `Z80 CPU`: `TV80` for Verilog or the MiSTer `T80` fork for VHDL. See §15.15.1.
+- `Intel 8251 USART ×2`: `simple_uart` plus an 8251 register wrapper. See §15.15.2.
+- `PS/2 keyboard receiver`: `ps2_keyboard` for Verilog or opencores `ps2` for VHDL. See §15.15.3.
+- `E405 RTC (3-wire serial)`: custom FSM from §15.8 option A, or `i2c_master` with a DS3231 bridge. See §15.15.4.
+- `SD card / storage backend`: `sdspi`, `sd_card`, or Gowin PSRAM IP depending on target. See §15.15.5.
+- `HDMI / DVI output`: Project F `hdmi`, Gowin TMDS IP, or MiSTer `hdmi.sv`. See §15.15.6.
+- `SDRAM controller`: `sdram` from hdl-util, MiSTer `sdram.sv`, or 1ChipMSX SDRAM. See §15.15.7.
+- `Scan doubler`: MiSTer `scandoubler` or `scanline_doubler` from hdl-util. See §15.15.8.
+- `74S262 shift register`: use a trivial 8-bit PISO shift-register primitive in FPGA fabric; no external core needed.
+- `Intel 2101 line buffer`: use a 64-byte dual-port BRAM primitive inferred from `reg [7:0] buf[0:63]`.
+- `WD1000/1002 Winchester`: no open clone; implement a simple FSM as described in §15.7.
+- `Micropolis FDC`: no open clone; implement a custom sector-timer plus byte-stream FSM as described in §15.6.
 
 ---
 
 ## 14. Signal Glossary
 
-| Signal       | Description                                                           |
-|--------------|-----------------------------------------------------------------------|
-| `MOVROM`     | "Move ROM out" — disables Phantom ROM, reveals RAM at 0x0000          |
-| `HOLDAL/BL`  | Bus request from display / Winchester DMA                             |
-| `HOLDA`      | Bus acknowledge from Z80                                              |
-| `NMILOW`     | NMI active-low (BREAK key or schematic label `NMILOW`)               |
-| `ENALPHA`    | Enable alpha (text) plane output to CRT mixer                         |
-| `ENGRA`      | Enable graphic (bitmap) plane output to CRT mixer                     |
-| `GROS`       | Double-width character mode (hardware exists; not used by SAMOS 2-8)  |
-| `RAS` / `CAS`| DRAM row/column address strobes (4116 chips)                          |
-| `WRIOW`      | Write-enable to I/O latches                                           |
-| `DELAYSEL`   | Delay-line chip-select used in 4116 RAS timing circuit                |
-| `HMBLOW`     | H-blank low — triggers HOLD cycle on every horizontal retrace         |
-| `SELWIR`     | Gated write-enable: MREQ + WR + address-selected                     |
-| `PETRIL`     | Z80 WAIT input (not driven in standard configuration)                 |
-| `INTREDYLOW` | INT from display 50 Hz counter (active-low)                          |
-| `INTRECLOW`  | INT from 8251 USART data-ready (active-low)                           |
+- `MOVROM`: "Move ROM out", disables Phantom ROM and reveals RAM at `0x0000`.
+- `HOLDAL/BL`: bus request from display or Winchester DMA.
+- `HOLDA`: bus acknowledge from the Z80.
+- `NMILOW`: active-low NMI, from BREAK key or the `NMILOW` schematic label.
+- `ENALPHA`: enable alpha or text-plane output to the CRT mixer.
+- `ENGRA`: enable graphic or bitmap-plane output to the CRT mixer.
+- `GROS`: double-width character mode. The hardware exists, but SAMOS 2-8 does not use it.
+- `RAS / CAS`: DRAM row and column address strobes for the 4116 chips.
+- `WRIOW`: write-enable to I/O latches.
+- `DELAYSEL`: delay-line chip select used in the 4116 RAS timing circuit.
+- `HMBLOW`: H-blank low, triggering a HOLD cycle on every horizontal retrace.
+- `SELWIR`: gated write-enable, combining `MREQ`, `WR`, and address select.
+- `PETRIL`: Z80 WAIT input, not driven in the standard configuration.
+- `INTREDYLOW`: INT from the display 50 Hz counter, active-low.
+- `INTRECLOW`: INT from 8251 USART data-ready, active-low.
 
 ---
 

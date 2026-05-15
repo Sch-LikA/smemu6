@@ -11,7 +11,7 @@ Micropolis hard-sectored 5.25" floppy drive, and an optional WD1000/WD1001/WD100
 Winchester hard disk.  The Phantom ROM (2 KB) bootstraps the SAMOS operating
 system from floppy.
 
-### A machine worth remembering
+## A machine worth remembering
 
 The Smaky 6 was a genuinely groundbreaking design for its era: a fully integrated
 personal workstation with a custom operating system, a coherent human-interface
@@ -39,13 +39,13 @@ Hardware reference: [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md)
 2. [Required Files](#2-required-files)
 3. [Quick Start](#3-quick-start)
 4. [Command-Line Options](#4-command-line-options)
-   - [Storage](#41-storage)
-   - [Boot Automation](#42-boot-automation)
-   - [Display](#43-display)
-   - [Audio](#44-audio)
-   - [Timeouts and Scripting](#45-timeouts-and-scripting)
-   - [Debug and Tracing](#46-debug-and-tracing)
-   - [Miscellaneous](#47-miscellaneous)
+    - [Storage](#41-storage)
+    - [Boot Control](#42-boot-control)
+    - [Display](#43-display)
+    - [Audio](#44-audio)
+    - [Timeouts and Scripting](#45-timeouts-and-scripting)
+    - [Debug and Tracing](#46-debug-and-tracing)
+    - [Miscellaneous](#47-miscellaneous)
 5. [Keyboard Controls](#5-keyboard-controls)
 6. [Runtime Signals](#6-runtime-signals)
 7. [Boot Sequence](#7-boot-sequence)
@@ -87,26 +87,24 @@ See [web/README.md](web/README.md) for full instructions.  Quick summary:
 # Install and activate emsdk (one-time)
 source /path/to/emsdk/emsdk_env.sh
 
-# Configure and build
-cmake --preset web
-cmake --build build-web
+# Configure and build (after creating .emscripten-local as described in web/README.md)
+EM_CONFIG="$PWD/.emscripten-local" cmake --preset web
+EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 
-# Serve locally
-cd build-web && python3 -m http.server 8080
-# Open http://localhost:8080/smemu6.html
+# Serve locally with the required COOP/COEP headers
+tools/serve_web.sh
+# Open http://127.0.0.1:8080/
 ```
 
 ---
 
 ## 2. Required Files
 
-| Path                      | Size  | Required | Description |
-|---------------------------|-------|----------|-------------|
-| `roms/samos_sys17.rom`    | 2 KB  | **Yes**  | Phantom bootstrap ROM (TMS2716 "SYS17") |
-| `roms/chargen.rom`        | 2 KB  | No       | Character generator PROM; a synthetic fallback is built in |
-| `floppies/*.dsk`          | varies| No       | Floppy disk images (see §8) |
-| `harddisks/SM6WIN0.DSK`   | 16 MB | No       | Winchester drive 0 image |
-| `harddisks/SM6WIN1.DSK`   | 16 MB | No       | Winchester drive 1 image |
+- `roms/samos_sys17.rom`: 2 KB, required. Phantom bootstrap ROM (TMS2716 `SYS17`).
+- `roms/chargen.rom`: 2 KB, optional. Character generator PROM; a synthetic fallback is built in.
+- `floppies/*.dsk`: optional. Floppy disk images; see §8.
+- `harddisks/SM6WIN0.DSK`: optional 16 MB Winchester drive 0 image.
+- `harddisks/SM6WIN1.DSK`: optional 16 MB Winchester drive 1 image.
 
 Without `samos_sys17.rom` the CPU will execute random bytes and the emulator
 will report a warning but continue.
@@ -119,7 +117,7 @@ will report a warning but continue.
 cd build
 
 # Boot SAMOS from floppy (machine boots DX0 automatically)
-./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk"
+./smemu6 -floppy "../floppies/Sys1-H.dsk"
 
 # Boot SAMOS from a metadata-preserving DX0 hostdir export
 python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hostdir
@@ -127,15 +125,15 @@ python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hos
 
 # Boot from Winchester (DX0) with floppy accessible as DX1
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK \
-            -floppy2 "../floppies/1 Systeme_1HComplet.dsk"
+            -floppy2 "../floppies/Sys1-H.dsk"
 
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
-    ./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" \
+    ./smemu6 -floppy "../floppies/Sys1-H.dsk" \
                 -inject-str "LIST\n" -timeout 20
 
 # Scale the window up 3× and add CRT scanline effect
-./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk" -scale 3 -scanlines
+./smemu6 -floppy "../floppies/Sys1-H.dsk" -scale 3 -scanlines
 ```
 
 ---
@@ -145,15 +143,17 @@ SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
 ### 4.1 Storage
 
 #### `-floppy <path>`
+
 Mount a floppy disk image on **DX0:** (the primary floppy drive).  Floppy
 controller writes are supported. File-backed floppy images are writable in
 place.
 
 ```bash
-./smemu6 -floppy ../floppies/sys.dsk
+./smemu6 -floppy ../floppies/Sys1-H.dsk
 ```
 
 #### `-floppy-hostdir <path>`
+
 Mount a host-directory-backed floppy on **DX0:** using an in-memory overlay.
 For bootable DX0 media, the host tree must preserve SAMOS metadata and sector
 order; `tools/extract_samos_image.py` can export a suitable tree from a known
@@ -165,25 +165,28 @@ python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/Sys2-2-hostdir
 ```
 
 #### `-floppy2 <path>`
+
 Mount a floppy disk image on **DX1:** (the secondary floppy drive).
 
 ```bash
-./smemu6 -floppy sys.dsk -floppy2 data.dsk
+./smemu6 -floppy ../floppies/Sys1-H.dsk -floppy2 ../floppies/Burotic.dsk
 ```
 
 #### `-harddisk <path>`
+
 Mount a flat binary hard-disk image as **Winchester drive 0** (SM6WIN0).
 The WD1000/WD1001/WD1002-compatible controller is emulated at ports `0x20–0x27`.
 Geometry: 6 heads, 32 sectors/track, 256 bytes/sector, up to 255 cylinders.
 
 ```bash
-./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/Sys1-H.dsk
 ```
 
 > **Note:** On a Winchester-equipped Smaky 6 the hard disk is DX0 and the
 > floppy (if fitted) is DX1.  Use `-harddisk` with `-floppy2`, not `-floppy`.
 
 #### `-harddisk2 <path>`
+
 Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 
 > **Note:** The WD1000/WD1001/WD1002 hardware supports two drives (SDH register bit 3), and the emulator
@@ -195,7 +198,7 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 > expect it to appear as a second named device in the SAMOS CLI.
 
 ```bash
-./smemu6 -floppy sys.dsk -harddisk SM6WIN0.DSK -harddisk2 SM6WIN1.DSK
+./smemu6 -floppy ../floppies/Sys1-H.dsk -harddisk ../harddisks/SM6WIN0.DSK -harddisk2 ../harddisks/SM6WIN1.DSK
 ```
 
 ---
@@ -203,104 +206,117 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 ### 4.2 Boot Control
 
 #### `-break-to-monitor`
+
 Inject a **SHIFT+BREAK** combination shortly after startup to enter the SAMOS
 monitor instead of booting from floppy.  Useful for ROM-level debugging.
 
 #### `-inject-str <string>`
+
 Inject a sequence of key codes once the SAMOS **CLI prompt** (`>`) is detected
 on screen.  The string is converted to uppercase Smaky key codes:
 
-| Escape sequence | Result              |
-|-----------------|---------------------|
-| `\n`            | Enter (CR, `0x0D`)  |
-| `\f`            | Wait for the next CLI prompt before injecting the following bytes |
-| `a`–`z`         | Uppercased to `A`–`Z` |
-| `A`–`Z`, `0`–`9`, space | Passed as-is |
-| Other characters | Skipped            |
+- `\n`: Enter (CR, `0x0D`).
+- `\f`: Wait for the next CLI prompt before injecting the following bytes.
+- `a`–`z`: Uppercased to `A`–`Z`.
+- `A`–`Z`, `0`–`9`, `space`: passed as-is.
+- Other characters: skipped.
 
 ```bash
 # Run the LIST command automatically after boot
-./smemu6 -floppy sys.dsk -inject-str "LIST\n"
+./smemu6 -floppy ../floppies/Sys1-H.dsk -inject-str "LIST\n"
 
 # Run one command, wait for the next prompt, then run another
-./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk \
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/Sys1-H.dsk \
     -inject-str "LIST DX1:\n\fLIST DX1:\n"
 ```
 
 #### `-inject-delay <frames>`
+
 Wait this many 50 Hz frames after the CLI prompt becomes visible before
 triggering `-inject-str` or `-inject-keycode`. Useful when the OS reaches the
 prompt before the screen content has fully stabilized.
+
+#### `-inject-at-prompt <n>`
+
+Fire the configured injection on the `n`th visible CLI prompt transition
+instead of the first one. Default: **1**.
+
+#### `-inject-at-frame <n>`
+
+Fire `-inject-str` or `-inject-keycode` at absolute frame `n` instead of
+waiting for a CLI prompt. Useful for low-level boot or timing probes.
 
 ---
 
 ### 4.3 Display
 
 #### `-scale <n>`
+
 Integer pixel-doubling factor for the SDL window.  Range: 1–8.  Default: **1**.
 
 The logical resolution is 512 × 508 (512 wide; 480 px machine area with 2:1
 vertical stretch + 14 px disk-activity bar + 14 px function-key bar).  The
 physical window is `n × 512` by `n × 508`.
 
-| Scale | Window size    | Typical use             |
-|-------|----------------|-------------------------|
-| 1     | 512 × 508      | Default / CI            |
-| 2     | 1024 × 1016    | Comfortable on 1080p    |
-| 3     | 1536 × 1524    | HiDPI / 1440p           |
-| 4     | 2048 × 2032    | 4K screens              |
+| Scale | Window size | Typical use          |
+|-------|-------------|----------------------|
+| 1     | 512 × 508   | Default / CI         |
+| 2     | 1024 × 1016 | Comfortable on 1080p |
+| 3     | 1536 × 1524 | HiDPI / 1440p        |
+| 4     | 2048 × 2032 | 4K screens           |
 
 ```bash
-./smemu6 -floppy sys.dsk -scale 2
+./smemu6 -floppy ../floppies/Sys1-H.dsk -scale 2
 ```
 
 #### `-scanlines`
+
 Draw a CRT-style scanline overlay: every other output row is darkened,
 simulating the dark gaps between phosphor scan lines on a real monitor.
 
 ```bash
-./smemu6 -floppy sys.dsk -scale 2 -scanlines
+./smemu6 -floppy ../floppies/Sys1-H.dsk -scale 2 -scanlines
 ```
 
 #### `-vmode <mode>`
+
 Force the display to start in a specific video mode, overriding what the ROM
 writes to port `0x00`.  One of:
 
-| Value     | Mode                                      |
-|-----------|-------------------------------------------|
-| `alpha`   | Text only (alpha character plane)         |
-| `graphic` | Bitmap only (60-row × 512-px graphic plane) |
-| `super`   | Superimposed (alpha + graphic)            |
+- `alpha`: text only, alpha character plane.
+- `graphic`: bitmap only, 60-row × 512-px graphic plane.
+- `super`: superimposed alpha + graphic.
 
 ```bash
-./smemu6 -floppy sys.dsk -vmode alpha
+./smemu6 -floppy ../floppies/Sys1-H.dsk -vmode alpha
 ```
 
 #### `-gfxbits <order>`
+
 Set the bit order for the graphic (bitmap) plane.  One of:
 
-| Value | Meaning                         | When to use                            |
-|-------|---------------------------------|----------------------------------------|
-| `lsb` | Bit 0 = leftmost pixel (default) | Standard Smaky 6 hardware              |
-| `msb` | Bit 7 = leftmost pixel          | Some third-party disk images           |
+- `msb`: bit 7 = leftmost pixel. Default and standard Smaky 6 hardware setting.
+- `lsb`: bit 0 = leftmost pixel. Use for compatibility checks on unusual images.
 
 #### `-no-display-off`
+
 Suppress display-blank writes.  Normally, writing `0x00` to port `0x00`
 (bit 0 = 0) blanks the screen.  With this flag those writes are ignored and
 the screen stays visible at all times.  Useful when software briefly blanks
 the display during a mode switch and you want to keep the window live.
 
 ```bash
-./smemu6 -floppy sys.dsk -no-display-off
+./smemu6 -floppy ../floppies/Sys1-H.dsk -no-display-off
 ```
 
 #### `-verbose-video`
+
 Log display on/off and video mode changes to `stderr`.  Off by default.
 Useful when debugging boot sequences or investigating unexpected screen
 blanking.
 
 ```bash
-./smemu6 -floppy sys.dsk -verbose-video
+./smemu6 -floppy ../floppies/Sys1-H.dsk -verbose-video
 ```
 
 ---
@@ -308,20 +324,22 @@ blanking.
 ### 4.4 Audio
 
 #### `-no-beeper`
+
 Disable the emulated buzzer.  By default the beeper is on and generates
 sample-accurate square-wave tones through SDL audio.  Use this flag when
 running headless or when audio is unavailable.
 
 ```bash
-SDL_AUDIODRIVER=dummy ./smemu6 -floppy sys.dsk -no-beeper
+SDL_AUDIODRIVER=dummy ./smemu6 -floppy ../floppies/Sys1-H.dsk -no-beeper
 ```
 
 #### `-drive-sound`
+
 Enable floppy drive sound effects: motor whir, head-step clicks, and
 sector-hole ticks.  Off by default.
 
 ```bash
-./smemu6 -floppy sys.dsk -drive-sound
+./smemu6 -floppy ../floppies/Sys1-H.dsk -drive-sound
 ```
 
 ---
@@ -329,17 +347,23 @@ sector-hole ticks.  Off by default.
 ### 4.5 Timeouts and Scripting
 
 #### `-timeout <seconds>`
+
 Kill the emulator after this many wall-clock seconds.  `0` = run forever.
 
 Default policy (when this option is omitted):
+
 - With `-trace`: 45 seconds.
 - Without `-trace`: run forever.
 
 Useful in CI pipelines combined with `-inject-str`.
 
 ```bash
-./smemu6 -floppy sys.dsk -inject-str "LIST\n" -timeout 30
+./smemu6 -floppy ../floppies/Sys1-H.dsk -inject-str "LIST\n" -timeout 30
 ```
+
+For readable CLI/screen captures, pair `-scrdump` with `-no-display-off`.
+SAMOS often blanks the display between updates, so `-scrdump` alone can miss
+the visible prompt.
 
 ---
 
@@ -348,37 +372,45 @@ Useful in CI pipelines combined with `-inject-str`.
 All trace output goes to **stderr**.
 
 #### `-trace`
+
 Log Z80 PC milestones to stderr as the machine boots: ROM entry, MOVROM
 (Phantom ROM bank-switch), SAMOS handoff, CLI prompt detection.  Also sets
 the default timeout to 45 s (see `-timeout`).
 
 #### `-traceflow`
+
 Log a dense stream of Z80 PC values during the focused post-handoff control
 flow (low-RAM range).  Very verbose — use only when chasing a specific boot
 hang.
 
 #### `-trace08`
+
 Log every IN/OUT access on **port 0x08** (E405/08 RTC serial interface):
 clock edges, data bits, and decoded register values.
 
 #### `-trace11`
+
 Log every read of **port 0x11** (unknown device; always returns `0x00`).
 
 #### `-tracecd`
+
 Log every read of **port 0xCD** (mapped as `0x0D` after 6-bit mask; Winchester
 DMA / status register; always returns `0x00`).
 
 #### `-trace19`
+
 Log every write to **port 0x19** (floppy motor-on / NMI-arm / drive-select
 control register).  Shows the raw value and the decoded drive-select and
 motor/NMI bits.
 
 #### `-tracefdc`
+
 Log focused floppy events: sector-ID bytes, checksum mismatches, and INIR
 data-stream boundaries.  Less noisy than `-trace19`; useful for diagnosing
 sector-read errors.
 
 #### `-tracekbd`
+
 Log every keyboard CLA read (port `0x00` IN) and status read (port `0x01` IN),
 including the key code returned and the FOUND flip-flop state.
 For a focused Linux/X11 regression check of overlapping printable typing, run
@@ -386,19 +418,23 @@ For a focused Linux/X11 regression check of overlapping printable typing, run
 events and verifies that the CLI receives all three visible insertions in order.
 
 #### `-tracesnd`
+
 Log every write to **port 0x03** (buzzer bit-bang).  Each line shows the
 T-state timestamp and the new bit value, allowing exact frequency measurement.
 
 #### `-trace-win`
+
 Log every Winchester hard-disk controller command (RESTORE, SEEK, READ, WRITE) to
 stderr.  Each line shows the drive number, cylinder, head, sector and LBA,
 allowing diagnosis of disk access patterns and CHS mapping issues.
 
 #### `-scrdump`
+
 After each frame, dump any changed alpha-plane rows to stderr as ASCII text.
 Useful for capturing screen output in headless / CI runs without a screen.
 
 #### `-dump-ram <path>`
+
 At emulator exit, write the full 64 KB address space to a binary file.
 Also triggered at any time by **Ctrl+D** in the terminal or the `SIGUSR1`
 signal (see §6), which writes a timestamped dump without stopping the emulator.
@@ -408,6 +444,7 @@ signal (see §6), which writes a timestamped dump without stopping the emulator.
 ### 4.7 Miscellaneous
 
 #### `-help`
+
 Print the short option summary to stderr and exit.
 
 ---
@@ -419,19 +456,17 @@ resolved through the S471 table in `src/keyboard.c`, then exposed through the
 strict CLA / `SYS.SY` path.  This is now a host-scancode-position model, not a
 host text-input passthrough.
 
-| Host key                    | Smaky 6 function                                          |
-|-----------------------------|-----------------------------------------------------------|
-| `A`..`Z`, `0`..`9`, `Space` | Resolved by host position through the audited S471 table |
-| `Backspace`                 | Smaky BS (`0x08`)                                        |
-| `Tab`                       | Smaky TAB (`0x09`)                                       |
-| `Enter / Return`            | Smaky CR (`0x0D`)                                        |
-| **F1**..**F7**              | Smaky function-key bits CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE |
-| **F9**                      | **DEFINE** (`0x1F`) via the current strict matrix map    |
-| **F11** / **Pause**         | **BREAK** (top-right key) — fires NMI, drops into SAMOS monitor       |
-| **Shift+F11** / **Shift+Pause** | **SHIFT+BREAK** — hard reset (reboots from DX0:)     |
-| **Escape**                  | **ESC / UNDO** (top-left key, current working code `0x06`)           |
-| **End**                     | Current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted) |
-| **Ctrl+D** (terminal)       | Dump 64 KB RAM to file (same as SIGUSR1)                 |
+- `A`..`Z`, `0`..`9`, `Space`: resolved by host position through the audited S471 table.
+- `Backspace`: Smaky BS (`0x08`).
+- `Tab`: Smaky TAB (`0x09`).
+- `Enter / Return`: Smaky CR (`0x0D`).
+- `F1`..`F7`: Smaky function-key bits CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE.
+- `F9`: DEFINE (`0x1F`) via the current strict matrix map.
+- `F11` / `Pause`: BREAK, top-right key; fires NMI and drops into SAMOS monitor.
+- `Shift+F11` / `Shift+Pause`: SHIFT+BREAK, hard reset and reboot from DX0:.
+- `Escape`: ESC / UNDO, top-left key, current working code `0x06`.
+- `End`: current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted).
+- `Ctrl+D` in the terminal: dump 64 KB RAM to file, same as `SIGUSR1`.
 
 Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
 `Left Windows / Super`, `AltGr`, and `Delete` should no longer be treated as
@@ -462,6 +497,7 @@ enabling single-handed modifier+key combinations.
 
 **Disk / RESET status bar:** The middle strip shows floppy and Winchester
 drive activity LEDs.  At the right end are two buttons:
+
 - **BREAK** — left-click fires an NMI (same as `F11` / `Pause`)
 - **RESET** — requires **two clicks**: first click arms the button (it blinks
   orange for 3 seconds); second click confirms the hard reset.  Clicking
@@ -471,18 +507,18 @@ drive activity LEDs.  At the right end are two buttons:
 
 ## 6. Runtime Signals
 
-| Signal     | Effect                                                                 |
-|------------|------------------------------------------------------------------------|
-| `SIGINT`   | Clean shutdown (same as closing the window)                            |
-| `SIGTERM`  | Clean shutdown                                                         |
-| `SIGUSR1`  | Dump 64 KB RAM to `smaky6_ram_NNNN_pcXXXX.bin` without stopping        |
+- `SIGINT`: clean shutdown, same as closing the window.
+- `SIGTERM`: clean shutdown.
+- `SIGUSR1`: dump 64 KB RAM to `smaky6_ram_NNNN_pcXXXX.bin` without stopping.
 
 The emulator prints its PID at startup:
-```
+
+```text
 [main] PID 12345 — send SIGUSR1 to dump RAM
 ```
 
 Example:
+
 ```bash
 kill -USR1 12345
 ```
@@ -491,7 +527,7 @@ kill -USR1 12345
 
 ## 7. Boot Sequence
 
-```
+```text
 Power-on / RESET
     │
     ▼
@@ -529,8 +565,8 @@ Winchester boot.
 (if any) as DX1 using `-floppy2`.  The Phantom ROM boots from DX0 (the
 Winchester) automatically.
 
-```
-./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk
+```bash
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 ../floppies/Sys1-H.dsk
 ```
 
 ---
@@ -542,10 +578,8 @@ Winchester) automatically.
 Raw flat binary: track 0 sector 0 first, 256 bytes per sector, 16 sectors per
 track.
 
-| Image size   | Geometry              | Notes                        |
-|--------------|-----------------------|------------------------------|
-| 163,840 bytes | 40 tracks × 16 × 256 | Standard single-sided 5.25"  |
-| 315,392 bytes | 77 tracks × 16 × 256 | Extended (77-track drives)   |
+- `163,840 bytes`: 40 tracks × 16 × 256, standard single-sided 5.25".
+- `315,392 bytes`: 77 tracks × 16 × 256, extended 77-track drives.
 
 Track count is **auto-detected** from image size.
 
@@ -553,7 +587,7 @@ Track count is **auto-detected** from image size.
 
 Raw flat binary indexed by LBA.  Sector size: 256 bytes.
 
-```
+```text
 LBA = cylinder × 192 + head × 32 + sector_within_track
 ```
 
@@ -588,16 +622,14 @@ printable ASCII range.
 
 Additional guides are available in the [`docs/`](docs/) folder:
 
-| Document | Language | Audience |
-|---|---|---|
-| [Emulator Guide](docs/EMULATOR_GUIDE_EN.md) | English | All users — full reference for the emulator CLI, keyboard, disk formats |
-| [Guide de l'émulateur](docs/EMULATOR_GUIDE_FR.md) | French | All users — version française du guide de référence |
-| [Smaky 6 User Guide](docs/SMAKY6_USER_GUIDE_EN.md) | English | Original Smaky 6 user manual |
-| [Guide utilisateur Smaky 6](docs/SMAKY6_USER_GUIDE_FR.md) | French | Manuel utilisateur original du Smaky 6 |
-| [Smaky 6 Funny Guide](docs/SMAKY6_FUNNY_GUIDE_EN.md) | English | Light-hearted introduction to the Smaky 6 |
-| [Guide amusant Smaky 6](docs/SMAKY6_FUNNY_GUIDE_FR.md) | French | Introduction ludique au Smaky 6 |
-| [Smaky 6 for Kids](docs/SMAKY6_KIDS_EN.md) | English | Simplified guide for younger users |
-| [Smaky 6 pour les enfants](docs/SMAKY6_KIDS_FR.md) | French | Guide simplifié pour les plus jeunes |
+- [Emulator Guide](docs/EMULATOR_GUIDE_EN.md): English, full reference for the emulator CLI, keyboard, and disk formats.
+- [Guide de l'émulateur](docs/EMULATOR_GUIDE_FR.md): French reference guide.
+- [Smaky 6 User Guide](docs/SMAKY6_USER_GUIDE_EN.md): English version of the original Smaky 6 user manual.
+- [Guide utilisateur Smaky 6](docs/SMAKY6_USER_GUIDE_FR.md): French version of the original Smaky 6 user manual.
+- [Smaky 6 Funny Guide](docs/SMAKY6_FUNNY_GUIDE_EN.md): English light-hearted introduction.
+- [Guide amusant Smaky 6](docs/SMAKY6_FUNNY_GUIDE_FR.md): French light-hearted introduction.
+- [Smaky 6 for Kids](docs/SMAKY6_KIDS_EN.md): English simplified guide for younger users.
+- [Smaky 6 pour les enfants](docs/SMAKY6_KIDS_FR.md): French simplified guide for younger users.
 
 ---
 
@@ -614,9 +646,7 @@ The Smaky 6 was designed by **Jean-Daniel Nicoud** and his team at
 
 ### Third-party libraries
 
-| Library | License |
-|---|---|
-| [redcode/Z80](https://github.com/redcode/Z80) | LGPL v3 |
-| [redcode/Zeta](https://github.com/redcode/Zeta) | LGPL v3 |
-| [SDL2](https://www.libsdl.org) | zlib |
-| [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/) | zlib |
+- [redcode/Z80](https://github.com/redcode/Z80): LGPL v3.
+- [redcode/Zeta](https://github.com/redcode/Zeta): LGPL v3.
+- [SDL2](https://www.libsdl.org): zlib.
+- [tinyfiledialogs](https://sourceforge.net/projects/tinyfiledialogs/): zlib.

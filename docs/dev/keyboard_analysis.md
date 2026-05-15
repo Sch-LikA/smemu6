@@ -1,5 +1,26 @@
 # Smaky 6 Keyboard Hardware & SAMOS ISR Analysis
 
+## Current Snapshot
+
+This document mixes stable hardware facts, current emulator behavior, and dated
+probe notes from the keyboard bring-up. Treat the sections below in this order:
+
+- `Hardware Model`, `Power-on FOUND=1`, and `keyboard_read_cla()` describe the
+    current emulator model and the hardware-backed reasoning behind it.
+- `Why Keys Reach the CLI`, `ESC key`, `Power-on Enter / inject`, and the later
+    S471 mapping audits describe the current observed post-boot behavior.
+- Dated probe notes remain in place for archaeology, but they are evidence logs,
+    not standalone user guidance.
+
+Current high-level state:
+
+- Power-on boot uses the low-level CLA path with a virtual held Enter; no
+    separate `autoboot` shortcut remains.
+- Ordinary post-boot key injection uses the same CLA-facing path as physical
+    keys; `-inject-str` is still a higher-level CLI automation shortcut.
+- The emulator's strict host-matrix mapping is aligned with the currently known
+    S471 facts, but it is still not a full physical keyboard model.
+
 ## Hardware Model
 
 The Smaky 6 keyboard uses a **dedicated encoder EPROM (S471)** that interfaces with the Z80 via two I/O ports:
@@ -283,7 +304,13 @@ So the remaining open question is now narrower: what producer writes the
 and how a real hardware-originating key becomes represented there given that the
 direct CLA Stage 1 path only updates `0x457E`.
 
-**Historical shortcut comparison (2026-05-13):** an earlier repo-local trace using
+### Archived Probe Notes
+
+The notes below are preserved because they record discriminating runtime probes
+that shaped the current model. They should be read as dated evidence, not as a
+separate replacement for the current snapshot above.
+
+**Archived shortcut comparison (2026-05-13):** an earlier repo-local trace using
 `-inject-str "A"` through the old direct circular-buffer path confirmed that a
 shortcut enqueue could reach the CLI without touching the Stage 2 / 3 workspace.
 That observation remains useful as archaeology, but it is **not** the current
@@ -604,7 +631,7 @@ bridge, but it is the only defensible remaining place to look.
 | ------ | ---- | ----------- |
 | Physical ordinary key (`SDL_KEYDOWN`/`KEYUP`) | Host scancode position → S471 lookup → CLA-visible `found/key_code` latch; overlapping taps queue in `pending_ordinary[8]` until promoted | `SYS.SY` Stage 1 / 2 / 3 / 4 → SAMOS circular buffer → syscall 0x0D (CLI blocking read) |
 | Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned when CLA has no ordinary key latched, and synthesized on syscall `0x0E` reads when `0x457E` has no staged ordinary byte | `0x4580` via GETFON semantics and any callers that poll function-bit state through CLA or syscall `0x0E` |
-| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on autoboot hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
+| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on virtual-Enter hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
 **Syscall 0x0E and function keys:** syscall `0x0E` still reads `0x457E` directly, while the CLI
 blocking read uses the circular buffer. In the final emulator model, the `0x0519` accessor returns
@@ -635,7 +662,7 @@ is stored in `pending_ordinary[8]` together with its already-resolved key code. 
 original layer decision even if Shift changes before the queued key is promoted.
 
 `keyboard_frame_tick()` no longer drains a FIFO into the circular buffer.  Its post-boot role is now
-only to release the virtual Enter autoboot hold once the SAMOS ISR vector is installed, then promote
+only to release the virtual power-on Enter hold once the SAMOS ISR vector is installed, then promote
 the next pending ordinary key when the active latch becomes idle.
 
 Two release-side details were validated by the `Shift+MSG` CLI traces:
@@ -659,7 +686,7 @@ empty-prompt recall path in the current code.
 
 ---
 
-### Autoboot / inject: current delivery split
+### Power-on Enter / inject: current delivery split
 
 `machine_inject_key()` is the low-level held-CLA helper used by `-inject-keycode`.
 It sets:

@@ -4,6 +4,11 @@ Reverse-engineered from `private/extracted/1 Systeme_1HComplet/CLI.SY`.
 
 Analysis date: 2026-05-07 (Phase 1S, following full-boot confirmation in Phase 1Q/1R).
 
+Historical note: the extraction path above is the archived reverse-engineering
+source tree. Current public emulator examples use shipped floppy images such as
+`floppies/Sys1-H.dsk`; this document keeps the older path because it is the
+exact analyzed artifact.
+
 ---
 
 ## Overview
@@ -12,13 +17,11 @@ Analysis date: 2026-05-07 (Phase 1S, following full-boot confirmation in Phase 1
 SAMOS OS after boot and provides the user-facing `>` prompt with a set of built-in
 commands.
 
-| Property         | Value                                          |
-|------------------|------------------------------------------------|
-| File size        | 6687 bytes (0x1A1F)                            |
-| RAM load base    | `0x5600`                                       |
-| RAM end          | ~`0x6F1E` (load base + file size − 1)          |
-| Confirmed by     | All 40 command-handler addresses in file range |
-| File location    | `private/extracted/1 Systeme_1HComplet/CLI.SY`|
+- `File size`: 6687 bytes (`0x1A1F`).
+- `RAM load base`: `0x5600`.
+- `RAM end`: about `0x6F1E`, from load base plus file size minus 1.
+- `Confirmed by`: all 40 command-handler addresses landing in file range.
+- `File location`: `private/extracted/1 Systeme_1HComplet/CLI.SY`.
 
 ---
 
@@ -29,7 +32,7 @@ commands.
 The command table lives at file offset `0x0A9F` (RAM `0x609F`). Each entry has the
 structure:
 
-```
+```text
 NAME_BYTE ...  ; one or more ASCII bytes, all < 0x80
 0xC3           ; JP opcode (high bit set → terminates name scan)
 lo hi          ; 16-bit handler address (little-endian)
@@ -43,43 +46,39 @@ dispatcher to validate that an argument was supplied.
 
 ### Complete command list (40 entries)
 
-| # | Name     | Handler (RAM) | Flag | Notes                   |
-|---|----------|---------------|------|-------------------------|
-| 0 | CDIR     | `0x621B`      | 0    | Create directory / display current directory |
-| 1 | HELP     | `0x623F`      | 0    |                         |
-| 2 | LINE     | `0x62F0`      | 1    |                         |
-| 3 | SET      | `0x6325`      | 1    |                         |
-| 4 | **MODE** | **`0x62BF`**  | **0**| Video mode switch       |
-| 5 | MSG      | `0x639D`      | 0    |                         |
-| 6 | STP      | `0x63AC`      | 0    |                         |
-| 7 | SDAY     | `0x6405`      | 0    | Set day                 |
-| 8 | STIME    | `0x63F1`      | 0    | Set time                |
-| 9 | SDATE    | `0x63DC`      | 0    | Set date                |
-|10 | TYPE     | `0x6C5A`      | 1    | Print file              |
-|11 | APPEND   | `0x6BA8`      | 0    |                         |
-|12 | ENTER    | `0x6493`      | 0    |                         |
-|13 | DELETE   | `0x64F2`      | 1    |                         |
-|14 | COMPRESS | `0x6578`      | 0    |                         |
-|15 | CLEAR    | `0x658D`      | 0    |                         |
-|16 | INIT     | `0x65A2`      | 1    |                         |
-|17 | LIST     | `0x6676`      | 1    | Directory listing       |
-|18 | PRINT    | `0x693B`      | 1    |                         |
-|19 | COPY     | `0x6D4B`      | 1    |                         |
-|20 | MON      | `0x6D3A`      | 0    | Enter monitor           |
-|21 | LOAD     | `0x6A70`      | 0    |                         |
-|22 | DX0:/S   | `0x61ED`      | 0    | Drive DX0 source        |
-|23 | DX1:/D   | `0x6202`      | 0    | Drive DX1 destination   |
-| … | (17 more entries) | | |                         |
+- `0`, `CDIR`, handler `0x621B`, flag `0`: create directory or display current directory.
+- `1`, `HELP`, handler `0x623F`, flag `0`.
+- `2`, `LINE`, handler `0x62F0`, flag `1`.
+- `3`, `SET`, handler `0x6325`, flag `1`.
+- `4`, `MODE`, handler `0x62BF`, flag `0`: video mode switch.
+- `5`, `MSG`, handler `0x639D`, flag `0`.
+- `6`, `STP`, handler `0x63AC`, flag `0`.
+- `7`, `SDAY`, handler `0x6405`, flag `0`: set day.
+- `8`, `STIME`, handler `0x63F1`, flag `0`: set time.
+- `9`, `SDATE`, handler `0x63DC`, flag `0`: set date.
+- `10`, `TYPE`, handler `0x6C5A`, flag `1`: print file.
+- `11`, `APPEND`, handler `0x6BA8`, flag `0`.
+- `12`, `ENTER`, handler `0x6493`, flag `0`.
+- `13`, `DELETE`, handler `0x64F2`, flag `1`.
+- `14`, `COMPRESS`, handler `0x6578`, flag `0`.
+- `15`, `CLEAR`, handler `0x658D`, flag `0`.
+- `16`, `INIT`, handler `0x65A2`, flag `1`.
+- `17`, `LIST`, handler `0x6676`, flag `1`: directory listing.
+- `18`, `PRINT`, handler `0x693B`, flag `1`.
+- `19`, `COPY`, handler `0x6D4B`, flag `1`.
+- `20`, `MON`, handler `0x6D3A`, flag `0`: enter monitor.
+- `21`, `LOAD`, handler `0x6A70`, flag `0`.
+- `22`, `DX0:/S`, handler `0x61ED`, flag `0`: drive DX0 source.
+- `23`, `DX1:/D`, handler `0x6202`, flag `0`: drive DX1 destination.
+- 17 more entries follow in the full table beyond this summarized slice.
 
 ### CLI special-key behaviour (confirmed by manual p.13–14)
 
-| Key                   | CLI action                                                           |
-|-----------------------|----------------------------------------------------------------------|
-| TAB                   | Inserts literal string `DX1:` into the command line                 |
-| ESC (UNDO key)        | **Current emulator behaviour:** the emulator now emits top-left key code `0x06` as its working mapping. The older `0x04` cancel-path assumption remains under re-audit against live CLI behaviour. |
-| KILL (function key)   | Aborts current peripheral I/O transfer; sends EOF to SAMOS          |
-| SHIFT-BREAK           | Hard reset → reboot from DX0:                                       |
-| FUNCTION-SHIFT-BREAK  | Hard reset → reboot from DX1: (emulator: not yet implemented)       |
+- `TAB`: inserts the literal string `DX1:` into the command line.
+- `ESC` or the `UNDO` key: current emulator behaviour emits top-left key code `0x06` as the working mapping. The older `0x04` cancel-path assumption still needs live CLI reconciliation.
+- `KILL` function key: aborts the current peripheral I/O transfer and sends EOF to SAMOS.
+- `SHIFT-BREAK`: hard reset and reboot from `DX0:`.
+- `FUNCTION-SHIFT-BREAK`: hard reset and reboot from `DX1:`; not yet implemented in the emulator.
 
 The `TAB → DX1:` shortcut is because the most common cross-drive operation starts
 with `DX1:` as the file source or destination.  Users can then append a filename
@@ -89,25 +88,21 @@ directly, e.g. `TAB MYFILE.SM` → `DX1: MYFILE.SM`.
 
 I/O peripherals are referenced with a `$` prefix in XFER, APPEND, PRINT, TYPE, COPY:
 
-| Name   | Direction | Hardware                                  |
-|--------|-----------|-------------------------------------------|
-| `$PR`  | Input     | Paper reader — USART 4 (20 mA current loop) |
-| `$PP`  | Output    | Paper punch — USART 4                     |
-| `$PI`  | Input     | Parallel interface input                  |
-| `$PO`  | Output    | Parallel interface output                 |
-| `$MI`  | Input     | Modem in — USART 6                        |
-| `$MO`  | Output    | Modem out — USART 6                       |
-| `$LP`  | Output    | Line printer (requires overlay LP.SY)     |
-| `$KEY` | Input     | Keyboard                                  |
-| `$DIS` | Output    | Display                                   |
+- `$PR`, input: paper reader on USART 4, 20 mA current loop.
+- `$PP`, output: paper punch on USART 4.
+- `$PI`, input: parallel interface input.
+- `$PO`, output: parallel interface output.
+- `$MI`, input: modem in on USART 6.
+- `$MO`, output: modem out on USART 6.
+- `$LP`, output: line printer, requiring overlay `LP.SY`.
+- `$KEY`, input: keyboard.
+- `$DIS`, output: display.
 
 ### I/O instructions in CLI.SY (only 3)
 
-| RAM address | File offset | Instruction    | Purpose                     |
-|-------------|-------------|----------------|-----------------------------|
-| `0x612C`    | `0x0B2C`    | `OUT (0x64),A` | Unknown (drive-related?)    |
-| `0x61CB`    | `0x0BCB`    | `OUT (C),H`    | Unknown                     |
-| `0x6F57`    | `0x1957`    | `OUT (0x19),A` | Unknown                     |
+- RAM `0x612C`, file offset `0x0B2C`: `OUT (0x64),A`, purpose unknown, possibly drive-related.
+- RAM `0x61CB`, file offset `0x0BCB`: `OUT (C),H`, purpose unknown.
+- RAM `0x6F57`, file offset `0x1957`: `OUT (0x19),A`, purpose unknown.
 
 **No video-mode writes exist within CLI.SY itself.** All video mode switching is
 done through SAMOS OS syscalls (see below).
@@ -118,7 +113,7 @@ done through SAMOS OS syscalls (see below).
 
 ### Syntax
 
-```
+```text
 MODE          — alpha mode (same as MODE A)
 MODE A        — alpha-only display
 MODE G        — graphics-only display
@@ -220,24 +215,23 @@ following the `E7` opcode in the caller's code). The dispatcher:
 
 ### Syscall table (first 0x20 entries, at 0x0F30)
 
-| Code | Handler  | Used by              |
-|------|----------|----------------------|
-| 0x00 | `0x0424` |                      |
-| 0x05 | `0x051B` |                      |
-| 0x06 | `0x0485` | SYSMON startup       |
-| 0x10 | `0x02FE` |                      |
+- `0x00` -> handler `0x0424`.
+- `0x05` -> handler `0x051B`.
+- `0x06` -> handler `0x0485`, used by SYSMON startup.
+- `0x10` -> handler `0x02FE`.
+
 **PROM contradiction note (2026-05-13):** external S471 PROM decoding suggests
 the top-left physical ESC/UNDO position emits `0x06` on the normal layer, not
 `0x04`. The emulator has now been switched to that `0x06` working mapping, but the
 older CLI audit still needs to be reconciled against live runtime before this area
 can be treated as settled hardware behaviour.
 
-| 0x11 | `0x02DE` | **MODE A** (alpha)   |
-| 0x12 | `0x02E6` | **MODE G** (graphics)|
-| 0x13 | `0x02EE` | **MODE 2** (both)    |
-| 0x1C | `0x025E` | SYSMON startup       |
-| 0x1D | `0x0528` |                      |
-| …    | …        |                      |
+- `0x11` -> `0x02DE`, `MODE A` for alpha.
+- `0x12` -> `0x02E6`, `MODE G` for graphics.
+- `0x13` -> `0x02EE`, `MODE 2` for both layers.
+- `0x1C` -> `0x025E`, used by SYSMON startup.
+- `0x1D` -> `0x0528`.
+- Additional entries follow beyond this excerpt.
 
 ---
 
@@ -246,10 +240,12 @@ can be treated as settled hardware behaviour.
 ### Shadow register and hardware port
 
 `(0x457F)` is a RAM shadow of the video mode hardware register. All mode changes:
+
 1. Modify `(0x457F)` in RAM.
 2. Write the new value to **I/O port `0x00`** via `OUT (0x00),A`.
 
 Initialization (SYSMON startup, around `0x00E1`):
+
 ```asm
 00e1  LD A,0x01
 00e3  OUT (0x00),A        ; set hardware to alpha-only mode
@@ -259,6 +255,7 @@ Initialization (SYSMON startup, around `0x00E1`):
 ### Mode syscall disassembly
 
 All three mode syscalls share a common tail at `0x02B9`:
+
 ```asm
 02b9  LD (0x457F),A       ; update shadow
 02bc  OUT (0x00),A        ; **write to video mode port 0x00**
@@ -267,6 +264,7 @@ All three mode syscalls share a common tail at `0x02B9`:
 ```
 
 **Syscall 0x11 — MODE A (alpha-only):**
+
 ```asm
 02de  PUSH AF
 02df  LD A,(0x457F)
@@ -275,6 +273,7 @@ All three mode syscalls share a common tail at `0x02B9`:
 ```
 
 **Syscall 0x12 — MODE G (graphics-only, optional 'P'):**
+
 ```asm
 02e6  PUSH AF
 02e7  LD A,(0x457F)
@@ -283,6 +282,7 @@ All three mode syscalls share a common tail at `0x02B9`:
 ```
 
 **Syscall 0x13 — MODE 2 (both layers, optional 'P'):**
+
 ```asm
 02ee  PUSH AF
 02ef  LD A,(0x457F)
@@ -291,6 +291,7 @@ All three mode syscalls share a common tail at `0x02B9`:
 ```
 
 **Shared suffix at 0x02F4 (used by 0x12 and 0x13):**
+
 ```asm
 02f4  SET 2,A             ; set bit 2
 02f6  SET 1,A             ; set bit 1 (tentative 'P' flag)
@@ -301,22 +302,18 @@ All three mode syscalls share a common tail at `0x02B9`:
 
 ### Port 0x00 bit encoding
 
-| Bit | Mask | Meaning                                    |
-|-----|------|--------------------------------------------|
-|  0  | 0x01 | Display enable (always 1 during operation) |
-|  1  | 0x02 | Small-points mode ('P' flag)               |
-|  2  | 0x04 | Graphics layer active                      |
-|  3  | 0x08 | Graphics-only (suppress alpha layer)       |
+- Bit `0`, mask `0x01`: display enable, always `1` during operation.
+- Bit `1`, mask `0x02`: small-points mode, the `P` flag.
+- Bit `2`, mask `0x04`: graphics layer active.
+- Bit `3`, mask `0x08`: graphics-only, suppressing the alpha layer.
 
 ### Resulting port values per MODE command
 
-| Command   | Port 0x00 value | Description                          |
-|-----------|-----------------|--------------------------------------|
-| `MODE A`  | `0x01`          | Alpha-only (graphics off)            |
-| `MODE G`  | `0x0D`          | Graphics-only (`0x01\|0x04\|0x08`)   |
-| `MODE G P`| `0x0F`          | Graphics-only + small points         |
-| `MODE 2`  | `0x05`          | Both layers (`0x01\|0x04`)           |
-| `MODE 2 P`| `0x07`          | Both layers + small points           |
+- `MODE A` writes `0x01` for alpha-only, graphics off.
+- `MODE G` writes `0x0D` for graphics-only as `0x01 | 0x04 | 0x08`.
+- `MODE G P` writes `0x0F` for graphics-only plus small points.
+- `MODE 2` writes `0x05` for both layers as `0x01 | 0x04`.
+- `MODE 2 P` writes `0x07` for both layers plus small points.
 
 ### Correction: OUT(0x06) false positives
 
@@ -330,18 +327,16 @@ mode register.
 
 ## Key Workspace Addresses (CLI.SY context)
 
-| Address  | Role                                              |
-|----------|---------------------------------------------------|
-| `0x455C` | RST 20h dispatcher vector (init to `0x012D`)      |
-| `0x455A` | RST 20h alternate syscall table pointer           |
-| `0x4554` | Scratch register used by syscall dispatcher       |
-| `0x457F` | Shadow of I/O port 0x00 (video mode register)     |
-| `0x5600` | CLI.SY load base                                  |
-| `0x609F` | CLI.SY command table (file offset `0x0A9F`)       |
-| `0x62BF` | CLI.SY MODE command handler                       |
-| `0x56A2` | CLI.SY main command loop return point             |
-| `0x0F30` | SAMOS default syscall dispatch table              |
-| `0x012D` | SAMOS syscall dispatcher entry point              |
+- `0x455C`: RST 20h dispatcher vector, initialized to `0x012D`.
+- `0x455A`: RST 20h alternate syscall-table pointer.
+- `0x4554`: scratch register used by the syscall dispatcher.
+- `0x457F`: shadow of I/O port `0x00`, the video mode register.
+- `0x5600`: `CLI.SY` load base.
+- `0x609F`: `CLI.SY` command table at file offset `0x0A9F`.
+- `0x62BF`: `CLI.SY` MODE command handler.
+- `0x56A2`: `CLI.SY` main command-loop return point.
+- `0x0F30`: SAMOS default syscall dispatch table.
+- `0x012D`: SAMOS syscall dispatcher entry point.
 
 ---
 
@@ -354,7 +349,8 @@ mode register.
    strict CLA-facing latch in `src/keyboard.c`: host scancode position -> S471 lookup ->
    CLA read / STATUS re-check -> `SYS.SY` Stage 2 / 3 / 4 promotion into the circular
    buffer.  The compatibility direct-circular-buffer shortcut is no longer the physical
-   keyboard path.  CLA is still also used by the autoboot/inject path
+   keyboard path.  CLA is still also used by the power-on virtual Enter /
+   low-level injection path
    (`machine_inject_key()`).
    SAMOS syscall `0x0D` (the blocking read the CLI uses) polls the circular buffer write
    pointer at `0x457C`; when it equals the base `0x4596` the buffer is empty.

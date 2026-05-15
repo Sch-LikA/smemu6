@@ -41,10 +41,9 @@ EM_CONFIG="$PWD/.emscripten-local" cmake --preset web
 # Build
 EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 
-# Output files: build-web/smemu6.js  build-web/smemu6.wasm
-# Plus:         build-web/smemu6.data  (preloaded ROMs and floppies)
-# Copy web/index.html into build-web/ to serve the emulator:
-cp web/index.html build-web/
+# Output files include build-web/index.html, smemu6.js, smemu6.wasm,
+# and smemu6.data (preloaded ROMs and floppies).
+# The web target stages the shell assets into build-web/ automatically.
 ```
 
 Alternatively, without presets:
@@ -56,24 +55,15 @@ EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 
 ## Serving locally
 
-Browsers enforce `SharedArrayBuffer` policies and require a local HTTP server
-(not `file://` URLs):
-
-```sh
-# Python 3 (simplest)
-cd build-web
-python3 -m http.server 8080
-# Open http://localhost:8080/
-```
-
-Or use any static file server that sets:
+Browsers enforce `SharedArrayBuffer`-related isolation policies here, so you
+must use a local HTTP server that sets:
 
 ```text
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-The repository also includes a helper script:
+The repository includes a helper script that already does this correctly:
 
 ```sh
 tools/serve_web.sh
@@ -82,9 +72,12 @@ tools/serve_web.sh
 It serves `build-web/` on `http://127.0.0.1:8080/` with the required COOP/COEP
 headers.
 
+Plain `python3 -m http.server` is not sufficient on its own because it does not
+add those headers.
+
 ## Using the emulator
 
-1. Open `http://localhost:8080/` in a browser.
+1. Open `http://127.0.0.1:8080/` in a browser.
 2. Wait for the launcher to finish loading the bundled floppy library.
 3. Pick a built-in disk from the DX0 / DX1 dropdowns, or use **Use own…** to
   stage your own `.dsk` image before boot.
