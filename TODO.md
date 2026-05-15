@@ -39,13 +39,26 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 ##### TODO — host-directory virtual floppy for DX0 / DX1
 
 - Initial native-only slice now exists for **DX1:** via `-floppy2-hostdir <dir>`.
-- Current limitations of that first slice include startup mount only, no live
-  refresh yet, a read-only synthetic floppy, DX1-only non-bootable use, and
-  top-level host files only for now.
+- Current limitations of that first slice include a read-only synthetic floppy,
+  DX1-only non-bootable use, explicit refresh only (`Ctrl+R` or `SIGUSR2`), no
+  automatic file watching yet, and no guest-write support yet.
 - Host file names must currently follow `NAME.TT` with 1-8 base characters,
   `_` allowed, and a known 2-character Smaky type such as `SM`, `BS`, `SY`,
   `IM`, `HP`, or `RF`.
-- Sidecar metadata and `.DR` subdirectories are not implemented yet.
+- Host trees may now also contain nested `NAME.DR/` directories; entries inside
+  each `.DR` container are encoded relative to that container, matching the
+  SAMOS directory format.
+- In the SAMOS CLI, directory path components omit the `.DR` suffix. That means
+  runtime access uses forms such as `LIST DX1:BOX`, `TYPE DX1:BOX:INNER.BS`,
+  and `CDIR BOX` even though the on-disk container file is `BOX.DR`.
+- `.DR`-suffixed `CDIR` probes are invalid evidence: real floppy media also
+  rejects forms such as `CDIR DX1:M.DR` with `fichier existant`.
+- Optional sidecars `NAME.TT.meta.json` are now supported for regular files and
+  `NAME.DR.meta.json` for directory containers, with `type` validation plus
+  `flags`, `load`, `entry`, `date_month`, and `date_year`.
+- `-dump-vfd-manifest <file>` now dumps the planned DX1 host-directory layout
+  as JSON so sector placement can be inspected without external tools,
+  including nested `.DR` entries and their encoded per-directory sector values.
 - Add an additional floppy-backed storage option that mounts a live virtual floppy
   from a host directory instead of a `.dsk` image.
 - For the straightforward development case, this can be used on **DX1:** with a

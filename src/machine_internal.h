@@ -32,6 +32,8 @@ struct FloppyMedia {
     uint8_t *data;
     size_t   size;
     int      read_only;
+    int      refreshable;
+    char     source_path[256];
     char     description[256];
 };
 

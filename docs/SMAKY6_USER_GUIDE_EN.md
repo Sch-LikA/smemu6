@@ -219,7 +219,7 @@ The Smaky 6 uses **subdirectories** stored as files with the `.DR` extension.
 
 ```
 > CDIR              — displays current directory
-> CDIR PROJECTS.DR  — enters the PROJECTS subdirectory
+> CDIR PROJECTS     — enters the PROJECTS subdirectory
 > CDIR ..           — goes up one level (if supported)
 > CLEAR             — clears screen and returns to root directory
 ```
@@ -389,6 +389,18 @@ Equivalents: DOS `DEBUG` — Unix `gdb` / `xxd`
 | `.IM`     | 1-bpp bitmap image                      |
 | `.HP`     | Help file (text)                        |
 
+The official user manual also calls out two concrete `.ST` files commonly found
+on system media:
+
+- `FLO.ST`: symbol table used by programs with `.REF FLO`
+- `SM6.ST`: short symbol table used by programs with `.REF SM6`
+
+Together with `LP.SY` (printer management overlay), these files are a useful
+reminder that system disks can carry development-oriented metadata in addition
+to runnable programs. For emulator and tooling work, `FLO.ST` and `SM6.ST`
+look especially promising as recoverable symbol sources for future Smaky 6
+development tooling such as the SDCC bring-up effort.
+
 ---
 
 ## 14. Error Messages
@@ -438,7 +450,7 @@ Errors are displayed as `ERROR nnn` where `nnn` is the code in **octal**.
 |------------------|---------------------------------|------------------|----------------------|
 | `LIST`           | List directory                  | `DIR`            | `ls -l`              |
 | `LIST DX1:`      | List drive DX1:                 | `DIR B:`         | `ls /mnt/dx1`        |
-| `CDIR NAME.DR`   | Change directory                | `CD NAME`        | `cd NAME`            |
+| `CDIR NAME`      | Change directory                | `CD NAME`        | `cd NAME`            |
 | `COPY SRC DEST`  | Copy a file                     | `COPY SRC DEST`  | `cp SRC DEST`        |
 | `DELETE NAME`    | Delete a file                   | `DEL NAME`       | `rm NAME`            |
 | `SET OLD NEW`    | Rename a file                   | `REN OLD NEW`    | `mv OLD NEW`         |

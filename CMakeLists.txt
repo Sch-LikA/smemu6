@@ -213,6 +213,54 @@ else()
     target_compile_options(smemu6 PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+if(NOT EMSCRIPTEN)
+    enable_testing()
+
+    add_executable(smemu6_virtual_floppy_test
+        src/virtual_floppy_test.c
+        src/virtual_floppy.c
+    )
+    target_include_directories(smemu6_virtual_floppy_test PRIVATE src)
+    if(MSVC)
+        target_compile_options(smemu6_virtual_floppy_test PRIVATE /W3)
+    else()
+        target_compile_options(smemu6_virtual_floppy_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME smemu6_virtual_floppy_builder
+             COMMAND smemu6_virtual_floppy_test)
+
+    if(UNIX)
+        add_test(
+            NAME smemu6_virtual_floppy_dx1_list
+            COMMAND /usr/bin/env bash
+                    ${CMAKE_SOURCE_DIR}/tools/check_virtual_floppy_dx1_list.sh
+                    ${CMAKE_BINARY_DIR}/smemu6
+                    ${CMAKE_SOURCE_DIR}
+        )
+        add_test(
+            NAME smemu6_virtual_floppy_dx1_type
+            COMMAND /usr/bin/env bash
+                    ${CMAKE_SOURCE_DIR}/tools/check_virtual_floppy_dx1_type.sh
+                    ${CMAKE_BINARY_DIR}/smemu6
+                    ${CMAKE_SOURCE_DIR}
+        )
+        add_test(
+            NAME smemu6_virtual_floppy_dx1_subdir
+            COMMAND /usr/bin/env bash
+                    ${CMAKE_SOURCE_DIR}/tools/check_virtual_floppy_dx1_subdir.sh
+                    ${CMAKE_BINARY_DIR}/smemu6
+                    ${CMAKE_SOURCE_DIR}
+        )
+        add_test(
+            NAME smemu6_virtual_floppy_dx1_subdir_list
+            COMMAND /usr/bin/env bash
+                    ${CMAKE_SOURCE_DIR}/tools/check_virtual_floppy_dx1_subdir_list.sh
+                    ${CMAKE_BINARY_DIR}/smemu6
+                    ${CMAKE_SOURCE_DIR}
+        )
+    endif()
+endif()
+
 # ── ROM directory ─────────────────────────────────────────────────────────────
 # Copy ROMs to build directory so the emulator can find them at runtime
 if(EXISTS ${CMAKE_SOURCE_DIR}/roms)

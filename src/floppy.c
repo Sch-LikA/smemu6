@@ -17,6 +17,15 @@ static int floppy_media_is_mounted(const struct FloppyMedia *media)
     return media->kind != FLOPPY_MEDIA_NONE;
 }
 
+static void floppy_reset_stream_state(struct Smaky6 *m, int drive)
+{
+    m->fdc.byte_pos = 0;
+    m->fdc.sec_csum = 0;
+    memset(m->fdc.sec_buf, 0, sizeof(m->fdc.sec_buf));
+    m->fdc.disk_active[drive] = 0;
+    m->fdc.phased_sector[drive] = 0;
+}
+
 static void floppy_unmount_drive(struct Smaky6 *m, int drive)
 {
     struct FloppyMedia *media = &m->fdc.media[drive];
@@ -28,6 +37,7 @@ static void floppy_unmount_drive(struct Smaky6 *m, int drive)
     memset(media, 0, sizeof(*media));
     m->fdc.track[drive] = 0;
     m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
+    floppy_reset_stream_state(m, drive);
 }
 
 static void floppy_apply_geometry(struct Smaky6 *m, int drive, size_t size,
@@ -48,6 +58,7 @@ static void floppy_apply_geometry(struct Smaky6 *m, int drive, size_t size,
                 kind, path, size);
     }
     m->fdc.track[drive] = 0;
+    floppy_reset_stream_state(m, drive);
 }
 
 static int floppy_read_sector_bytes(struct FloppyMedia *media, long offset,
@@ -124,6 +135,9 @@ int floppy_mount(struct Smaky6 *m, int drive, const char *path)
     }
     m->fdc.media[drive].kind = FLOPPY_MEDIA_FILE;
     m->fdc.media[drive].read_only = 0;
+    m->fdc.media[drive].refreshable = 0;
+    snprintf(m->fdc.media[drive].source_path,
+             sizeof(m->fdc.media[drive].source_path), "%s", path);
     snprintf(m->fdc.media[drive].description,
              sizeof(m->fdc.media[drive].description), "%s", path);
 
@@ -165,6 +179,9 @@ int floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path)
     m->fdc.media[drive].data = image;
     m->fdc.media[drive].size = image_size;
     m->fdc.media[drive].read_only = 1;
+    m->fdc.media[drive].refreshable = 1;
+    snprintf(m->fdc.media[drive].source_path,
+             sizeof(m->fdc.media[drive].source_path), "%s", path);
     snprintf(m->fdc.media[drive].description,
              sizeof(m->fdc.media[drive].description), "%s", path);
 
@@ -174,6 +191,28 @@ int floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path)
             "floppy: DX%d is virtual, read-only, and non-bootable in this first host-directory slice\n",
             drive);
     return 0;
+}
+
+int floppy_refresh_virtual(struct Smaky6 *m, int drive)
+{
+    char path[sizeof(m->fdc.media[drive].source_path)];
+
+    if (drive < 0 || drive > 1) {
+        return -1;
+    }
+    if (!m->fdc.media[drive].refreshable ||
+        m->fdc.media[drive].source_path[0] == '\0') {
+        return 0;
+    }
+
+    snprintf(path, sizeof(path), "%s", m->fdc.media[drive].source_path);
+    if (floppy_mount_hostdir(m, drive, path) != 0) {
+        return -1;
+    }
+
+    fprintf(stderr, "floppy: refreshed virtual host directory '%s' on DX%d\n",
+            path, drive);
+    return 1;
 }
 
 uint8_t floppy_read_stat(struct Smaky6 *m)
@@ -217,9 +256,11 @@ uint8_t floppy_read_sector19(struct Smaky6 *m)
         m->fdc.sector = sector;
     }
 
-    /* bits [3:0] = sector index; bits 4/5/6 = 0 (settled, ready)
-     * unless seek_busy > 0, in which case bit 5 = 1 (step in progress). */
-    uint8_t val = sector;
+    /* bits [3:0] = sector index; bit 7 currently stays asserted so the
+     * post-boot SAMOS floppy helpers do not treat mounted media as protected
+     * before any sector-read phase begins. Bits 4/5/6 remain 0 (settled,
+     * ready) unless seek_busy > 0, in which case bit 5 = 1. */
+    uint8_t val = (uint8_t)(sector | 0x80u);
     if (m->fdc.seek_busy > 0) {
         val |= 0x20u;  /* bit 5 = 1 (head stepping, not settled) */
     } else {

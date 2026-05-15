@@ -32,6 +32,14 @@ been added to the repo yet.
   at one universal address:
   - `SM6WIN1` programs appear to load at `0x6000`
   - `SM6WIN0` programs span a wider address range
+- The official user manual identifies two symbol-table files commonly present on
+  system media:
+  - `FLO.ST`: used by programs with `.REF FLO`
+  - `SM6.ST`: short symbol table used by programs with `.REF SM6`
+- Those `.ST` files may be a valuable bridge between archived system media and a
+  future SDCC toolchain, because they could provide recoverable names for OS,
+  floppy, and runtime symbols that would otherwise need to be rediscovered from
+  disassembly alone.
 - The repo already has emulator-side automation that can support a future SDCC
   workflow:
   - boot with a chosen disk image
@@ -69,6 +77,13 @@ been added to the repo yet.
 
 ## Phase 1 - Nail down the program loading contract
 
+- [ ] Extract and inspect `FLO.ST` and `SM6.ST` from the reference system media.
+- [ ] Determine the on-disk format and semantic content of those `.ST` files:
+  - whether they are plain symbol dictionaries
+  - how names are encoded
+  - whether they include addresses, areas, or only short aliases
+- [ ] Check whether `.REF FLO` and `.REF SM6` map to reusable symbol namespaces
+  that could seed SDCC headers, linker symbols, or ABI notes.
 - [ ] Reverse-engineer one or more existing `.SM` files from the boot disks and
   document their on-disk structure.
 - [ ] Confirm whether `.SM` load address and entry point come from the file body,
@@ -111,6 +126,8 @@ Deliverable:
 
 ## Phase 3 - Recover the minimum application ABI from SAMOS
 
+- [ ] Cross-check any recovered `FLO.ST` / `SM6.ST` symbols against the current
+  disassembly notes before naming SDCC-facing entry points.
 - [ ] Identify the cleanest program-exit path back to SAMOS/CLI.
 - [ ] Identify the minimum text I/O surface needed for C development:
   - put one character

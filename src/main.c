@@ -21,6 +21,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include "virtual_floppy.h"
+
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #endif
@@ -38,6 +40,7 @@
 
 static volatile sig_atomic_t g_terminate_requested = 0;
 static volatile sig_atomic_t g_dump_ram_requested   = 0;
+static volatile sig_atomic_t g_refresh_virtual_floppies_requested = 0;
 
 static void handle_terminate_signal(int sig)
 {
@@ -49,6 +52,12 @@ static void handle_dump_signal(int sig)
 {
     (void)sig;
     g_dump_ram_requested = 1;
+}
+
+static void handle_refresh_virtual_floppies_signal(int sig)
+{
+    (void)sig;
+    g_refresh_virtual_floppies_requested = 1;
 }
 
 /* ── RAM dump ───────────────────────────────────────────────────────────────*/
@@ -72,6 +81,53 @@ static void do_ram_dump(const struct Smaky6 *m)
             path, (unsigned)machine_get_pc(m));
 }
 
+static void do_virtual_floppy_refresh(struct Smaky6 *m)
+{
+    int refreshed = 0;
+
+    for (int drive = 0; drive < 2; drive++) {
+        int rc = floppy_refresh_virtual(m, drive);
+        if (rc < 0) {
+            fprintf(stderr, "[main] virtual floppy refresh failed on DX%d\n", drive);
+            continue;
+        }
+        refreshed += rc;
+    }
+
+    if (refreshed == 0) {
+        fprintf(stderr, "[main] no mounted host-directory virtual floppies to refresh\n");
+    }
+}
+
+static int dump_virtual_floppy_manifest(const char *hostdir, const char *manifest_path)
+{
+    char error[256];
+    FILE *out = stdout;
+
+    if (!manifest_path || strcmp(manifest_path, "-") != 0) {
+        out = fopen(manifest_path, "w");
+        if (!out) {
+            fprintf(stderr, "[main] cannot open manifest output '%s': %s\n",
+                    manifest_path, strerror(errno));
+            return -1;
+        }
+    }
+
+    if (virtual_floppy_dump_manifest(hostdir, out, error, sizeof(error)) != 0) {
+        if (out != stdout) {
+            fclose(out);
+        }
+        fprintf(stderr, "[main] cannot dump virtual floppy manifest for '%s': %s\n",
+                hostdir, error);
+        return -1;
+    }
+
+    if (out != stdout) {
+        fclose(out);
+    }
+    return 0;
+}
+
 /* ── Helpers ────────────────────────────────────────────────────────────────*/
 
 static void usage(const char *argv0)
@@ -81,6 +137,7 @@ static void usage(const char *argv0)
         "  -floppy <img>  Mount floppy image on DX0\n"
         "  -floppy2 <img> Mount floppy image on DX1\n"
         "  -floppy2-hostdir <dir> Build a read-only virtual DX1 floppy from host files (native only)\n"
+        "  -dump-vfd-manifest <file>  Dump the DX1 host-directory virtual floppy layout as JSON ('-' = stdout)\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
@@ -118,7 +175,8 @@ static void usage(const char *argv0)
         "  Pause / F11          BREAK key (top-right, NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
         "  Escape               ESC / UNDO key (top-left, current working code 0x06)\n"
-        "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n",
+        "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n"
+        "  Ctrl+R / SIGUSR2  Refresh mounted host-directory virtual floppies\n",
         argv0);
 }
 
@@ -246,6 +304,11 @@ static void main_loop_iter(void)
         do_ram_dump(L->m);
     }
 
+    if (g_refresh_virtual_floppies_requested) {
+        g_refresh_virtual_floppies_requested = 0;
+        do_virtual_floppy_refresh(L->m);
+    }
+
     check_timeouts(L);
 
     /* ── Events ─────────────────────────────────────────────────────── */
@@ -284,6 +347,9 @@ static void main_loop_iter(void)
             } else if (ev.key.keysym.scancode == SDL_SCANCODE_D &&
                        (ev.key.keysym.mod & KMOD_CTRL)) {
                 do_ram_dump(L->m);
+            } else if (ev.key.keysym.scancode == SDL_SCANCODE_R &&
+                       (ev.key.keysym.mod & KMOD_CTRL)) {
+                do_virtual_floppy_refresh(L->m);
             } else {
                 keyboard_event(L->m, &ev.key);
             }
@@ -612,6 +678,7 @@ int main(int argc, char *argv[])
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
     const char *disk2_hostdir = NULL;
+    const char *vfd_manifest_path = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
@@ -627,6 +694,8 @@ int main(int argc, char *argv[])
             disk2_hostdir = argv[++i];
             disk2_path = NULL;
 #endif
+        } else if (strcmp(argv[i], "-dump-vfd-manifest") == 0 && i + 1 < argc) {
+            vfd_manifest_path = argv[++i];
         } else if (strcmp(argv[i], "-harddisk") == 0 && i + 1 < argc) {
             harddisk_path = argv[++i];
         } else if (strcmp(argv[i], "-harddisk2") == 0 && i + 1 < argc) {
@@ -651,6 +720,8 @@ int main(int argc, char *argv[])
                     inject_codes[inject_len++] = (uint8_t)c;
                 } else if (c == ' ') {
                     inject_codes[inject_len++] = 0x20;
+                } else if (c == '.' || c == ':' || c == '-' || c == '_') {
+                    inject_codes[inject_len++] = (uint8_t)c;
                 } else if (c == '\n' || c == '\r') {
                     inject_codes[inject_len++] = 0x0D;
                 } else if (c < 0x20 || c >= 0x80) {
@@ -813,6 +884,11 @@ int main(int argc, char *argv[])
         global_timeout_sec = trace ? 45 : 0;
     }
 
+    if (vfd_manifest_path && !disk2_hostdir) {
+        fprintf(stderr, "-dump-vfd-manifest requires -floppy2-hostdir\n");
+        return 1;
+    }
+
 #ifdef __EMSCRIPTEN__
     /* Emscripten: always skip the launcher (it uses blocking threads and
      * tinyfiledialogs which don't work in the browser).  The web shell
@@ -827,9 +903,14 @@ int main(int argc, char *argv[])
     signal(SIGUSR1, handle_dump_signal);
     fprintf(stderr, "[main] PID %d \xe2\x80\x94 send SIGUSR1 to dump RAM\n", (int)getpid());
 #endif
+#ifdef SIGUSR2
+    signal(SIGUSR2, handle_refresh_virtual_floppies_signal);
+    fprintf(stderr, "[main] PID %d \xe2\x80\x94 send SIGUSR2 to refresh virtual floppies\n", (int)getpid());
+#endif
 #else
     (void)handle_terminate_signal;
     (void)handle_dump_signal;
+    (void)handle_refresh_virtual_floppies_signal;
     (void)main_loop_cleanup;
 #endif
 
@@ -995,6 +1076,14 @@ int main(int argc, char *argv[])
         if (floppy_mount_hostdir(m, 1, disk2_hostdir) != 0) {
             fprintf(stderr, "WARNING: could not mount virtual host directory '%s' on DX1\n",
                     disk2_hostdir);
+        } else if (vfd_manifest_path) {
+            if (dump_virtual_floppy_manifest(disk2_hostdir, vfd_manifest_path) != 0) {
+                machine_destroy(m);
+                SDL_DestroyRenderer(ren);
+                SDL_DestroyWindow(win);
+                SDL_Quit();
+                return 1;
+            }
         }
     } else if (disk2_path) {
         if (floppy_mount(m, 1, disk2_path) != 0) {
@@ -1013,6 +1102,9 @@ int main(int argc, char *argv[])
     }
 
     machine_reset(m);
+    if (m->fdc.media[0].kind == FLOPPY_MEDIA_NONE && m->win.image[0] == NULL) {
+        machine_release_key(m);
+    }
     if (trace)
         machine_set_trace(m, 1);
     if (trace08)

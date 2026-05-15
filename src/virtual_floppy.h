@@ -4,6 +4,7 @@
 #define VIRTUAL_FLOPPY_H
 
 #include <stddef.h>
+#include <stdio.h>
 #include <stdint.h>
 
 int virtual_floppy_build_from_hostdir(const char *path,
@@ -11,5 +12,9 @@ int virtual_floppy_build_from_hostdir(const char *path,
                                       size_t *out_size,
                                       char *error,
                                       size_t error_size);
+int virtual_floppy_dump_manifest(const char *path,
+                                 FILE *out,
+                                 char *error,
+                                 size_t error_size);
 
 #endif /* VIRTUAL_FLOPPY_H */

@@ -221,7 +221,7 @@ l'extension `.DR`.
 
 ```
 > CDIR              — affiche le répertoire courant
-> CDIR PROJETS.DR   — entre dans le sous-répertoire PROJETS
+> CDIR PROJETS      — entre dans le sous-répertoire PROJETS
 > CDIR ..           — remonte d'un niveau (si supporté)
 > CLEAR             — efface l'écran et revient au répertoire racine
 ```
@@ -392,6 +392,18 @@ Pour revenir à la ligne de commande CLI, tapez la commande de sortie du moniteu
 | `.IM`     | Image (bitmap 1 bit par pixel)                |
 | `.HP`     | Aide (fichier texte HELP)                     |
 
+Le manuel officiel signale aussi deux fichiers `.ST` concrets souvent présents
+sur les supports système :
+
+- `FLO.ST` : table de symboles utilisée par les programmes avec `.REF FLO`
+- `SM6.ST` : table de symboles courte utilisée par les programmes avec `.REF SM6`
+
+Avec `LP.SY` (overlay de gestion d'imprimante), cela rappelle que les disques
+système peuvent contenir des métadonnées de développement, pas seulement des
+programmes exécutables. Pour le travail d'émulation et d'outillage, `FLO.ST` et
+`SM6.ST` semblent particulièrement prometteurs comme sources de symboles à
+récupérer pour de futurs outils Smaky 6, notamment le bring-up SDCC.
+
 ---
 
 ## 14. Messages d'erreur
@@ -441,7 +453,7 @@ Les erreurs sont affichées sous la forme `ERROR nnn` où `nnn` est le code en *
 |------------------|-----------------------------------|------------------|----------------------|
 | `LIST`           | Lister le répertoire              | `DIR`            | `ls -l`              |
 | `LIST DX1:`      | Lister le lecteur DX1:            | `DIR B:`         | `ls /mnt/dx1`        |
-| `CDIR NOM.DR`    | Changer de répertoire             | `CD NOM`         | `cd NOM`             |
+| `CDIR NOM`       | Changer de répertoire             | `CD NOM`         | `cd NOM`             |
 | `COPY SRC DEST`  | Copier un fichier                 | `COPY SRC DEST`  | `cp SRC DEST`        |
 | `DELETE NOM`     | Supprimer un fichier              | `DEL NOM`        | `rm NOM`             |
 | `SET OLD NEW`    | Renommer un fichier               | `REN OLD NEW`    | `mv OLD NEW`         |

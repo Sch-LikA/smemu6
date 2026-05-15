@@ -118,8 +118,6 @@ cd build
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
 > configuration; only `-harddisk` + `-floppy2` matches real hardware.
 
-
-
 ## 5. Command-Line Reference
 
 ### Floppy drives
@@ -129,16 +127,51 @@ cd build
 | `-floppy <img>` | Mount a floppy image on drive **DX0:** |
 | `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
 | `-floppy2-hostdir <dir>` | Build a read-only virtual floppy on **DX1:** from a host directory at startup; native builds only |
+| `-dump-vfd-manifest <file>` | Dump the planned DX1 host-directory layout as JSON; requires `-floppy2-hostdir`; use `-` for stdout |
 
 Current `-floppy2-hostdir` limitations:
 
 - DX1 only; DX0 bootable virtual floppies are not implemented yet.
 - Native desktop builds only; the web build does not support this feature.
-- The first slice rebuilds only at mount time and does not support live refresh.
-- Only top-level host files are supported for now.
+- The first slice rebuilds at mount time and on explicit refresh (`Ctrl+R` or
+  `SIGUSR2`); it does not watch the host directory automatically.
 - Host file names must currently use `NAME.TT` with a 1-8 character base name,
   `_` allowed, and a known 2-character Smaky type.
-- Sidecar metadata, `.DR` subdirectories, and guest writes are not implemented yet.
+- Host trees may also contain nested `NAME.DR/` directories. Entries inside a
+  `.DR` container are encoded with sector numbers relative to the container
+  start, matching the SAMOS on-disk format.
+- Optional sidecars `NAME.TT.meta.json` are supported for regular files and
+  `NAME.DR.meta.json` for directory containers. They may provide `type`
+  (validation only), `flags`, `load`, `entry`, `date_month`, and `date_year`.
+- Guest writes are not implemented yet.
+- In current native builds, guest commands such as `LIST DX1:`,
+  `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS`, and `TYPE DX1:BOX:INNER.BS` work
+  against the virtual DX1 media. One CLI rule is now pinned down: directory
+  names also omit `.DR`, including `CDIR` arguments. Do not use probes such as
+  `CDIR DX1:BOX.DR`; real floppy media rejects that form too (`CDIR DX1:M.DR`
+  on `Burotic.dsk` reports `fichier existant`).
+
+For native desktop builds, `Ctrl+R` refreshes any mounted host-directory
+virtual floppy in place. Headless or scripted runs can do the same with
+`SIGUSR2`.
+
+For inspection and testing, `-dump-vfd-manifest <file>` emits the exact file
+layout the emulator plans to build for DX1, including sectors, size, sidecar-
+derived metadata, and both absolute plus encoded sector values for nested `.DR`
+entries.
+
+Example sidecar:
+
+```json
+{
+  "type": "SM",
+  "flags": 4660,
+  "load": "0x4601",
+  "entry": "0x5678",
+  "date_month": 12,
+  "date_year": 82
+}
+```
 
 ### Hard disk (Winchester)
 
@@ -339,8 +372,10 @@ python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all pri
 ### Subdirectories (`.DR` files)
 
 SAMOS supports nested directories stored as files with the `.DR` extension.
-The CLI command `CDIR NAME.DR` enters a subdirectory; `CDIR` alone lists
-the current directory; `CLEAR` returns to the root.
+On disk, the container file is `NAME.DR`, but in CLI commands the path
+component omits the `.DR` suffix. Use forms such as `LIST NAME`,
+`TYPE NAME:INNER.BS`, or `LIST DX1:NAME` to access a subdirectory. `CDIR`
+alone lists the current directory; `CLEAR` returns to the root.
 
 Inside the emulator, subdirectories work transparently — the floppy image
 contains all sectors and no special handling is required.  When listing a

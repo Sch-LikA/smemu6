@@ -308,7 +308,7 @@ All Smaky 6 file names follow the convention `NAME.EX` where `.EX` is the extens
 | `.SR`     | Assembler source file (SMILE)                     |
 | `.DR`     | Directory (sub-directory container)               |
 | `.LS`     | Listing file (assembler output)                   |
-| `.ST`     | Symbol table (used with `.REF`)                   |
+| `.ST`     | Symbol table (used with `.REF`; e.g. `FLO.ST`, `SM6.ST`) |
 | `.IM`     | Image file (1-bpp graphic plane bitmap)           |
 | `.HP`     | Help file (read by HELP command)                  |
 | `.INT`    | Interrupt driver (e.g. FPRINT.INT.SM)             |
@@ -397,7 +397,7 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
   first 3 sectors (768 bytes) hold up to 32 sub-directory entries in the same
   24-byte format as the root directory.  Sector addresses inside a sub-directory
   are **relative to the `.DR` entry's own start sector** (not absolute disk
-  sectors).  The CLI command `CDIR NAME.DR` enters the subdirectory; `CDIR`
+  sectors).  The CLI command `CDIR NAME` enters the subdirectory; `CDIR`
   alone lists the current directory; `CLEAR` returns to the root.  The emulator
   transparently serves all sectors from the flat image regardless of filesystem
   structure — no emulator-side changes are required for `.DR` support.
@@ -1003,6 +1003,9 @@ smemu6/
     - `SYS 1-H * 64 K` / `SAMOS 1-H` (relocated OS banner)
     - Directory listing rendered by CLI.SY (files SYS.SY, CLI.SY, ER.SY, FLO.ST,
       SM6.ST, SMILE.SM, CCOPY.SM, DES.SM, FPRINT.SR, XREF.SM, AS.SM, LP.SR, S.SM, etc.)
+    - The user manual identifies `FLO.ST` and `SM6.ST` as symbol tables used by
+      programs with `.REF FLO` and `.REF SM6`, making them good candidates for
+      future symbol recovery work in the SDCC bring-up.
 
 77. **Minimal reproducible boot command**:
     ```

@@ -3,8 +3,8 @@
 This file is a planning document for implementing a host-directory-backed virtual
 floppy workflow for Smemu6.
 
-Scope for now: analysis and a concrete implementation TODO only. No virtual
-floppy support has been added to the emulator yet.
+Scope now: the first native DX1 slice exists, and this document tracks the
+remaining implementation work.
 
 The target is deliberately split into two milestones:
 
@@ -302,9 +302,10 @@ The repo now contains a first native-only DX1 slice:
 Intentional limitations of the current implementation:
 
 - top-level host files only for now
-- no sidecar metadata yet
+- optional per-file JSON sidecars now exist for top-level files
 - no `.DR` subdirectory encoding yet
-- no live refresh yet; rebuild happens only at mount time
+- explicit refresh only for now (`Ctrl+R` or `SIGUSR2`); no automatic file
+  watching yet
 - no guest write support yet
 
 ### Phase 1A - Lock down the source-of-truth format
@@ -312,14 +313,24 @@ Intentional limitations of the current implementation:
 - [ ] Decide the canonical host-directory root path convention:
   - repo-local `floppies/DX1/`
   - arbitrary external path via CLI
-- [ ] Decide the metadata convention:
-  - JSON sidecars per file
-  - or one manifest file per directory tree
+- [x] First metadata convention for milestone 1: JSON sidecars per top-level
+  file.
+- [ ] Decide whether bootable DX0 media should stay with per-file sidecars or
+  switch to one manifest per directory tree.
 - [ ] Document how nested `.DR` directories are represented in the host tree.
 - [ ] Decide whether unsupported host files are:
   - ignored
   - warned about
   - or treated as hard errors
+
+Current sidecar keys implemented in the builder:
+
+- `type` (validation only; must match the filename suffix)
+- `flags`
+- `load`
+- `entry`
+- `date_month`
+- `date_year`
 
 Deliverable:
 
@@ -327,16 +338,16 @@ Deliverable:
 
 ### Phase 1B - Implement an internal builder surface in `smemu6`
 
-- [ ] Add a repo-local image-builder module in Smemu6 that can take a host
+- [x] Add a repo-local image-builder module in Smemu6 that can take a host
   directory tree and build a deterministic floppy image from it in memory.
 - [ ] Encode the already-known directory format directly in the emulator code:
-  - directory entry encoding
-  - `.DR` relative sector addressing
-  - load / entry metadata
-  - contiguous allocation
+  - [x] directory entry encoding
+  - [x] `.DR` relative sector addressing
+  - [x] load / entry metadata
+  - [x] contiguous allocation
 - [ ] Add a dry-run or trace mode that prints the planned directory table and
   sector map from inside the emulator.
-- [ ] Add a manifest output mode, for example JSON or structured log output, so
+- [x] Add a manifest output mode, for example JSON or structured log output, so
   tests can inspect file placement deterministically.
 
 Reference-only guidance:
@@ -348,6 +359,8 @@ Deliverable:
 
 - a self-contained emulator-side builder that can generate a floppy image from a
   host directory.
+- the current builder now also supports `-dump-vfd-manifest <file>` for JSON
+  inspection of the planned DX1 layout.
 
 ### Phase 1C - Add a virtual-media backend in `smemu6`
 
@@ -403,7 +416,7 @@ Practical rule for implementation order:
   - `-floppy2-hostdir <dir>`
 - [ ] Optionally add a DX1 launcher choice later, but do not block milestone 1 on
   launcher UI work.
-- [ ] Keep this feature native-only. The web build is explicitly out of scope for
+- [x] Keep this feature native-only. The web build is explicitly out of scope for
   host-directory virtual floppies.
 - [x] Print a clear startup log line showing that DX1 is virtual and non-bootable.
 
@@ -431,8 +444,11 @@ Recommended first slice:
 
 Current state:
 
-- the implemented slice currently does rebuild-at-mount only
-- explicit refresh is not implemented yet
+- the implemented slice rebuilds at mount time
+- explicit refresh now works via `Ctrl+R` or `SIGUSR2`
+- `NAME.DR/` host directories now build recursive container images with
+  container-relative child sector encoding
+- automatic file watching and true hot-swap are still not implemented
 
 Reason:
 
@@ -445,21 +461,53 @@ Deliverable:
 
 ### Phase 1F - Validation and acceptance tests for DX1
 
-- [ ] Add a deterministic builder test in Smemu6 for a small sample host
+- [x] Add a deterministic builder test in Smemu6 for a small sample host
   directory.
-- [ ] Add emulator-side inspection helpers or test assertions that verify the
-  generated directory table and sector layout without external tools.
-- [ ] Boot `smemu6` with a real system disk on DX0 and the virtual disk on DX1.
+- [x] Add emulator-side inspection helpers that verify the generated directory
+  table and sector layout without external tools.
+- [x] Add test assertions that verify the generated directory table and sector
+  layout automatically.
+- [x] Boot `smemu6` with a real system disk on DX0 and the virtual disk on DX1.
 - [ ] Use `-inject-str` to exercise at least:
-  - `CDIR DX1:` or equivalent drive access path
-  - `LIST`
-  - loading one known `.SM` or `.BS` file from DX1
-- [ ] Confirm that `.DR` subdirectories work if included in the sample tree.
+  - [x] `CDIR DX1:` or equivalent drive access path
+  - [x] `LIST`
+  - [x] loading one known `.SM` or `.BS` file from DX1
+- [x] Confirm that `.DR` subdirectories work if included in the sample tree.
 
 Suggested definition of done for milestone 1:
 
 - a file added or changed in the host directory can be made visible on DX1 without
   manually rebuilding a `.dsk` by hand
+
+Current status note:
+
+- Smemu6 now has a native `smemu6_virtual_floppy_test` CTest that creates a
+  small host directory on disk, runs the internal builder, and verifies both the
+  serialized directory entries and the JSON manifest output for the flat DX1
+  case, one `.DR` container case, and sidecar metadata.
+- Smemu6 now also has a native Unix CTest acceptance check that boots from the
+  real DX0 hard disk, mounts a DX1 host directory, injects `LIST DX1:`, and
+  checks the screen dump for the expected virtual-floppy entries.
+- Smemu6 now also has a native Unix CTest acceptance check that injects
+  `TYPE DX1:TEXTFILE.BS` and verifies that the screen dump echoes the hosted
+  DX1 text-file contents.
+- Smemu6 now also has a native Unix CTest acceptance check that injects
+  `TYPE DX1:BOX:INNER.BS` and verifies runtime access to a file stored inside a
+  `.DR` container using the official extensionless CLI path syntax.
+- Smemu6 now also has a native Unix CTest acceptance check that injects
+  `LIST DX1:BOX` and verifies runtime listing of a `.DR` container through the
+  same extensionless CLI syntax.
+- Direct access through `LIST DX1:BOX` and `TYPE DX1:BOX:INNER.BS` remains
+  confirmed.
+- Save this CLI rule explicitly: directory names also omit `.DR`, including
+  `CDIR` arguments. `CDIR DX1:M.DR` returns `fichier existant` even on the real
+  floppy image `Burotic.dsk`, so `.DR`-suffixed CLI probes are not valid
+  evidence against host-directory virtual media.
+- The earlier controller investigation still matters: asserting port `0x19`
+  bit 7 removed the old pre-read `disque protégé` abort and let `CDIR` reach
+  the normal floppy read path on both real and virtual DX1 media. Any future
+  `CDIR` work should therefore focus on CLI semantics or later controller state,
+  not on `.DR` image encoding.
 - the resulting virtual disk is readable by SAMOS
 - the disk is explicitly documented as non-bootable
 - the virtual medium is explicitly read-only in the first milestone
@@ -635,6 +683,34 @@ These are reference implementations and format clues, not runtime dependencies.
   - ignored
   - mirrored back into the host directory
   - or stored in an overlay layer
+
+## Tooling follow-up for `../smaky6-tools`
+
+- [ ] Add a new `smaky6_samos.py` option that converts an existing floppy image
+  into a host-directory tree compatible with Smemu6 virtual floppies.
+- [ ] Emit host files using the same visible `NAME.TT` convention as the
+  emulator-side builder expects.
+- [ ] Emit sidecar metadata files for any fields that are not preserved by the
+  plain host file payload alone:
+  - `flags`
+  - `load`
+  - `entry`
+  - `date_month`
+  - `date_year`
+- [ ] Preserve enough boot-disk detail that a reference DX0 floppy can be turned
+  into a future bootable host-directory template without losing special system
+  layout knowledge.
+- [ ] Decide how the export handles boot-specific placement details for files
+  such as `SYS.SY`, `CLI.SY`, and any other system files whose exact placement or
+  ordering matters.
+- [ ] Decide whether the export should emit additional manifest data for:
+  - directory entry order
+  - pinned start sectors
+  - boot-required flags
+  - `.DR` container-relative layout
+- [ ] Cross-check the exported host-directory tree by round-tripping it back
+  through the Smemu6 virtual-floppy builder and comparing the resulting layout
+  manifest against the source image.
 
 ## Suggested order of attack
 

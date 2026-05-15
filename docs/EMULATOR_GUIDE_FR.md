@@ -118,8 +118,6 @@ cd build
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
 > seul `-harddisk` + `-floppy2` correspond à la configuration matérielle réelle.
 
-
-
 ## 5. Référence des options
 
 ### Lecteurs disquette
@@ -129,15 +127,46 @@ cd build
 | `-floppy <img>` | Monter une image disquette sur le lecteur **DX0:** |
 | `-floppy2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
 | `-floppy2-hostdir <dir>` | Construire au démarrage une disquette virtuelle **DX1:** en lecture seule depuis un répertoire hôte ; builds natifs uniquement |
+| `-dump-vfd-manifest <file>` | Exporter en JSON le layout prévu pour le répertoire hôte DX1 ; nécessite `-floppy2-hostdir` ; utiliser `-` pour stdout |
 
 Limites actuelles de `-floppy2-hostdir` :
 
 - DX1 uniquement ; les disquettes virtuelles amorçables sur DX0 ne sont pas encore implémentées.
 - Builds bureau natifs uniquement ; la version web ne prend pas cette fonction en charge.
-- Cette première tranche reconstruit seulement au montage initial et ne gère pas encore le rafraîchissement en direct.
-- Seuls les fichiers hôtes du premier niveau sont pris en charge pour l'instant.
+- Cette première tranche reconstruit au montage initial et lors d'un rafraîchissement explicite (`Ctrl+R` ou `SIGUSR2`) ; elle ne surveille pas encore automatiquement le répertoire hôte.
 - Les noms de fichiers doivent actuellement suivre `NAME.TT` avec un nom de base de 1 à 8 caractères, `_` autorisé, et un type Smaky à 2 caractères connu.
-- Les métadonnées en sidecar, les sous-répertoires `.DR` et les écritures invitées ne sont pas encore implémentés.
+- L'arborescence hôte peut aussi contenir des répertoires imbriqués `NAME.DR/`. Les entrées à l'intérieur d'un conteneur `.DR` sont encodées avec des numéros de secteur relatifs au début du conteneur, comme sur disque sous SAMOS.
+- Les sidecars optionnels `NAME.TT.meta.json` sont pris en charge pour les fichiers ordinaires et `NAME.DR.meta.json` pour les conteneurs de répertoire. Ils peuvent fournir `type` (validation uniquement), `flags`, `load`, `entry`, `date_month` et `date_year`.
+- Les écritures invitées ne sont pas encore implémentées.
+- Dans l'état actuel des builds natifs, des commandes invitées comme
+  `LIST DX1:`, `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS` et
+  `TYPE DX1:BOX:INNER.BS` fonctionnent sur le média virtuel DX1. Une règle CLI
+  est maintenant fixée : les noms de répertoire omettent aussi `.DR`, y compris
+  pour `CDIR`. Il ne faut donc pas utiliser des sondes comme
+  `CDIR DX1:BOX.DR` ; un vrai média disquette rejette aussi cette forme
+  (`CDIR DX1:M.DR` sur `Burotic.dsk` renvoie `fichier existant`).
+
+Sur les builds bureau natifs, `Ctrl+R` rafraîchit sur place toute disquette
+virtuelle montée depuis un répertoire hôte. En mode headless ou scripté, on
+peut faire la même chose avec `SIGUSR2`.
+
+Pour l'inspection et les tests, `-dump-vfd-manifest <file>` exporte le layout
+exact que l'émulateur prévoit de construire pour DX1, avec les secteurs, la
+taille, les champs de métadonnées issus des sidecars, ainsi que les valeurs de
+secteur absolues et encodées pour les entrées imbriquées `.DR`.
+
+Exemple de sidecar :
+
+```json
+{
+  "type": "SM",
+  "flags": 4660,
+  "load": "0x4601",
+  "entry": "0x5678",
+  "date_month": 12,
+  "date_year": 82
+}
+```
 
 ### Disque dur (Winchester)
 
@@ -355,8 +384,11 @@ python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/sys.dsk extract-all pri
 ### Sous-répertoires (fichiers `.DR`)
 
 SAMOS supporte les répertoires imbriqués stockés comme fichiers avec l'extension `.DR`.
-La commande CLI `CDIR NOM.DR` entre dans un sous-répertoire ; `CDIR` seul
-affiche le répertoire courant ; `CLEAR` revient à la racine.
+Sur disque, le conteneur s'appelle `NOM.DR`, mais dans les commandes CLI le
+composant de chemin omet le suffixe `.DR`. On utilise donc des formes comme
+`LIST NOM`, `TYPE NOM:INNER.BS` ou `LIST DX1:NOM` pour accéder à un
+sous-répertoire. `CDIR` seul affiche le répertoire courant ; `CLEAR` revient à
+la racine.
 
 Dans l'émulateur, les sous-répertoires fonctionnent de manière transparente —
 l'image disquette contient tous les secteurs et aucun traitement spécial n'est
