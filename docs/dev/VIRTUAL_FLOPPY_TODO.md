@@ -292,12 +292,12 @@ depending on unresolved boot-loader questions.
 
 The repo now contains a first native-only DX1 slice:
 
-- `-floppy2-hostdir <dir>` mounts a host directory as a read-only synthetic DX1
-  floppy at emulator startup
+- `-floppy2-hostdir <dir>` mounts a host directory as a writable in-memory DX1
+  overlay at emulator startup
 - the floppy backend now supports both file-backed and memory-backed media
 - the generated image is deterministic and uses contiguous allocation
-- the emulator prints a startup log line that DX1 is virtual, read-only, and
-  non-bootable in this first slice
+- the emulator prints a startup log line that DX1 is a writable in-memory
+  overlay and still non-bootable in this first slice
 
 Intentional limitations of the current implementation:
 
@@ -306,7 +306,8 @@ Intentional limitations of the current implementation:
 - no `.DR` subdirectory encoding yet
 - explicit refresh only for now (`Ctrl+R` or `SIGUSR2`); no automatic file
   watching yet
-- no guest write support yet
+- guest writes live only in the in-memory overlay; they are lost on refresh,
+  remount, or emulator exit and are not written back to the host tree
 
 ### Phase 1A - Lock down the source-of-truth format
 
@@ -503,14 +504,25 @@ Current status note:
   `CDIR` arguments. `CDIR DX1:M.DR` returns `fichier existant` even on the real
   floppy image `Burotic.dsk`, so `.DR`-suffixed CLI probes are not valid
   evidence against host-directory virtual media.
+- Manual-backed syntax note: the user guide documents `DX1:` as the device
+  prefix and `:` as the nested subdirectory separator, so forms such as
+  `CDIR DX1:DIR1:DIR2` are the expected behavior.
+- Correct semantic anchor: `CDIR` creates a directory; it is not a
+  change-directory oracle. The read-only DX1 hostdir fixture should therefore
+  reject `CDIR DX1:NEWBOX`, while a writable copied floppy image can create the
+  corresponding `NEWBOX.DR` entry.
 - The earlier controller investigation still matters: asserting port `0x19`
   bit 7 removed the old pre-read `disque protégé` abort and let `CDIR` reach
-  the normal floppy read path on both real and virtual DX1 media. Any future
-  `CDIR` work should therefore focus on CLI semantics or later controller state,
-  not on `.DR` image encoding.
+  the later controller state. The missing piece for harddisk-backed SAMOS was
+  the post-ROM port-`0x18` write stream; once implemented, `CDIR` stopped
+  hard-failing and writable floppy images could create directories again.
+- The headless automation surface is now a little stronger: `-inject-str`
+  accepts `\f` to wait for the next CLI prompt before injecting the next segment,
+  which allows reliable multi-step command probes such as
+  `"LIST DX1:\n\fLIST DX1:\n"`.
 - the resulting virtual disk is readable by SAMOS
 - the disk is explicitly documented as non-bootable
-- the virtual medium is explicitly read-only in the first milestone
+- the virtual medium uses a writable in-memory overlay in the first milestone
 
 ## Milestone 2 - bootable DX0 host-directory virtual floppy
 

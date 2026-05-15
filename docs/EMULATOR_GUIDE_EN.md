@@ -117,6 +117,10 @@ cd build
 > The floppy drive (if installed) occupies the DX1 slot.
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
 > configuration; only `-harddisk` + `-floppy2` matches real hardware.
+>
+> Hard-disk images are currently mounted with an in-memory write overlay.
+> Guest-side changes are visible to the running session, but the backing
+> `.DSK` file remains unchanged and the overlay is lost on remount or exit.
 
 ## 5. Command-Line Reference
 
@@ -126,7 +130,7 @@ cd build
 |--------|-------------|
 | `-floppy <img>` | Mount a floppy image on drive **DX0:** |
 | `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
-| `-floppy2-hostdir <dir>` | Build a read-only virtual floppy on **DX1:** from a host directory at startup; native builds only |
+| `-floppy2-hostdir <dir>` | Build a writable in-memory DX1 overlay from a host directory at startup; native builds only |
 | `-dump-vfd-manifest <file>` | Dump the planned DX1 host-directory layout as JSON; requires `-floppy2-hostdir`; use `-` for stdout |
 
 Current `-floppy2-hostdir` limitations:
@@ -135,6 +139,9 @@ Current `-floppy2-hostdir` limitations:
 - Native desktop builds only; the web build does not support this feature.
 - The first slice rebuilds at mount time and on explicit refresh (`Ctrl+R` or
   `SIGUSR2`); it does not watch the host directory automatically.
+- Guest-side writes land in the in-memory overlay only. They are visible to the
+  running emulator session but are discarded on refresh/remount or emulator
+  exit; the host directory stays untouched.
 - Host file names must currently use `NAME.TT` with a 1-8 character base name,
   `_` allowed, and a known 2-character Smaky type.
 - Host trees may also contain nested `NAME.DR/` directories. Entries inside a
@@ -143,13 +150,16 @@ Current `-floppy2-hostdir` limitations:
 - Optional sidecars `NAME.TT.meta.json` are supported for regular files and
   `NAME.DR.meta.json` for directory containers. They may provide `type`
   (validation only), `flags`, `load`, `entry`, `date_month`, and `date_year`.
-- Guest writes are not implemented yet.
 - In current native builds, guest commands such as `LIST DX1:`,
   `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS`, and `TYPE DX1:BOX:INNER.BS` work
   against the virtual DX1 media. One CLI rule is now pinned down: directory
   names also omit `.DR`, including `CDIR` arguments. Do not use probes such as
   `CDIR DX1:BOX.DR`; real floppy media rejects that form too (`CDIR DX1:M.DR`
   on `Burotic.dsk` reports `fichier existant`).
+- `CDIR` is a directory-creation command, not a change-directory oracle.
+  On writable floppy images, `CDIR DX1:NEWDIR` creates `NEWDIR.DR`. The current
+  hostdir-backed DX1 path now offers the same behavior through a writable
+  in-memory overlay, while still leaving the host files unchanged.
 
 For native desktop builds, `Ctrl+R` refreshes any mounted host-directory
 virtual floppy in place. Headless or scripted runs can do the same with
@@ -201,7 +211,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
 | Option | Description |
 |--------|-------------|
-| `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter. |
+| `-inject-str <s>` | Inject a string once the SAMOS `>` prompt is detected. Use `\n` for Enter and `\f` to wait for the next CLI prompt before continuing. |
 | `-inject-keycode <hex>` | Inject one raw keyboard code through the low-level CLA path once the CLI prompt is stable. Post-boot injected held keys now use the emulator's current best hardware model: the first CLA read returns a bit-7-set regular code, which can produce visible CLI text. |
 | `-inject-delay <f>` | Wait `f` frames after the CLI prompt appears before firing `-inject-str` or `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Hold `-inject-keycode` active for `f` ISR frames before releasing it (default `1`). |
@@ -212,6 +222,13 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
 ```bash
 ./smemu6 -floppy <disk.dsk> -no-launcher -inject-str "LIST\n"
+```
+
+**Example — run two commands on successive prompts:**
+
+```bash
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disk.dsk> \
+  -no-launcher -inject-str "LIST DX1:\n\fLIST DX1:\n"
 ```
 
 ### Display

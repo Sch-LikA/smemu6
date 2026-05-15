@@ -73,6 +73,7 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
                     (unsigned)Z80_PC(m->cpu), rtc_read_port(&m->rtc));
         }
         return rtc_read_port(&m->rtc);
+    case 0x18: return floppy_read_data18_ready(m);
     /* Port 0x19 bits[3:0] = current hard-sector index (used by SAMOS floppy code) */
     case 0x19: return floppy_read_sector19(m);
     /* Port 0x1A read: bit 7 = byte-ready flag (polled via IN F,(C)) */
@@ -194,6 +195,7 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         }
         rtc_write_port(&m->rtc, data);
         break;
+    case 0x18: floppy_write_data18(m, data);                    break;
     case 0x1A: floppy_write_cont(m, data);                      break;
     /* Port 0x19 write: Phantom ROM floppy command register.
      * This is NOT the bit-banged step-pulse port — that is port 0x1A only.

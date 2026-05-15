@@ -36,12 +36,18 @@ Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 File paths are shown truncated (last 46 chars with `…` prefix) on a sub-row
 directly below each disk row (Browse + Clear buttons).  A small `×` button clears the selection.
 
+- Winchester images mounted with `-harddisk` / `-harddisk2` now also use an
+  in-memory write overlay: guest writes are visible inside the running session
+  but are discarded on remount or emulator exit, leaving the `.DSK` file
+  untouched.
+
 ##### TODO — host-directory virtual floppy for DX0 / DX1
 
 - Initial native-only slice now exists for **DX1:** via `-floppy2-hostdir <dir>`.
-- Current limitations of that first slice include a read-only synthetic floppy,
-  DX1-only non-bootable use, explicit refresh only (`Ctrl+R` or `SIGUSR2`), no
-  automatic file watching yet, and no guest-write support yet.
+- Current limitations of that first slice include DX1-only non-bootable use,
+  explicit refresh only (`Ctrl+R` or `SIGUSR2`), no automatic file watching
+  yet, and an in-memory writable overlay whose guest changes are lost on
+  refresh or emulator exit and never written back to the host tree.
 - Host file names must currently follow `NAME.TT` with 1-8 base characters,
   `_` allowed, and a known 2-character Smaky type such as `SM`, `BS`, `SY`,
   `IM`, `HP`, or `RF`.
@@ -53,6 +59,14 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
   and `CDIR BOX` even though the on-disk container file is `BOX.DR`.
 - `.DR`-suffixed `CDIR` probes are invalid evidence: real floppy media also
   rejects forms such as `CDIR DX1:M.DR` with `fichier existant`.
+- The original user manual documents `DX1:` as the device prefix and `:` as the
+  subdirectory separator, so forms such as `CDIR DX1:DIR1:DIR2` are target
+  syntax.
+- Current emulator probes still fail that documented form on both real and
+  virtual DX1 media: `CDIR DX1:M`, `CDIR DX1:ZZZ`, and `CDIR DX1:BOX` currently
+  report `fichier inexistant`, even though direct paths such as `LIST DX1:BOX`
+  and `TYPE DX1:BOX:INNER.BS` work. Treat that as an open emulator/runtime gap,
+  not as evidence against the manual syntax.
 - Optional sidecars `NAME.TT.meta.json` are now supported for regular files and
   `NAME.DR.meta.json` for directory containers, with `type` validation plus
   `flags`, `load`, `entry`, `date_month`, and `date_year`.

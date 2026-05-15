@@ -128,6 +128,15 @@ struct Smaky6 {
         uint8_t  sec_buf[256];  /* current sector data */
         uint8_t  sec_csum;      /* checksum (sum of sec_buf[]) */
 
+        /* Post-ROM write-stream state machine (port 0x18 writes).
+         * SYS.SY emits: 40x 0x28 preamble, 0xFF marker, track byte,
+         * 256 data bytes, checksum, 0x00 trailer. */
+        uint16_t write_byte_pos;
+        uint8_t  write_track;
+        uint8_t  write_sector;
+        uint8_t  write_buf[256];
+        uint8_t  write_csum;
+
         /* Seek-busy simulation: counts down to 0 after a seek command.
          * While > 0: port 0x19 bit6=1 (seeking). When 0: bit6=0 (settled). */
         int      seek_busy;

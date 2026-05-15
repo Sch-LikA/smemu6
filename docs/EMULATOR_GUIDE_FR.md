@@ -117,6 +117,11 @@ cd build
 > Le lecteur de disquettes (s'il est installé) occupe l'emplacement DX1.
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
 > seul `-harddisk` + `-floppy2` correspond à la configuration matérielle réelle.
+>
+> Les images Winchester sont actuellement montées avec une surcouche
+> d'écriture en mémoire. Les modifications invitées sont visibles pendant la
+> session en cours, mais le fichier `.DSK` de base reste inchangé et la
+> surcouche est perdue au remontage ou à la fermeture de l'émulateur.
 
 ## 5. Référence des options
 
@@ -126,7 +131,7 @@ cd build
 |--------|-------------|
 | `-floppy <img>` | Monter une image disquette sur le lecteur **DX0:** |
 | `-floppy2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
-| `-floppy2-hostdir <dir>` | Construire au démarrage une disquette virtuelle **DX1:** en lecture seule depuis un répertoire hôte ; builds natifs uniquement |
+| `-floppy2-hostdir <dir>` | Construire au démarrage une surcouche DX1 inscriptible en mémoire depuis un répertoire hôte ; builds natifs uniquement |
 | `-dump-vfd-manifest <file>` | Exporter en JSON le layout prévu pour le répertoire hôte DX1 ; nécessite `-floppy2-hostdir` ; utiliser `-` pour stdout |
 
 Limites actuelles de `-floppy2-hostdir` :
@@ -134,10 +139,12 @@ Limites actuelles de `-floppy2-hostdir` :
 - DX1 uniquement ; les disquettes virtuelles amorçables sur DX0 ne sont pas encore implémentées.
 - Builds bureau natifs uniquement ; la version web ne prend pas cette fonction en charge.
 - Cette première tranche reconstruit au montage initial et lors d'un rafraîchissement explicite (`Ctrl+R` ou `SIGUSR2`) ; elle ne surveille pas encore automatiquement le répertoire hôte.
+- Les écritures invitées ne touchent que la surcouche en mémoire. Elles sont
+  visibles pendant la session en cours, puis perdues au rafraîchissement,
+  remontage ou à la fermeture de l'émulateur ; le répertoire hôte reste intact.
 - Les noms de fichiers doivent actuellement suivre `NAME.TT` avec un nom de base de 1 à 8 caractères, `_` autorisé, et un type Smaky à 2 caractères connu.
 - L'arborescence hôte peut aussi contenir des répertoires imbriqués `NAME.DR/`. Les entrées à l'intérieur d'un conteneur `.DR` sont encodées avec des numéros de secteur relatifs au début du conteneur, comme sur disque sous SAMOS.
 - Les sidecars optionnels `NAME.TT.meta.json` sont pris en charge pour les fichiers ordinaires et `NAME.DR.meta.json` pour les conteneurs de répertoire. Ils peuvent fournir `type` (validation uniquement), `flags`, `load`, `entry`, `date_month` et `date_year`.
-- Les écritures invitées ne sont pas encore implémentées.
 - Dans l'état actuel des builds natifs, des commandes invitées comme
   `LIST DX1:`, `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS` et
   `TYPE DX1:BOX:INNER.BS` fonctionnent sur le média virtuel DX1. Une règle CLI
@@ -145,6 +152,11 @@ Limites actuelles de `-floppy2-hostdir` :
   pour `CDIR`. Il ne faut donc pas utiliser des sondes comme
   `CDIR DX1:BOX.DR` ; un vrai média disquette rejette aussi cette forme
   (`CDIR DX1:M.DR` sur `Burotic.dsk` renvoie `fichier existant`).
+- `CDIR` est une commande de création de répertoire, pas une sonde fiable pour
+  changer de répertoire. Sur une image de disquette writable,
+  `CDIR DX1:NOUVDIR` crée `NOUVDIR.DR`. La tranche DX1 montée depuis un
+  répertoire hôte offre maintenant le même comportement via une surcouche
+  inscriptible en mémoire, sans modifier les fichiers hôte.
 
 Sur les builds bureau natifs, `Ctrl+R` rafraîchit sur place toute disquette
 virtuelle montée depuis un répertoire hôte. En mode headless ou scripté, on
@@ -197,7 +209,7 @@ valides sont :
 
 | Option | Description |
 |--------|-------------|
-| `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée. |
+| `-inject-str <s>` | Injecte une chaîne dès que l'invite `>` de SAMOS est détectée. Utiliser `\n` pour Entrée et `\f` pour attendre l'invite CLI suivante avant de continuer. |
 | `-inject-keycode <hex>` | Injecte un code clavier brut par le chemin CLA bas niveau une fois l'invite CLI stable. Les touches maintenues injectées post-boot utilisent maintenant le meilleur modèle matériel actuel de l'émulateur : la première lecture CLA renvoie un code régulier avec bit 7 positionné, ce qui peut produire du texte visible dans la CLI. |
 | `-inject-delay <f>` | Attend `f` trames après l'apparition de l'invite CLI avant de déclencher `-inject-str` ou `-inject-keycode`. |
 | `-inject-hold-frames <f>` | Maintient `-inject-keycode` actif pendant `f` trames d'ISR avant relâchement (défaut `1`). |
@@ -208,6 +220,13 @@ valides sont :
 
 ```bash
 ./smemu6 -floppy <disque.dsk> -no-launcher -inject-str "LIST\n"
+```
+
+**Exemple — exécuter deux commandes sur deux invites successives :**
+
+```bash
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disque.dsk> \
+  -no-launcher -inject-str "LIST DX1:\n\fLIST DX1:\n"
 ```
 
 ### Affichage

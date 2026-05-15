@@ -32,7 +32,7 @@ SDL_VIDEODRIVER=dummy "$smemu6_bin" \
     > "$stdout_log" 2> "$stderr_log"
 
 grep -F "mounted virtual host directory '$tmp_dir' on DX1" "$stderr_log" >/dev/null
-grep -F "DX1 is virtual, read-only, and non-bootable" "$stderr_log" >/dev/null
+grep -F "writable in-memory overlay over host directory '$tmp_dir'" "$stderr_log" >/dev/null
 grep -F "ALPHA.BS" "$stderr_log" >/dev/null
 grep -F "BOX.DR" "$stderr_log" >/dev/null
 grep -F "Blocs libres" "$stderr_log" >/dev/null

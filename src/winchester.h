@@ -6,7 +6,7 @@
  *
  * I/O port map (port & 0x3F):
  *   0x20  R    Data register — read sector data (INIR reads 256 bytes)
- *   0x20  W    Data register — write sector data (future)
+ *   0x20  W    Data register — write sector data into an in-memory overlay
  *   0x21  R    Error register (read) — bit 2 = ECC error; return 0 = no error
  *   0x21  W    Write precompensation cyl (ignored)
  *   0x23  W    Sector number (bits[4:0] = sector 0-31)
@@ -44,6 +44,8 @@
  * Images: SM6WIN0.DSK (drive 0) and SM6WIN1.DSK (drive 1).
  * Each 16 MB; only the first ~1054 sectors (269 KB) are non-zero.
  * Load with -harddisk <path> (drive 0) and -harddisk2 <path> (drive 1).
+ * Guest writes update a per-drive in-memory sector overlay; the backing .DSK
+ * file stays unchanged and the overlay is lost on remount or emulator exit.
  */
 #ifndef WINCHESTER_H
 #define WINCHESTER_H
@@ -62,10 +64,17 @@ typedef enum {
 } WdPhase;
 
 typedef struct {
+    uint32_t lba;
+    uint8_t  data[WIN_SECTOR_SIZE];
+} WinOverlaySector;
+
+typedef struct {
     FILE    *image[2];          /* disk image files (NULL = not mounted)  */
     WdPhase  phase;
     uint8_t  sector_buf[WIN_SECTOR_SIZE]; /* current sector data           */
     int      data_idx;          /* next byte position in sector_buf        */
+    uint32_t write_lba;         /* target LBA for current WRITE SECTOR     */
+    uint8_t  write_drive;       /* target drive for current WRITE SECTOR   */
 
     /* CHS registers (written by Z80 before issuing a command) */
     uint8_t  sector_num;        /* port 0x23 — sector 0-31                 */
@@ -77,6 +86,10 @@ typedef struct {
     int      disk_active[2];    /* down-counter: non-zero = LED lit         */
     uint16_t last_cyl[2];       /* last cylinder accessed per drive         */
     uint8_t  last_head[2];      /* last head accessed per drive             */
+
+    WinOverlaySector *overlay[2];
+    size_t            overlay_count[2];
+    size_t            overlay_capacity[2];
 
     int      trace;             /* non-zero: log transactions to stderr    */
 } WinState;

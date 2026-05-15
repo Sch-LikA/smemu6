@@ -64,8 +64,10 @@ int     floppy_refresh_virtual(struct Smaky6 *m, int drive);
 /* Port read/write from Z80 */
 uint8_t floppy_read_stat(struct Smaky6 *m);    /* legacy status bits */
 uint8_t floppy_read_sector19(struct Smaky6 *m);/* port 0x19 [3:0] = sector */
+uint8_t floppy_read_data18_ready(struct Smaky6 *m); /* port 0x18 read: bit7=ready */
 uint8_t floppy_read_cont(struct Smaky6 *m);    /* port 0x1A read: bit7=ready */
 uint8_t floppy_read_data(struct Smaky6 *m);    /* port 0x1B: streaming bytes */
+void    floppy_write_data18(struct Smaky6 *m, uint8_t val); /* port 0x18 stream */
 void    floppy_write_cont(struct Smaky6 *m, uint8_t val);
 
 /* Advance the sector counter (call every ~2 ms for 300 RPM emulation) */

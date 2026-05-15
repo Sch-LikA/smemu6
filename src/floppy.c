@@ -22,6 +22,11 @@ static void floppy_reset_stream_state(struct Smaky6 *m, int drive)
     m->fdc.byte_pos = 0;
     m->fdc.sec_csum = 0;
     memset(m->fdc.sec_buf, 0, sizeof(m->fdc.sec_buf));
+    m->fdc.write_byte_pos = 0;
+    m->fdc.write_track = 0;
+    m->fdc.write_sector = 0;
+    m->fdc.write_csum = 0;
+    memset(m->fdc.write_buf, 0, sizeof(m->fdc.write_buf));
     m->fdc.disk_active[drive] = 0;
     m->fdc.phased_sector[drive] = 0;
 }
@@ -94,6 +99,37 @@ static int floppy_read_sector_bytes(struct FloppyMedia *media, long offset,
     return -1;
 }
 
+static int floppy_write_sector_bytes(struct FloppyMedia *media, long offset,
+                                     const uint8_t *in)
+{
+    if (media->kind == FLOPPY_MEDIA_FILE) {
+        if (media->read_only || !media->file) {
+            return -1;
+        }
+        if (fseek(media->file, offset, SEEK_SET) != 0) {
+            return -1;
+        }
+        if (fwrite(in, 1, FLOPPY_SECTOR_BYTES, media->file) != FLOPPY_SECTOR_BYTES) {
+            return -1;
+        }
+        fflush(media->file);
+        return 0;
+    }
+
+    if (media->kind == FLOPPY_MEDIA_MEMORY) {
+        if (media->read_only) {
+            return -1;
+        }
+        if (offset < 0 || (size_t)offset + FLOPPY_SECTOR_BYTES > media->size) {
+            return -1;
+        }
+        memcpy(media->data + offset, in, FLOPPY_SECTOR_BYTES);
+        return 0;
+    }
+
+    return -1;
+}
+
 void floppy_init(struct Smaky6 *m)
 {
     for (int d = 0; d < 2; d++) {
@@ -106,6 +142,10 @@ void floppy_init(struct Smaky6 *m)
     m->fdc.step_prev = 0;
     m->fdc.byte_pos  = 0;
     m->fdc.sec_csum  = 0;
+    m->fdc.write_byte_pos = 0;
+    m->fdc.write_track = 0;
+    m->fdc.write_sector = 0;
+    m->fdc.write_csum = 0;
     m->fdc.seek_busy = 0;
     m->fdc.disk_active[0] = 0;
     m->fdc.disk_active[1] = 0;
@@ -114,6 +154,7 @@ void floppy_init(struct Smaky6 *m)
     m->fdc.phased_sector[0]  = 0;
     m->fdc.phased_sector[1]  = 0;
     memset(m->fdc.sec_buf, 0, sizeof(m->fdc.sec_buf));
+    memset(m->fdc.write_buf, 0, sizeof(m->fdc.write_buf));
 }
 
 void floppy_fini(struct Smaky6 *m)
@@ -178,7 +219,7 @@ int floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path)
     m->fdc.media[drive].kind = FLOPPY_MEDIA_MEMORY;
     m->fdc.media[drive].data = image;
     m->fdc.media[drive].size = image_size;
-    m->fdc.media[drive].read_only = 1;
+    m->fdc.media[drive].read_only = 0;
     m->fdc.media[drive].refreshable = 1;
     snprintf(m->fdc.media[drive].source_path,
              sizeof(m->fdc.media[drive].source_path), "%s", path);
@@ -188,8 +229,8 @@ int floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path)
     floppy_apply_geometry(m, drive, image_size, path,
                           "virtual host directory");
     fprintf(stderr,
-            "floppy: DX%d is virtual, read-only, and non-bootable in this first host-directory slice\n",
-            drive);
+            "floppy: DX%d is a writable in-memory overlay over host directory '%s'; changes are not written back to the host and are lost on remount or exit\n",
+            drive, path);
     return 0;
 }
 
@@ -266,6 +307,12 @@ uint8_t floppy_read_sector19(struct Smaky6 *m)
     } else {
     }
     return val;
+}
+
+uint8_t floppy_read_data18_ready(struct Smaky6 *m)
+{
+    (void)m;
+    return 0x80u;
 }
 
 /* Port 0x1A read: bit 7 = 1 means "data byte ready".
@@ -375,6 +422,85 @@ uint8_t floppy_read_data(struct Smaky6 *m)
     m->fdc.sector   = (m->fdc.sector + 1) % FLOPPY_SECTORS;
     m->fdc.byte_pos = 0;
     return ck;
+}
+
+void floppy_write_data18(struct Smaky6 *m, uint8_t val)
+{
+    int drive = m->fdc.selected_drive;
+    uint16_t pos = m->fdc.write_byte_pos;
+
+    if (!floppy_media_is_mounted(&m->fdc.media[drive])) {
+        m->fdc.write_byte_pos = 0;
+        return;
+    }
+
+    if (pos < 40u) {
+        if (val != 0x28u) {
+            m->fdc.write_byte_pos = 0;
+            return;
+        }
+        m->fdc.write_byte_pos = pos + 1u;
+        return;
+    }
+
+    if (pos == 40u) {
+        if (val != 0xFFu) {
+            m->fdc.write_byte_pos = 0;
+            return;
+        }
+        m->fdc.write_byte_pos = 41u;
+        return;
+    }
+
+    if (pos == 41u) {
+        m->fdc.write_track = val;
+        m->fdc.write_sector = m->fdc.sector & 0x0Fu;
+        m->fdc.write_csum = 0;
+        memset(m->fdc.write_buf, 0, sizeof(m->fdc.write_buf));
+        m->fdc.write_byte_pos = 42u;
+        return;
+    }
+
+    if (pos >= 42u && pos < 42u + FLOPPY_SECTOR_BYTES) {
+        unsigned index = (unsigned)(pos - 42u);
+        m->fdc.write_buf[index] = val;
+        m->fdc.write_csum = (uint8_t)(m->fdc.write_csum + val);
+        m->fdc.write_byte_pos = pos + 1u;
+        return;
+    }
+
+    if (pos == 42u + FLOPPY_SECTOR_BYTES) {
+        uint8_t track = m->fdc.write_track;
+        uint8_t sector = m->fdc.write_sector & 0x0Fu;
+        uint8_t max_track = m->fdc.num_tracks[drive] - 1u;
+        if (track > max_track) {
+            track = max_track;
+        }
+        if (val == m->fdc.write_csum) {
+            long offset = ((long)track * FLOPPY_SECTORS + sector) * FLOPPY_SECTOR_BYTES;
+            if (floppy_write_sector_bytes(&m->fdc.media[drive], offset, m->fdc.write_buf) == 0) {
+                m->fdc.disk_active[drive] = 6;
+                m->fdc.phased_sector[drive] = sector;
+                if (m->dbg.trace_fdc) {
+                    fprintf(stderr,
+                            "[fdc] wr pc=%04X drv=%d trk=%u sec=%u sum=%02X\n",
+                            (unsigned)Z80_PC(m->cpu), drive,
+                            (unsigned)track, (unsigned)sector,
+                            (unsigned)val);
+                }
+            }
+        } else if (m->dbg.trace_fdc) {
+            fprintf(stderr,
+                    "[fdc] wrsum pc=%04X drv=%d trk=%u sec=%u got=%02X exp=%02X\n",
+                    (unsigned)Z80_PC(m->cpu), drive,
+                    (unsigned)track, (unsigned)sector,
+                    (unsigned)val, (unsigned)m->fdc.write_csum);
+        }
+        m->fdc.write_byte_pos = pos + 1u;
+        return;
+    }
+
+    m->fdc.write_byte_pos = (val == 0x28u) ? 1u : 0u;
 }
 
 void floppy_write_cont(struct Smaky6 *m, uint8_t val)

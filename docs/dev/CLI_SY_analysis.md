@@ -45,7 +45,7 @@ dispatcher to validate that an argument was supplied.
 
 | # | Name     | Handler (RAM) | Flag | Notes                   |
 |---|----------|---------------|------|-------------------------|
-| 0 | CDIR     | `0x621B`      | 0    | Change/list directory   |
+| 0 | CDIR     | `0x621B`      | 0    | Create directory / display current directory |
 | 1 | HELP     | `0x623F`      | 0    |                         |
 | 2 | LINE     | `0x62F0`      | 1    |                         |
 | 3 | SET      | `0x6325`      | 1    |                         |

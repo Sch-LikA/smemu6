@@ -219,12 +219,13 @@ The Smaky 6 uses **subdirectories** stored as files with the `.DR` extension.
 
 ```
 > CDIR              — displays current directory
-> CDIR PROJECTS     — enters the PROJECTS subdirectory
+> CDIR PROJECTS     — creates the PROJECTS subdirectory
+> CDIR DX1:DIR1:DIR2 — creates DIR2 inside DIR1 on drive DX1: (when the media is writable)
 > CDIR ..           — goes up one level (if supported)
 > CLEAR             — clears screen and returns to root directory
 ```
 
-Equivalents: DOS `CD` / `DIR` — Unix `cd` / `ls`
+Equivalents: DOS `MD` / `DIR` — Unix `mkdir` / `pwd`
 
 ---
 
@@ -450,7 +451,7 @@ Errors are displayed as `ERROR nnn` where `nnn` is the code in **octal**.
 |------------------|---------------------------------|------------------|----------------------|
 | `LIST`           | List directory                  | `DIR`            | `ls -l`              |
 | `LIST DX1:`      | List drive DX1:                 | `DIR B:`         | `ls /mnt/dx1`        |
-| `CDIR NAME`      | Change directory                | `CD NAME`        | `cd NAME`            |
+| `CDIR NAME`      | Create subdirectory            | `MD NAME`        | `mkdir NAME`         |
 | `COPY SRC DEST`  | Copy a file                     | `COPY SRC DEST`  | `cp SRC DEST`        |
 | `DELETE NAME`    | Delete a file                   | `DEL NAME`       | `rm NAME`            |
 | `SET OLD NEW`    | Rename a file                   | `REN OLD NEW`    | `mv OLD NEW`         |

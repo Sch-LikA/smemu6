@@ -198,6 +198,7 @@ on screen.  The string is converted to uppercase Smaky key codes:
 | Escape sequence | Result              |
 |-----------------|---------------------|
 | `\n`            | Enter (CR, `0x0D`)  |
+| `\f`            | Wait for the next CLI prompt before injecting the following bytes |
 | `a`–`z`         | Uppercased to `A`–`Z` |
 | `A`–`Z`, `0`–`9`, space | Passed as-is |
 | Other characters | Skipped            |
@@ -205,6 +206,10 @@ on screen.  The string is converted to uppercase Smaky key codes:
 ```bash
 # Run the LIST command automatically after boot
 ./smemu6 -floppy sys.dsk -inject-str "LIST\n"
+
+# Run one command, wait for the next prompt, then run another
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 sys.dsk \
+    -inject-str "LIST DX1:\n\fLIST DX1:\n"
 ```
 
 #### `-inject-delay <frames>`

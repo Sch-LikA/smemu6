@@ -221,12 +221,13 @@ l'extension `.DR`.
 
 ```
 > CDIR              — affiche le répertoire courant
-> CDIR PROJETS      — entre dans le sous-répertoire PROJETS
+> CDIR PROJETS      — crée le sous-répertoire PROJETS
+> CDIR DX1:DIR1:DIR2 — crée DIR2 à l'intérieur de DIR1 sur DX1: (si le média est inscriptible)
 > CDIR ..           — remonte d'un niveau (si supporté)
 > CLEAR             — efface l'écran et revient au répertoire racine
 ```
 
-Équivalents : DOS `CD` / `DIR` — Unix `cd` / `ls`
+Équivalents : DOS `MD` / `DIR` — Unix `mkdir` / `pwd`
 
 ---
 
@@ -453,7 +454,7 @@ Les erreurs sont affichées sous la forme `ERROR nnn` où `nnn` est le code en *
 |------------------|-----------------------------------|------------------|----------------------|
 | `LIST`           | Lister le répertoire              | `DIR`            | `ls -l`              |
 | `LIST DX1:`      | Lister le lecteur DX1:            | `DIR B:`         | `ls /mnt/dx1`        |
-| `CDIR NOM`       | Changer de répertoire             | `CD NOM`         | `cd NOM`             |
+| `CDIR NOM`       | Créer un sous-répertoire          | `MD NOM`         | `mkdir NOM`          |
 | `COPY SRC DEST`  | Copier un fichier                 | `COPY SRC DEST`  | `cp SRC DEST`        |
 | `DELETE NOM`     | Supprimer un fichier              | `DEL NOM`        | `rm NOM`             |
 | `SET OLD NEW`    | Renommer un fichier               | `REN OLD NEW`    | `mv OLD NEW`         |

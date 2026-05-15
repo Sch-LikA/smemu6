@@ -38,12 +38,64 @@ static int selected_drive(const WinState *w)
     return (w->sdh >> 3) & 1;
 }
 
+static WinOverlaySector *find_overlay_sector(WinState *w, int drive, uint32_t lba)
+{
+    for (size_t i = 0; i < w->overlay_count[drive]; i++) {
+        if (w->overlay[drive][i].lba == lba) {
+            return &w->overlay[drive][i];
+        }
+    }
+    return NULL;
+}
+
+static void clear_overlay_drive(WinState *w, int drive)
+{
+    free(w->overlay[drive]);
+    w->overlay[drive] = NULL;
+    w->overlay_count[drive] = 0;
+    w->overlay_capacity[drive] = 0;
+}
+
+static int store_overlay_sector(WinState *w, int drive, uint32_t lba,
+                                const uint8_t *data)
+{
+    WinOverlaySector *entry = find_overlay_sector(w, drive, lba);
+    if (entry) {
+        memcpy(entry->data, data, WIN_SECTOR_SIZE);
+        return 0;
+    }
+
+    if (w->overlay_count[drive] == w->overlay_capacity[drive]) {
+        size_t new_capacity = w->overlay_capacity[drive] ? w->overlay_capacity[drive] * 2u : 16u;
+        WinOverlaySector *new_overlay = realloc(w->overlay[drive], new_capacity * sizeof(*new_overlay));
+        if (!new_overlay) {
+            return -1;
+        }
+        w->overlay[drive] = new_overlay;
+        w->overlay_capacity[drive] = new_capacity;
+    }
+
+    entry = &w->overlay[drive][w->overlay_count[drive]++];
+    entry->lba = lba;
+    memcpy(entry->data, data, WIN_SECTOR_SIZE);
+    return 0;
+}
+
 /* Fill sector_buf with 256 bytes from the image at LBA.
  * Returns 0 on success, -1 if no image or seek error. */
 static int read_sector(WinState *w, uint32_t lba)
 {
     int drv = selected_drive(w);
     memset(w->sector_buf, 0, WIN_SECTOR_SIZE);
+
+    WinOverlaySector *overlay = find_overlay_sector(w, drv, lba);
+    if (overlay) {
+        memcpy(w->sector_buf, overlay->data, WIN_SECTOR_SIZE);
+        if (w->trace)
+            fprintf(stderr, "[win] READ overlay drv=%d lba=%u\n",
+                    drv, (unsigned)lba);
+        return 0;
+    }
 
     if (!w->image[drv]) {
         if (w->trace)
@@ -105,6 +157,7 @@ int winchester_load(WinState *w, int drive, const char *path)
         fclose(w->image[drive]);
         w->image[drive] = NULL;
     }
+    clear_overlay_drive(w, drive);
     w->image[drive] = fopen(path, "rb");
     if (!w->image[drive]) {
         fprintf(stderr, "[win] cannot open drive %d image: %s\n", drive, path);
@@ -118,6 +171,7 @@ void winchester_fini(WinState *w)
 {
     for (int i = 0; i < 2; i++) {
         if (w->image[i]) { fclose(w->image[i]); w->image[i] = NULL; }
+        clear_overlay_drive(w, i);
     }
 }
 
@@ -183,7 +237,8 @@ void winchester_write_sdh   (WinState *w, uint8_t v) { w->sdh    = v; }
  * Supported commands:
  *   0x1n — RESTORE (recalibrate): seek to cylinder 0
  *   0x2n — READ SECTOR: load sector into buf, set DRQ
- *   0x3n — WRITE SECTOR: set up write phase (stub — discards data for now)
+ *   0x3n — WRITE SECTOR: collect 256 bytes and commit them to the in-memory
+ *          overlay for the selected drive
  *
  * The emulator executes commands instantly (no BSY delay) because the
  * Phantom ROM polls port 0x27 in a tight loop and the emulator runs
@@ -221,7 +276,15 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
         }
         break;
 
-    case 0x30u:  /* WRITE SECTOR (stub — data discarded) */
+    case 0x30u:  /* WRITE SECTOR */
+        if (!w->image[drv]) {
+            w->phase = WD_IDLE;
+            w->data_idx = 0;
+            break;
+        }
+        w->write_lba = chs_to_lba(w);
+        w->write_drive = (uint8_t)drv;
+        memset(w->sector_buf, 0, sizeof(w->sector_buf));
         w->data_idx = 0;
         w->phase    = WD_WRITING;
         /* Update per-drive status */
@@ -229,9 +292,8 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
         w->last_head[drv] = w->sdh & 0x07u;
         w->disk_active[drv] = 6;
         if (w->trace) {
-            uint32_t lba = chs_to_lba(w);
-            fprintf(stderr, "[win] CMD WRITE lba=%u (stub — discarded)\n",
-                    (unsigned)lba);
+            fprintf(stderr, "[win] CMD WRITE lba=%u (overlay)\n",
+                    (unsigned)w->write_lba);
         }
         break;
 
@@ -255,15 +317,21 @@ void winchester_write_cmd(WinState *w, uint8_t cmd)
 }
 
 /*
- * Data write (port 0x20 OUT): collect bytes during WRITE SECTOR.
- * Currently a stub — bytes are counted but discarded.
+ * Data write (port 0x20 OUT): collect bytes during WRITE SECTOR and commit the
+ * completed 256-byte sector into the in-memory overlay.
  */
 void winchester_write_data(WinState *w, uint8_t data)
 {
-    (void)data;
     if (w->phase != WD_WRITING) return;
 
+    w->sector_buf[w->data_idx] = data;
     w->data_idx = (w->data_idx + 1) & 0xFF;
-    if (w->data_idx == 0)
+    if (w->data_idx == 0) {
+        if (store_overlay_sector(w, (int)w->write_drive, w->write_lba,
+                                 w->sector_buf) != 0) {
+            fprintf(stderr, "[win] overlay allocation failed for drv=%u lba=%u\n",
+                    (unsigned)w->write_drive, (unsigned)w->write_lba);
+        }
         w->phase = WD_IDLE;
+    }
 }

@@ -136,13 +136,13 @@ static void usage(const char *argv0)
         "Usage: %s [options]\n"
         "  -floppy <img>  Mount floppy image on DX0\n"
         "  -floppy2 <img> Mount floppy image on DX1\n"
-        "  -floppy2-hostdir <dir> Build a read-only virtual DX1 floppy from host files (native only)\n"
+        "  -floppy2-hostdir <dir> Build a writable in-memory DX1 overlay from host files (native only)\n"
         "  -dump-vfd-manifest <file>  Dump the DX1 host-directory virtual floppy layout as JSON ('-' = stdout)\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
-        "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR)\n"
+        "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR, \\f to wait for next prompt)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
         "  -inject-at-frame <n> Inject at absolute frame n instead of waiting for CLI prompt\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
@@ -221,6 +221,10 @@ typedef struct {
 } MainLoopCtx;
 
 static MainLoopCtx *s_loop = NULL;
+
+enum {
+    INJECT_WAIT_FOR_NEXT_PROMPT = 0xFF
+};
 
 /* Check both timeout watchdogs.  Sets L->running=0 and returns 1 if either
  * threshold was exceeded; otherwise returns 0.  Safe to call multiple times
@@ -538,19 +542,27 @@ static void main_loop_iter(void)
             }
         }
 
-        if (L->inject_len > 0 && L->inject_idx == 0 &&
+        if (L->inject_len > 0 && L->inject_idx < L->inject_len &&
             injection_ready(L, prompt_now)) {
+            int start = L->inject_idx;
+            int end = start;
+
+            while (end < L->inject_len &&
+                   L->inject_codes[end] != INJECT_WAIT_FOR_NEXT_PROMPT) {
+                end++;
+            }
+
             if (L->trace) {
                 if (L->inject_at_frame >= 0)
                     fprintf(stderr,
                             "[inject] frame %d reached; writing %d char(s) via circular buffer\n",
-                            L->frame_cnt, L->inject_len);
+                            L->frame_cnt, end - start);
                 else
                     fprintf(stderr,
                             "[inject] CLI prompt stable at frame %d; writing %d char(s) via circular buffer\n",
-                            L->frame_cnt, L->inject_len);
+                            L->frame_cnt, end - start);
             }
-            for (int i = 0; i < L->inject_len; i++) {
+            for (int i = start; i < end; i++) {
                 uint8_t kc = L->inject_codes[i];
                 machine_inject_to_circ_buf(L->m, kc);
                 if (L->trace)
@@ -558,9 +570,14 @@ static void main_loop_iter(void)
                             "[inject] circ_buf <- 0x%02X ('%c') (char %d/%d)\n",
                             (unsigned)kc,
                             (kc >= 0x20 && kc < 0x7F) ? (char)kc : '?',
-                            i + 1, L->inject_len);
+                            (i - start) + 1, end - start);
             }
-            L->inject_idx = L->inject_len;
+            L->inject_idx = end;
+            if (L->inject_idx < L->inject_len &&
+                L->inject_codes[L->inject_idx] == INJECT_WAIT_FOR_NEXT_PROMPT) {
+                L->inject_idx++;
+                L->inject_at_prompt++;
+            }
         }
     }
 
@@ -712,6 +729,9 @@ int main(int argc, char *argv[])
                 if (c == '\\' && s[j + 1] == 'n') {
                     inject_codes[inject_len++] = 0x0D; /* Enter (CR, 0x0D) */
                     j++;
+                } else if (c == '\\' && s[j + 1] == 'f') {
+                    inject_codes[inject_len++] = INJECT_WAIT_FOR_NEXT_PROMPT;
+                    j++;
                 } else if (c >= 'a' && c <= 'z') {
                     inject_codes[inject_len++] = (uint8_t)(c - 0x20); /* uppercase */
                 } else if (c >= 'A' && c <= 'Z') {
@@ -720,7 +740,7 @@ int main(int argc, char *argv[])
                     inject_codes[inject_len++] = (uint8_t)c;
                 } else if (c == ' ') {
                     inject_codes[inject_len++] = 0x20;
-                } else if (c == '.' || c == ':' || c == '-' || c == '_') {
+                } else if (c == '.' || c == ':' || c == '-' || c == '_' || c == '/') {
                     inject_codes[inject_len++] = (uint8_t)c;
                 } else if (c == '\n' || c == '\r') {
                     inject_codes[inject_len++] = 0x0D;

@@ -9,16 +9,15 @@ fi
 
 smemu6_bin="$1"
 repo_root="$2"
-tmp_dir="$repo_root/tmp/ctest-vfd-dx1-subdir-list"
+tmp_dir="$repo_root/tmp/ctest-vfd-dx1-cdir-overlay"
 stderr_log="$tmp_dir/screen.log"
 stdout_log="$tmp_dir/stdout.log"
 
 rm -rf "$tmp_dir"
-mkdir -p "$tmp_dir/BOX.DR"
+mkdir -p "$tmp_dir"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 printf 'ROOT\n' > "$tmp_dir/ALPHA.BS"
-printf 'INNER\n' > "$tmp_dir/BOX.DR/INNER.BS"
 
 SDL_VIDEODRIVER=dummy "$smemu6_bin" \
     -no-launcher \
@@ -27,13 +26,16 @@ SDL_VIDEODRIVER=dummy "$smemu6_bin" \
     -floppy2-hostdir "$tmp_dir" \
     -no-display-off \
     -scrdump \
-    -inject-str 'LIST DX1:BOX\n' \
-    -timeout 12 \
+    -inject-str 'CDIR DX1:NEWBOX\n\fLIST DX1:\n' \
+    -timeout 35 \
     > "$stdout_log" 2> "$stderr_log"
 
 grep -F "mounted virtual host directory '$tmp_dir' on DX1" "$stderr_log" >/dev/null
 grep -F "writable in-memory overlay over host directory '$tmp_dir'" "$stderr_log" >/dev/null
-grep -F "LIST DX1:BOX" "$stderr_log" >/dev/null
-grep -F "INNER.BS" "$stderr_log" >/dev/null
-grep -F "R p BOX" "$stderr_log" >/dev/null
-grep -F "Blocs libres" "$stderr_log" >/dev/null
+grep -F "CDIR DX1:NEWBOX" "$stderr_log" >/dev/null
+grep -F "LIST DX1:" "$stderr_log" >/dev/null
+grep -F "NEWBOX" "$stderr_log" >/dev/null
+if [[ -e "$tmp_dir/NEWBOX.DR" ]]; then
+    echo "unexpected NEWBOX.DR created in host directory; overlay must stay in memory" >&2
+    exit 1
+fi

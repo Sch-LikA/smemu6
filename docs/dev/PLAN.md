@@ -397,7 +397,7 @@ to enter the Phantom ROM monitor entry path (`"ROM de chargement rev 1-7"` banne
   first 3 sectors (768 bytes) hold up to 32 sub-directory entries in the same
   24-byte format as the root directory.  Sector addresses inside a sub-directory
   are **relative to the `.DR` entry's own start sector** (not absolute disk
-  sectors).  The CLI command `CDIR NAME` enters the subdirectory; `CDIR`
+  sectors).  The CLI command `CDIR NAME` creates the subdirectory; `CDIR`
   alone lists the current directory; `CLEAR` returns to the root.  The emulator
   transparently serves all sectors from the flat image regardless of filesystem
   structure — no emulator-side changes are required for `.DR` support.
