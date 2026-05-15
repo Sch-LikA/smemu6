@@ -4,6 +4,7 @@
 #include "machine_internal.h"
 #include "floppy.h"
 #include "sound.h"
+#include "virtual_floppy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,10 +12,81 @@
 
 /* Direct field access: struct Smaky6 fully visible via machine_internal.h */
 
+static int floppy_media_is_mounted(const struct FloppyMedia *media)
+{
+    return media->kind != FLOPPY_MEDIA_NONE;
+}
+
+static void floppy_unmount_drive(struct Smaky6 *m, int drive)
+{
+    struct FloppyMedia *media = &m->fdc.media[drive];
+
+    if (media->kind == FLOPPY_MEDIA_FILE && media->file) {
+        fclose(media->file);
+    }
+    free(media->data);
+    memset(media, 0, sizeof(*media));
+    m->fdc.track[drive] = 0;
+    m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
+}
+
+static void floppy_apply_geometry(struct Smaky6 *m, int drive, size_t size,
+                                  const char *path, const char *kind)
+{
+    if (size == FLOPPY_IMAGE_77) {
+        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_77;
+        fprintf(stderr, "floppy: mounted %s '%s' on DX%d (77 tracks, 315 KB)\n",
+                kind, path, drive);
+    } else if (size == FLOPPY_IMAGE_40) {
+        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
+        fprintf(stderr, "floppy: mounted %s '%s' on DX%d (40 tracks, 160 KB)\n",
+                kind, path, drive);
+    } else {
+        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
+        fprintf(stderr,
+                "floppy: WARNING: %s '%s' has unexpected size %zu bytes; assuming 40 tracks\n",
+                kind, path, size);
+    }
+    m->fdc.track[drive] = 0;
+}
+
+static int floppy_read_sector_bytes(struct FloppyMedia *media, long offset,
+                                    uint8_t *out)
+{
+    if (media->kind == FLOPPY_MEDIA_FILE) {
+        if (fseek(media->file, offset, SEEK_SET) != 0) {
+            return -1;
+        }
+        size_t n = fread(out, 1, FLOPPY_SECTOR_BYTES, media->file);
+        if (n < FLOPPY_SECTOR_BYTES) {
+            memset(out + n, 0, FLOPPY_SECTOR_BYTES - n);
+        }
+        return 0;
+    }
+
+    if (media->kind == FLOPPY_MEDIA_MEMORY) {
+        if (offset < 0 || (size_t)offset >= media->size) {
+            memset(out, 0, FLOPPY_SECTOR_BYTES);
+            return -1;
+        }
+
+        size_t available = media->size - (size_t)offset;
+        size_t n = available < FLOPPY_SECTOR_BYTES ? available : FLOPPY_SECTOR_BYTES;
+        memcpy(out, media->data + offset, n);
+        if (n < FLOPPY_SECTOR_BYTES) {
+            memset(out + n, 0, FLOPPY_SECTOR_BYTES - n);
+        }
+        return 0;
+    }
+
+    memset(out, 0, FLOPPY_SECTOR_BYTES);
+    return -1;
+}
+
 void floppy_init(struct Smaky6 *m)
 {
     for (int d = 0; d < 2; d++) {
-        m->fdc.image[d]      = NULL;
+        memset(&m->fdc.media[d], 0, sizeof(m->fdc.media[d]));
         m->fdc.track[d]      = 0;
         m->fdc.num_tracks[d] = FLOPPY_TRACKS_40;
     }
@@ -36,40 +108,71 @@ void floppy_init(struct Smaky6 *m)
 void floppy_fini(struct Smaky6 *m)
 {
     for (int d = 0; d < 2; d++) {
-        if (m->fdc.image[d]) { fclose(m->fdc.image[d]); m->fdc.image[d] = NULL; }
+        floppy_unmount_drive(m, d);
     }
 }
 
 int floppy_mount(struct Smaky6 *m, int drive, const char *path)
 {
-    if (m->fdc.image[drive]) { fclose(m->fdc.image[drive]); m->fdc.image[drive] = NULL; }
+    floppy_unmount_drive(m, drive);
     if (!path) return 0;
 
-    m->fdc.image[drive] = fopen(path, "r+b");
-    if (!m->fdc.image[drive]) {
+    m->fdc.media[drive].file = fopen(path, "r+b");
+    if (!m->fdc.media[drive].file) {
         fprintf(stderr, "floppy: cannot open '%s'\n", path);
         return -1;
     }
+    m->fdc.media[drive].kind = FLOPPY_MEDIA_FILE;
+    m->fdc.media[drive].read_only = 0;
+    snprintf(m->fdc.media[drive].description,
+             sizeof(m->fdc.media[drive].description), "%s", path);
 
     /* Auto-detect geometry from file size */
-    fseek(m->fdc.image[drive], 0, SEEK_END);
-    long sz = ftell(m->fdc.image[drive]);
-    rewind(m->fdc.image[drive]);
-
-    if ((unsigned long)sz == FLOPPY_IMAGE_77) {
-        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_77;
-        fprintf(stderr, "floppy: mounted '%s' on DX%d (77 tracks, 315 KB)\n",
-                path, drive);
-    } else if ((unsigned long)sz == FLOPPY_IMAGE_40) {
-        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
-        fprintf(stderr, "floppy: mounted '%s' on DX%d (40 tracks, 160 KB)\n",
-                path, drive);
-    } else {
-        m->fdc.num_tracks[drive] = FLOPPY_TRACKS_40;
-        fprintf(stderr, "floppy: WARNING: '%s' has unexpected size %ld bytes; "
-                "assuming 40 tracks\n", path, sz);
+    if (fseek(m->fdc.media[drive].file, 0, SEEK_END) != 0) {
+        fprintf(stderr, "floppy: cannot size '%s'\n", path);
+        floppy_unmount_drive(m, drive);
+        return -1;
     }
-    m->fdc.track[drive] = 0;
+    long sz = ftell(m->fdc.media[drive].file);
+    rewind(m->fdc.media[drive].file);
+    if (sz < 0) {
+        fprintf(stderr, "floppy: cannot size '%s'\n", path);
+        floppy_unmount_drive(m, drive);
+        return -1;
+    }
+
+    floppy_apply_geometry(m, drive, (size_t)sz, path, "image");
+    return 0;
+}
+
+int floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path)
+{
+    uint8_t *image = NULL;
+    size_t image_size = 0;
+    char error[256];
+
+    floppy_unmount_drive(m, drive);
+    if (!path) return 0;
+
+    if (virtual_floppy_build_from_hostdir(path, &image, &image_size,
+                                          error, sizeof(error)) != 0) {
+        fprintf(stderr, "floppy: cannot build virtual floppy from '%s': %s\n",
+                path, error);
+        return -1;
+    }
+
+    m->fdc.media[drive].kind = FLOPPY_MEDIA_MEMORY;
+    m->fdc.media[drive].data = image;
+    m->fdc.media[drive].size = image_size;
+    m->fdc.media[drive].read_only = 1;
+    snprintf(m->fdc.media[drive].description,
+             sizeof(m->fdc.media[drive].description), "%s", path);
+
+    floppy_apply_geometry(m, drive, image_size, path,
+                          "virtual host directory");
+    fprintf(stderr,
+            "floppy: DX%d is virtual, read-only, and non-bootable in this first host-directory slice\n",
+            drive);
     return 0;
 }
 
@@ -78,8 +181,8 @@ uint8_t floppy_read_stat(struct Smaky6 *m)
     int     drive = m->fdc.selected_drive;
     uint8_t stat  = 0x00u;
     if (m->fdc.track[drive] == 0) stat |= 0x01u;   /* TRACK0 */
-    if (m->fdc.image[drive])      stat |= 0x04u;   /* DRIVE_READY */
-    if (m->fdc.image[drive])      stat |= 0x02u;   /* READ_REQ */
+    if (floppy_media_is_mounted(&m->fdc.media[drive])) stat |= 0x04u;   /* DRIVE_READY */
+    if (floppy_media_is_mounted(&m->fdc.media[drive])) stat |= 0x02u;   /* READ_REQ */
     return stat;
 }
 
@@ -101,7 +204,7 @@ uint8_t floppy_read_stat(struct Smaky6 *m)
 uint8_t floppy_read_sector19(struct Smaky6 *m)
 {
     int drive = m->fdc.selected_drive;
-    if (!m->fdc.image[drive])
+    if (!floppy_media_is_mounted(&m->fdc.media[drive]))
         return 0xFFu;
 
     /* During Phantom ROM loading, force-match expected sector (0x4503) so the
@@ -182,7 +285,7 @@ uint8_t floppy_read_data(struct Smaky6 *m)
             track   = m->fdc.track[sd];
         }
 
-        if (m->fdc.image[drive]) {
+        if (floppy_media_is_mounted(&m->fdc.media[drive])) {
             /* Clamp track to the image geometry before computing the offset.
              * The track value comes from emulated RAM (0x4504), which is loaded
              * from the floppy image itself — a crafted image could place an
@@ -195,12 +298,8 @@ uint8_t floppy_read_data(struct Smaky6 *m)
             }
             m->fdc.disk_active[drive] = 6;
             long offset = ((long)track * FLOPPY_SECTORS + req_sec) * FLOPPY_SECTOR_BYTES;
-            if (fseek(m->fdc.image[drive], offset, SEEK_SET) == 0) {
-                size_t n = fread(m->fdc.sec_buf, 1, FLOPPY_SECTOR_BYTES,
-                                 m->fdc.image[drive]);
-                if (n < FLOPPY_SECTOR_BYTES)
-                    memset(m->fdc.sec_buf + n, 0, FLOPPY_SECTOR_BYTES - n);
-            }
+            (void)floppy_read_sector_bytes(&m->fdc.media[drive], offset,
+                                           m->fdc.sec_buf);
             uint8_t ck = 0;
             for (unsigned i = 0; i < FLOPPY_SECTOR_BYTES; i++) ck += m->fdc.sec_buf[i];
             m->fdc.sec_csum = ck;

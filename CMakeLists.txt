@@ -92,6 +92,7 @@ add_executable(smemu6
     src/usart.c
     src/parallel.c
     src/floppy.c
+    src/virtual_floppy.c
     src/sound.c
     src/debug.c
     src/rtc.c

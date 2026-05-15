@@ -107,6 +107,12 @@ cd build
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disk2.dsk>
 ```
 
+**Boot from Winchester (DX0) with a host-directory-backed development floppy on DX1:**
+
+```bash
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2-hostdir floppies/DX1
+```
+
 > On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
 > The floppy drive (if installed) occupies the DX1 slot.
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
@@ -122,6 +128,17 @@ cd build
 |--------|-------------|
 | `-floppy <img>` | Mount a floppy image on drive **DX0:** |
 | `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
+| `-floppy2-hostdir <dir>` | Build a read-only virtual floppy on **DX1:** from a host directory at startup; native builds only |
+
+Current `-floppy2-hostdir` limitations:
+
+- DX1 only; DX0 bootable virtual floppies are not implemented yet.
+- Native desktop builds only; the web build does not support this feature.
+- The first slice rebuilds only at mount time and does not support live refresh.
+- Only top-level host files are supported for now.
+- Host file names must currently use `NAME.TT` with a 1-8 character base name,
+  `_` allowed, and a known 2-character Smaky type.
+- Sidecar metadata, `.DR` subdirectories, and guest writes are not implemented yet.
 
 ### Hard disk (Winchester)
 

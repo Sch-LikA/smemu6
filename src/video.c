@@ -328,7 +328,7 @@ void video_render(struct Smaky6 *m)
         int lx = (d == 0) ? 4 : ((4 + VIDEO_SYS_NMI_X) / 2);
 
         int is_hd     = m->win.image[d] != NULL;
-        int mounted   = is_hd ? 1 : (m->fdc.image[d] != NULL);
+        int mounted   = is_hd ? 1 : (m->fdc.media[d].kind != FLOPPY_MEDIA_NONE);
         int active    = is_hd ? (m->win.disk_active[d] > 0)
                                : (m->fdc.disk_active[d] > 0);
 

@@ -58,6 +58,7 @@ void    floppy_fini(struct Smaky6 *m);
 
 /* Mount a flat disk image file (read/write); pass NULL to eject */
 int     floppy_mount(struct Smaky6 *m, int drive, const char *path);
+int     floppy_mount_hostdir(struct Smaky6 *m, int drive, const char *path);
 
 /* Port read/write from Z80 */
 uint8_t floppy_read_stat(struct Smaky6 *m);    /* legacy status bits */

@@ -20,6 +20,21 @@
 #include <stdint.h>
 #include <stdio.h>
 
+enum FloppyMediaKind {
+    FLOPPY_MEDIA_NONE = 0,
+    FLOPPY_MEDIA_FILE,
+    FLOPPY_MEDIA_MEMORY,
+};
+
+struct FloppyMedia {
+    enum FloppyMediaKind kind;
+    FILE    *file;
+    uint8_t *data;
+    size_t   size;
+    int      read_only;
+    char     description[256];
+};
+
 struct Smaky6 {
     /* Memory bus (64 K flat) and ROM mask */
     uint8_t bus[MEM_TOTAL];
@@ -99,7 +114,7 @@ struct Smaky6 {
 
     /* Floppy */
     struct {
-        FILE    *image[2];
+        struct FloppyMedia media[2];
         uint8_t  ctrl;
         uint8_t  track[2];
         uint8_t  sector;        /* current hard-sector index 0-15 */

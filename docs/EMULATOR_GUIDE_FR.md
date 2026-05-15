@@ -107,6 +107,12 @@ cd build
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2 <disque2.dsk>
 ```
 
+**Démarrer depuis le Winchester (DX0) avec une disquette de développement DX1 générée depuis un répertoire hôte :**
+
+```bash
+./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2-hostdir floppies/DX1
+```
+
 > Sur les Smaky 6 équipés d'un Winchester, le disque dur **est** DX0.
 > Le lecteur de disquettes (s'il est installé) occupe l'emplacement DX1.
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
@@ -122,6 +128,16 @@ cd build
 |--------|-------------|
 | `-floppy <img>` | Monter une image disquette sur le lecteur **DX0:** |
 | `-floppy2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
+| `-floppy2-hostdir <dir>` | Construire au démarrage une disquette virtuelle **DX1:** en lecture seule depuis un répertoire hôte ; builds natifs uniquement |
+
+Limites actuelles de `-floppy2-hostdir` :
+
+- DX1 uniquement ; les disquettes virtuelles amorçables sur DX0 ne sont pas encore implémentées.
+- Builds bureau natifs uniquement ; la version web ne prend pas cette fonction en charge.
+- Cette première tranche reconstruit seulement au montage initial et ne gère pas encore le rafraîchissement en direct.
+- Seuls les fichiers hôtes du premier niveau sont pris en charge pour l'instant.
+- Les noms de fichiers doivent actuellement suivre `NAME.TT` avec un nom de base de 1 à 8 caractères, `_` autorisé, et un type Smaky à 2 caractères connu.
+- Les métadonnées en sidecar, les sous-répertoires `.DR` et les écritures invitées ne sont pas encore implémentés.
 
 ### Disque dur (Winchester)
 

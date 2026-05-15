@@ -80,6 +80,7 @@ static void usage(const char *argv0)
         "Usage: %s [options]\n"
         "  -floppy <img>  Mount floppy image on DX0\n"
         "  -floppy2 <img> Mount floppy image on DX1\n"
+        "  -floppy2-hostdir <dir> Build a read-only virtual DX1 floppy from host files (native only)\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
@@ -610,12 +611,22 @@ int main(int argc, char *argv[])
     uint8_t inject_keycode = 0;
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
+    const char *disk2_hostdir = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
             disk_path = argv[++i];
         } else if (strcmp(argv[i], "-floppy2") == 0 && i + 1 < argc) {
             disk2_path = argv[++i];
+            disk2_hostdir = NULL;
+        } else if (strcmp(argv[i], "-floppy2-hostdir") == 0 && i + 1 < argc) {
+#ifdef __EMSCRIPTEN__
+            fprintf(stderr, "-floppy2-hostdir is not supported in the web build\n");
+            return 1;
+#else
+            disk2_hostdir = argv[++i];
+            disk2_path = NULL;
+#endif
         } else if (strcmp(argv[i], "-harddisk") == 0 && i + 1 < argc) {
             harddisk_path = argv[++i];
         } else if (strcmp(argv[i], "-harddisk2") == 0 && i + 1 < argc) {
@@ -980,7 +991,12 @@ int main(int argc, char *argv[])
             fprintf(stderr, "WARNING: could not mount '%s'\n", disk_path);
         }
     }
-    if (disk2_path) {
+    if (disk2_hostdir) {
+        if (floppy_mount_hostdir(m, 1, disk2_hostdir) != 0) {
+            fprintf(stderr, "WARNING: could not mount virtual host directory '%s' on DX1\n",
+                    disk2_hostdir);
+        }
+    } else if (disk2_path) {
         if (floppy_mount(m, 1, disk2_path) != 0) {
             fprintf(stderr, "WARNING: could not mount '%s' on DX1\n", disk2_path);
         }
