@@ -135,9 +135,10 @@ static void usage(const char *argv0)
     fprintf(stderr,
         "Usage: %s [options]\n"
         "  -floppy <img>  Mount floppy image on DX0\n"
+        "  -floppy-hostdir <dir> Build a writable in-memory DX0 overlay from host files (native only)\n"
         "  -floppy2 <img> Mount floppy image on DX1\n"
         "  -floppy2-hostdir <dir> Build a writable in-memory DX1 overlay from host files (native only)\n"
-        "  -dump-vfd-manifest <file>  Dump the DX1 host-directory virtual floppy layout as JSON ('-' = stdout)\n"
+        "  -dump-vfd-manifest <file>  Dump the selected host-directory virtual floppy layout as JSON ('-' = stdout)\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
@@ -694,12 +695,22 @@ int main(int argc, char *argv[])
     uint8_t inject_keycode = 0;
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
+    const char *disk_hostdir = NULL;
     const char *disk2_hostdir = NULL;
     const char *vfd_manifest_path = NULL;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
             disk_path = argv[++i];
+            disk_hostdir = NULL;
+        } else if (strcmp(argv[i], "-floppy-hostdir") == 0 && i + 1 < argc) {
+#ifdef __EMSCRIPTEN__
+            fprintf(stderr, "-floppy-hostdir is not supported in the web build\n");
+            return 1;
+#else
+            disk_hostdir = argv[++i];
+            disk_path = NULL;
+#endif
         } else if (strcmp(argv[i], "-floppy2") == 0 && i + 1 < argc) {
             disk2_path = argv[++i];
             disk2_hostdir = NULL;
@@ -904,8 +915,8 @@ int main(int argc, char *argv[])
         global_timeout_sec = trace ? 45 : 0;
     }
 
-    if (vfd_manifest_path && !disk2_hostdir) {
-        fprintf(stderr, "-dump-vfd-manifest requires -floppy2-hostdir\n");
+    if (vfd_manifest_path && !disk_hostdir && !disk2_hostdir) {
+        fprintf(stderr, "-dump-vfd-manifest requires -floppy-hostdir or -floppy2-hostdir\n");
         return 1;
     }
 
@@ -967,9 +978,14 @@ int main(int argc, char *argv[])
     if (!no_launcher) {
         /* Build hints from CLI so the launcher pre-populates its controls */
         LauncherHints hints = {
-            .dx0_is_harddisk = harddisk_path ? 1 : (disk_path ? 0 : -1),
-            .dx0_path        = harddisk_path ? harddisk_path : disk_path,
-            .dx1_path        = disk2_path,
+            .dx0_mode        = harddisk_path ? LAUNCHER_STORAGE_HARDDISK :
+                               (disk_hostdir ? LAUNCHER_STORAGE_HOSTDIR :
+                                (disk_path ? LAUNCHER_STORAGE_FLOPPY : -1)),
+            .dx0_path        = harddisk_path ? harddisk_path :
+                               (disk_hostdir ? disk_hostdir : disk_path),
+            .dx1_mode        = disk2_hostdir ? LAUNCHER_STORAGE_HOSTDIR :
+                               (disk2_path ? LAUNCHER_STORAGE_FLOPPY : -1),
+            .dx1_path        = disk2_hostdir ? disk2_hostdir : disk2_path,
             .scale           = display_scale,        /* always pass; launcher uses it as-is */
             .phosphor_white  = phosphor_white ? 1 : -1,
             .scanlines       = scanlines ? 1 : -1,
@@ -985,15 +1001,31 @@ int main(int argc, char *argv[])
         }
         /* Apply launcher config — launcher result is authoritative (it was
          * pre-populated from CLI, so the user saw and confirmed every value) */
-        if (lc.dx0_path) {
-            if (lc.dx0_is_harddisk == 1) { harddisk_path = lc.dx0_path; disk_path = NULL; }
-            else                          { disk_path = lc.dx0_path;     harddisk_path = NULL; }
-        } else if (lc.dx0_is_harddisk >= 0 && lc.dx0_is_harddisk != (harddisk_path ? 1 : 0)) {
-            /* Type changed but no new path — clear old path of wrong type */
-            if (lc.dx0_is_harddisk == 1) { harddisk_path = NULL; }
-            else                          { disk_path = NULL; }
+        if (lc.dx0_mode >= 0) {
+            disk_path = NULL;
+            disk_hostdir = NULL;
+            harddisk_path = NULL;
+            if (lc.dx0_path) {
+                if (lc.dx0_mode == LAUNCHER_STORAGE_HARDDISK) {
+                    harddisk_path = lc.dx0_path;
+                } else if (lc.dx0_mode == LAUNCHER_STORAGE_HOSTDIR) {
+                    disk_hostdir = lc.dx0_path;
+                } else {
+                    disk_path = lc.dx0_path;
+                }
+            }
         }
-        if (lc.dx1_path)        disk2_path     = lc.dx1_path;
+        if (lc.dx1_mode >= 0) {
+            disk2_path = NULL;
+            disk2_hostdir = NULL;
+            if (lc.dx1_path) {
+                if (lc.dx1_mode == LAUNCHER_STORAGE_HOSTDIR) {
+                    disk2_hostdir = lc.dx1_path;
+                } else {
+                    disk2_path = lc.dx1_path;
+                }
+            }
+        }
         if (lc.scale >= 1)      display_scale  = lc.scale;
         if (lc.phosphor_white >= 0) phosphor_white = lc.phosphor_white;
         if (lc.scanlines >= 0)  scanlines      = lc.scanlines;
@@ -1087,7 +1119,20 @@ int main(int argc, char *argv[])
     }
 
     /* Mount floppies if specified */
-    if (disk_path) {
+    if (disk_hostdir) {
+        if (floppy_mount_hostdir(m, 0, disk_hostdir) != 0) {
+            fprintf(stderr, "WARNING: could not mount virtual host directory '%s' on DX0\n",
+                    disk_hostdir);
+        } else if (vfd_manifest_path) {
+            if (dump_virtual_floppy_manifest(disk_hostdir, vfd_manifest_path) != 0) {
+                machine_destroy(m);
+                SDL_DestroyRenderer(ren);
+                SDL_DestroyWindow(win);
+                SDL_Quit();
+                return 1;
+            }
+        }
+    } else if (disk_path) {
         if (floppy_mount(m, 0, disk_path) != 0) {
             fprintf(stderr, "WARNING: could not mount '%s'\n", disk_path);
         }

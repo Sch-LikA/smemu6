@@ -113,6 +113,13 @@ cd build
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2-hostdir floppies/DX1
 ```
 
+**Boot from a metadata-preserving host-directory export on DX0:**
+
+```bash
+python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hostdir
+./smemu6 -floppy-hostdir ../tmp/Sys2-2-hostdir
+```
+
 > On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
 > The floppy drive (if installed) occupies the DX1 slot.
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
@@ -129,19 +136,23 @@ cd build
 | Option | Description |
 |--------|-------------|
 | `-floppy <img>` | Mount a floppy image on drive **DX0:** |
+| `-floppy-hostdir <dir>` | Build a writable in-memory DX0 overlay from a host directory at startup; native builds only |
 | `-floppy2 <img>` | Mount a floppy image on drive **DX1:** |
 | `-floppy2-hostdir <dir>` | Build a writable in-memory DX1 overlay from a host directory at startup; native builds only |
-| `-dump-vfd-manifest <file>` | Dump the planned DX1 host-directory layout as JSON; requires `-floppy2-hostdir`; use `-` for stdout |
+| `-dump-vfd-manifest <file>` | Dump the planned host-directory virtual floppy layout as JSON; requires `-floppy-hostdir` or `-floppy2-hostdir`; use `-` for stdout |
 
-Current `-floppy2-hostdir` limitations:
+Current host-directory floppy limitations:
 
-- DX1 only; DX0 bootable virtual floppies are not implemented yet.
 - Native desktop builds only; the web build does not support this feature.
 - The first slice rebuilds at mount time and on explicit refresh (`Ctrl+R` or
   `SIGUSR2`); it does not watch the host directory automatically.
 - Guest-side writes land in the in-memory overlay only. They are visible to the
   running emulator session but are discarded on refresh/remount or emulator
   exit; the host directory stays untouched.
+- Bootable DX0 hostdir media must preserve SAMOS metadata and ordering.
+  `tools/extract_samos_image.py` exports a suitable tree from an existing
+  floppy image such as `Sys2-2.dsk` by writing sidecars with `flags`, `load`,
+  `entry`, dates, and `start_sector`.
 - Host file names must currently use `NAME.TT` with a 1-8 character base name,
   `_` allowed, and a known 2-character Smaky type.
 - Host trees may also contain nested `NAME.DR/` directories. Entries inside a
@@ -149,7 +160,8 @@ Current `-floppy2-hostdir` limitations:
   start, matching the SAMOS on-disk format.
 - Optional sidecars `NAME.TT.meta.json` are supported for regular files and
   `NAME.DR.meta.json` for directory containers. They may provide `type`
-  (validation only), `flags`, `load`, `entry`, `date_month`, and `date_year`.
+  (validation only), `flags`, `load`, `entry`, `date_month`, `date_year`, and
+  `start_sector`.
 - In current native builds, guest commands such as `LIST DX1:`,
   `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS`, and `TYPE DX1:BOX:INNER.BS` work
   against the virtual DX1 media. One CLI rule is now pinned down: directory
@@ -166,7 +178,8 @@ virtual floppy in place. Headless or scripted runs can do the same with
 `SIGUSR2`.
 
 For inspection and testing, `-dump-vfd-manifest <file>` emits the exact file
-layout the emulator plans to build for DX1, including sectors, size, sidecar-
+layout the emulator plans to build for the selected hostdir-backed floppy,
+including sectors, size, sidecar-
 derived metadata, and both absolute plus encoded sector values for nested `.DR`
 entries.
 

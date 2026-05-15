@@ -113,6 +113,13 @@ cd build
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK -floppy2-hostdir floppies/DX1
 ```
 
+**Démarrer depuis une exportation en répertoire hôte préservant les métadonnées sur DX0 :**
+
+```bash
+python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hostdir
+./smemu6 -floppy-hostdir ../tmp/Sys2-2-hostdir
+```
+
 > Sur les Smaky 6 équipés d'un Winchester, le disque dur **est** DX0.
 > Le lecteur de disquettes (s'il est installé) occupe l'emplacement DX1.
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
@@ -130,21 +137,25 @@ cd build
 | Option | Description |
 |--------|-------------|
 | `-floppy <img>` | Monter une image disquette sur le lecteur **DX0:** |
+| `-floppy-hostdir <dir>` | Construire au démarrage une surcouche DX0 inscriptible en mémoire depuis un répertoire hôte ; builds natifs uniquement |
 | `-floppy2 <img>` | Monter une image disquette sur le lecteur **DX1:** |
 | `-floppy2-hostdir <dir>` | Construire au démarrage une surcouche DX1 inscriptible en mémoire depuis un répertoire hôte ; builds natifs uniquement |
-| `-dump-vfd-manifest <file>` | Exporter en JSON le layout prévu pour le répertoire hôte DX1 ; nécessite `-floppy2-hostdir` ; utiliser `-` pour stdout |
+| `-dump-vfd-manifest <file>` | Exporter en JSON le layout prévu pour la disquette virtuelle issue d'un répertoire hôte ; nécessite `-floppy-hostdir` ou `-floppy2-hostdir` ; utiliser `-` pour stdout |
 
-Limites actuelles de `-floppy2-hostdir` :
+Limites actuelles des disquettes issues d'un répertoire hôte :
 
-- DX1 uniquement ; les disquettes virtuelles amorçables sur DX0 ne sont pas encore implémentées.
 - Builds bureau natifs uniquement ; la version web ne prend pas cette fonction en charge.
 - Cette première tranche reconstruit au montage initial et lors d'un rafraîchissement explicite (`Ctrl+R` ou `SIGUSR2`) ; elle ne surveille pas encore automatiquement le répertoire hôte.
 - Les écritures invitées ne touchent que la surcouche en mémoire. Elles sont
   visibles pendant la session en cours, puis perdues au rafraîchissement,
   remontage ou à la fermeture de l'émulateur ; le répertoire hôte reste intact.
+- Un média DX0 amorçable issu d'un répertoire hôte doit préserver les
+  métadonnées et l'ordre SAMOS. `tools/extract_samos_image.py` exporte un
+  arbre adapté depuis une image `.dsk` existante comme `Sys2-2.dsk`, avec des
+  sidecars contenant `flags`, `load`, `entry`, les dates et `start_sector`.
 - Les noms de fichiers doivent actuellement suivre `NAME.TT` avec un nom de base de 1 à 8 caractères, `_` autorisé, et un type Smaky à 2 caractères connu.
 - L'arborescence hôte peut aussi contenir des répertoires imbriqués `NAME.DR/`. Les entrées à l'intérieur d'un conteneur `.DR` sont encodées avec des numéros de secteur relatifs au début du conteneur, comme sur disque sous SAMOS.
-- Les sidecars optionnels `NAME.TT.meta.json` sont pris en charge pour les fichiers ordinaires et `NAME.DR.meta.json` pour les conteneurs de répertoire. Ils peuvent fournir `type` (validation uniquement), `flags`, `load`, `entry`, `date_month` et `date_year`.
+- Les sidecars optionnels `NAME.TT.meta.json` sont pris en charge pour les fichiers ordinaires et `NAME.DR.meta.json` pour les conteneurs de répertoire. Ils peuvent fournir `type` (validation uniquement), `flags`, `load`, `entry`, `date_month`, `date_year` et `start_sector`.
 - Dans l'état actuel des builds natifs, des commandes invitées comme
   `LIST DX1:`, `LIST DX1:BOX`, `TYPE DX1:TEXTFILE.BS` et
   `TYPE DX1:BOX:INNER.BS` fonctionnent sur le média virtuel DX1. Une règle CLI
@@ -163,7 +174,8 @@ virtuelle montée depuis un répertoire hôte. En mode headless ou scripté, on
 peut faire la même chose avec `SIGUSR2`.
 
 Pour l'inspection et les tests, `-dump-vfd-manifest <file>` exporte le layout
-exact que l'émulateur prévoit de construire pour DX1, avec les secteurs, la
+exact que l'émulateur prévoit de construire pour la disquette issue du
+répertoire hôte sélectionné, avec les secteurs, la
 taille, les champs de métadonnées issus des sidecars, ainsi que les valeurs de
 secteur absolues et encodées pour les entrées imbriquées `.DR`.
 

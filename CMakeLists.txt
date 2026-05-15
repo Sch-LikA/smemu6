@@ -266,6 +266,13 @@ if(NOT EMSCRIPTEN)
                     ${CMAKE_SOURCE_DIR}
         )
         add_test(
+            NAME smemu6_virtual_floppy_dx0_hostdir_boot
+            COMMAND /usr/bin/env bash
+                    ${CMAKE_SOURCE_DIR}/tools/check_virtual_floppy_dx0_hostdir_boot.sh
+                    ${CMAKE_BINARY_DIR}/smemu6
+                    ${CMAKE_SOURCE_DIR}
+        )
+        add_test(
             NAME smemu6_winchester_overlay_delete
             COMMAND /usr/bin/env bash
                     ${CMAKE_SOURCE_DIR}/tools/check_winchester_overlay_delete.sh

@@ -4,6 +4,12 @@
 #ifndef LAUNCHER_H
 #define LAUNCHER_H
 
+enum LauncherStorageMode {
+    LAUNCHER_STORAGE_FLOPPY = 0,
+    LAUNCHER_STORAGE_HOSTDIR = 1,
+    LAUNCHER_STORAGE_HARDDISK = 2,
+};
+
 /*
  * LauncherHints carries CLI-provided values into launcher_run().
  * Any field left at its sentinel is ignored and the launcher default is used.
@@ -11,8 +17,9 @@
  *   int     → -1      (not provided on CLI)
  */
 typedef struct {
-    int         dx0_is_harddisk;   /* 0=floppy, 1=harddisk; -1=not set */
+    int         dx0_mode;          /* enum LauncherStorageMode; -1=not set */
     const char *dx0_path;          /* NULL = not provided */
+    int         dx1_mode;          /* floppy or hostdir; -1=not set */
     const char *dx1_path;          /* NULL = not provided */
     int         scale;             /* 1..4; -1 = not set */
     int         phosphor_white;    /* 0=green, 1=white; -1 = not set */
@@ -33,9 +40,10 @@ typedef struct {
  */
 typedef struct {
     /* Storage */
-    int         dx0_is_harddisk;   /* 0=floppy, 1=harddisk; -1=not set */
+    int         dx0_mode;          /* enum LauncherStorageMode; -1 = not set */
     char       *dx0_path;          /* NULL = not set */
-    char       *dx1_path;          /* NULL = not set (always floppy) */
+    int         dx1_mode;          /* floppy or hostdir; -1 = not set */
+    char       *dx1_path;          /* NULL = not set */
 
     /* Screen */
     int         scale;             /* 1..4; -1 = not set */

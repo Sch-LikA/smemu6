@@ -30,6 +30,8 @@ struct VirtualFile {
     uint16_t entry_addr;
     uint8_t month_bcd;
     uint8_t year_bcd;
+    uint16_t preferred_start_sector;
+    int has_preferred_start_sector;
     struct VirtualFile *children;
     size_t child_count;
 };
@@ -431,6 +433,18 @@ static int apply_sidecar_metadata(const char *dir_path, const char *filename,
         file->year_bcd = value == 0 ? 0 : encode_bcd(value);
     }
 
+    if (parse_json_integer(json, "start_sector", 0xFFFFu, &value, &present,
+                           sidecar_name, error, error_size) != 0) {
+        free(json);
+        free(sidecar_name);
+        free(sidecar_path);
+        return -1;
+    }
+    if (present) {
+        file->preferred_start_sector = (uint16_t)value;
+        file->has_preferred_start_sector = 1;
+    }
+
     free(json);
     free(sidecar_name);
     free(sidecar_path);
@@ -513,6 +527,15 @@ static int compare_virtual_files(const void *lhs, const void *rhs)
 {
     const struct VirtualFile *a = lhs;
     const struct VirtualFile *b = rhs;
+
+    if (a->has_preferred_start_sector && b->has_preferred_start_sector &&
+        a->preferred_start_sector != b->preferred_start_sector) {
+        return a->preferred_start_sector < b->preferred_start_sector ? -1 : 1;
+    }
+    if (a->has_preferred_start_sector != b->has_preferred_start_sector) {
+        return a->has_preferred_start_sector ? -1 : 1;
+    }
+
     int cmp = memcmp(a->name, b->name, 8);
     if (cmp != 0) {
         return cmp;

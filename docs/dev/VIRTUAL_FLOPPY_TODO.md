@@ -22,6 +22,7 @@ Smemu6 sources and docs reviewed while preparing this TODO:
 - `src/machine_internal.h`
 - `docs/EMULATOR_GUIDE_EN.md`
 - `docs/dev/HARDWARE.md`
+- `docs/dev/SAMOS_BOOT_MEDIA.md`
 - `docs/dev/PLAN.md`
 - `docs/dev/SYS_SY_analysis.md`
 - `docs/dev/CLI_SY_analysis.md`
@@ -78,6 +79,10 @@ Important constraint for this feature:
 - the virtual floppy implementation itself should be self-contained in Smemu6 and
   must not require `smaky6-tools`, FUSE, or any external helper script as part of
   the normal developer workflow.
+
+The dedicated boot-media contract note now lives in `docs/dev/SAMOS_BOOT_MEDIA.md`.
+Use that file as the authoritative summary for directory-entry metadata,
+boot-critical file placement, and the current `Sys2-2.dsk` DX0 hostdir workflow.
 
 ### Boot-related facts already documented
 

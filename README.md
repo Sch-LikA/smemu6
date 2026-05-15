@@ -121,6 +121,10 @@ cd build
 # Boot SAMOS from floppy (machine boots DX0 automatically)
 ./smemu6 -floppy "../floppies/1 Systeme_1HComplet.dsk"
 
+# Boot SAMOS from a metadata-preserving DX0 hostdir export
+python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hostdir
+./smemu6 -floppy-hostdir ../tmp/Sys2-2-hostdir
+
 # Boot from Winchester (DX0) with floppy accessible as DX1
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK \
             -floppy2 "../floppies/1 Systeme_1HComplet.dsk"
@@ -142,11 +146,22 @@ SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
 
 #### `-floppy <path>`
 Mount a floppy disk image on **DX0:** (the primary floppy drive).  Floppy
-write support is not yet implemented — OUT writes to the controller are
-silently ignored; the image file is never modified.
+controller writes are supported. File-backed floppy images are writable in
+place.
 
 ```bash
 ./smemu6 -floppy ../floppies/sys.dsk
+```
+
+#### `-floppy-hostdir <path>`
+Mount a host-directory-backed floppy on **DX0:** using an in-memory overlay.
+For bootable DX0 media, the host tree must preserve SAMOS metadata and sector
+order; `tools/extract_samos_image.py` can export a suitable tree from a known
+good `.dsk` image such as `floppies/Sys2-2.dsk`.
+
+```bash
+python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/Sys2-2-hostdir
+./smemu6 -floppy-hostdir tmp/Sys2-2-hostdir
 ```
 
 #### `-floppy2 <path>`

@@ -82,9 +82,20 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
   floppy must be bootable: the generated on-disk directory / sector layout needs
   deterministic placement for system files such as `SYS.SY` and `CLI.SY`, not just
   a best-effort mirror of host files.
+- Current finding from the first `Sys2-2.dsk` DX0 probe: a plain file extraction
+  is not enough for bootable hostdir media. The rebuilt image reaches the ROM,
+  then stops with `Erreur de lecture`. The original `Sys2-2.dsk` carries
+  boot-critical per-entry metadata (`flags`, `load`, `entry`, dates) and a
+  specific sector order starting with `SYS.SY` at sector 3; the hostdir export
+  path therefore needs to preserve at least that metadata and ordering.
+- That metadata-preserving path now exists via `tools/extract_samos_image.py` +
+  `-floppy-hostdir <dir>`: exporting `floppies/Sys2-2.dsk` with preserved
+  `start_sector`, `flags`, `load`, `entry`, and date fields produces a DX0
+  hostdir tree that boots to the SAMOS CLI.
 - Maintain a separate technical note for the SAMOS filesystem and boot-media
   contract, so directory layout, file metadata, and DX0 boot requirements live in
   one dedicated reference file instead of being scattered across TODO entries.
+  That note now exists in `docs/dev/SAMOS_BOOT_MEDIA.md`.
 - That likely means the virtual-floppy layer needs two modes or policies:
   a simple live development mirror for non-boot disks, and a boot-system layout
   mode that can place required system files at the exact sectors/locations SAMOS

@@ -152,6 +152,9 @@ typedef enum { PICK_IDLE = 0, PICK_RUNNING, PICK_DONE } PickState;
 typedef struct PickCtx {
     volatile PickState state;   /* written by thread, read by main loop */
     char               result[1024]; /* heap-free: fixed buffer is enough */
+    char               title[64];
+    char               default_path[1024];
+    int                select_folder;
 } PickCtx;
 
 #ifndef __EMSCRIPTEN__
@@ -160,9 +163,18 @@ static int pick_thread(void *data)
 {
     PickCtx *ctx = (PickCtx *)data;
     ctx->result[0] = '\0';
-    static const char *patterns[] = { "*.dsk", "*.DSK", "*.img", "*.IMG" };
-    const char *p = tinyfd_openFileDialog(
-        "Select disk image", "", 4, patterns, "Disk images (*.dsk, *.img)", 0);
+    const char *p = NULL;
+    if (ctx->select_folder) {
+        p = tinyfd_selectFolderDialog(
+            ctx->title[0] ? ctx->title : "Select host directory",
+            ctx->default_path[0] ? ctx->default_path : "");
+    } else {
+        static const char *patterns[] = { "*.dsk", "*.DSK", "*.img", "*.IMG" };
+        p = tinyfd_openFileDialog(
+            ctx->title[0] ? ctx->title : "Select disk image",
+            ctx->default_path[0] ? ctx->default_path : "",
+            4, patterns, "Disk images (*.dsk, *.img)", 0);
+    }
     if (p) {
         strncpy(ctx->result, p, sizeof(ctx->result) - 1);
         ctx->result[sizeof(ctx->result) - 1] = '\0';
@@ -172,9 +184,21 @@ static int pick_thread(void *data)
 }
 
 /* Launch an async pick.  Returns SDL_Thread* (detached) or NULL. */
-static SDL_Thread *pick_file_async(PickCtx *ctx)
+static SDL_Thread *pick_file_async(PickCtx *ctx, const char *title,
+                                   const char *default_path, int select_folder)
 {
     ctx->result[0] = '\0';
+    ctx->title[0] = '\0';
+    ctx->default_path[0] = '\0';
+    ctx->select_folder = select_folder;
+    if (title) {
+        strncpy(ctx->title, title, sizeof(ctx->title) - 1);
+        ctx->title[sizeof(ctx->title) - 1] = '\0';
+    }
+    if (default_path) {
+        strncpy(ctx->default_path, default_path, sizeof(ctx->default_path) - 1);
+        ctx->default_path[sizeof(ctx->default_path) - 1] = '\0';
+    }
     ctx->state = PICK_RUNNING;
     SDL_Thread *t = SDL_CreateThread(pick_thread, "FilePicker", ctx);
     if (!t) {
@@ -226,8 +250,12 @@ void smemu6_pick_cancel(void)
 }
 
 /* Launch an async pick via the browser <input type="file"> element. */
-static SDL_Thread *pick_file_async(PickCtx *ctx)
+static SDL_Thread *pick_file_async(PickCtx *ctx, const char *title,
+                                   const char *default_path, int select_folder)
 {
+    (void)title;
+    (void)default_path;
+    (void)select_folder;
     ctx->result[0] = '\0';
     ctx->state = PICK_RUNNING;
     g_active_pick_ctx = ctx;
@@ -303,8 +331,9 @@ static int draw_section(SDL_Renderer *ren, int y, const char *title)
 
 typedef struct {
     /* Storage */
-    int   dx0_is_harddisk;   /* 0=floppy, 1=harddisk */
+    int   dx0_mode;
     char *dx0_path;
+    int   dx1_mode;
     char *dx1_path;
 
     /* Screen */
@@ -322,6 +351,7 @@ typedef struct {
     SDL_Rect dx0_type;
     SDL_Rect dx0_browse;
     SDL_Rect dx0_clear;
+    SDL_Rect dx1_type;
     SDL_Rect dx1_browse;
     SDL_Rect dx1_clear;
     SDL_Rect scale_dd;
@@ -342,6 +372,51 @@ static SDL_Rect make_rect(int x, int y, int w, int h)
 static int rect_hit(const SDL_Rect *r, int mx, int my)
 {
     return mx >= r->x && mx < r->x + r->w && my >= r->y && my < r->y + r->h;
+}
+
+static const char *storage_mode_label(int mode)
+{
+    switch (mode) {
+    case LAUNCHER_STORAGE_HOSTDIR:
+        return "Hostdir";
+    case LAUNCHER_STORAGE_HARDDISK:
+        return "Harddisk";
+    case LAUNCHER_STORAGE_FLOPPY:
+    default:
+        return "Floppy";
+    }
+}
+
+static int storage_mode_uses_folder(int mode)
+{
+    return mode == LAUNCHER_STORAGE_HOSTDIR;
+}
+
+static int cycle_storage_mode_dx0(int mode)
+{
+    switch (mode) {
+    case LAUNCHER_STORAGE_FLOPPY:
+        return LAUNCHER_STORAGE_HOSTDIR;
+    case LAUNCHER_STORAGE_HOSTDIR:
+        return LAUNCHER_STORAGE_HARDDISK;
+    case LAUNCHER_STORAGE_HARDDISK:
+    default:
+        return LAUNCHER_STORAGE_FLOPPY;
+    }
+}
+
+static int cycle_storage_mode_dx1(int mode)
+{
+    return mode == LAUNCHER_STORAGE_HOSTDIR ?
+        LAUNCHER_STORAGE_FLOPPY : LAUNCHER_STORAGE_HOSTDIR;
+}
+
+static void maybe_clear_path_for_mode_change(char **path, int old_mode, int new_mode)
+{
+    if (storage_mode_uses_folder(old_mode) != storage_mode_uses_folder(new_mode)) {
+        free(*path);
+        *path = NULL;
+    }
 }
 
 /* ── Help overlay ─────────────────────────────────────────────────────────── */
@@ -414,8 +489,8 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     /* DX0 row */
     draw_text(ren, LABEL_X, y + 5, "DX0:", COL_TEXT);
     {
-        const char *lbl = s->dx0_is_harddisk ? "Harddisk" : "Floppy";
-        draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H, lbl, mx, my);
+        draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H,
+                      storage_mode_label(s->dx0_mode), mx, my);
         ha->dx0_type = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
     }
     draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER);
@@ -431,7 +506,9 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
 
     /* DX1 row */
     draw_text(ren, LABEL_X, y + 5, "DX1:", COL_TEXT);
-    draw_text(ren, CTRL_X, y + 5, "Floppy", COL_TEXT_DIM);
+    draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H,
+                  storage_mode_label(s->dx1_mode), mx, my);
+    ha->dx1_type = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
     draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER);
     ha->dx1_browse = make_rect(BROWSE_X, y, BROWSE_W, CTRL_H);
     draw_button(ren, CLEAR_X, y, CLEAR_W, CTRL_H, "x", mx, my, COL_BTN_BG, COL_BTN_HOVER);
@@ -516,8 +593,9 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
 int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 {
     /* Sentinel defaults — means "not set, let main() keep CLI/default" */
-    cfg->dx0_is_harddisk = -1;
+    cfg->dx0_mode        = -1;
     cfg->dx0_path        = NULL;
+    cfg->dx1_mode        = -1;
     cfg->dx1_path        = NULL;
     cfg->scale           = -1;
     cfg->phosphor_white  = -1;
@@ -535,7 +613,8 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     }
     if (driver && strcmp(driver, "dummy") == 0) {
         /* Headless: fill in sensible defaults and return immediately */
-        cfg->dx0_is_harddisk = 0;
+        cfg->dx0_mode        = LAUNCHER_STORAGE_FLOPPY;
+        cfg->dx1_mode        = LAUNCHER_STORAGE_FLOPPY;
         cfg->scale           = 1;   /* 2× */
         cfg->phosphor_white  = 0;
         cfg->scanlines       = 1;
@@ -584,8 +663,9 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 
     /* Default state (matches README defaults) */
     State s = {
-        .dx0_is_harddisk = 0,
+        .dx0_mode        = LAUNCHER_STORAGE_FLOPPY,
         .dx0_path        = NULL,
+        .dx1_mode        = LAUNCHER_STORAGE_FLOPPY,
         .dx1_path        = NULL,
         .scale           = 0,   /* index 0 → 1× */
         .phosphor        = 0,   /* green */
@@ -596,10 +676,12 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 
     /* Pre-populate from CLI hints */
     if (hints) {
-        if (hints->dx0_is_harddisk >= 0)
-            s.dx0_is_harddisk = hints->dx0_is_harddisk;
+        if (hints->dx0_mode >= 0)
+            s.dx0_mode = hints->dx0_mode;
         if (hints->dx0_path)
             s.dx0_path = SDL_strdup(hints->dx0_path);
+        if (hints->dx1_mode >= 0)
+            s.dx1_mode = hints->dx1_mode;
         if (hints->dx1_path)
             s.dx1_path = SDL_strdup(hints->dx1_path);
         if (hints->scale >= 1 && hints->scale <= 4)
@@ -621,7 +703,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     int result = -1;   /* -1 = window closed without Start */
 
     /* Async file-picker state */
-    PickCtx  pick_ctx = { PICK_IDLE, "" };
+    PickCtx  pick_ctx = { 0 };
     int      pick_target = 0;   /* 0 = dx0, 1 = dx1 */
 
     int running = 1;
@@ -652,19 +734,38 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
                 mx = ev.button.x;
                 my = ev.button.y;
 
-                if (rect_hit(&ha.dx0_type,    mx, my)) { s.dx0_is_harddisk ^= 1; break; }
+                if (rect_hit(&ha.dx0_type,    mx, my)) {
+                    int new_mode = cycle_storage_mode_dx0(s.dx0_mode);
+                    maybe_clear_path_for_mode_change(&s.dx0_path, s.dx0_mode, new_mode);
+                    s.dx0_mode = new_mode;
+                    break;
+                }
                 if (rect_hit(&ha.dx0_browse,  mx, my)) {
                     if (pick_ctx.state == PICK_IDLE) {
                         pick_target = 0;
-                        pick_file_async(&pick_ctx);
+                        pick_file_async(&pick_ctx,
+                                        s.dx0_mode == LAUNCHER_STORAGE_HOSTDIR ?
+                                            "Select DX0 host directory" : "Select DX0 disk image",
+                                        s.dx0_path,
+                                        storage_mode_uses_folder(s.dx0_mode));
                     }
                     break;
                 }
                 if (rect_hit(&ha.dx0_clear,   mx, my)) { free(s.dx0_path); s.dx0_path = NULL; break; }
+                if (rect_hit(&ha.dx1_type,    mx, my)) {
+                    int new_mode = cycle_storage_mode_dx1(s.dx1_mode);
+                    maybe_clear_path_for_mode_change(&s.dx1_path, s.dx1_mode, new_mode);
+                    s.dx1_mode = new_mode;
+                    break;
+                }
                 if (rect_hit(&ha.dx1_browse,  mx, my)) {
                     if (pick_ctx.state == PICK_IDLE) {
                         pick_target = 1;
-                        pick_file_async(&pick_ctx);
+                        pick_file_async(&pick_ctx,
+                                        s.dx1_mode == LAUNCHER_STORAGE_HOSTDIR ?
+                                            "Select DX1 host directory" : "Select DX1 disk image",
+                                        s.dx1_path,
+                                        storage_mode_uses_folder(s.dx1_mode));
                     }
                     break;
                 }
@@ -709,8 +810,9 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 
     if (result == 0) {
         /* Transfer state → cfg */
-        cfg->dx0_is_harddisk = s.dx0_is_harddisk;
+        cfg->dx0_mode        = s.dx0_mode;
         cfg->dx0_path        = s.dx0_path;   /* transfer ownership */
+        cfg->dx1_mode        = s.dx1_mode;
         cfg->dx1_path        = s.dx1_path;
         cfg->scale           = s.scale + 1;  /* index → actual scale factor (1..4) */
         cfg->phosphor_white  = s.phosphor;
