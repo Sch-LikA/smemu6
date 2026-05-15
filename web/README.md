@@ -91,6 +91,8 @@ headers.
 4. Click **Start** to launch the emulator with the selected disks.
 5. After the emulator has started, use **Insert…** on the front panel to load a
   new `.dsk` image into the virtual filesystem, then click **Reset** to reboot.
+6. On phones and tablets, tap **Keyboard** on the front panel to ask the browser
+  to open the device's on-screen keyboard.
 
 ## Controls
 
@@ -115,6 +117,9 @@ At build time, `--preload-file` bundles:
   controls scale down to narrow screens, the canvas preserves the full
   `512 × 508` machine window instead of cropping the lower bars, and touch
   targets are enlarged for phones and tablets.
+- On touch devices, the running machine view now exposes a dedicated
+  **Keyboard** button that focuses a hidden text field so mobile browsers can
+  show the system on-screen keyboard.
 - The launcher preloads the bundled floppy library from `/floppies/` and lets
   you choose DX0 / DX1 boot disks before starting the emulator.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`

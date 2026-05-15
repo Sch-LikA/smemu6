@@ -795,6 +795,11 @@ See [web/README.md](web/README.md) for build and serving instructions.
   and clicking **Start** routes the selected bundled image through the existing
   `-floppy` / `-floppy2` startup path. The existing **Use own…** file picker still
   stages user-supplied `.dsk` files into the same virtual filesystem before boot.
+- **Touch-device on-screen keyboard button** ✅ Done — the running web front panel
+  now shows a dedicated **Keyboard** button on coarse-pointer devices. It focuses
+  a hidden editable element instead of relying on canvas focus alone, which gives
+  mobile browsers a real text target and lets phones/tablets open the system
+  on-screen keyboard after the emulator has started.
 - **SDL launcher in browser** — `launcher_run()` is a blocking event loop and
   cannot run as-is under Emscripten.  To enable it: refactor into
   `launcher_init()` + `launcher_frame()` (called from `emscripten_set_main_loop`);

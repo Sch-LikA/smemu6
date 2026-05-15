@@ -362,7 +362,7 @@ static void show_help(SDL_Window *parent)
         "  Escape       = ESC/UNDO   Backspace = BS\n"
         "  Tab          = TAB        Return    = CR\n"
         "  Pause / F11  = BREAK (NMI)\n"
-        "  Shift+Pause  = Hard reset\n"
+        "  Shift+Pause / Shift+F11 = Hard reset\n"
         "  Ctrl+Q       = Quit\n"
         "\n"
         "Version: " SMEMU6_VERSION;

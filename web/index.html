@@ -506,6 +506,20 @@
     }
     button.panel-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+    .mobile-kbd-only {
+      display: none;
+    }
+
+    .vk-anchor {
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
     /* RESET — red accent key, like the real machine's red keys */
     button#btn-reset {
       background: linear-gradient(180deg, #bb2a1a 0%, #8a1a0e 100%);
@@ -618,6 +632,10 @@
     @media (pointer: coarse) {
       :root {
         --ui-control-height: var(--touch-target);
+      }
+
+      .mobile-kbd-only {
+        display: inline-flex;
       }
 
       .lnch-opt {
@@ -761,6 +779,7 @@
       </div>
     </div>
     <div id="btns">
+      <button class="panel-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
       <button class="panel-btn" id="btn-reset" disabled>RESET</button>
     </div>
   </div>
@@ -774,6 +793,7 @@
 
 <!-- hidden file input for emscripten pick_file_async -->
 <input type="file" id="smemu6-file-input" accept=".dsk,.DSK">
+<textarea id="vk-anchor" class="vk-anchor" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" aria-hidden="true"></textarea>
 
 <p id="attribution">
   <span id="footer-version"></span>
@@ -793,6 +813,20 @@ var launchDx0File = null;
 var launchDx1File = null;
 var runtimeReady = false;
 var emulatorStarted = false;
+var prefersTouchInput = window.matchMedia('(pointer: coarse)').matches;
+
+function focusEmulatorInput(preferVirtualKeyboard) {
+  var canvas = document.getElementById('canvas');
+  var keyboardAnchor = document.getElementById('vk-anchor');
+
+  if (preferVirtualKeyboard && prefersTouchInput) {
+    keyboardAnchor.focus();
+    keyboardAnchor.setSelectionRange(keyboardAnchor.value.length, keyboardAnchor.value.length);
+    return;
+  }
+
+  canvas.focus();
+}
 
 function syncMachineDisplayScale() {
   var scaleSelect = document.getElementById('lnch-scale');
@@ -955,7 +989,8 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   Module.callMain(args);
   document.getElementById('status-overlay').classList.add('hidden');
   document.getElementById('btn-reset').disabled = false;
-  document.getElementById('canvas').focus();
+  document.getElementById('btn-keyboard').disabled = false;
+  focusEmulatorInput(false);
 });
 
 // ── Emscripten Module ────────────────────────────────────────────────────────
@@ -1049,6 +1084,15 @@ document.getElementById('btn-reset').addEventListener('click', function(e) {
   e.preventDefault();
   Module.ccall('smemu6_reset', null, [], []);
   appendOutput('[web] reset\n');
+  focusEmulatorInput(prefersTouchInput);
+});
+
+document.getElementById('btn-keyboard').addEventListener('click', function() {
+  focusEmulatorInput(true);
+});
+
+document.getElementById('vk-anchor').addEventListener('input', function() {
+  this.value = '';
 });
 
 document.getElementById('log-toggle').addEventListener('click', function() {
@@ -1057,7 +1101,7 @@ document.getElementById('log-toggle').addEventListener('click', function() {
 });
 
 document.getElementById('canvas').addEventListener('click', function() {
-  this.focus();
+  focusEmulatorInput(prefersTouchInput);
 });
 
 (function loadRuntimeScript() {
