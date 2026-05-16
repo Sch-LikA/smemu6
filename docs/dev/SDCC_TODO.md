@@ -303,6 +303,16 @@ otherwise.
     not handed to the ordinary executable trampoline”. That helps bound the SDCC
     target more sharply: the `.SM` ABI work is about the later executable
     classifier/handoff path, not about generic file loading
+  - a narrower refusal trace finally pins down that negative path too. The
+    explicit `NATHALIE.IM` run does not go through the ordinary `.SM` anchors or
+    the earlier `0x6FB0` non-`0x06` splitter; instead it reaches
+    `CLI.SY:0x702E` with `A=0x1C`, and that site immediately calls the generic
+    file-message formatter at `0x5CDA`
+  - that formatter invocation is the observed refusal: it emits
+    `pas d'ex cution, fichier: NATHALIE.IM`, then the caller falls through the
+    shared CLI tail at `0x7040+` and rejoins the already-known prompt/status
+    sink at `0x56AE`; so the `.IM` case is now best read as “resolved file,
+    classified as non-executable with selector `0x1C`, print refusal, reprompt”
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
@@ -714,6 +724,11 @@ otherwise.
     using flag-derived letters like `S/R/E/G`, `L/M`, and `W/D` before later
     callers such as `0x702E+` continue with `0x70EC`; so the nearest confirmed
     state after `0x6457` is still CLI UI maintenance, not executable transfer
+  - the `NATHALIE.IM` control run now names one such caller precisely:
+    `0x702E` enters with `A=0x1C`, `BC=0x1C04`, and `DE=0x45C0`, calls
+    `0x5CDA`, and only then continues into the shared `0x7040+ -> 0x56AE`
+    reprompt path. That makes `0x702E` the confirmed no-exec message branch,
+    while `0x56AE` remains only the common CLI sink that follows it
   - a final pass over the remaining direct `0x569E` callers does not uncover a
     cleaner launch continuation either. The dense cluster at `0x62F7–0x6402`
     stays CLI-local: it decodes nibbles into workspace byte `0x45B7`, updates

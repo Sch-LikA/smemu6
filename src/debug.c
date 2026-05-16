@@ -81,9 +81,13 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     if (m->dbg.trace_flow && m->rom_mask[0x0000] == 0 && m->dbg.flow_budget > 0) {
         uint8_t a = Z80_A(m->cpu);
 
-        if (pc == 0x57D2 || pc == 0x57D7 || pc == 0x5812 || pc == 0x6457 ||
+        if (pc == 0x57D2 || pc == 0x57D7 || pc == 0x5812 || pc == 0x5CDA ||
+            pc == 0x5DD5 ||
+            pc == 0x5E69 || pc == 0x5EBB || pc == 0x5EC1 || pc == 0x5EC4 ||
+            pc == 0x5EC8 || pc == 0x6457 ||
             pc == 0x647A || pc == 0x647D || pc == 0x6480 || pc == 0x6484 ||
             pc == 0x648C || pc == 0x6496 || pc == 0x649B || pc == 0x64A5 ||
+            pc == 0x6F8F || pc == 0x6FB0 || pc == 0x702E ||
             pc == 0x7017 || pc == 0x569E || pc == 0x56AE) {
             uint16_t line_ptr = (uint16_t)m->bus[0x70B4u] | ((uint16_t)m->bus[0x70B5u] << 8);
             uint16_t save_ptr = (uint16_t)m->bus[0x70C8u] | ((uint16_t)m->bus[0x70C9u] << 8);
@@ -91,6 +95,10 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             uint8_t op0 = m->bus[pc];
             uint8_t op1 = m->bus[(uint16_t)(pc + 1u)];
             uint8_t op2 = m->bus[(uint16_t)(pc + 2u)];
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
 
             if (pc == m->dbg.last_flow_pc)
                 return;
@@ -98,12 +106,13 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
             fprintf(stderr,
                     "[flow-sm] pc=%04X af=%04X bc=%04X de=%04X hl=%04X op=%02X %02X %02X "
-                    "454B=%02X 45C0=%02X %02X %02X %02X %02X %02X %02X %02X "
-                    "70B0=%02X 70B1=%02X 70B4=%04X 70C8=%04X 70CA=%02X 70EC=%04X\n",
+                    "sp=%04X top=%04X next=%04X 454B=%02X 45C0=%02X %02X %02X %02X %02X %02X %02X %02X "
+                    "70B0=%02X 70B1=%02X 70B4=%04X 70C8=%04X 70CA=%02X 70CC=%02X 70E0=%02X 70E1=%02X 70EC=%04X\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
                     (unsigned)op0, (unsigned)op1, (unsigned)op2,
+                    sp, ret0, ret1,
                     (unsigned)m->bus[0x454Bu],
                     (unsigned)m->bus[0x45C0u], (unsigned)m->bus[0x45C1u],
                     (unsigned)m->bus[0x45C2u], (unsigned)m->bus[0x45C3u],
@@ -112,6 +121,9 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     (unsigned)m->bus[0x70B0u], (unsigned)m->bus[0x70B1u],
                     line_ptr, save_ptr,
                     (unsigned)m->bus[0x70CAu],
+                    (unsigned)m->bus[0x70CCu],
+                    (unsigned)m->bus[0x70E0u],
+                    (unsigned)m->bus[0x70E1u],
                     suffix_ptr);
             if (pc == 0x647A)
                 sm_rst10_follow = 40;
