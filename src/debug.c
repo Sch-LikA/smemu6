@@ -118,7 +118,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (sm_rst10_follow > 0 &&
-            (pc == 0x0048 || pc == 0x004A || pc == 0x004D || pc == 0x0050 ||
+            (pc == 0x003E || pc == 0x0041 || pc == 0x0048 || pc == 0x004A ||
+             pc == 0x004D || pc == 0x0050 ||
              pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
              pc == 0x1FAE || pc == 0x1FC1 || pc == 0x2155 || pc == 0x2191 ||
              pc == 0x21B7 ||

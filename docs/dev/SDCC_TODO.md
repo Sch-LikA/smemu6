@@ -304,10 +304,18 @@ otherwise.
     `0x1FAE` (with next word `0x1F4A`), i.e. the active return slot still points
     back into the same low-memory transfer-helper chain rather than anywhere in
     `CLI.SY`
-  - that same run never reaches `0x1FAE` before the next visible `0x0048` /
-    `0x004A` wrapper activity. So the current evidence is better read as
-    low-memory service / interrupt-style work interleaving before the helper has
-    unwound, not as proof that `0x217D` has already returned toward `0x647D+`
+  - the next trace then resolves what that interleaving actually is. In the same
+    live RAM image, `(0x4566) = 0x003E`, i.e. `RST 38` is still routed to the
+    installed SAMOS 50 Hz interrupt handler rather than to `0x0048` directly
+  - and the armed runtime sequence after each visible `0x217D` hit is now
+    explicit: `0x217D -> 0x003E -> 0x0041 -> 0x0048 -> 0x004A -> 0x0148 ...`
+    with the stack switching from the helper-chain return slot at `0x1FAE` to
+    an interrupt-style frame rooted at `0x2180`
+  - so the recurring `0x0048` wrapper is no longer best described as generic
+    low-memory service work. On this path it is specifically arriving through
+    the installed `RST 38` / 50 Hz ISR, nested on top of the transfer-helper
+    chain before that chain has unwound, not as evidence that control has
+    already returned toward `0x647D+`
   - that still does not prove an eventual return into `0x647D+`. It only shows
     that after `0x647A` the path drops through at least two RAM-resident service
     layers: `RST 10` first dispatches via `(0x4564) -> 0x1063 -> 0x18D6`, then
