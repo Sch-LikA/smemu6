@@ -822,6 +822,23 @@ otherwise.
       CLI-side `RST 10 / 0x0E` service on the populated `0x711A` workspace.
       The next ordinary successful step after that gate is the follow-on
       `RST 10 / 0x1B` call with `DE=0x70F6`
+  - tracing that follow-on `RST 10 / 0x1B` call narrows the next boundary too:
+    - the preceding `RST 10 / 0x0E` service is not a classifier. Its live
+      target is `0x17B9`, which decodes to `LD HL,0x2BE3 ; LD BC,0x0012 ; LDIR ; JP 0x11B9`,
+      so on this path it only copies the prepared 18-byte workspace record to
+      `DE=0x70F6` and unwinds
+    - the following `RST 10 / 0x1B` from `0x675A` does **not** use the nearby
+      `0x17C4` wrapper on this artifact. The active jump-table entry lands at
+      `0x11C0`
+    - that `0x11C0` wrapper immediately calls `0x1D29`, copies the returned
+      `HL` difference into `BC`, loads `HL` from `0x2BDE`, uses `OR L` only to
+      refresh flags, then reloads `A` from workspace byte `0x2BE2`, restores
+      registers, and returns
+    - the callee `0x1D29` is itself tiny: `PUSH DE ; LD HL,(0x2B86) ; LD DE,(0x2B84) ; OR A ; SBC HL,DE ; POP DE ; RET`
+    - on the successful `EDISK` run, that means the post-formatter `0x1B`
+      service returns to the CLI caller with `AF=0x2044` and `BC=0x04D0`.
+      So this step is still consuming already-prepared workspace state rather
+      than synthesizing a new accepted class locally
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table
