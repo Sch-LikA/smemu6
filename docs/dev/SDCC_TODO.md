@@ -413,6 +413,22 @@ otherwise.
     the longer branch is at least sometimes comparing against or threading
     through an empty buffer/work area rather than stepping into another obvious
     executable helper region
+  - a focused follow trace now sharpens that branch too. The first `0x1CF4`
+    selector byte still dispatches to `0x0E4F`, which runs with
+    `DE=0x0003, HL=0x0003` and returns into the selector re-entry at `0x1CFE`
+  - from that nested re-entry, the same dispatcher advances to
+    `top=0x25E8 next=0x1CFF`, then routes straight back to `0x0E4F` again. On
+    that second compare call, the live state is `DE=0x2300, HL=0x25E8` while
+    the bytes at `0x25E8..0x25EB` are still all zero
+  - after that second `0x0E4F` call, execution reaches live `pc=0x1CFF` with
+    `top=0x1D99 next=0x1743`, and the very next visible state falls back into
+    the same selector loop at `0x0127` with `top=0x1CF4 next=0x1D99` and
+    `DE=HL=0x0026`
+  - in that focused window there are no hits at the watched high-memory program
+    PCs (`0x5500`, `0x5503`, `0x5600`, `0x5602`, `0x5611`). So the current best
+    reading is that the `0x1CF4/0x1CFE/0x25E8` branch is still low-memory
+    threaded compare/workspace traffic that loops back into the same selector
+    stream, not a real unwind into a loaded `.SM` image
   - that makes the current best reading more specific: the deep tail does not
     escape low memory by swapping to a new vector surface. It re-enters the
     same low-RAM dispatcher with different per-path work values, which then
