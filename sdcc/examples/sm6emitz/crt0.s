@@ -3,6 +3,8 @@
     .globl _smaky6_emit_text
     .include "generated_sm6_symbols_sdcc.inc"
 
+SMAKY6_CLI_REPROMPT_SINK .equ 0x56AE
+
     .area _CODE
 
 start::
@@ -11,7 +13,7 @@ start::
     ; Verified ordinary .SM exit path back to the Sys2-2 CLI.
     ld a,#0x44
     ld hl,#SMAKY6_SM6_BUFLIN
-    jp 0x56AE
+    jp SMAKY6_CLI_REPROMPT_SINK
 
 _smaky6_emit_text::
     rst 0x20

@@ -999,6 +999,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   verified CLI return path.
 - A third standalone example now probes callable SM6 routines by wrapping the
   documented `RST 20 / 0x06` zero-terminated string helper from SDCC code.
+- The last remaining `crt0` return constant at `0x56AE` still has no recovered
+  symbol-table name; it is now factored as a descriptive local alias only,
+  based on repeated CLI reprompt evidence.
 - There is now a second standalone SDCC example under `sdcc/examples/sm6peek`
   that uses generated `SM6.ST` symbols beyond `ALPHA` and displays live reads
   from `OUTCAR` and `MAXMEM`.

@@ -116,6 +116,9 @@ The ongoing bring-up notes and follow-up tasks now live in
     `SMAKY6_SM6_ALPHA` from it instead of hard-coding the alpha base address
     and now also emits an assembler include so `crt0.s` can use
     `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0`
+    the remaining return jump at `0x56AE` still has no recovered `.ST` symbol,
+    so the examples now factor it as a descriptive local alias only:
+    `SMAKY6_CLI_REPROMPT_SINK`
 
 ```bash
 sdcc/build_smaky6_sdcc_example.sh

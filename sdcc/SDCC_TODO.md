@@ -80,6 +80,10 @@ otherwise.
   - recovered `SM6.ST` evidence now gives that `0x45C0` workspace a concrete
     name too: `BUFLIN`, which the generated assembler include now feeds into
     `crt0`
+  - the remaining `0x56AE` return jump still has no recovered `.ST` name after
+    the current narrow search, so `crt0` now factors it as the descriptive
+    local alias `SMAKY6_CLI_REPROMPT_SINK` rather than pretending it is
+    symbol-backed
   - a small SDCC/Z80 calling-convention probe also showed that SDCC passes a
     single pointer argument in `HL`, which matches the intended string-emitter
     wrapper shape for a first callable-routine probe
