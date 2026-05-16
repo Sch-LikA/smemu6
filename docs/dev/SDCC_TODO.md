@@ -905,6 +905,18 @@ otherwise.
           to `0x194B` / `0x194C` with `AF=0x184D`
       - this is the first validated site so far where the accepted ordinary class
         byte itself is explicitly synthesized before the `CALL C,0x1DAB`
+      - one more focused trace closes the last ambiguity on the immediate return:
+        - both exits rejoin at the tiny stub `0x1FFA..0x2004`
+        - that stub is just `PUSH AF ; CALL 0x21A8 ; LD A,0x64 ; LD (0x45BF),A ;
+          POP AF ; RET`
+        - on the non-accepted side, `0x1FA3` reaches `0x1FFA` with `AF=0x0042`
+          and returns to `0x194B/0x194C` still as `AF=0x0042`
+        - on the accepted side, `0x1F9E` reaches `0x1FFA` with `AF=0x184D` and
+          returns to `0x194B/0x194C` still as `AF=0x184D`
+      - so `0x1FFA` is only common cleanup and side-effecting I/O; it does not
+        participate in ordinary-class selection. The accepted `0x18` is fully
+        decided at `0x1F9E`, and the non-accepted outcome is already fixed before
+        `0x1FA3` enters the same cleanup stub
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
