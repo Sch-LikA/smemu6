@@ -344,13 +344,47 @@ otherwise.
   - live bytes at `0x1908+` show why the traced selector value looked like a
     standalone field when it is not: `LD E,(IX+0x13) ; LD D,(IX+0x14) ; PUSH DE ;
     EX DE,HL ; ... ; CALL 0x18A8`. So the later `0x1916` test classifies the
-    cross-word selector assembled from the high byte of the raw load word and
-    the low byte of the entry word, while the effective runtime load address is
+    cross-word selector assembled from the low byte of the raw load word and
+    the high byte of the entry word, while the effective runtime load address is
     already being carried separately in `HL/DE`
   - by contrast, the known-good executable paths reach the same caller with a
     nontrivial stacked word (`0x5600` or `0x5602` in current `TDISK` traces), so
     the same `0x1916` test returns early on the non-zero case instead of
     synthesizing selector `0x1C`
+  - a focused `EDISK` probe disconfirms one tempting over-read of that fact.
+    `EDISK.SM` carries preserved metadata `load=0x56AE, entry=0x5710`, so the
+    same cross-word synthesis yields selector `0x57AE`, not the raw load word.
+    The live launch still passes through `0x1913 -> 0x18A8 -> 0x1916` without
+    touching `0x7017`, which means the gate here is **not** “selector must equal
+    load” or “selector must equal `0x5600/0x5602`”. The current evidence says
+    only the special value `0x0001` triggers the local `LD A,0x1C ; SCF ; RET`
+    fallback at `0x191C`
+  - a second negative control makes that `0x0001` value look generic rather
+    than `.IM`-specific. Explicit `MATPAC.SY` has preserved metadata
+    `load=0x2C01, entry=0x0005`, which produces the same cross-word selector
+    `0x0001`; the live run reaches `pc=0x1913` with `DE=0x2C00`, `HL=0x0001`,
+    then follows the same `0x1916 -> 0x7017 -> 0x702E` refusal tail and prints
+    `pas d'ex cution, fichier: MATPAC.SY`
+  - the register split is now concrete across three classes:
+    `DE` at `0x1913` is the page-aligned load base (`load & 0xFF00` in current
+    traces), while `HL`/the stacked selector is `(entry & 0xFF00) | (load &
+    0x00FF)`. So the next unresolved SDCC-facing fact is no longer the caller's
+    predicate itself; it is where the raw big-endian `load`/`entry` pair comes
+    from for a synthetic record and which file classes are expected to produce
+    selector `0x0001`
+  - a follow-on trace one frame earlier falsifies one nearby hypothesis about
+    where that pair is assembled. The `0x1743..0x1790` block does **not** build
+    the `0x2300` cache; it already runs with `HL=0x2300`, `0x2318`, `0x2330`,
+    ... and `IX` stepping over the same populated `0x18`-byte records. The
+    observed `LDIR` at `0x1757` copies the first 10 bytes from the selected
+    cache record into the `0x711A` workspace (`HL=0x2300`, `DE=0x711A`, then
+    later `HL=0x2318`, `DE=0x7130`), so this slice is a formatter/consumer of
+    the cache, not its constructor
+  - that moves the unresolved producer one hop earlier again: by the time the
+    `0x1743` formatter runs, the normalized `0x2300` records already contain the
+    executable/non-executable split that later appears at `0x1913`. The next
+    useful target is therefore the upstream routine that populates `0x2300`
+    before this formatter consumes it, not the formatter itself
   - this also means the preserved `SYS.SY` artifact should not be trusted
     blindly for `0x1913+`: the live RAM bytes from both current runs agree on
     the executable code above, while the static extracted file at that address
