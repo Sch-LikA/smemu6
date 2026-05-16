@@ -121,6 +121,9 @@ tools/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `tools/dump_smaky6_st_symbols.c`.
+The shared parser API is in `tools/smaky6_st_symbols.h` /
+`tools/smaky6_st_symbols.c`, and `tools/export_smaky6_st_symbols.c` can emit a
+JSON dump or a generated C header from `FLO.ST` / `SM6.ST`.
 
 ---
 

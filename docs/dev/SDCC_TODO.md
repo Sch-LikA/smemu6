@@ -148,13 +148,21 @@ otherwise.
   - both sizes are exact multiples of 8, which strongly suggests fixed-width
     binary records
   - a first practical parser now exists at `tools/dump_smaky6_st_symbols.c`
-  - its current best-effort decode is: little-endian 16-bit value followed by a
+  - the shared C-side parser API now lives in `tools/smaky6_st_symbols.h` and
+    `tools/smaky6_st_symbols.c`
+  - export tool `tools/export_smaky6_st_symbols.c` can emit either JSON or a
+    generated C header from the parsed records
+  - its current best-effort decode is: big-endian 16-bit value followed by a
     6-byte symbol field that becomes readable when reversed and masked to 7-bit
     ASCII
   - that decode yields many plausible names immediately (`YY`, `XX`, `SPACE`,
     `SEARCH`, `SHOW`, `SYS`, `WRPROT`), but some records still decode only
     approximately, so the symbol text should currently be treated as inferred,
     not yet as a fully confirmed file-format spec
+  - several decoded values now line up with already-known machine constants,
+    which makes the tables useful despite the remaining naming uncertainty:
+    `MAXMEM -> 0x4560`, `OUTCAR -> 0x4550`, `LF -> 0x000A`, and an
+    `ALPHA`-family symbol at `0x4000`
 - Ordinary `.SM` programs already have preserved directory metadata in the
   extracted sidecars, so `load` and `entry` are definitely present at least in
   the directory/image layer even before the file-body format is understood.

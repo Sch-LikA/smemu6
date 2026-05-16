@@ -992,6 +992,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
   `tools/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
   exact 6-byte symbol encoding is still only partially confirmed.
+- That parser is now also factored into reusable C sources
+  `tools/smaky6_st_symbols.h` / `tools/smaky6_st_symbols.c`, and a companion
+  exporter can emit JSON or a generated C header for downstream use.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 
