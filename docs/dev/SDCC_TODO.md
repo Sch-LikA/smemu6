@@ -874,6 +874,24 @@ otherwise.
         saved default byte `0x20`. It is therefore probably not the main
         SDCC-facing ordinary `.SM` acceptance mechanism, and should stay
         deprioritized unless a later accepted-class hop points back into it
+    - returning to the accepted-class path tightens the real boundary further:
+      - the existing `0x192E..0x195F` trace already showed the decisive state at
+        `0x194C`: on the accepted recursive path, execution reaches that site with
+        `AF=0x184D`, so `CALL C,0x1DAB` sees `A=0x18` and carry already set *before*
+        the classifier itself runs
+      - a focused extension into the immediate producer family confirms that this
+        `A=0x18` does come back from the second `CALL 0x1A53` side, but not from
+        the first obvious entry points inside that helper:
+        - the accepted pass reaches `0x1A53` with `AF=0x4054`
+        - then enters `0x1F47` and `0x1F6D` with `AF=0x0044`, `BC=0`,
+          `DE=0x2300`, `HL=0x0003`
+        - only after that deeper producer-side work does control return to
+          `0x194B` with `AF=0x184D`
+      - so the refined SDCC-facing conclusion is: the accepted ordinary class is
+        still synthesized *inside* the `0x1A53` producer family, but not at the
+        outer `0x1A53`, `0x1F47`, or `0x1F6D` entry points themselves. The next
+        local hop should therefore be the deeper continuation beneath
+        `0x1F47 -> 0x1F6D`, rather than the later CLI-side consumers
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
