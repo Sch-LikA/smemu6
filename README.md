@@ -126,11 +126,17 @@ sdcc/build_smaky6_sdcc_example.sh hello_alpha
 sdcc/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
 sdcc/build_smaky6_sdcc_example.sh sm6peek
 sdcc/run_smaky6_sdcc_example.sh build/smemu6 sm6peek
+sdcc/build_smaky6_sdcc_example.sh sm6emitz
+sdcc/run_smaky6_sdcc_example.sh build/smemu6 sm6emitz
 ```
 
 `sdcc/examples/sm6peek` is the first symbol-backed follow-up example. It uses
 generated `SM6.ST` symbols beyond `ALPHA` and displays live reads from
 `OUTCAR` and `MAXMEM` in the guest workspace.
+
+`sdcc/examples/sm6emitz` is the first callable-routine probe. It wraps the
+documented `RST 20 / 0x06` zero-terminated string helper and calls it from SDCC
+code via a tiny example-local assembly stub.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.

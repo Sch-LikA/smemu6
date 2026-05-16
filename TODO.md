@@ -997,6 +997,8 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - The same archived `SM6.ST` evidence now also feeds an assembler include, so
   `crt0.s` can use `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0` for the
   verified CLI return path.
+- A third standalone example now probes callable SM6 routines by wrapping the
+  documented `RST 20 / 0x06` zero-terminated string helper from SDCC code.
 - There is now a second standalone SDCC example under `sdcc/examples/sm6peek`
   that uses generated `SM6.ST` symbols beyond `ALPHA` and displays live reads
   from `OUTCAR` and `MAXMEM`.

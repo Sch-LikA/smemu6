@@ -1,0 +1,1 @@
+#include "../hello_alpha/smaky6.h"

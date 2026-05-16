@@ -40,6 +40,9 @@ otherwise.
   - a second standalone example now lives under `sdcc/examples/sm6peek`; it
     uses generated `SM6.ST` symbols beyond `ALPHA` and displays live workspace
     reads from `OUTCAR` and `MAXMEM`
+  - a third standalone example now lives under `sdcc/examples/sm6emitz`; it
+    wraps the documented `RST 20 / 0x06` zero-terminated string helper via a
+    tiny example-local assembly stub
   - the standalone helper scripts now accept an example directory name under
     `sdcc/examples/`, so later one-file probes can reuse the same
     build/stage/run path without editing the scripts
@@ -77,6 +80,20 @@ otherwise.
   - recovered `SM6.ST` evidence now gives that `0x45C0` workspace a concrete
     name too: `BUFLIN`, which the generated assembler include now feeds into
     `crt0`
+  - a small SDCC/Z80 calling-convention probe also showed that SDCC passes a
+    single pointer argument in `HL`, which matches the intended string-emitter
+    wrapper shape for a first callable-routine probe
+
+First callable-routine probe correction:
+
+- the initial `OUTCAR`-pointer attempt was too optimistic for standalone `.SM`
+  code: the shared CLI sink at `0x56AE+` immediately calls helper `0x5B87`, and
+  that helper clears workspace words `0x4550` and `0x4552`, so `OUTCAR` /
+  `INCAR` should not be treated as already-initialized service pointers in this
+  context
+- the current first callable probe therefore pivots to the better-supported
+  `RST 20 / 0x06` zero-terminated string helper, whose `HL` string-pointer input
+  is already evidenced in the reverse-engineering notes
   - the hello scaffold therefore no longer needs to spin forever after `main`;
     returning from `main` is now the intended first-target exit path
 - The plan is grounded in emulator behavior that is already verified elsewhere in
