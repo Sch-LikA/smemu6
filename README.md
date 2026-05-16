@@ -119,6 +119,9 @@ tools/build_smaky6_sdcc_example.sh hello_alpha
 tools/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
 ```
 
+For reverse-engineering work on the archived symbol-table files, a small
+standalone C dumper now lives at `tools/dump_smaky6_st_symbols.c`.
+
 ---
 
 ## 2. Required Files

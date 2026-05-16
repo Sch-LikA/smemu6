@@ -989,6 +989,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - The helper scripts now accept an example directory name under
   `examples/sdcc/`, so new one-file SDCC probes can reuse the same
   build/stage/run path without script edits.
+- A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
+  `tools/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
+  exact 6-byte symbol encoding is still only partially confirmed.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 

@@ -147,9 +147,14 @@ otherwise.
   - `SM6.ST` size: `2008` bytes
   - both sizes are exact multiples of 8, which strongly suggests fixed-width
     binary records
-  - the first records contain 2 leading bytes followed by 6 bytes that look like
-    high-bit-marked uppercase text, but the exact encoding and field order are
-    still unresolved
+  - a first practical parser now exists at `tools/dump_smaky6_st_symbols.c`
+  - its current best-effort decode is: little-endian 16-bit value followed by a
+    6-byte symbol field that becomes readable when reversed and masked to 7-bit
+    ASCII
+  - that decode yields many plausible names immediately (`YY`, `XX`, `SPACE`,
+    `SEARCH`, `SHOW`, `SYS`, `WRPROT`), but some records still decode only
+    approximately, so the symbol text should currently be treated as inferred,
+    not yet as a fully confirmed file-format spec
 - Ordinary `.SM` programs already have preserved directory metadata in the
   extracted sidecars, so `load` and `entry` are definitely present at least in
   the directory/image layer even before the file-body format is understood.
