@@ -1108,6 +1108,41 @@ otherwise.
   resident CLI area. Those examples are useful for reverse-engineering the loader
   contract, but they are not automatically safe templates for a standalone C
   target layout.
+- A tighter pass on the active `EDISK` and `NATHALIE.IM` launch traces finally
+  identifies the nearest confirmed producer of the live `0x2300` buffer:
+  - the active path does **not** touch the earlier speculative `0x6F55..0x6FE6`
+    `CLI.SY` branch at all. Adding those PCs to the live trace yields no hits on
+    the successful `EDISK` run, so that command-owned `XFER`-side code is not
+    the active upstream handoff for ordinary bare-name launch on this path
+  - the stack-scripted handoff into the `0x1743` formatter is now slightly more
+    concrete too: raw bytes at live `0x1737` are `21 B9 11 ; E5 ; CD C4 1A`,
+    i.e. `LD HL,0x11B9 ; PUSH HL ; CALL 0x1AC4`, so `0x11B9` is a synthetic
+    return target intentionally pushed ahead of the low-memory helper chain, not
+    a normal caller discovered by code search
+  - the same live runs show the real active producer-side loop one hop earlier:
+    `0x1FAE` executes with `DE=0x2300` and immediately calls `0x2155`, while
+    repeated `0x1F57` hits sit under return sites `0x1E34`, `0x194B`,
+    `0x18BF`, and later `0x1D8F`. The surrounding bytes at `0x1F6D+` build ROM
+    workspace ranges (`0x2B91`, `0x2B94`, `0x2B9D`, `0x2B9F`, `0x2BA1`) and a
+    sector-to-RAM table rooted at `0x2BA3`, then `0x1FAE/0x2155/0x21B7` perform
+    the actual transfer into `0x2300`, `0x2400`, `0x2500`, ...
+  - that changes the local model of the `0x2300` cache materially: the nearest
+    confirmed producer is no longer an abstract constructor candidate around
+    `0x1743` or `0x19E1`, but the active ROM-side transfer/read loop centered on
+    `0x1F47/0x1F57/0x1F6D`, with `0x18BF`, `0x194B`, and `0x1D8F` acting as
+    successive consumers or post-read stages over the freshly filled pages
+  - the negative control confirms this producer is shared. `NATHALIE.IM` hits
+    the same `0x1FAE (DE=0x2300)` and repeated `0x1F57` landmarks before later
+    reaching `0x18BF` with `IX=0x2558` and `ix13_14=0x0001`, then `0x1916`,
+    `0x7017`, and `0x702E`. So executable vs non-executable behavior still
+    splits on the normalized selector word, but that split happens **after** the
+    same producer-side transfer machinery has already populated the candidate
+    record/cache state
+  - a caution from the same `NATHALIE.IM` dump: late snapshots can overwrite the
+    original `0x2300` cache with subsequent message text, so the stable evidence
+    for this producer comes from the trace sequence and the earlier record hits
+    (`0x2438` for `EDISK.SM`, `0x2558` for `NATHALIE.IM`), not from the final
+    post-refusal `0x2300` bytes alone
 
 ## Main unknowns blocking an SDCC target
 

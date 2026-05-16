@@ -88,6 +88,9 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             pc == 0x5EC8 || pc == 0x6457 ||
             pc == 0x647A || pc == 0x647D || pc == 0x6480 || pc == 0x6484 ||
             pc == 0x648C || pc == 0x6496 || pc == 0x649B || pc == 0x64A5 ||
+            pc == 0x6F55 || pc == 0x6F5C || pc == 0x6F60 || pc == 0x6F70 ||
+            pc == 0x6F7E || pc == 0x6F8F || pc == 0x6F94 || pc == 0x6F9A ||
+            pc == 0x6FA5 || pc == 0x6FB0 || pc == 0x6FDF || pc == 0x6FE6 ||
             pc == 0x6F8F || pc == 0x6FB0 || pc == 0x7015 || pc == 0x701D ||
             pc == 0x7020 || pc == 0x7026 || pc == 0x702D || pc == 0x702E ||
             pc == 0x7017 || pc == 0x569E || pc == 0x56AE) {
@@ -109,7 +112,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             fprintf(stderr,
                     "[flow-sm] pc=%04X af=%04X bc=%04X de=%04X hl=%04X op=%02X %02X %02X "
                     "sp=%04X top=%04X next=%04X 454B=%02X 45C0=%02X %02X %02X %02X %02X %02X %02X %02X "
-                    "70B0=%02X 70B1=%02X 70B4=%04X 70C8=%04X 70CA=%02X 70CC=%02X 70E0=%02X 70E1=%02X 70EC=%04X\n",
+                    "70B0=%02X 70B1=%02X 70B4=%04X 70C8=%04X 70CA=%02X 70CC=%02X 70D4=%04X 70E0=%02X 70E1=%02X 70EC=%04X 70F2=%04X 710A=%02X 710B=%04X\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
@@ -124,9 +127,16 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     line_ptr, save_ptr,
                     (unsigned)m->bus[0x70CAu],
                     (unsigned)m->bus[0x70CCu],
+                    (unsigned)((uint16_t)m->bus[0x70D4u] |
+                               ((uint16_t)m->bus[0x70D5u] << 8)),
                     (unsigned)m->bus[0x70E0u],
                     (unsigned)m->bus[0x70E1u],
-                    suffix_ptr);
+                    suffix_ptr,
+                    (unsigned)((uint16_t)m->bus[0x70F2u] |
+                               ((uint16_t)m->bus[0x70F3u] << 8)),
+                    (unsigned)m->bus[0x710Au],
+                    (unsigned)((uint16_t)m->bus[0x710Bu] |
+                               ((uint16_t)m->bus[0x710Cu] << 8)));
             if (pc == 0x647A)
                 sm_rst10_follow = 40;
             else if (pc == 0x649B || pc == 0x64A5 || pc == 0x7017)
