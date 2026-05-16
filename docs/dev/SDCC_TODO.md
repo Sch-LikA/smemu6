@@ -194,6 +194,41 @@ otherwise.
     `0x0020` vector entry, likely in the tiny low-RAM wrapper/helper chain that
     sits just above the shared `0x0E1C/0x1916` tail rather than inside the
     selector script or dispatcher body
+  - the next focused helper-chain probe resolves an important mistake in that
+    intermediate model. On this path, `0x0E1C` is **not** acting as a return
+    address. It is popped into `AF` by the live `0x18BF..0x18D0` block
+  - the same probe shows that the true launch word is already on the stack at
+    live `0x18BF`, just one slot deeper than the earlier tracer was printing.
+    After `0x18BF` pops the two small selector words into `DE`/`HL`, the next
+    visible stack state at `0x18C1` is already
+    `top=0x0E1C next=0x1916 next2=0x5602 next3=0x18E0` on the `TDISK` side or
+    `top=0x0E1C next=0x1916 next2=0x5600 next3=0x18E0` on the successful
+    `SHOW HORLOGE.SR` side
+  - the live `0x18BF..0x18D0` block behaves coherently with that layout:
+    `POP DE`, `POP HL`, `SBC HL,DE`, copy the difference into `BC`, `POP AF`
+    (which consumes the literal `0x0E1C`), then load `A` from `(IX+0x10)` and
+    return to `0x1916`
+  - `0x1916` then pops the real launch word directly from the stack. On the
+    ordinary successful path it pops `HL=0x5602` (`TDISK`) or `HL=0x5600`
+    (`SHOW HORLOGE.SR`), decrements it once for the non-zero test, restores it,
+    and returns with `A=0x57` or `A=0xFF` respectively rather than taking the
+    alternate `A=0x1C` carry-return case
+  - the next small block `0x18E0 -> 0x18E3 -> 0x18E6` is then where the visible
+    launch frame gets normalized into the later dispatcher shape. At `0x18E0`,
+    the `TDISK` side arrives with `AF=0x5700 BC=0x1ABF DE=0x0026 HL=0x5602`
+    while the `SHOW HORLOGE.SR` side arrives with
+    `AF=0xFFAC BC=0x0519 DE=0x00E2 HL=0x5600`
+  - by `0x18E3`, both cases have already been collapsed to the stable ABI-ish
+    pair carried into the dispatcher: `BC=0x0080 DE=0x10D5` (`TDISK`) or
+    `BC=0x0000 DE=0x45C0` (`SHOW HORLOGE.SR`)
+  - by `0x18E6`, `IX` has been switched to `0x5800`; and the first following
+    `RST 20` vector entry at `0x0020` now sees the assembled frame
+    `top=0x1DB9 next=0x18EA next2=0x5602` (`TDISK`) or
+    `top=0x1DB9 next=0x18EA next2=0x5600` (`SHOW HORLOGE.SR`)
+  - this leaves the remaining micro-question even narrower than before. The
+    launch word itself is no longer mysterious by `0x18BF`; the live control
+    point that matters now is the short `0x18E0..0x18E6` normalizer that turns
+    the helper outputs into the stable dispatcher frame seen at `0x0020`
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the

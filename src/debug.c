@@ -229,8 +229,15 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
         if (sm_tail_follow2 > 0 &&
             (pc == 0x0020 || pc == 0x0026 || pc == 0x0028 || pc == 0x003E ||
-             pc == 0x0041 || pc == 0x0E1C || pc == 0x18BF || pc == 0x194B ||
-             pc == 0x1D8F || pc == 0x1A53 || pc == 0x1D08 || pc == 0x1DAB)) {
+             pc == 0x0041 || pc == 0x0E1C || pc == 0x18BF || pc == 0x18C0 ||
+             pc == 0x18C1 || pc == 0x18C3 || pc == 0x18C5 || pc == 0x18C7 ||
+             pc == 0x18C8 || pc == 0x18C9 || pc == 0x18CC || pc == 0x18CE ||
+             pc == 0x18CF || pc == 0x18D0 || pc == 0x18E0 || pc == 0x18E3 ||
+             pc == 0x18E6 || pc == 0x18EA || pc == 0x18EB || pc == 0x1913 || pc == 0x1916 ||
+             pc == 0x1918 || pc == 0x191A || pc == 0x191D || pc == 0x191E ||
+             pc == 0x1920 || pc == 0x1921 || pc == 0x1922 || pc == 0x1923 ||
+             pc == 0x194B || pc == 0x1D8F || pc == 0x1A53 || pc == 0x1D08 ||
+             pc == 0x1DAB)) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
@@ -239,17 +246,19 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                             ((uint16_t)m->bus[(uint16_t)(sp + 5u)] << 8);
             uint16_t ret3 = (uint16_t)m->bus[(uint16_t)(sp + 6u)] |
                             ((uint16_t)m->bus[(uint16_t)(sp + 7u)] << 8);
+            uint16_t ix = (uint16_t)Z80_IX(m->cpu);
+            uint8_t ix10 = m->bus[(uint16_t)(ix + 0x10u)];
 
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
+                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    sp, ret0, ret1, ret2, ret3,
+                    ix, ix10, sp, ret0, ret1, ret2, ret3,
                     (unsigned)((uint16_t)m->bus[0x455Cu] |
                                ((uint16_t)m->bus[0x455Du] << 8)),
                     (unsigned)((uint16_t)m->bus[0x4566u] |
