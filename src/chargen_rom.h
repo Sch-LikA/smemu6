@@ -1,5 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2024-2026 Marcel Prisi
+// Copyright (C) EPSITEC SA, used with permission
 /* chargen_rom.h — Smaky 6 TMS2716 character generator ROM (2048 bytes),
  * embedded at build time from roms/chargen.rom.
  * Layout: 128 chars x 16 bytes; rows 0-7 = 8-row glyph, rows 8-15 = 0.
