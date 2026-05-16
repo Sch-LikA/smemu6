@@ -58,6 +58,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     static int ram_pc_printed = 0;
     static int dumped_ram_image = 0;
     static int sm_rst10_follow = 0;
+    static int sm_tail_follow = 0;
     int rom_active = (m->rom_mask[0x0000] != 0);
 
     if (!m->dbg.trace && !m->dbg.trace_flow) return;
@@ -113,6 +114,33 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                 sm_rst10_follow = 40;
             else if (pc == 0x649B || pc == 0x64A5 || pc == 0x7017)
                 sm_rst10_follow = 0;
+            m->dbg.flow_budget--;
+            return;
+        }
+
+        if (pc == 0x217D)
+            sm_tail_follow = 24;
+
+        if (sm_tail_follow > 0 &&
+            (pc == 0x1FAE || pc == 0x1FC1 || pc == 0x1FCD || pc == 0x1FD5 ||
+             pc == 0x1FD8 || pc == 0x1FEC || pc == 0x212F || pc == 0x213A ||
+             pc == 0x2155 || pc == 0x21B7)) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+
+            if (pc == m->dbg.last_flow_pc)
+                return;
+            m->dbg.last_flow_pc = pc;
+
+            fprintf(stderr,
+                    "[flow-tail] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X tail=%d\n",
+                    pc,
+                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    sp, ret0, ret1, sm_tail_follow);
+            sm_tail_follow--;
             m->dbg.flow_budget--;
             return;
         }

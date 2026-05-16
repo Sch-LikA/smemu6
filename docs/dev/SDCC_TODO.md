@@ -316,6 +316,16 @@ otherwise.
     the installed `RST 38` / 50 Hz ISR, nested on top of the transfer-helper
     chain before that chain has unwound, not as evidence that control has
     already returned toward `0x647D+`
+  - a dedicated tail-only follow probe then shows that the underlying helper
+    does in fact resume after that interrupt interleave. Once the ISR burst is
+    out of the way, control returns to `0x1FAE` and continues through
+    `0x2155 -> 0x21B7 -> 0x213A -> 0x1FD8 -> 0x212F -> 0x1FEC`, with repeated
+    small-loop traffic still rooted on low-memory return slots such as
+    `0x1F4A`, `0x2021`, and later `0x18BF`
+  - that is the strongest negative result so far against an early unwind back
+    into `CLI.SY`: even after the nested `RST 38` activity finishes, the live
+    path continues executing internal low-memory transfer helpers rather than
+    surfacing `0x647D`, `0x649B`, `0x64A5`, or `0x7017`
   - that still does not prove an eventual return into `0x647D+`. It only shows
     that after `0x647A` the path drops through at least two RAM-resident service
     layers: `RST 10` first dispatches via `(0x4564) -> 0x1063 -> 0x18D6`, then
