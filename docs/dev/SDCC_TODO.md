@@ -177,6 +177,23 @@ otherwise.
     `0x1DB9/0x1DBB/0x1DBD` selector-script entries, most likely inside the
     immediately following low-RAM dispatcher/setup path rather than in the deep
     tail itself
+  - one more focused boundary probe narrows that again. The launch frame is
+    already fully present by the time execution reaches the first visible
+    `RST 20` vector entry at `0x0020`
+  - on the `TDISK` side, the path goes from
+    `pc=0x18BF top=0x0026 next=0x0041 next2=0x0E1C next3=0x1916` straight to
+    `pc=0x0020 top=0x1DB9 next=0x18EA next2=0x5602 next3=0x00F3`
+  - on the successful `SHOW HORLOGE.SR` side, the matching step goes from
+    `pc=0x18BF top=0x00E2 next=0x00E8 next2=0x0E1C next3=0x1916` straight to
+    `pc=0x0020 top=0x1DB9 next=0x18EA next2=0x5600 next3=0x00F3`
+  - so the dispatcher body at `0x0127+` is no longer part of the unresolved
+    insertion window. By the first `RST 20` vector handoff itself, the
+    `1DB9/18EA/560x` frame has already been assembled
+  - the remaining ABI-facing unknown is therefore narrower still: the frame is
+    being built somewhere between the deep-tail `0x18BF` state and that first
+    `0x0020` vector entry, likely in the tiny low-RAM wrapper/helper chain that
+    sits just above the shared `0x0E1C/0x1916` tail rather than inside the
+    selector script or dispatcher body
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
