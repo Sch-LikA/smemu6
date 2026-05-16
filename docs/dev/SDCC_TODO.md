@@ -938,17 +938,18 @@ otherwise.
         - `0x2155` first uses `0x2191` to pick a small selector table slot from
           `0x2B8B..`, then programs ports `0x19/0x1A`, and later returns toward
           the compare at `0x1FC3`
-        - on the traced fallback ordinary `.SM` pass, execution reaches
-          `0x1FC3 -> CALL 0x21B7` with `HL=0x0003` and `DE=0x0003`
-        - `0x21B7` is just `PUSH HL ; OR A ; SBC HL,DE ; POP HL ; RET`, so that
-          call returns with `Z=1`
-        - the very next instruction at `0x1FC6` is `RET Z`, so this fallback pass
-          exits immediately there and returns to `0x194C` as `AF=0x0042`
-      - therefore the currently traced fallback `0x42` outcome is not produced by
-        the later `0x1FD4..0x1FF7` accumulation loop; it is the early-equality
-        exit at `0x1FC6` after the `0x21B7` compare succeeds
-      - the immediate source of that equality is now pinned down one hop earlier
-        in the producer family at `0x1F6D`:
+          - a fresh rerun corrected the earlier reading of this slice: the traced
+            fallback ordinary `.SM` pass does **not** return from `0x1FC6`
+          - instead, the first visible fallback hits are later in the same body at
+            `0x1FCD`, which means `CALL 0x21B7` at `0x1FC3` fell through the
+            following `RET Z`
+          - the later fallback trace confirms that non-equality directly:
+            - on one pass, `0x21B7` sees `DE=0x0206`, `HL=0x0401`
+            - on another, it sees `DE=0x0300`, `HL=0x0401`
+            - both cases therefore continue into `0x1FCD -> 0x1FD8 -> 0x1FEC ...`
+              rather than returning early
+        - the immediate source of the *initial* fallback compare inputs is now
+          pinned down one hop earlier in the producer family at `0x1F6D`:
         - this block does **not** inherit the compare inputs unchanged; it
           recomputes them via two calls to `0x2186` and then stores the results
           into `0x2B91` and `0x2B94`
@@ -957,12 +958,12 @@ otherwise.
           visible as `0x2B91=0x0000`
         - the second `0x2186` call is then entered with `BC=0x0003`, `HL=0x0003`,
           and after the second store the pair becomes `0x2B94=0x0003`
-        - by the time execution reaches `0x1F93` and later the fallback compare
-          at `0x1FC3`, the decisive equality inputs are already fixed as
-          `0x2B91=0x0000` and `0x2B94=0x0003`
+          - by the time execution reaches `0x1F93`, the seed pair is therefore
+            `0x2B91=0x0000`, `0x2B94=0x0003`, but the later fallback helper chain
+            mutates that seed before the eventual `0x1FC3` compare
       - so the remaining producer-side question is no longer where the fallback
-        compare operands come from in general, but why the `0x1F6D` setup block
-        chooses the specific `BC=0` / `BC=3` pair on this ordinary `.SM` branch
+          compare path begins, but how the fallback helper chain transforms the
+          `0x1F6D` seed pair into the later non-equal operands seen at `0x1FC3`
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
