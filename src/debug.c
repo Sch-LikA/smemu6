@@ -60,6 +60,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     static int sm_rst10_follow = 0;
     static int sm_tail_follow = 0;
     static int sm_tail_follow2 = 0;
+    static int sm_short_follow = 0;
     int rom_active = (m->rom_mask[0x0000] != 0);
 
     if (!m->dbg.trace && !m->dbg.trace_flow) return;
@@ -123,6 +124,44 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             sm_tail_follow = 40;
         if (pc == 0x1F57 || pc == 0x2021)
             sm_tail_follow2 = 24;
+
+        if (pc >= 0x0127 && pc <= 0x0147) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+
+            if (ret0 == 0x18EB && (ret1 == 0x5600 || ret1 == 0x5602))
+                sm_short_follow = 24;
+        }
+
+        if (sm_short_follow > 0 &&
+            (pc == 0x18EA || pc == 0x18EB || pc == 0x18EC || pc == 0x028D ||
+             pc == 0x028F || pc == 0x0560 || pc == 0x0568 || pc == 0x5600 ||
+             pc == 0x5602)) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+
+            if (pc == m->dbg.last_flow_pc)
+                return;
+            m->dbg.last_flow_pc = pc;
+
+            fprintf(stderr,
+                    "[flow-short] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X short=%d 455E=%02X%02X 4560=%02X%02X 456E=%02X%02X 4572=%02X%02X\n",
+                    pc,
+                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    sp, ret0, ret1, sm_short_follow,
+                    m->bus[0x455Eu], m->bus[0x455Fu],
+                    m->bus[0x4560u], m->bus[0x4561u],
+                    m->bus[0x456Eu], m->bus[0x456Fu],
+                    m->bus[0x4572u], m->bus[0x4573u]);
+            sm_short_follow--;
+            m->dbg.flow_budget--;
+            return;
+        }
 
         if (sm_tail_follow2 > 0 &&
             (pc == 0x18BF || pc == 0x194B || pc == 0x1D8F || pc == 0x1A53 ||

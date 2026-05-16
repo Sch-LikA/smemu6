@@ -390,11 +390,16 @@ otherwise.
     `top=0x18EB` and `next=0x5602` in one pass of the trace, and with
     `top=0x18EB` and `next=0x5600` in another. The selector then consumes byte
     `0x1B` from `0x18EB` and advances to `0x18EC`
-  - that does not yet prove a clean return into `CLI.SY`, but it does narrow the
-    short branch considerably: the workspace-setup script rooted at `0x1DB9`
-    now appears to hand control back into the `0x18EB+` low-memory stream while
-    already carrying a stacked continuation at the `CLI.SY` load base (`0x5600`
-    / `0x5602`)
+  - a focused follow trace resolves that last ambiguity. The selector byte
+    `0x1B` at `0x18EB` maps through the live `0x0F30` table to handler
+    `0x028D`, and `0x028D` is the tiny `LD HL,(0x4560) ; RET` stub. In the same
+    run, that stub returns with `(0x4560)=0xFFFF`, re-enters the threaded stream
+    at live `pc=0x18EC`, and then immediately reaches live `pc=0x5602`
+  - the high-memory target is not the resident `CLI.SY` image. The captured RAM
+    bytes at `0x5600` are `0E 14 E7 56 21 7E 57 E7 0C E7 5E 44 49 53 4B 20`,
+    which match the preserved head of `TDISK.SM` exactly. So this short branch
+    really does unwind out of the low-memory selector machinery and into the
+    freshly loaded ordinary `.SM` program image
   - the `0x1CF4` case behaves differently. Its first byte still dispatches
     `0x2E -> 0x0E4F`, but after that helper returns the same path re-enters the
     selector at a later stacked pointer `0x1CFE` while keeping `next=0x1D99`
