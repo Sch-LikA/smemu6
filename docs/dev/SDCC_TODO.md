@@ -299,6 +299,15 @@ otherwise.
   - the same trace also shows the helper calling back into `0x2186` a second
     time, then reaching `0x1F90 -> 0x21A8 -> 0x217D` before the path falls into
     the low-RAM wrapper `0x0048 -> 0x004A -> 0x0148 -> 0x004D -> 0x0050`
+  - a follow-up aimed at that exact tail tightens the interpretation of the
+    `0x0048` wrapper too. At each visible `0x217D` hit the stack top is still
+    `0x1FAE` (with next word `0x1F4A`), i.e. the active return slot still points
+    back into the same low-memory transfer-helper chain rather than anywhere in
+    `CLI.SY`
+  - that same run never reaches `0x1FAE` before the next visible `0x0048` /
+    `0x004A` wrapper activity. So the current evidence is better read as
+    low-memory service / interrupt-style work interleaving before the helper has
+    unwound, not as proof that `0x217D` has already returned toward `0x647D+`
   - that still does not prove an eventual return into `0x647D+`. It only shows
     that after `0x647A` the path drops through at least two RAM-resident service
     layers: `RST 10` first dispatches via `(0x4564) -> 0x1063 -> 0x18D6`, then

@@ -110,7 +110,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     (unsigned)m->bus[0x70CAu],
                     suffix_ptr);
             if (pc == 0x647A)
-                sm_rst10_follow = 32;
+                sm_rst10_follow = 40;
             else if (pc == 0x649B || pc == 0x64A5 || pc == 0x7017)
                 sm_rst10_follow = 0;
             m->dbg.flow_budget--;
@@ -120,6 +120,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         if (sm_rst10_follow > 0 &&
             (pc == 0x0048 || pc == 0x004A || pc == 0x004D || pc == 0x0050 ||
              pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
+             pc == 0x1FAE || pc == 0x1FC1 || pc == 0x2155 || pc == 0x2191 ||
+             pc == 0x21B7 ||
              pc == 0x1F47 || pc == 0x1F59 || pc == 0x1F6D || pc == 0x1F79 ||
              pc == 0x1F85 || pc == 0x1F90 || pc == 0x2170 || pc == 0x217D ||
              pc == 0x2186 || pc == 0x21A8 ||
