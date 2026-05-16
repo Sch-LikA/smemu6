@@ -120,6 +120,20 @@ otherwise.
   be true runtime addresses interpreted together with loader logic, they may use
   a different origin convention, or some program classes may encode them
   differently.
+- the runtime handoff evidence is now specific enough to narrow one part of that
+  uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
+  first-PC contract for the launch path.
+  - `SHOW.SM` preserves `load=0x5600, entry=0x5602`, but after the confirmed
+    bare-name `.SM` launch path reaches `0x6457 -> 0x647A`, the first observed
+    live high-memory PC is `0x5600`, not `0x5602`
+  - `TDISK.SM` preserves `load=0x5600, entry=0x5611`, but the same confirmed
+    launch family reaches live `0x5602`, and in later passes also reaches live
+    `0x5600` followed by `0x5602`
+  - that is enough to upgrade one SDCC-facing constraint from “unknown” to
+    “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
+    taken directly from preserved directory metadata. `load` still matches the
+    real placement of the program image in RAM, but `entry` currently looks more
+    like auxiliary loader metadata than like the literal first executed PC
 - The first direct look at the `Sys2-2` `CLI.SY` dispatcher falsifies one earlier
   assumption: in this preserved boot-media artifact, command-table entry `LOAD`
   points to handler `0x6B0D`, not `0x6A70`.
