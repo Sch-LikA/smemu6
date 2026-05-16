@@ -892,6 +892,19 @@ otherwise.
         outer `0x1A53`, `0x1F47`, or `0x1F6D` entry points themselves. The next
         local hop should therefore be the deeper continuation beneath
         `0x1F47 -> 0x1F6D`, rather than the later CLI-side consumers
+    - the deeper wait branch inside that producer family is now resolved enough
+      to matter for the SDCC target:
+      - after `0x1F47 -> 0x1F6D`, execution falls into the polling loop headed by
+        `0x1F93` / helper `0x21A8`
+      - that loop has two distinct exits on the accepted-class side:
+        - `0x1FA3` is the status-ready branch reached from `JR Z,+0x0A` at
+          `0x1F97`; on the traced ordinary `.SM` path it returns to `0x194B`
+          with the non-accepted state `AF=0x0042`
+        - `0x1F9E` is the accepted-class synthesis point: it is the literal
+          `LD A,0x18`, followed by `SCF`, and the traced path returns from there
+          to `0x194B` / `0x194C` with `AF=0x184D`
+      - this is the first validated site so far where the accepted ordinary class
+        byte itself is explicitly synthesized before the `CALL C,0x1DAB`
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
