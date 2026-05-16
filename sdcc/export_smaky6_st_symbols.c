@@ -171,13 +171,39 @@ static void emit_sdcc_header(FILE *out, const char *path, const struct Smaky6StT
     fprintf(out, "\n#endif\n");
 }
 
+static void emit_sdcc_asm(FILE *out, const char *path, const struct Smaky6StTable *table)
+{
+    char stem[32];
+    char ident[32];
+
+    st_stem(stem, sizeof(stem), path);
+    st_upper_identifier(ident, sizeof(ident), stem);
+
+    fprintf(out, "; Generated from %s\n", st_basename(path));
+
+    for (size_t i = 0; i < table->count; ++i) {
+        const struct Smaky6StRecord *record = &table->records[i];
+        const char *best_name = smaky6_st_best_name(record);
+        char decoded_ident[64];
+        char best_ident[64];
+
+        st_upper_identifier(decoded_ident, sizeof(decoded_ident), record->decoded_name);
+        fprintf(out, "SMAKY6_%s_%s .equ 0x%04X\n", ident, decoded_ident, record->value);
+
+        if (strcmp(best_name, record->decoded_name) != 0) {
+            st_upper_identifier(best_ident, sizeof(best_ident), best_name);
+            fprintf(out, "SMAKY6_%s_%s .equ 0x%04X\n", ident, best_ident, record->value);
+        }
+    }
+}
+
 int main(int argc, char **argv)
 {
     struct Smaky6StTable table;
     FILE *out;
 
     if (argc != 3 && argc != 4) {
-        fprintf(stderr, "usage: %s <--json|--header|--sdcc-header> <symbol-table.st> [output-file|-]\n", argv[0]);
+        fprintf(stderr, "usage: %s <--json|--header|--sdcc-header|--sdcc-asm> <symbol-table.st> [output-file|-]\n", argv[0]);
         return 2;
     }
 
@@ -197,6 +223,8 @@ int main(int argc, char **argv)
         emit_header(out, argv[2], &table);
     } else if (strcmp(argv[1], "--sdcc-header") == 0) {
         emit_sdcc_header(out, argv[2], &table);
+    } else if (strcmp(argv[1], "--sdcc-asm") == 0) {
+        emit_sdcc_asm(out, argv[2], &table);
     } else {
         fprintf(stderr, "unknown mode: %s\n", argv[1]);
         if (out != stdout)

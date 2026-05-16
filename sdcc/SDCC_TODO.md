@@ -29,11 +29,14 @@ otherwise.
     `sdcc/examples/hello_alpha/smaky6.h` for reuse by later standalone examples
   - that helper now exposes row/column-to-offset conversion so examples no
     longer need to hard-code raw alpha-RAM line offsets
-  - it also now exposes a minimal row-clear primitive so examples can claim a
-    dedicated text area without depending on prior CLI screen contents
+  - it also now exposes whole-screen and row-clear primitives so examples can
+    start from a readable blank alpha plane without depending on prior CLI
+    screen contents
   - when archived `SM6.ST` evidence is present, the standalone build script now
     emits an SDCC-friendly generated macro header and the helper header consumes
     `SMAKY6_SM6_ALPHA` from it instead of hard-coding `0x4000`
+  - the same generated-symbol path now also emits an assembler include, and the
+    current `crt0` uses `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0`
   - a second standalone example now lives under `sdcc/examples/sm6peek`; it
     uses generated `SM6.ST` symbols beyond `ALPHA` and displays live workspace
     reads from `OUTCAR` and `MAXMEM`
@@ -71,6 +74,9 @@ otherwise.
   - a focused trace of the SDCC example now shows `_main` return followed by
     `pc=56AE af=4444 ... hl=45C0`, which matches the established Sys2-2 CLI
     reprompt shape
+  - recovered `SM6.ST` evidence now gives that `0x45C0` workspace a concrete
+    name too: `BUFLIN`, which the generated assembler include now feeds into
+    `crt0`
   - the hello scaffold therefore no longer needs to spin forever after `main`;
     returning from `main` is now the intended first-target exit path
 - The plan is grounded in emulator behavior that is already verified elsewhere in

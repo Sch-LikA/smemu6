@@ -7,6 +7,7 @@
 #include "generated_sm6_symbols_sdcc.h"
 #endif
 
+#define SMAKY6_ALPHA_ROWS 20u
 #define SMAKY6_ALPHA_COLS 64u
 
 #ifndef SMAKY6_SM6_ALPHA
@@ -88,6 +89,11 @@ static inline void smaky6_alpha_put_text_xy(unsigned char row, unsigned char col
 static inline void smaky6_alpha_clear_row(unsigned char row)
 {
     smaky6_alpha_fill(smaky6_alpha_offset(row, 0u), SMAKY6_ALPHA_COLS, ' ');
+}
+
+static inline void smaky6_alpha_clear_screen(void)
+{
+    smaky6_alpha_fill(0u, (unsigned short)SMAKY6_ALPHA_ROWS * SMAKY6_ALPHA_COLS, ' ');
 }
 
 #endif

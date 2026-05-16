@@ -9,6 +9,7 @@ example_dir="$sdcc_root/examples/$example_name"
 out_dir="${2:-$repo_root/tmp/sdcc-$example_name-build}"
 sm6_st="$repo_root/private/floppies/extracted/Sys2-2-boot/SM6.ST"
 sdcc_symbols_header="$out_dir/generated_sm6_symbols_sdcc.h"
+sdcc_symbols_asm="$out_dir/generated_sm6_symbols_sdcc.inc"
 
 if [[ ! -d "$example_dir" ]]; then
     echo "missing SDCC example directory: $example_dir" >&2
@@ -41,9 +42,10 @@ if [[ -f "$sm6_st" ]] && command -v cc >/dev/null 2>&1; then
         "$sdcc_root/export_smaky6_st_symbols.c" \
         -o "$out_dir/export_smaky6_st_symbols"
     "$out_dir/export_smaky6_st_symbols" --sdcc-header "$sm6_st" "$sdcc_symbols_header"
+    "$out_dir/export_smaky6_st_symbols" --sdcc-asm "$sm6_st" "$sdcc_symbols_asm"
 fi
 
-sdasz80 -plosgff -o "$out_dir/crt0.rel" "$example_dir/crt0.s"
+sdasz80 -I"$out_dir" -plosgff -o "$out_dir/crt0.rel" "$example_dir/crt0.s"
 
 sdcc -mz80 \
     -c \

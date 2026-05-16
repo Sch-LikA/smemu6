@@ -986,12 +986,17 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   examples can address the alpha screen without open-coding raw offsets.
 - That header also now provides a minimal row-clear helper so examples can
   own a dedicated alpha-screen region before writing text.
+- That helper now also provides a whole-screen clear helper so standalone SDCC
+  probes start from a readable blank alpha plane.
 - The helper scripts now accept an example directory name under
   `sdcc/examples/`, so new one-file SDCC probes can reuse the same
   build/stage/run path without script edits.
 - The standalone build script can now also derive an SDCC-friendly macro header
   from archived `SM6.ST` evidence, and the first-target helper header consumes
   `SMAKY6_SM6_ALPHA` from that generated file when available.
+- The same archived `SM6.ST` evidence now also feeds an assembler include, so
+  `crt0.s` can use `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0` for the
+  verified CLI return path.
 - There is now a second standalone SDCC example under `sdcc/examples/sm6peek`
   that uses generated `SM6.ST` symbols beyond `ALPHA` and displays live reads
   from `OUTCAR` and `MAXMEM`.

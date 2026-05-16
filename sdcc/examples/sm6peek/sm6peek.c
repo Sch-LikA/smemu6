@@ -27,6 +27,8 @@ static void put_value_line(unsigned char row, const char *label,
 
 void main(void)
 {
+    smaky6_alpha_clear_screen();
+
     put_value_line(PROBE_ROW + 0u, "ALPHA", SMAKY6_SM6_ALPHA, 0u);
     put_value_line(PROBE_ROW + 1u, "OUTCAR", SMAKY6_SM6_OUTCAR,
                    (unsigned short)smaky6_peek8(SMAKY6_SM6_OUTCAR));
