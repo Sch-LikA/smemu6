@@ -186,6 +186,10 @@ struct Smaky6 {
         int trace_scr;   /* 1 = dump changed screen rows to stderr (opt-in via -scrdump) */
         int flow_budget; /* max flow log lines per run */
         uint16_t last_flow_pc;
+        uint16_t last_watch_pc;
+        uint8_t last_watch_2be2;
+        uint8_t last_watch_2b88;
+        int watch_2be2_valid;
         uint32_t flow_spin_count;
         uint16_t last_pc;/* last PC seen by trace hook (avoid duplicate prints) */
         uint16_t last_io19_pc;   /* last PC logged for port 0x19 */

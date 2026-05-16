@@ -837,8 +837,19 @@ otherwise.
     - the callee `0x1D29` is itself tiny: `PUSH DE ; LD HL,(0x2B86) ; LD DE,(0x2B84) ; OR A ; SBC HL,DE ; POP DE ; RET`
     - on the successful `EDISK` run, that means the post-formatter `0x1B`
       service returns to the CLI caller with `AF=0x2044` and `BC=0x04D0`.
-      So this step is still consuming already-prepared workspace state rather
-      than synthesizing a new accepted class locally
+      The important correction there is byte order: this is `A=0x20` with
+      flags `F=0x44`, not `A=0x44`
+    - a direct watch on the snapshot service confirms where that `A=0x20` comes
+      from. The active low-memory producer path reaches `0x1F2C`, which issues
+      `RST 10 / 0x1C`; the service target at `0x1238..0x126D` then snapshots
+      `0x2B88 -> 0x2BE2` and the `0x2B84/0x2B86` pair into `0x2BDE/0x2BE0`
+    - on the traced `EDISK` run, that snapshot happens exactly once and changes
+      the byte from `0x2B88=0x00` on entry to `0x2B88=0x20` by the time the
+      `0x1253` copy block runs; final RAM still shows `0x2BE2=0x20`
+    - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
+      this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
+      plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
+      manufacturing a new class byte locally
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table

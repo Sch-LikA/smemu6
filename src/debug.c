@@ -90,6 +90,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             pc == 0x675C || pc == 0x6761 ||
             pc == 0x647A || pc == 0x647D || pc == 0x6480 || pc == 0x6484 ||
             pc == 0x648C || pc == 0x6496 || pc == 0x649B || pc == 0x64A5 ||
+            pc == 0x1F2C ||
             pc == 0x6F55 || pc == 0x6F5C || pc == 0x6F60 || pc == 0x6F70 ||
             pc == 0x6F7E || pc == 0x6F8F || pc == 0x6F94 || pc == 0x6F9A ||
             pc == 0x6FA5 || pc == 0x6FB0 || pc == 0x6FDF || pc == 0x6FE6 ||
@@ -139,7 +140,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     (unsigned)m->bus[0x710Au],
                     (unsigned)((uint16_t)m->bus[0x710Bu] |
                                ((uint16_t)m->bus[0x710Cu] << 8)));
-            if (pc == 0x647A || pc == 0x6755 || pc == 0x675A)
+            if (pc == 0x1F2C || pc == 0x647A || pc == 0x6755 || pc == 0x675A)
                 sm_rst10_follow = 40;
             else if (pc == 0x649B || pc == 0x64A5 || pc == 0x7017)
                 sm_rst10_follow = 0;
@@ -406,9 +407,42 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             return;
         }
 
+        if ((pc == 0x1238 || pc == 0x1253) && m->dbg.flow_budget > 0) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+            uint8_t snap = m->bus[0x2BE2u];
+            uint8_t src = m->bus[0x2B88u];
+
+            if (!m->dbg.watch_2be2_valid || pc != m->dbg.last_watch_pc ||
+                snap != m->dbg.last_watch_2be2 || src != m->dbg.last_watch_2b88) {
+                fprintf(stderr,
+                        "[flow-snap] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X 2BE2=%02X 2B88=%02X 2BDE=%04X 2BE0=%04X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        sp, ret0, ret1,
+                        (unsigned)snap,
+                        (unsigned)src,
+                        (unsigned)((uint16_t)m->bus[0x2BDEu] |
+                                   ((uint16_t)m->bus[0x2BDFu] << 8)),
+                        (unsigned)((uint16_t)m->bus[0x2BE0u] |
+                                   ((uint16_t)m->bus[0x2BE1u] << 8)));
+                m->dbg.last_watch_pc = pc;
+                m->dbg.last_watch_2be2 = snap;
+                m->dbg.last_watch_2b88 = src;
+                m->dbg.watch_2be2_valid = 1;
+                m->dbg.flow_budget--;
+                return;
+            }
+        }
+
         if (sm_rst10_follow > 0 &&
             (pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
+             pc == 0x1238 || pc == 0x1253 ||
              pc == 0x17B9 || pc == 0x17C4 || pc == 0x1A53 || pc == 0x1AC4 ||
+             pc == 0x1EA9 ||
              pc == 0x1C4D || pc == 0x1D08 || pc == 0x1D29 || pc == 0x1DAB ||
              pc == 0x1DDB || pc == 0x1DEB || pc == 0x1E23 || pc == 0x1F59 ||
              pc == 0x18D6 || pc == 0x18E6 || pc == 0x18EA || pc == 0x18FF ||
