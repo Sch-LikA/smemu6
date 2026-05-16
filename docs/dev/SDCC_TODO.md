@@ -380,6 +380,11 @@ otherwise.
     are tiny `LD (workspace),HL ; RET` stubs in the `0x0291..0x02AD` family, so
     this branch currently looks like a compact workspace-vector setup script
     that finally returns toward `0x18EB`
+  - the exact workspace targets for that short script are now visible in the
+    live RAM bytes too: `0x0291` writes `HL` to `(0x456E)`, `0x0299` writes
+    `HL` to `(0x4572)`, and `0x029D` writes `HL` to `(0x455E)`. So the
+    `0x1DB9` stream is not arbitrary low-memory traffic; it is explicitly
+    preparing a small set of workspace pointer slots before returning
   - the `0x1CF4` case behaves differently. Its first byte still dispatches
     `0x2E -> 0x0E4F`, but after that helper returns the same path re-enters the
     selector at a later stacked pointer `0x1CFE` while keeping `next=0x1D99`
@@ -388,6 +393,11 @@ otherwise.
     `0x1CF4` starts with byte `0x2E`, and a later nested entry at `0x1CFE`
     begins with byte `0x2E` again, selecting the same `0x0E4F` compare helper
     with a new stacked continuation `top=0x25E8 next=0x1CFF`
+  - in the current `trace18` live RAM image, that nested `0x25E8` node is not a
+    visible code block at all: the bytes at `0x25E8..0x2608` are all zero. So
+    the longer branch is at least sometimes comparing against or threading
+    through an empty buffer/work area rather than stepping into another obvious
+    executable helper region
   - that makes the current best reading more specific: the deep tail does not
     escape low memory by swapping to a new vector surface. It re-enters the
     same low-RAM dispatcher with different per-path work values, which then
