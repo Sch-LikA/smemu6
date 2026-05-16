@@ -254,7 +254,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (sm_build_follow > 0 &&
-            (pc == 0x1743 || pc == 0x1757 || pc == 0x1771 || pc == 0x1790 ||
+            (pc == 0x11B9 || pc == 0x11CD || pc == 0x11D1 ||
+             pc == 0x1743 || pc == 0x1757 || pc == 0x1771 || pc == 0x1790 ||
              pc == 0x17E7 || pc == 0x17EB || pc == 0x17F0 ||
              pc == 0x17FD || pc == 0x1803 || pc == 0x180F || pc == 0x1813 ||
              pc == 0x1816 || pc == 0x1821 || pc == 0x1824 || pc == 0x1834 ||

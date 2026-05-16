@@ -795,6 +795,19 @@ otherwise.
       workspace, not the place where the later accepted `A=0x18` is created.
       That pushes the remaining SDCC-relevant unknown one hop later than the
       `0x1743` formatter path
+  - a direct trace of the synthetic return confirms that the next hop is not
+    `0x11B9` either:
+    - extending the same `flow-build` slice to include `0x11B9` shows control
+      returning there with the formatter already finished and the `0x711A`
+      workspace populated from the normalized cache walk
+    - the live `EDISK` run does not show any class-like rewrite at `0x11B9`.
+      Instead, that point behaves as a plain unwind back into the CLI-side
+      high-memory caller (`next=0x709B` or `0x70F6` in the captured returns)
+    - so the earlier static decode is now backed by dynamic evidence too:
+      `0x11B9` is just part of the synthetic return/unwind path paired with the
+      `0x1737` `LD HL,0x11B9 ; PUSH HL ; CALL 0x1AC4` entry, and the accepted
+      `A=0x18` must be synthesized later on the high-memory caller side rather
+      than anywhere inside `0x1743..0x1790` or the immediate `0x11B9` return
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table
