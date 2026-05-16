@@ -424,6 +424,24 @@ otherwise.
     `top=0x1D99 next=0x1743`, and the very next visible state falls back into
     the same selector loop at `0x0127` with `top=0x1CF4 next=0x1D99` and
     `DE=HL=0x0026`
+  - one more focused pass explains where that `0x0026` comes from. The live
+    bytes at `0x1CFF` are `CD 72 1E`, and the callee at `0x1E72` is the tiny
+    `LD E,(IX+0x0C) ; LD D,(IX+0x0D) ; RET` helper. In the same trace window,
+    `IX=0x2300` with `(IX+0x0C)=0x0026`, and the selector re-entry immediately
+    after `0x1E72` arrives with `DE=HL=0x0026`
+  - the companion step at `0x1CF6` is the matching base-pointer leg: it starts
+    with `PUSH IX ; POP DE`, so the first nested compare call uses `DE=IX`
+    itself (`0x2300`, then later `0x2318`, `0x2330`, `0x2348`) while
+    `HL=0x25E8`
+  - across those repeats, `BC` stays `0x0018`, `IX` advances by that same
+    stride after each compare cycle, and the traced word pairs move in lockstep:
+    `IX+0x0A/0x0C = 0x0003/0x0026`, then `0x0026/0x0041`, then
+    `0x0041/0x0044`, then `0x0044/0x0047`
+  - that makes the long branch more concrete than before: it is iterating a
+    `0x18`-byte `IX`-backed record stream, comparing first against the record
+    base and then against the record word at offset `0x0C`, while repeatedly
+    routing those values back through the same low-memory selector/comparison
+    loop
   - in that focused window there are no hits at the watched high-memory program
     PCs (`0x5500`, `0x5503`, `0x5600`, `0x5602`, `0x5611`). So the current best
     reading is that the `0x1CF4/0x1CFE/0x25E8` branch is still low-memory

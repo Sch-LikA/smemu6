@@ -170,24 +170,30 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
         if (sm_long_follow > 0 &&
             (pc == 0x1CF4 || pc == 0x1CFE || pc == 0x1CFF || pc == 0x0E4F ||
-             pc == 0x0E52 || pc == 0x0E54 || pc == 0x25E8 || pc == 0x1D99 ||
+             pc == 0x0E52 || pc == 0x0E54 || pc == 0x1CF6 || pc == 0x1D99 ||
+             pc == 0x1E72 || pc == 0x25E8 ||
              pc == 0x5500 || pc == 0x5503 || pc == 0x5600 || pc == 0x5602 ||
              pc == 0x5611)) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
                             ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+            uint16_t ix = (uint16_t)Z80_IX(m->cpu);
+            uint16_t ix0a = (uint16_t)m->bus[(uint16_t)(ix + 0x0Au)] |
+                            ((uint16_t)m->bus[(uint16_t)(ix + 0x0Bu)] << 8);
+            uint16_t ix0c = (uint16_t)m->bus[(uint16_t)(ix + 0x0Cu)] |
+                            ((uint16_t)m->bus[(uint16_t)(ix + 0x0Du)] << 8);
 
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-long] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X long=%d 4554=%02X 4555=%02X 4560=%02X%02X 25E8=%02X %02X %02X %02X\n",
+                    "[flow-long] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix0A=%04X ix0C=%04X sp=%04X top=%04X next=%04X long=%d 4554=%02X 4555=%02X 4560=%02X%02X 25E8=%02X %02X %02X %02X\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    sp, ret0, ret1, sm_long_follow,
+                    ix, ix0a, ix0c, sp, ret0, ret1, sm_long_follow,
                     m->bus[0x4554u], m->bus[0x4555u],
                     m->bus[0x4560u], m->bus[0x4561u],
                     m->bus[0x25E8u], m->bus[0x25E9u],
