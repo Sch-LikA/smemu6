@@ -161,6 +161,22 @@ otherwise.
   - that is enough to rule out one more tempting interpretation: the `0x1DB9`
     short script does not select the program start offset. It only prepares the
     workspace before returning into a launch word that was already stacked
+  - a final upstream check rules out one more candidate boundary. At the live
+    `0x18BF` deep-tail hit, the future launch word is **not** on the visible
+    stack yet.
+  - on the `TDISK` side, `0x18BF` arrives with
+    `top=0x0026 next=0x0041 next2=0x0E1C`; on the successful `SHOW HORLOGE.SR`
+    side, the corresponding `0x18BF` hit arrives with
+    `top=0x00E2 next=0x00E8 next2=0x0E1C`
+  - only after that deep-tail return drops back into the low-RAM selector path
+    does the stacked launch target appear: by the time the dispatcher reaches
+    `0x1DB9`, `next2` has become `0x5602` for `TDISK` or `0x5600` for
+    `SHOW HORLOGE.SR`
+  - that leaves the current smallest unresolved window as: the launch word is
+    introduced somewhere between the live `0x18BF` hit and the later
+    `0x1DB9/0x1DBB/0x1DBD` selector-script entries, most likely inside the
+    immediately following low-RAM dispatcher/setup path rather than in the deep
+    tail itself
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
