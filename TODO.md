@@ -967,6 +967,18 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 `pages.yml` builds the Emscripten web target on every push to `master` using `mymindstorm/setup-emsdk@v14` (SDK 3.1.6) and deploys to GitHub Pages. Live at <https://sch-lika.github.io/smemu6/>.
 
+### Experimental SDCC scaffold not yet in CI
+
+- A first standalone SDCC proof-of-execution scaffold now exists under
+  `examples/sdcc/hello_alpha` with helper scripts
+  `tools/build_smaky6_sdcc_example.sh` and
+  `tools/run_smaky6_sdcc_example.sh`.
+- Current scope is intentionally narrow: ordinary `.SM`, `flags=1`,
+  `load=entry=0x6000`, direct alpha-RAM output, and no clean return to the CLI
+  yet.
+- Keep this out of CMake and CI until the local SDCC workflow is proven
+  end-to-end and a stable return path is known.
+
 ---
 
 ## Known Bugs

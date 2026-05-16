@@ -96,6 +96,21 @@ tools/serve_web.sh
 # Open http://127.0.0.1:8080/
 ```
 
+### Experimental SDCC scaffold
+
+An experimental standalone SDCC proof-of-execution scaffold lives under
+`examples/sdcc/hello_alpha`. It is intentionally outside CMake and CI for now.
+
+- expected tools: `sdcc`, `sdasz80`, `python3`
+- current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`
+- current runtime scope: direct alpha-RAM output only, no libc startup, no
+    verified return path to the CLI yet
+
+```bash
+tools/build_smaky6_sdcc_example.sh
+tools/run_smaky6_sdcc_example.sh build/smemu6
+```
+
 ---
 
 ## 2. Required Files

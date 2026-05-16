@@ -12,8 +12,19 @@ This file is intentionally a forward-looking plan, not an implementation log.
 The phases below are open work unless a later repository change explicitly says
 otherwise.
 
-- No SDCC toolchain integration, sample program, or build target exists yet in
-  this repo.
+- No integrated SDCC toolchain or CMake target exists yet in this repo.
+- A first standalone proof-of-execution scaffold now exists under
+  `examples/sdcc/hello_alpha` with helper scripts
+  `tools/build_smaky6_sdcc_example.sh` and
+  `tools/run_smaky6_sdcc_example.sh`.
+- That scaffold is intentionally narrow:
+  - ordinary `.SM` only
+  - `flags=1`
+  - `load=entry=0x6000`
+  - direct alpha-RAM output
+  - no libc startup and no verified return-to-CLI path yet
+- It has not been exercised end-to-end on this machine in the current session,
+  because `sdcc` is not currently available on `PATH`.
 - The plan is grounded in emulator behavior that is already verified elsewhere in
   the dev docs: the machine now boots fully to the CLI, supports prompt-time
   command injection, and can run repeatable disk-based workflows.
