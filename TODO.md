@@ -986,6 +986,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   examples can address the alpha screen without open-coding raw offsets.
 - That header also now provides a minimal row-clear helper so examples can
   own a dedicated alpha-screen region before writing text.
+- The helper scripts now accept an example directory name under
+  `examples/sdcc/`, so new one-file SDCC probes can reuse the same
+  build/stage/run path without script edits.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 

@@ -31,6 +31,9 @@ otherwise.
     longer need to hard-code raw alpha-RAM line offsets
   - it also now exposes a minimal row-clear primitive so examples can claim a
     dedicated text area without depending on prior CLI screen contents
+  - the standalone helper scripts now accept an example directory name under
+    `examples/sdcc/`, so later one-file probes can reuse the same
+    build/stage/run path without editing the scripts
 - It is now exercised end-to-end on this machine:
   - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,
     and launch it through the CLI

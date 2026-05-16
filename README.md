@@ -113,6 +113,10 @@ An experimental standalone SDCC proof-of-execution scaffold lives under
 ```bash
 tools/build_smaky6_sdcc_example.sh
 tools/run_smaky6_sdcc_example.sh build/smemu6
+
+# Or target another one-file example directory under examples/sdcc/
+tools/build_smaky6_sdcc_example.sh hello_alpha
+tools/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
 ```
 
 ---
