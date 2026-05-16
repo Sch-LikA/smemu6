@@ -59,6 +59,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
     static int dumped_ram_image = 0;
     static int sm_rst10_follow = 0;
     static int sm_tail_follow = 0;
+    static int sm_tail_follow2 = 0;
     int rom_active = (m->rom_mask[0x0000] != 0);
 
     if (!m->dbg.trace && !m->dbg.trace_flow) return;
@@ -120,6 +121,31 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
         if (pc == 0x217D)
             sm_tail_follow = 40;
+        if (pc == 0x1F57 || pc == 0x2021)
+            sm_tail_follow2 = 24;
+
+        if (sm_tail_follow2 > 0 &&
+            (pc == 0x18BF || pc == 0x194B || pc == 0x1D8F || pc == 0x1A53 ||
+             pc == 0x1D08 || pc == 0x1DAB)) {
+            uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+            uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+            uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+
+            if (pc == m->dbg.last_flow_pc)
+                return;
+            m->dbg.last_flow_pc = pc;
+
+            fprintf(stderr,
+                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X tail2=%d\n",
+                    pc,
+                    (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                    (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                    sp, ret0, ret1, sm_tail_follow2);
+            sm_tail_follow2--;
+            m->dbg.flow_budget--;
+            return;
+        }
 
         if (sm_tail_follow > 0 &&
             (pc == 0x18BF || pc == 0x194B || pc == 0x1D8F || pc == 0x1F57 ||

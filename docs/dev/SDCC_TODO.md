@@ -327,6 +327,16 @@ otherwise.
     0x1FEC` activity, the live path reaches `0x1F57`, then repeatedly cycles
     through `0x213A -> 0x206F -> 0x2021`, and on some passes through
     `0x212F -> 0x2075` or `0x213A -> 0x20B2`
+  - a second-stage tail follow then confirms that the deeper return-slot values
+    are not just passive stack artifacts. On this same live path, `0x1F57 /
+    0x2021` can lead into actual execution at `0x194B`, `0x1D08`, and `0x1DAB`,
+    and those sites in turn feed back into the already-known low-memory helper
+    at `0x1A53`
+  - that matters because it removes another escape hatch: by this point the
+    chain is no longer merely carrying low-memory return words such as `0x194B`
+    or `0x18BF` on the stack. It is actively executing some of them, and the
+    visible result is still more low-memory helper traffic rather than a return
+    to any `CLI.SY` site
   - importantly, those deeper passes still do not surface any `CLI.SY` return
     site. Their active return slots remain low-memory values like `0x1F57`,
     `0x194B`, and `0x18BF`, while `0x2021` behaves coherently with the existing
