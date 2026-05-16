@@ -329,12 +329,19 @@ otherwise.
     `0x212F -> 0x2075` or `0x213A -> 0x20B2`
   - a second-stage tail follow then confirms that the deeper return-slot values
     are not just passive stack artifacts. On this same live path, `0x1F57 /
-    0x2021` can lead into actual execution at `0x194B`, `0x1D08`, and `0x1DAB`,
-    and those sites in turn feed back into the already-known low-memory helper
-    at `0x1A53`
+    0x2021` can lead into actual execution at `0x18BF`, `0x194B`, `0x1D08`,
+    `0x1D8F`, and `0x1DAB`, and those sites in turn feed back into the already-
+    known low-memory helper family around `0x1A53` / `0x1F47`
+  - the `0x18BF` and `0x1D8F` hits are especially useful because the stack
+    shape is visible one step earlier. In the same run, `0x2021` appears with
+    `next=0x18BF`, then `0x1F57` appears with `top=0x18BF next=0x0026`, and
+    the second-stage follow finally lands at live `pc=0x18BF` with
+    `top=0x0026 next=0x0041`; likewise `0x2021` appears with `next=0x1D8F`,
+    then `0x1F57` with `top=0x1D8F next=0x1743`, and finally live
+    `pc=0x1D8F` with `top=0x1743 next=0x711A`
   - that matters because it removes another escape hatch: by this point the
-    chain is no longer merely carrying low-memory return words such as `0x194B`
-    or `0x18BF` on the stack. It is actively executing some of them, and the
+    chain is no longer merely carrying low-memory return words such as `0x18BF`,
+    `0x194B`, or `0x1D8F` on the stack. It is actively executing them, and the
     visible result is still more low-memory helper traffic rather than a return
     to any `CLI.SY` site
   - importantly, those deeper passes still do not surface any `CLI.SY` return
