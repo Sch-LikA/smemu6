@@ -152,6 +152,9 @@ otherwise.
     `tools/smaky6_st_symbols.c`
   - export tool `tools/export_smaky6_st_symbols.c` can emit either JSON or a
     generated C header from the parsed records
+  - native CMake builds now also expose `dump_smaky6_st_symbols`,
+    `export_smaky6_st_symbols`, `smaky6_st_exports`, and a
+    `smaky6_st_generated_example` target that consumes the generated header
   - its current best-effort decode is: big-endian 16-bit value followed by a
     6-byte symbol field that becomes readable when reversed and masked to 7-bit
     ASCII
@@ -163,6 +166,10 @@ otherwise.
     which makes the tables useful despite the remaining naming uncertainty:
     `MAXMEM -> 0x4560`, `OUTCAR -> 0x4550`, `LF -> 0x000A`, and an
     `ALPHA`-family symbol at `0x4000`
+  - the current best-name layer only normalizes cases that already have strong
+    independent evidence, for example `SALPHA -> ALPHA` at `0x4000`; further
+    cleanup should use the external symbol documentation rather than byte-shape
+    guesswork alone
 - Ordinary `.SM` programs already have preserved directory metadata in the
   extracted sidecars, so `load` and `entry` are definitely present at least in
   the directory/image layer even before the file-body format is understood.
@@ -848,7 +855,7 @@ otherwise.
       sees `IX=0x2318` with `CLI     SY`, then `0x2330` for `ER      SY`, and
       so on
     - the `0x711A` output bytes on those same passes are just the padded record
-      name being copied into the formatter workspace (`SYS     ` for the first
+      name being copied into the formatter workspace (`SYS` for the first
       pass). They do not expose the later accepted class byte or any new
       synthesized `0x18`
     - the `best/cur` scratch values still evolve like a ranking or length

@@ -5,6 +5,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct Smaky6StNameOverride {
+    const char *decoded_name;
+    uint16_t value;
+    const char *best_name;
+};
+
+static const struct Smaky6StNameOverride st_name_overrides[] = {
+    {"SALPHA", 0x4000u, "ALPHA"},
+    {"SILENC", 0x00FFu, "SILENCE"},
+};
+
 static void smaky6_st_decode_name(struct Smaky6StRecord *record)
 {
     size_t out = 0;
@@ -31,6 +42,21 @@ static void smaky6_st_decode_name(struct Smaky6StRecord *record)
         --out;
 
     record->decoded_name[out] = '\0';
+}
+
+const char *smaky6_st_best_name(const struct Smaky6StRecord *record)
+{
+    if (!record)
+        return NULL;
+
+    for (size_t i = 0; i < sizeof(st_name_overrides) / sizeof(st_name_overrides[0]); ++i) {
+        if (record->value == st_name_overrides[i].value &&
+            strcmp(record->decoded_name, st_name_overrides[i].decoded_name) == 0) {
+            return st_name_overrides[i].best_name;
+        }
+    }
+
+    return record->decoded_name;
 }
 
 int smaky6_st_load_file(const char *path, struct Smaky6StTable *table)
@@ -118,8 +144,10 @@ const struct Smaky6StRecord *smaky6_st_find_by_name(const struct Smaky6StTable *
         return NULL;
 
     for (size_t i = 0; i < table->count; ++i) {
-        if (strcmp(table->records[i].decoded_name, name) == 0)
+        if (strcmp(table->records[i].decoded_name, name) == 0 ||
+            strcmp(smaky6_st_best_name(&table->records[i]), name) == 0) {
             return &table->records[i];
+        }
     }
 
     return NULL;

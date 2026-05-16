@@ -99,6 +99,77 @@ add_executable(smemu6
     src/winchester.c
 )
 
+add_library(smaky6_st_symbols STATIC
+    tools/smaky6_st_symbols.c
+)
+target_include_directories(smaky6_st_symbols PUBLIC tools)
+
+add_executable(dump_smaky6_st_symbols
+    tools/dump_smaky6_st_symbols.c
+)
+target_link_libraries(dump_smaky6_st_symbols PRIVATE smaky6_st_symbols)
+
+add_executable(export_smaky6_st_symbols
+    tools/export_smaky6_st_symbols.c
+)
+target_link_libraries(export_smaky6_st_symbols PRIVATE smaky6_st_symbols)
+
+if(MSVC)
+    target_compile_options(dump_smaky6_st_symbols PRIVATE /W3)
+    target_compile_options(export_smaky6_st_symbols PRIVATE /W3)
+    target_compile_options(smaky6_st_symbols PRIVATE /W3)
+else()
+    target_compile_options(dump_smaky6_st_symbols PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(export_smaky6_st_symbols PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(smaky6_st_symbols PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+set(SMAKY6_ST_BOOTDIR ${CMAKE_SOURCE_DIR}/private/floppies/extracted/Sys2-2-boot)
+set(SMAKY6_SM6_ST ${SMAKY6_ST_BOOTDIR}/SM6.ST)
+set(SMAKY6_FLO_ST ${SMAKY6_ST_BOOTDIR}/FLO.ST)
+
+if(EXISTS ${SMAKY6_SM6_ST} AND EXISTS ${SMAKY6_FLO_ST})
+    set(SMAKY6_ST_GENERATED_DIR ${CMAKE_BINARY_DIR}/generated-st)
+    file(MAKE_DIRECTORY ${SMAKY6_ST_GENERATED_DIR})
+
+    set(SMAKY6_SM6_HEADER ${SMAKY6_ST_GENERATED_DIR}/generated_sm6_st_symbols.h)
+    set(SMAKY6_SM6_JSON   ${SMAKY6_ST_GENERATED_DIR}/generated_sm6_st_symbols.json)
+    set(SMAKY6_FLO_HEADER ${SMAKY6_ST_GENERATED_DIR}/generated_flo_st_symbols.h)
+    set(SMAKY6_FLO_JSON   ${SMAKY6_ST_GENERATED_DIR}/generated_flo_st_symbols.json)
+
+    add_custom_command(
+        OUTPUT ${SMAKY6_SM6_HEADER} ${SMAKY6_SM6_JSON}
+        COMMAND export_smaky6_st_symbols --header ${SMAKY6_SM6_ST} ${SMAKY6_SM6_HEADER}
+        COMMAND export_smaky6_st_symbols --json ${SMAKY6_SM6_ST} ${SMAKY6_SM6_JSON}
+        DEPENDS export_smaky6_st_symbols ${SMAKY6_SM6_ST}
+        COMMENT "Generating SM6.ST exports"
+    )
+
+    add_custom_command(
+        OUTPUT ${SMAKY6_FLO_HEADER} ${SMAKY6_FLO_JSON}
+        COMMAND export_smaky6_st_symbols --header ${SMAKY6_FLO_ST} ${SMAKY6_FLO_HEADER}
+        COMMAND export_smaky6_st_symbols --json ${SMAKY6_FLO_ST} ${SMAKY6_FLO_JSON}
+        DEPENDS export_smaky6_st_symbols ${SMAKY6_FLO_ST}
+        COMMENT "Generating FLO.ST exports"
+    )
+
+    add_custom_target(smaky6_st_exports
+        DEPENDS ${SMAKY6_SM6_HEADER} ${SMAKY6_SM6_JSON} ${SMAKY6_FLO_HEADER} ${SMAKY6_FLO_JSON}
+    )
+
+    add_executable(smaky6_st_generated_example
+        tools/smaky6_st_generated_example.c
+        ${SMAKY6_SM6_HEADER}
+    )
+    add_dependencies(smaky6_st_generated_example smaky6_st_exports)
+    target_include_directories(smaky6_st_generated_example PRIVATE ${SMAKY6_ST_GENERATED_DIR})
+    if(MSVC)
+        target_compile_options(smaky6_st_generated_example PRIVATE /W3)
+    else()
+        target_compile_options(smaky6_st_generated_example PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endif()
+
 # ── Platform icon resources ────────────────────────────────────────────────────
 # Windows: embed .ico via .rc resource file so the .exe has a taskbar/Explorer icon
 if(WIN32)

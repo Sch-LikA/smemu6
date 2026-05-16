@@ -125,6 +125,17 @@ The shared parser API is in `tools/smaky6_st_symbols.h` /
 `tools/smaky6_st_symbols.c`, and `tools/export_smaky6_st_symbols.c` can emit a
 JSON dump or a generated C header from `FLO.ST` / `SM6.ST`.
 
+With the archived `private/floppies/extracted/Sys2-2-boot/SM6.ST` and
+`FLO.ST` present, the native CMake build also exposes utility targets for this
+pipeline:
+
+```bash
+cmake --build build -j$(nproc) --target dump_smaky6_st_symbols export_smaky6_st_symbols smaky6_st_exports smaky6_st_generated_example
+build/smaky6_st_generated_example
+```
+
+Generated headers and JSON exports are written under `build/generated-st/`.
+
 ---
 
 ## 2. Required Files

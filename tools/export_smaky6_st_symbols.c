@@ -5,6 +5,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+static FILE *st_open_output(const char *path)
+{
+    if (!path || strcmp(path, "-") == 0)
+        return stdout;
+
+    return fopen(path, "w");
+}
+
 static const char *st_basename(const char *path)
 {
     const char *slash = strrchr(path, '/');
@@ -40,51 +48,56 @@ static void st_identifier(char *dst, size_t dst_size, const char *stem)
     dst[out] = '\0';
 }
 
-static void emit_json_string(const char *text)
+static void emit_json_string(FILE *out, const char *text)
 {
-    putchar('"');
+    fputc('"', out);
     for (size_t i = 0; text[i] != '\0'; ++i) {
         unsigned char ch = (unsigned char)text[i];
 
         if (ch == '\\' || ch == '"')
-            putchar('\\');
-        putchar((int)ch);
+            fputc('\\', out);
+        fputc((int)ch, out);
     }
-    putchar('"');
+    fputc('"', out);
 }
 
-static void emit_json(const char *path, const struct Smaky6StTable *table)
+static void emit_json(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
 
     st_stem(stem, sizeof(stem), path);
 
-    printf("{\n");
-    printf("  \"file\": ");
-    emit_json_string(st_basename(path));
-    printf(",\n  \"stem\": ");
-    emit_json_string(stem);
-    printf(",\n  \"record_count\": %zu,\n  \"records\": [\n", table->count);
+    fprintf(out, "{\n");
+    fprintf(out, "  \"file\": ");
+    emit_json_string(out, st_basename(path));
+    fprintf(out, ",\n  \"stem\": ");
+    emit_json_string(out, stem);
+    fprintf(out, ",\n  \"record_count\": %zu,\n  \"records\": [\n", table->count);
 
     for (size_t i = 0; i < table->count; ++i) {
         const struct Smaky6StRecord *record = &table->records[i];
+        const char *best_name = smaky6_st_best_name(record);
 
-        printf("    {\"index\": %zu, \"value\": %u, \"value_hex\": \"0x%04X\", ",
+        fprintf(out, "    {\"index\": %zu, \"value\": %u, \"value_hex\": \"0x%04X\", ",
                i,
                record->value,
                record->value);
-        printf("\"high_bit_mask\": \"0x%02X\", \"name\": ", record->high_bit_mask);
-        emit_json_string(record->decoded_name);
-        printf(", \"raw_name_hex\": \"");
+        fprintf(out, "\"high_bit_mask\": \"0x%02X\", \"name\": ", record->high_bit_mask);
+        emit_json_string(out, record->decoded_name);
+        if (strcmp(best_name, record->decoded_name) != 0) {
+            fprintf(out, ", \"best_name\": ");
+            emit_json_string(out, best_name);
+        }
+        fprintf(out, ", \"raw_name_hex\": \"");
         for (size_t j = 0; j < SMAKY6_ST_NAME_SIZE; ++j)
-            printf("%s%02X", (j == 0) ? "" : " ", record->raw_name[j]);
-        printf("\"}%s\n", (i + 1 == table->count) ? "" : ",");
+            fprintf(out, "%s%02X", (j == 0) ? "" : " ", record->raw_name[j]);
+        fprintf(out, "\"}%s\n", (i + 1 == table->count) ? "" : ",");
     }
 
-    printf("  ]\n}\n");
+    fprintf(out, "  ]\n}\n");
 }
 
-static void emit_header(const char *path, const struct Smaky6StTable *table)
+static void emit_header(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
     char ident[32];
@@ -92,51 +105,65 @@ static void emit_header(const char *path, const struct Smaky6StTable *table)
     st_stem(stem, sizeof(stem), path);
     st_identifier(ident, sizeof(ident), stem);
 
-    printf("#ifndef GENERATED_SMAKY6_ST_%s_H\n", ident);
-    printf("#define GENERATED_SMAKY6_ST_%s_H\n\n", ident);
-    printf("#include <stddef.h>\n#include <stdint.h>\n\n");
-    printf("struct GeneratedSmaky6StEntry {\n");
-    printf("    uint16_t value;\n");
-    printf("    uint8_t high_bit_mask;\n");
-    printf("    const char *name;\n");
-    printf("};\n\n");
-    printf("static const struct GeneratedSmaky6StEntry smaky6_%s_symbols[] = {\n", ident);
+    fprintf(out, "#ifndef GENERATED_SMAKY6_ST_%s_H\n", ident);
+    fprintf(out, "#define GENERATED_SMAKY6_ST_%s_H\n\n", ident);
+    fprintf(out, "#include <stddef.h>\n#include <stdint.h>\n\n");
+    fprintf(out, "struct GeneratedSmaky6StEntry {\n");
+    fprintf(out, "    uint16_t value;\n");
+    fprintf(out, "    uint8_t high_bit_mask;\n");
+    fprintf(out, "    const char *name;\n");
+    fprintf(out, "    const char *best_name;\n");
+    fprintf(out, "};\n\n");
+    fprintf(out, "static const struct GeneratedSmaky6StEntry smaky6_%s_symbols[] = {\n", ident);
 
     for (size_t i = 0; i < table->count; ++i) {
         const struct Smaky6StRecord *record = &table->records[i];
-        printf("    {0x%04X, 0x%02X, \"%s\"},\n",
+        fprintf(out, "    {0x%04X, 0x%02X, \"%s\", \"%s\"},\n",
                record->value,
                record->high_bit_mask,
-               record->decoded_name);
+               record->decoded_name,
+               smaky6_st_best_name(record));
     }
 
-    printf("};\n\n");
-    printf("static const size_t smaky6_%s_symbol_count = %zu;\n\n", ident, table->count);
-    printf("#endif\n");
+    fprintf(out, "};\n\n");
+    fprintf(out, "static const size_t smaky6_%s_symbol_count = %zu;\n\n", ident, table->count);
+    fprintf(out, "#endif\n");
 }
 
 int main(int argc, char **argv)
 {
     struct Smaky6StTable table;
+    FILE *out;
 
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s <--json|--header> <symbol-table.st>\n", argv[0]);
+    if (argc != 3 && argc != 4) {
+        fprintf(stderr, "usage: %s <--json|--header> <symbol-table.st> [output-file|-]\n", argv[0]);
         return 2;
     }
 
     if (smaky6_st_load_file(argv[2], &table) != 0)
         return 1;
 
+    out = st_open_output((argc == 4) ? argv[3] : "-");
+    if (!out) {
+        perror("open output");
+        smaky6_st_free_table(&table);
+        return 1;
+    }
+
     if (strcmp(argv[1], "--json") == 0) {
-        emit_json(argv[2], &table);
+        emit_json(out, argv[2], &table);
     } else if (strcmp(argv[1], "--header") == 0) {
-        emit_header(argv[2], &table);
+        emit_header(out, argv[2], &table);
     } else {
         fprintf(stderr, "unknown mode: %s\n", argv[1]);
+        if (out != stdout)
+            fclose(out);
         smaky6_st_free_table(&table);
         return 2;
     }
 
+    if (out != stdout)
+        fclose(out);
     smaky6_st_free_table(&table);
     return 0;
 }

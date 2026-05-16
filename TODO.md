@@ -995,6 +995,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - That parser is now also factored into reusable C sources
   `tools/smaky6_st_symbols.h` / `tools/smaky6_st_symbols.c`, and a companion
   exporter can emit JSON or a generated C header for downstream use.
+- Native CMake builds now also expose utility targets for the symbol-table
+  tooling and a generated-header consumer example when the archived `SM6.ST`
+  and `FLO.ST` files are present.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 

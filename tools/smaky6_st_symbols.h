@@ -23,6 +23,7 @@ struct Smaky6StTable {
 
 int smaky6_st_load_file(const char *path, struct Smaky6StTable *table);
 void smaky6_st_free_table(struct Smaky6StTable *table);
+const char *smaky6_st_best_name(const struct Smaky6StRecord *record);
 const struct Smaky6StRecord *smaky6_st_find_by_name(const struct Smaky6StTable *table,
                                                     const char *name);
 
