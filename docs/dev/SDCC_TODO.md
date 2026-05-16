@@ -917,6 +917,21 @@ otherwise.
         participate in ordinary-class selection. The accepted `0x18` is fully
         decided at `0x1F9E`, and the non-accepted outcome is already fixed before
         `0x1FA3` enters the same cleanup stub
+      - the poll-loop branch condition itself is now validated, not just inferred
+        from static bytes:
+        - `0x1F93` calls `0x21A8`, then `IN A,(0x19)` and `BIT 5,A`
+        - on the accepted ordinary `.SM` pass, the sampled values at `0x1F95` are
+          `A=0xA2` / `A=0xA3`; bit 5 stays set, so `0x1F97` sees `Z=0` and does
+          not take `JR Z,+0x0A`
+        - the loop therefore keeps counting `BC` down until it reaches the
+          timeout exit at `0x1F9E`, which synthesizes `A=0x18` and sets carry
+        - on the contrasting fallback pass, the sampled value at `0x1F95` is
+          `A=0x83`; bit 5 is clear there, so `0x1F97` sees `Z=1` and jumps
+          directly to `0x1FA3`
+      - this makes the SDCC-facing branch contract explicit: the accepted
+        ordinary-class path is the timeout path taken while the polled status bit
+        5 remains asserted; the fallback branch is taken as soon as that bit
+        drops before the countdown expires
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
