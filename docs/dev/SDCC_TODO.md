@@ -1525,6 +1525,51 @@ otherwise.
         unwind/restore stub (`POP IX ; PUSH AF ; LD A,(0x457F) ; OUT (0),A ;
         POP AF ; EI ; RET ...`), so it is also not the missing translator
 
+## SDCC-first target decisions
+
+These are the current working choices for the **first** SDCC-oriented milestone.
+They are intentionally biased toward the already-validated ordinary `.SM`
+accepted path. Anything not required for that milestone stays secondary until
+the first target is running.
+
+- Launch class to target first:
+  - target only the ordinary `.SM` path that reaches `0x194C` with
+    `AF=0x184D`, so `CALL C,0x1DAB` accepts class `0x18`
+  - treat `0x1F9E` (`LD A,0x18 ; SCF`) as the decisive accepted-class synthesis
+    point
+  - treat the `0x1FA3` fallback branch and its later mutation chain as
+    secondary for now; keep the notes, but do not let that branch block the
+    first SDCC target
+- Producer-side acceptance rule to preserve first:
+  - the accepted path is the timeout side of the `0x1F93` poll loop
+  - the crucial branch condition is already known: while port `0x19` keeps bit
+    5 asserted (`A=0xA2` / `0xA3` in the traced run), execution stays in the
+    loop until it reaches `0x1F9E`
+  - for the first SDCC target, prefer packaging and metadata that stay on this
+    already-validated accepted path instead of trying to model every fallback
+    ready-status variant
+- Loader and packaging model to assume first:
+  - assume the first SDCC target should be packaged as an ordinary `.SM` file,
+    not as a `SY` file and not as a CLI built-in command
+  - assume the directory metadata path is authoritative for the first target:
+    preserve `load`, `entry`, `flags`, and sector/start metadata in the same
+    way the current virtual-floppy metadata model already does
+  - defer file-body format archaeology that is not needed to reproduce the
+    accepted ordinary-class path with controlled metadata
+- Runtime scope to target first:
+  - avoid `malloc`, relocations, and complex libc expectations
+  - prefer a tiny `crt0` plus a single fixed-load binary
+  - prefer direct screen RAM output over a broad SAMOS console ABI for the very
+    first runnable milestone
+  - keep clean CLI return desirable, but secondary to getting one accepted and
+    visibly running ordinary `.SM` first
+- Secondary items to keep aside for now:
+  - the full fallback `0x1FA3 -> ... -> 0x1FC3` mutation chain
+  - generalized SAMOS text/file ABI recovery beyond what the first milestone
+    strictly needs
+  - richer packaging workflows, symbol dictionaries, and non-trivial runtime
+    services
+
 ## Main unknowns blocking an SDCC target
 
 - Exact `.SM` file format:
