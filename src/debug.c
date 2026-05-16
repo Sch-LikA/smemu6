@@ -131,6 +131,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
                             ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+            uint16_t ret2 = (uint16_t)m->bus[(uint16_t)(sp + 4u)] |
+                            ((uint16_t)m->bus[(uint16_t)(sp + 5u)] << 8);
 
             if (ret0 == 0x18EB && (ret1 == 0x5600 || ret1 == 0x5602))
                 sm_short_follow = 24;
@@ -138,6 +140,24 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                 sm_long_follow = 32;
             if (ret0 == 0x25E8 && ret1 == 0x1CFF)
                 sm_long_follow = 32;
+
+            if (ret0 == 0x1DB9 || ret0 == 0x1DBB || ret0 == 0x1DBD ||
+                ret0 == 0x18EB) {
+                if (pc == m->dbg.last_flow_pc)
+                    return;
+                m->dbg.last_flow_pc = pc;
+
+                fprintf(stderr,
+                        "[flow-pre560x] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X next2=%04X 4554=%02X 4555=%02X 4560=%02X%02X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        sp, ret0, ret1, ret2,
+                        m->bus[0x4554u], m->bus[0x4555u],
+                        m->bus[0x4560u], m->bus[0x4561u]);
+                m->dbg.flow_budget--;
+                return;
+            }
         }
 
         if (sm_short_follow > 0 &&

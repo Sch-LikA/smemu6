@@ -148,6 +148,19 @@ otherwise.
     it is fixed **before** the `0x18EA/0x18EC -> 0x11D2` trampoline runs. That
     makes the real remaining question an upstream stack-construction question,
     not an `entry`-field interpretation question inside the final handoff block
+  - one more focused pre-handoff stack trace narrows it again: by the time the
+    short setup script starts at `0x1DB9`, the eventual launch word is already
+    present as the **third** stacked return word.
+  - on the `TDISK` side, the dispatcher enters the script with
+    `top=0x1DB9 next=0x18EA next2=0x5602`, then repeats that same `next2=0x5602`
+    state at `0x1DBB` and `0x1DBD`, and only after the script finishes does that
+    word move up to `next=0x5602` at `0x18EB`
+  - on the successful `SHOW HORLOGE.SR` side, the same script starts with
+    `top=0x1DB9 next=0x18EA next2=0x5600`, keeps `next2=0x5600` through
+    `0x1DBB/0x1DBD`, and only then exposes it as `next=0x5600` at `0x18EB`
+  - that is enough to rule out one more tempting interpretation: the `0x1DB9`
+    short script does not select the program start offset. It only prepares the
+    workspace before returning into a launch word that was already stacked
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
