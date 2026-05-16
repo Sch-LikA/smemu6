@@ -979,6 +979,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - Local proof-of-execution now works end-to-end: the current workflow builds,
   stages, and launches `HELLO.SM`, the screen dump shows the expected
   alpha-RAM text, and control returns to the Sys2-2 CLI.
+- The example now exposes a tiny reusable first-target header,
+  `examples/sdcc/hello_alpha/smaky6.h`, instead of keeping the alpha-RAM write
+  primitive private to `hello.c`.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 

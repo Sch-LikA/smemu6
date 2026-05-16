@@ -105,6 +105,8 @@ An experimental standalone SDCC proof-of-execution scaffold lives under
 - current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`
 - current runtime scope: confirmed direct alpha-RAM output, no libc startup,
     and a verified return-to-CLI path for returning `main`
+- the example now also carries a tiny reusable target header,
+  `examples/sdcc/hello_alpha/smaky6.h`, for first-target alpha-RAM output
 
 ```bash
 tools/build_smaky6_sdcc_example.sh
