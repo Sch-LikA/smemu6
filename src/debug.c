@@ -370,6 +370,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
              pc == 0x004D || pc == 0x0050 ||
              pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
              pc == 0x1E6A || pc == 0x1E6D || pc == 0x1E70 ||
+             pc == 0x1DDB || pc == 0x1DEB || pc == 0x1EDF ||
              pc == 0x1FAE || pc == 0x1FC1 || pc == 0x2155 || pc == 0x2191 ||
              pc == 0x21B7 ||
              pc == 0x1F47 || pc == 0x1F59 || pc == 0x1F6D || pc == 0x1F79 ||

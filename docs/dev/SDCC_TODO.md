@@ -385,6 +385,28 @@ otherwise.
     executable/non-executable split that later appears at `0x1913`. The next
     useful target is therefore the upstream routine that populates `0x2300`
     before this formatter consumes it, not the formatter itself
+  - the current live return chain is now explicit enough to avoid reopening the
+    same dead end: the visible executable path reaches `pc=0x1D8F` with
+    `top=0x1743 next=0x711A next2=0x11B9`, then the new build trace shows
+    `0x1743/0x1757/0x1771/0x1790` repeatedly walking `HL=0x2300, 0x2318,
+    0x2330, ...` and copying each populated cache record into the `0x711A`
+    workspace. So `0x11B9 -> 0x711A -> 0x1743` is now a confirmed
+    consumer/formatter chain over a ready-made cache
+  - a direct discriminating check against the next obvious constructor
+    candidate also failed. The low-RAM wrapper at `0x19E1` decodes as
+    `CALL 0x1DEB ; RET C ; CALL 0x1DDB ; CALL 0x1D29 ; JP 0x1F59`, which made
+    it look like a plausible cache-init entry because `0x1DDB` zeros `0x2300`.
+    But widening the focused `RST 10` follow set to include `0x1DEB`, `0x1DDB`,
+    `0x1EDF`, and `0x1F59` still produced no hits on the successful `EDISK`
+    launch path. So the current executable launcher slice does **not** visibly
+    pass through that zero-fill wrapper, at least not under the present narrow
+    trace budget
+  - that narrows the next hop again: the producer of the normalized `0x2300`
+    records is still upstream of `0x11B9 -> 0x711A -> 0x1743`, but the current
+    evidence no longer supports `0x19E1` as the active constructor on this
+    launch path. The most local unresolved target is now the mechanism that
+    hands `0x1743` its already-populated `0x2300` buffer and the matching
+    `0x711A` workspace pointer
   - this also means the preserved `SYS.SY` artifact should not be trusted
     blindly for `0x1913+`: the live RAM bytes from both current runs agree on
     the executable code above, while the static extracted file at that address
