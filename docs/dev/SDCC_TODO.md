@@ -126,6 +126,11 @@ otherwise.
   - `SHOW.SM` preserves `load=0x5600, entry=0x5602`, but after the confirmed
     bare-name `.SM` launch path reaches `0x6457 -> 0x647A`, the first observed
     live high-memory PC is `0x5600`, not `0x5602`
+  - that is not just the missing-argument error path. A successful
+    `SHOW HORLOGE.SR` probe follows the same confirmed `0x6457 -> 0x647A`
+    launch family, first reaches live `pc=0x5600`, and then visibly prints the
+    `SHOW TEXT FILE PROGRAM REV 1-5` banner followed by the `HORLOGE.SR`
+    source listing
   - `TDISK.SM` preserves `load=0x5600, entry=0x5611`, but the same confirmed
     launch family reaches live `0x5602`, and in later passes also reaches live
     `0x5600` followed by `0x5602`
