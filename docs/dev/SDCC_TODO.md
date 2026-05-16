@@ -27,6 +27,8 @@ otherwise.
     `crt0` transfers with `A=0x44` and `HL=0x45C0`
   - the first confirmed machine helper is now factored into
     `examples/sdcc/hello_alpha/smaky6.h` for reuse by later standalone examples
+  - that helper now exposes row/column-to-offset conversion so examples no
+    longer need to hard-code raw alpha-RAM line offsets
 - It is now exercised end-to-end on this machine:
   - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,
     and launch it through the CLI
