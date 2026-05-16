@@ -119,12 +119,14 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (pc == 0x217D)
-            sm_tail_follow = 24;
+            sm_tail_follow = 40;
 
         if (sm_tail_follow > 0 &&
-            (pc == 0x1FAE || pc == 0x1FC1 || pc == 0x1FCD || pc == 0x1FD5 ||
-             pc == 0x1FD8 || pc == 0x1FEC || pc == 0x212F || pc == 0x213A ||
-             pc == 0x2155 || pc == 0x21B7)) {
+            (pc == 0x18BF || pc == 0x194B || pc == 0x1D8F || pc == 0x1F57 ||
+             pc == 0x1FAE || pc == 0x1FC1 || pc == 0x1FCD || pc == 0x1FD5 ||
+             pc == 0x1FD8 || pc == 0x1FEC || pc == 0x200B || pc == 0x2021 ||
+             pc == 0x206F || pc == 0x2075 || pc == 0x20B2 || pc == 0x212F ||
+             pc == 0x213A || pc == 0x2155 || pc == 0x21B7)) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |

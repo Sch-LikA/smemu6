@@ -322,6 +322,15 @@ otherwise.
     `0x2155 -> 0x21B7 -> 0x213A -> 0x1FD8 -> 0x212F -> 0x1FEC`, with repeated
     small-loop traffic still rooted on low-memory return slots such as
     `0x1F4A`, `0x2021`, and later `0x18BF`
+  - a later version of that same tail-only probe shows the chain advancing one
+    layer beyond the first `0x1FAE` loop too. After the early `0x1FAE -> ... ->
+    0x1FEC` activity, the live path reaches `0x1F57`, then repeatedly cycles
+    through `0x213A -> 0x206F -> 0x2021`, and on some passes through
+    `0x212F -> 0x2075` or `0x213A -> 0x20B2`
+  - importantly, those deeper passes still do not surface any `CLI.SY` return
+    site. Their active return slots remain low-memory values like `0x1F57`,
+    `0x194B`, and `0x18BF`, while `0x2021` behaves coherently with the existing
+    note that `0x200B..0x2021` is a rebuilt loading-batch setup block
   - that is the strongest negative result so far against an early unwind back
     into `CLI.SY`: even after the nested `RST 38` activity finishes, the live
     path continues executing internal low-memory transfer helpers rather than
