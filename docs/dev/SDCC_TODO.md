@@ -932,6 +932,21 @@ otherwise.
         ordinary-class path is the timeout path taken while the polled status bit
         5 remains asserted; the fallback branch is taken as soon as that bit
         drops before the countdown expires
+      - the first fallback continuation beneath `0x1FA3` is now constrained more
+        tightly than the earlier static decode suggested:
+        - `0x1FAE` does call the setup helper `0x2155`
+        - `0x2155` first uses `0x2191` to pick a small selector table slot from
+          `0x2B8B..`, then programs ports `0x19/0x1A`, and later returns toward
+          the compare at `0x1FC3`
+        - on the traced fallback ordinary `.SM` pass, execution reaches
+          `0x1FC3 -> CALL 0x21B7` with `HL=0x0003` and `DE=0x0003`
+        - `0x21B7` is just `PUSH HL ; OR A ; SBC HL,DE ; POP HL ; RET`, so that
+          call returns with `Z=1`
+        - the very next instruction at `0x1FC6` is `RET Z`, so this fallback pass
+          exits immediately there and returns to `0x194C` as `AF=0x0042`
+      - therefore the currently traced fallback `0x42` outcome is not produced by
+        the later `0x1FD4..0x1FF7` accumulation loop; it is the early-equality
+        exit at `0x1FC6` after the `0x21B7` compare succeeds
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
