@@ -953,11 +953,21 @@ otherwise.
         - this block does **not** inherit the compare inputs unchanged; it
           recomputes them via two calls to `0x2186` and then stores the results
           into `0x2B91` and `0x2B94`
+          - the static decode of that block is now clear enough to explain the
+            specific `0` / `3` seed on the ordinary `.SM` slice:
+            - `PUSH HL ; OR A ; SBC HL,BC ; POP HL ; JR Z,RET`
+            - `LD HL,(0x2B84)`
+            - `PUSH HL ; ADD HL,BC ; CALL 0x2186 ; LD (0x2B91),HL`
+            - `POP HL ; POP BC ; ADD HL,BC ; CALL 0x2186 ; LD (0x2B94),HL`
+            - `LD (0x2B9D),DE`
+          - `0x2186` is a tiny nibble-splitting helper: values like
+            `0x0003 -> 0x0003`, `0x0041 -> 0x0401`, `0x00E8 -> 0x0E08`
         - on the traced fallback ordinary `.SM` pass, the first `0x2186` call is
-          entered with `BC=0`, `HL=0`, and after the following store the pair is
-          visible as `0x2B91=0x0000`
+            entered with base `(0x2B84)=0` and offset `BC=0`, so the stored first
+            seed is `0x2B91=0x0000`
         - the second `0x2186` call is then entered with `BC=0x0003`, `HL=0x0003`,
-          and after the second store the pair becomes `0x2B94=0x0003`
+            which comes from restoring the carried-in `HL=0x0003`; after that
+            store the second seed becomes `0x2B94=0x0003`
           - by the time execution reaches `0x1F93`, the seed pair is therefore
             `0x2B91=0x0000`, `0x2B94=0x0003`, but the later fallback helper chain
             mutates that seed before the eventual `0x1FC3` compare
