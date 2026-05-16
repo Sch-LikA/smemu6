@@ -275,6 +275,19 @@ otherwise.
     (`0xFFFF` for `TDISK`, `0x0000` for successful `SHOW HORLOGE.SR`), but its
     exact meaning remains open. It currently looks more like delimiter/qualifier
     state associated with that token window than a direct launch address input
+  - one more control probe with `SHOW` **without** an argument did not produce a
+    clean successful-`SHOW` comparison case. It did **not** re-enter the same
+    `0x5600 / DE=0x45C0 / 0x2BC7=0x45C9 / 0x2BD1=0x0000` handoff seen for
+    `SHOW HORLOGE.SR`
+  - instead, the only visible launch window in that no-argument run stayed in
+    the same no-second-token shape as the bare-name path:
+    `DE=0x10D5`, `0x2BC7=0x10DB`, `0x2BD1=0xFFFF`, and launch through
+    `0x5602`
+  - that makes the control result consistent with the current reading of
+    `0x2BD1` as “no second token / no following argument state”, but not strong
+    enough to upgrade that reading to fact on its own, because `SHOW` without an
+    argument does not follow the same successful ordinary-command launch path as
+    `SHOW HORLOGE.SR`
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
