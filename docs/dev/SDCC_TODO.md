@@ -134,6 +134,20 @@ otherwise.
   - `TDISK.SM` preserves `load=0x5600, entry=0x5611`, but the same confirmed
     launch family reaches live `0x5602`, and in later passes also reaches live
     `0x5600` followed by `0x5602`
+  - a focused handoff trace narrows where that split is decided. The live block
+    at `0x18EC+` does **not** compute a launch offset from metadata: it pops the
+    already-stacked target word (`0x5600` or `0x5602`), pushes that same word
+    back onto the stack, and then enters helper `0x11D2`
+  - the traces show that preservation directly. On the `TDISK` side,
+    `pc=0x18EC` arrives with `top=0x5602`, then `pc=0x11D2` still has
+    `top=0x5602`, and the next live high-memory PC is `0x5602`. On the
+    successful `SHOW HORLOGE.SR` side, `pc=0x18EC` arrives with `top=0x5600`,
+    `pc=0x11D2` still has `top=0x5600`, and the next live high-memory PC is
+    `0x5600`
+  - so the unresolved `0x5600` versus `0x5602` choice is now one hop tighter:
+    it is fixed **before** the `0x18EA/0x18EC -> 0x11D2` trampoline runs. That
+    makes the real remaining question an upstream stack-construction question,
+    not an `entry`-field interpretation question inside the final handoff block
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
