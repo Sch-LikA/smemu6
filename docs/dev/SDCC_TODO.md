@@ -36,6 +36,16 @@ otherwise.
     later in the image
   - the current working build script fixes that by compiling `hello.c` to a
     `.rel` first and then linking `crt0.rel` before `hello.rel`
+- First failed return-path probe result:
+  - saving the entry `SP`, restoring it after `_main`, and executing a plain
+    `RET` does **not** return cleanly to the CLI
+  - the probe reaches `_main`, returns to `crt0`, reaches the restored-stack
+    `RET` at `0x600E`, and then lands at `0xF300`
+  - a live RAM dump from that session shows `0xF300` is zero-filled, so the
+    stacked `0xF300` word visible at program entry is not a valid CLI-resume
+    stub
+  - the first usable exit path therefore needs an explicit SAMOS/CLI transfer,
+    not a naive stack restore plus `RET`
 - The plan is grounded in emulator behavior that is already verified elsewhere in
   the dev docs: the machine now boots fully to the CLI, supports prompt-time
   command injection, and can run repeatable disk-based workflows.
