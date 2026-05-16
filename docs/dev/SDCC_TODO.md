@@ -339,6 +339,12 @@ otherwise.
     `top=0x0026 next=0x0041`; likewise `0x2021` appears with `next=0x1D8F`,
     then `0x1F57` with `top=0x1D8F next=0x1743`, and finally live
     `pc=0x1D8F` with `top=0x1743 next=0x711A`
+  - the immediate post-hit continuation is low-memory too. After the live
+    `0x18BF` hit, the same trace falls straight into `0x0127 -> 0x0128 ->
+    0x012B -> 0x012C -> 0x012D -> 0x012E`; after the live `0x1D8F` hit it
+    likewise falls into `0x0127 -> 0x0128 -> 0x012B -> 0x012C`. So even these
+    deeper executions still rejoin the low-RAM dispatcher region rather than
+    surfacing any visible `CLI.SY` continuation
   - that matters because it removes another escape hatch: by this point the
     chain is no longer merely carrying low-memory return words such as `0x18BF`,
     `0x194B`, or `0x1D8F` on the stack. It is actively executing them, and the
