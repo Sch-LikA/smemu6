@@ -9,18 +9,18 @@ Current constraints:
 - ordinary `.SM` metadata with `flags=1`
 - no libc startup, no initialized globals, no heap
 - output goes directly to alpha RAM at `0x4000`
-- the program loops after drawing; clean return to the CLI is still a follow-up
+- the current startup returns to the CLI through the verified `0x56AE` path
 
 Build the example from the repository root:
 
 ```bash
-tools/build_smaky6_sdcc_example.sh
+sdcc/build_smaky6_sdcc_example.sh
 ```
 
 Stage it into a bootable DX0 hostdir and run it headlessly:
 
 ```bash
-tools/run_smaky6_sdcc_example.sh build/smemu6
+sdcc/run_smaky6_sdcc_example.sh build/smemu6
 ```
 
-The run script writes its temporary hostdir and logs under `tmp/sdcc-hello/`.
+The run script writes its temporary hostdir and logs under `tmp/sdcc-hello_alpha/`.

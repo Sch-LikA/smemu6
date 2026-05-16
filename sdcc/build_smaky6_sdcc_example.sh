@@ -4,7 +4,8 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "$0")/.." && pwd)
 example_name="${1:-hello_alpha}"
-example_dir="$repo_root/examples/sdcc/$example_name"
+sdcc_root="$repo_root/sdcc"
+example_dir="$sdcc_root/examples/$example_name"
 out_dir="${2:-$repo_root/tmp/sdcc-$example_name-build}"
 
 if [[ ! -d "$example_dir" ]]; then
@@ -48,7 +49,7 @@ sdcc -mz80 \
     "$out_dir/crt0.rel" \
     "$out_dir/$source_stem.rel"
 
-python3 "$repo_root/tools/ihx_to_bin.py" \
+python3 "$sdcc_root/ihx_to_bin.py" \
     --base 0x6000 \
     "$out_dir/$program_name.ihx" \
     "$out_dir/$program_name.SM"

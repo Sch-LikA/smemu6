@@ -14,9 +14,9 @@ otherwise.
 
 - No integrated SDCC toolchain or CMake target exists yet in this repo.
 - A first standalone proof-of-execution scaffold now exists under
-  `examples/sdcc/hello_alpha` with helper scripts
-  `tools/build_smaky6_sdcc_example.sh` and
-  `tools/run_smaky6_sdcc_example.sh`.
+  `sdcc/examples/hello_alpha` with helper scripts
+  `sdcc/build_smaky6_sdcc_example.sh` and
+  `sdcc/run_smaky6_sdcc_example.sh`.
 - That scaffold is intentionally narrow:
   - ordinary `.SM` only
   - `flags=1`
@@ -26,13 +26,13 @@ otherwise.
   - `main` may return through the verified Sys2-2 CLI sink at `0x56AE` when
     `crt0` transfers with `A=0x44` and `HL=0x45C0`
   - the first confirmed machine helper is now factored into
-    `examples/sdcc/hello_alpha/smaky6.h` for reuse by later standalone examples
+    `sdcc/examples/hello_alpha/smaky6.h` for reuse by later standalone examples
   - that helper now exposes row/column-to-offset conversion so examples no
     longer need to hard-code raw alpha-RAM line offsets
   - it also now exposes a minimal row-clear primitive so examples can claim a
     dedicated text area without depending on prior CLI screen contents
   - the standalone helper scripts now accept an example directory name under
-    `examples/sdcc/`, so later one-file probes can reuse the same
+    `sdcc/examples/`, so later one-file probes can reuse the same
     build/stage/run path without editing the scripts
 - It is now exercised end-to-end on this machine:
   - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,

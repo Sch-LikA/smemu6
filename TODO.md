@@ -970,9 +970,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 ### Experimental SDCC scaffold not yet in CI
 
 - A first standalone SDCC proof-of-execution scaffold now exists under
-  `examples/sdcc/hello_alpha` with helper scripts
-  `tools/build_smaky6_sdcc_example.sh` and
-  `tools/run_smaky6_sdcc_example.sh`.
+  `sdcc/examples/hello_alpha` with helper scripts
+  `sdcc/build_smaky6_sdcc_example.sh` and
+  `sdcc/run_smaky6_sdcc_example.sh`.
 - Current scope is intentionally narrow: ordinary `.SM`, `flags=1`,
   `load=entry=0x6000`, direct alpha-RAM output, and a verified return-to-CLI
   path for a returning `main`.
@@ -980,14 +980,14 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   stages, and launches `HELLO.SM`, the screen dump shows the expected
   alpha-RAM text, and control returns to the Sys2-2 CLI.
 - The example now exposes a tiny reusable first-target header,
-  `examples/sdcc/hello_alpha/smaky6.h`, instead of keeping the alpha-RAM write
+  `sdcc/examples/hello_alpha/smaky6.h`, instead of keeping the alpha-RAM write
   primitive private to `hello.c`.
 - That header now also provides a small row/column helper so future SDCC
   examples can address the alpha screen without open-coding raw offsets.
 - That header also now provides a minimal row-clear helper so examples can
   own a dedicated alpha-screen region before writing text.
 - The helper scripts now accept an example directory name under
-  `examples/sdcc/`, so new one-file SDCC probes can reuse the same
+  `sdcc/examples/`, so new one-file SDCC probes can reuse the same
   build/stage/run path without script edits.
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
   `tools/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the

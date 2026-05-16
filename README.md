@@ -99,24 +99,24 @@ tools/serve_web.sh
 ### Experimental SDCC scaffold
 
 An experimental standalone SDCC proof-of-execution scaffold lives under
-`examples/sdcc/hello_alpha`. It is intentionally outside CMake and CI for now.
+`sdcc/examples/hello_alpha`. It is intentionally outside CMake and CI for now.
 
 - expected tools: `sdcc`, `sdasz80`, `python3`
 - current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`
 - current runtime scope: confirmed direct alpha-RAM output, no libc startup,
     and a verified return-to-CLI path for returning `main`
 - the example now also carries a tiny reusable target header,
-  `examples/sdcc/hello_alpha/smaky6.h`, for first-target alpha-RAM output
+  `sdcc/examples/hello_alpha/smaky6.h`, for first-target alpha-RAM output
     with a simple row/column helper over the 64-column alpha screen
     plus a minimal row-clear helper for claiming dedicated screen space
 
 ```bash
-tools/build_smaky6_sdcc_example.sh
-tools/run_smaky6_sdcc_example.sh build/smemu6
+sdcc/build_smaky6_sdcc_example.sh
+sdcc/run_smaky6_sdcc_example.sh build/smemu6
 
-# Or target another one-file example directory under examples/sdcc/
-tools/build_smaky6_sdcc_example.sh hello_alpha
-tools/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
+# Or target another one-file example directory under sdcc/examples/
+sdcc/build_smaky6_sdcc_example.sh hello_alpha
+sdcc/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
 ```
 
 For reverse-engineering work on the archived symbol-table files, a small
