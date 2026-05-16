@@ -1570,6 +1570,47 @@ the first target is running.
   - richer packaging workflows, symbol dictionaries, and non-trivial runtime
     services
 
+## First working target contract
+
+This is the current concrete shape for the first SDCC proof-of-execution target.
+It is a planning decision, not a completed implementation.
+
+- Package form:
+  - ordinary `.SM` only
+  - preserve directory metadata through the existing sidecar path
+  - set both `load` and `entry` to `0x6000` for the first attempt
+  - rationale: `0x5600+` is already occupied by ready-state `CLI.SY`, while
+    current notes already show real ordinary programs loading at `0x6000` on at
+    least one preserved system family
+- First memory model:
+  - `0x6000-0x6FFF`: code and read-only data
+  - `0x7000-0x77FF`: initialized data plus BSS
+  - no heap in the first target
+  - initial stack top `SP=0xF000`, growing downward
+  - keep the first binary comfortably below these ceilings; if the first proof
+    point approaches them, resize the layout before adding features
+- First ABI cut:
+  - `crt0` enters at `0x6000`
+  - `crt0` sets `SP`, clears BSS, leaves interrupts and the broader SAMOS
+    runtime model alone, then calls `_main`
+  - `_main` writes directly to alpha RAM at `0x4000`
+  - do not depend on `RST 20`, `RST 30`, or filesystem/syscall wrappers for the
+    first visible milestone
+  - a clean return to CLI remains the first follow-up ABI task after visible
+    execution is proven
+- First compiler/linker shape:
+  - prefer plain `sdcc` with a custom `crt0`, not CMake integration yet
+  - working starting point:
+    `sdcc -mz80 --no-std-crt0 --code-loc 0x6000 --data-loc 0x7000 ...`
+  - convert the linked image to a raw binary before `.SM` packaging
+  - keep the first program freestanding enough that it does not require libc
+    startup beyond BSS clear and `_main` dispatch
+- First milestone split:
+  - proof-of-execution milestone: accepted ordinary `.SM` launch plus visible
+    alpha-RAM output
+  - first usable milestone: the above plus a verified return path back to the
+    CLI
+
 ## Main unknowns blocking an SDCC target
 
 - Exact `.SM` file format:
