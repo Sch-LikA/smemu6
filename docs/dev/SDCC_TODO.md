@@ -247,10 +247,34 @@ otherwise.
     it through `0x1916`, and `0x18E0` hands control to the fixed `0x1DB5`
     threaded-script wrapper whose inline bytes become the later
     `1DB9/1DBB/1DBD` selector entries
-  - the remaining SDCC-facing unknown is now very small: what exact semantic
-    role the non-branch path of `0x18E0` assigns to the register pair it pops
-    (`BC=0x0080, DE=0x10D5` for `TDISK`; `BC=0x0000, DE=0x45C0` for
-    `SHOW HORLOGE.SR`) before entering the fixed `0x1DB5` setup script
+  - one more focused rerun sharpens the remaining `BC/DE` question. The
+    `0x18E0` block is **not** where the post-token cursor gets computed:
+    workspace word `0x2BC7` is already stable before `0x18E0` executes, and it
+    stays unchanged through `0x18E3`, `0x18E6`, `0x18EA`, and the following
+    `0x0020` re-entry
+  - on the `TDISK` side, the ordinary successful path reaches `0x18E0` with
+    `DE=0x0026`, `next=0x10D5`, and already has `0x2BC7=0x10DB`; on the
+    `SHOW HORLOGE.SR` side, it reaches `0x18E0` with `DE=0x00E2`,
+    `next=0x45C0`, and already has `0x2BC7=0x45C9`
+  - after the initial `POP DE` at `0x18E1`, those same values become the stable
+    pair carried all the way through the setup script and into the dispatcher:
+    `DE=0x10D5, 0x2BC7=0x10DB` for `TDISK`; `DE=0x45C0, 0x2BC7=0x45C9` for
+    `SHOW HORLOGE.SR`
+  - the live RAM contents make that pairing meaningful. `0x45C0` is the start
+    of the active line buffer containing `SHOW.SM  HORLOGE.SR`, while
+    `0x2BC7=0x45C9` already points at the start of the next token `HORLOGE.SR`.
+    Likewise on the `TDISK` side, `0x10D5` points into the zero-separated system
+    name table at `CLI.SY`, while `0x2BC7=0x10DB` already points at the next
+    entry after the terminating zero byte
+  - that is enough to upgrade one more part of the ABI model from guess to
+    evidence-backed interpretation: the non-branch path out of `0x18E0` is
+    preserving an already-built token window, with `DE` behaving like the start
+    pointer for the current token/candidate and `0x2BC7` behaving like the
+    already-advanced cursor to the next scan position
+  - `0x2BD1` still differs systematically between the same cases
+    (`0xFFFF` for `TDISK`, `0x0000` for successful `SHOW HORLOGE.SR`), but its
+    exact meaning remains open. It currently looks more like delimiter/qualifier
+    state associated with that token window than a direct launch address input
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the

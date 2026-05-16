@@ -254,11 +254,15 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
+                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2BC7=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
                     ix, ix10, sp, ret0, ret1, ret2, ret3,
+                    (unsigned)((uint16_t)m->bus[0x2BC7u] |
+                           ((uint16_t)m->bus[0x2BC8u] << 8)),
+                    (unsigned)((uint16_t)m->bus[0x2BD1u] |
+                           ((uint16_t)m->bus[0x2BD2u] << 8)),
                     (unsigned)((uint16_t)m->bus[0x455Cu] |
                                ((uint16_t)m->bus[0x455Du] << 8)),
                     (unsigned)((uint16_t)m->bus[0x4566u] |
