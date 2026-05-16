@@ -442,6 +442,21 @@ otherwise.
     base and then against the record word at offset `0x0C`, while repeatedly
     routing those values back through the same low-memory selector/comparison
     loop
+  - the live record bytes identify that stream as a normalized directory cache,
+    not an abstract helper table. Starting at `0x2300`, the `0x18`-byte entries
+    decode as visible file records such as `SYS.SY`, `CLI.SY`, `ER.SY`,
+    `OKI80LP.SY`, `OKI82LP.SY`, `OKI84LP.SY`, `MATPAC.SY`, `HP.SY`, `FLO.ST`,
+    `SM6.ST`, and later `HORLOGE.SR`, `BIORY.BS`, and `TSTFLO.SM`
+  - that also resolves the role of `0x25E8`: it is not just an arbitrary zero
+    work buffer. `0x25E8 - 0x2300 = 0x02E8`, which is exactly `31 * 0x18`, and
+    the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
+    comparing against a one-past-end zero sentinel immediately after a 31-entry
+    cached directory table
+  - the words at record offsets `+0x0A` and `+0x0C` are monotonic across that
+    cache (`0x0003/0x0026`, `0x0026/0x0041`, `0x0041/0x0044`, ...,
+    `0x03E5/0x03F8`, `0x03F8/0x03FF`), which fits the current control-flow
+    picture: this branch is walking per-record boundary values inside the cached
+    directory table rather than chasing executable continuations
   - in that focused window there are no hits at the watched high-memory program
     PCs (`0x5500`, `0x5503`, `0x5600`, `0x5602`, `0x5611`). So the current best
     reading is that the `0x1CF4/0x1CFE/0x25E8` branch is still low-memory
