@@ -773,6 +773,28 @@ otherwise.
       `0x2B80/0x2B82/0x2BC5/0x2BDC` still zero on the later accepted-return
       path. So the `A=0x18` transition is downstream of this contiguous-record
       walk and downstream of the `0x1D57` range-selection scratch state
+  - one more focused hop on the immediate `0x1D99 -> 0x1743` handoff narrows
+    that downstream boundary further:
+    - the refreshed `flow-build` trace now prints the real normalized record at
+      `IX` plus the first bytes of the `0x711A` output buffer. On the successful
+      `EDISK` run, `0x1771` sees `IX=0x2300` with record bytes
+      `SYS     SY`, start/end `0x0003/0x0026`, flags `0x10 0x85`; the next pass
+      sees `IX=0x2318` with `CLI     SY`, then `0x2330` for `ER      SY`, and
+      so on
+    - the `0x711A` output bytes on those same passes are just the padded record
+      name being copied into the formatter workspace (`SYS     ` for the first
+      pass). They do not expose the later accepted class byte or any new
+      synthesized `0x18`
+    - the `best/cur` scratch values still evolve like a ranking or length
+      metric while the current record advances across `0x2300`, `0x2318`,
+      `0x2330`, ...; but the record metadata reaching `0x1743..0x1790` is still
+      exactly the already-normalized cache content, not a new class-specific
+      structure
+    - so the local hypothesis for this hop holds: `0x1D99 -> 0x1743..0x1790`
+      is a consumer/formatter over the normalized cache and the `0x711A`
+      workspace, not the place where the later accepted `A=0x18` is created.
+      That pushes the remaining SDCC-relevant unknown one hop later than the
+      `0x1743` formatter path
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table

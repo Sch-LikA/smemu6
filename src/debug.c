@@ -274,22 +274,31 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                             ((uint16_t)m->bus[0x2B83u] << 8);
             uint16_t end = (uint16_t)m->bus[0x2BDCu] |
                            ((uint16_t)m->bus[0x2BDDu] << 8);
+                uint16_t rec = (ix >= 0x2300u && ix < 0x25E8u) ? ix : 0u;
 
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-build] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X sp=%04X top=%04X next=%04X ptr=%04X cur=%04X best=%04X end=%04X slot=%02X %02X %02X %02X %02X %02X sel=%02X %02X %02X %02X build=%d\n",
+                    "[flow-build] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X rec=%04X sp=%04X top=%04X next=%04X ptr=%04X cur=%04X best=%04X end=%04X slot=%02X %02X %02X %02X %02X %02X recnm=%02X %02X %02X %02X %02X %02X recse=%02X %02X %02X %02X recfg=%02X %02X out=%02X %02X %02X %02X %02X %02X %02X %02X build=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    ix, sp, ret0, ret1, ptr, cur, best, end,
+                    ix, rec, sp, ret0, ret1, ptr, cur, best, end,
                     (unsigned)m->bus[ptr], (unsigned)m->bus[(uint16_t)(ptr + 1u)],
                     (unsigned)m->bus[(uint16_t)(ptr + 2u)], (unsigned)m->bus[(uint16_t)(ptr + 3u)],
                     (unsigned)m->bus[(uint16_t)(ptr + 4u)], (unsigned)m->bus[(uint16_t)(ptr + 5u)],
-                    (unsigned)m->bus[(uint16_t)(ptr + 0x12u)], (unsigned)m->bus[(uint16_t)(ptr + 0x13u)],
-                    (unsigned)m->bus[(uint16_t)(ptr + 0x14u)], (unsigned)m->bus[(uint16_t)(ptr + 0x15u)],
+                    (unsigned)m->bus[rec], (unsigned)m->bus[(uint16_t)(rec + 1u)],
+                    (unsigned)m->bus[(uint16_t)(rec + 2u)], (unsigned)m->bus[(uint16_t)(rec + 3u)],
+                    (unsigned)m->bus[(uint16_t)(rec + 4u)], (unsigned)m->bus[(uint16_t)(rec + 5u)],
+                    (unsigned)m->bus[(uint16_t)(rec + 0x0Au)], (unsigned)m->bus[(uint16_t)(rec + 0x0Bu)],
+                    (unsigned)m->bus[(uint16_t)(rec + 0x0Cu)], (unsigned)m->bus[(uint16_t)(rec + 0x0Du)],
+                    (unsigned)m->bus[(uint16_t)(rec + 0x16u)], (unsigned)m->bus[(uint16_t)(rec + 0x17u)],
+                    (unsigned)m->bus[0x711Au], (unsigned)m->bus[0x711Bu],
+                    (unsigned)m->bus[0x711Cu], (unsigned)m->bus[0x711Du],
+                    (unsigned)m->bus[0x711Eu], (unsigned)m->bus[0x711Fu],
+                    (unsigned)m->bus[0x7120u], (unsigned)m->bus[0x7121u],
                     sm_build_follow);
             sm_build_follow--;
             m->dbg.flow_budget--;
