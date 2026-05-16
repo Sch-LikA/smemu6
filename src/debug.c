@@ -323,9 +323,14 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
              pc == 0x1920 || pc == 0x1921 || pc == 0x1922 || pc == 0x1923 ||
              pc == 0x194B || pc == 0x1A53 || pc == 0x1E23 || pc == 0x1F47 ||
              pc == 0x1F57 || pc == 0x1F6D || pc == 0x1F93 || pc == 0x1F95 ||
-             pc == 0x1F97 || pc == 0x1F9E || pc == 0x1FA3 ||
+             pc == 0x1F79 || pc == 0x1F86 || pc == 0x1F8A || pc == 0x1F97 ||
+             pc == 0x1F9E ||
+             pc == 0x1FA3 ||
              pc == 0x1FAE || pc == 0x1FC3 || pc == 0x1FC6 || pc == 0x1FD4 ||
              pc == 0x1FD7 || pc == 0x1FDC || pc == 0x1FF1 || pc == 0x1FF7 ||
+             pc == 0x2067 || pc == 0x206A || pc == 0x2070 || pc == 0x2073 ||
+             pc == 0x207B || pc == 0x2081 || pc == 0x2084 || pc == 0x2089 ||
+             pc == 0x2186 || pc == 0x2187 ||
              pc == 0x2155 || pc == 0x217D || pc == 0x2180 || pc == 0x2191 ||
              pc == 0x21B7 ||
              pc == 0x1FFA || pc == 0x1FFE || pc == 0x2003 ||
@@ -354,7 +359,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                      "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix0A=%04X ix0C=%04X ix10=%02X ix13_14=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2B80=%04X 2B82=%04X 2B84=%04X 2B86=%04X 2B89=%04X 2BC5=%04X 2BC7=%04X 2BDC=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
+                      "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix0A=%04X ix0C=%04X ix10=%02X ix13_14=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2B80=%04X 2B82=%04X 2B84=%04X 2B86=%04X 2B89=%04X 2B91=%04X 2B94=%04X 2B9D=%04X 2BC5=%04X 2BC7=%04X 2BDC=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
@@ -369,6 +374,12 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                           ((uint16_t)m->bus[0x2B87u] << 8)),
                       (unsigned)((uint16_t)m->bus[0x2B89u] |
                           ((uint16_t)m->bus[0x2B8Au] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B91u] |
+                          ((uint16_t)m->bus[0x2B92u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B94u] |
+                          ((uint16_t)m->bus[0x2B95u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B9Du] |
+                          ((uint16_t)m->bus[0x2B9Eu] << 8)),
                       (unsigned)((uint16_t)m->bus[0x2BC5u] |
                           ((uint16_t)m->bus[0x2BC6u] << 8)),
                     (unsigned)((uint16_t)m->bus[0x2BC7u] |
