@@ -104,7 +104,7 @@ An experimental standalone SDCC proof-of-execution scaffold lives under
 - expected tools: `sdcc`, `sdasz80`, `python3`
 - current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`
 - current runtime scope: confirmed direct alpha-RAM output, no libc startup,
-    and no verified return path to the CLI yet
+    and a verified return-to-CLI path for returning `main`
 
 ```bash
 tools/build_smaky6_sdcc_example.sh

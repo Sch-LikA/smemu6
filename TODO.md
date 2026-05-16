@@ -974,12 +974,13 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   `tools/build_smaky6_sdcc_example.sh` and
   `tools/run_smaky6_sdcc_example.sh`.
 - Current scope is intentionally narrow: ordinary `.SM`, `flags=1`,
-  `load=entry=0x6000`, direct alpha-RAM output, and no clean return to the CLI
-  yet.
-- Local proof-of-execution now works: the current workflow builds, stages, and
-  launches `HELLO.SM`, and the screen dump shows the expected alpha-RAM text.
+  `load=entry=0x6000`, direct alpha-RAM output, and a verified return-to-CLI
+  path for a returning `main`.
+- Local proof-of-execution now works end-to-end: the current workflow builds,
+  stages, and launches `HELLO.SM`, the screen dump shows the expected
+  alpha-RAM text, and control returns to the Sys2-2 CLI.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
-  end-to-end and a stable return path is known.
+  end-to-end and the runtime contract is stable enough to integrate.
 
 ---
 

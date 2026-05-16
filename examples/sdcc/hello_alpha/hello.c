@@ -11,8 +11,5 @@ void main(void)
 {
     put_text(0u, "SDCC HELLO");
     put_text(64u, "LOAD ENTRY 6000");
-    put_text(128u, "ALPHA RAM ONLY");
-
-    for (;;) {
-    }
+    put_text(128u, "RETURNS TO CLI");
 }

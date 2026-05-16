@@ -22,14 +22,17 @@ otherwise.
   - `flags=1`
   - `load=entry=0x6000`
   - direct alpha-RAM output
-  - no libc startup and no verified return-to-CLI path yet
+  - no libc startup
+  - `main` may return through the verified Sys2-2 CLI sink at `0x56AE` when
+    `crt0` transfers with `A=0x44` and `HL=0x45C0`
 - It is now exercised end-to-end on this machine:
   - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,
     and launch it through the CLI
   - the current proof point reaches `pc=6000` and produces visible alpha-RAM
-    output (`SDCC HELLO`, `LOAD ENTRY 6000`, `ALPHA RAM ONLY`) in the screen
-    dump
-  - the remaining first-target gap is a clean return path back to the CLI
+    output (`SDCC HELLO`, `LOAD ENTRY 6000`, `RETURNS TO CLI`) in the screen
+    dump before returning to the CLI prompt
+  - the first-target launch/return contract is now sufficient for a minimal
+    standalone SDCC program with a returning `main`
 - Important linker/layout finding from that proof point:
   - a one-shot `sdcc ... crt0.rel hello.c` link placed the compiled C object
     ahead of `crt0.rel`, which made `_put_text` land at `0x6000` and `start`
@@ -46,6 +49,15 @@ otherwise.
     stub
   - the first usable exit path therefore needs an explicit SAMOS/CLI transfer,
     not a naive stack restore plus `RET`
+- First working explicit return-path result:
+  - a direct transfer from `crt0` to the shared CLI sink at `0x56AE` does work
+    when it matches the live entry contract already observed in CLI traces:
+    `A=0x44`, `HL=0x45C0`
+  - a focused trace of the SDCC example now shows `_main` return followed by
+    `pc=56AE af=4444 ... hl=45C0`, which matches the established Sys2-2 CLI
+    reprompt shape
+  - the hello scaffold therefore no longer needs to spin forever after `main`;
+    returning from `main` is now the intended first-target exit path
 - The plan is grounded in emulator behavior that is already verified elsewhere in
   the dev docs: the machine now boots fully to the CLI, supports prompt-time
   command injection, and can run repeatable disk-based workflows.
