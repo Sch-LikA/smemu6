@@ -7,6 +7,8 @@ example_name="${1:-hello_alpha}"
 sdcc_root="$repo_root/sdcc"
 example_dir="$sdcc_root/examples/$example_name"
 out_dir="${2:-$repo_root/tmp/sdcc-$example_name-build}"
+sm6_st="$repo_root/private/floppies/extracted/Sys2-2-boot/SM6.ST"
+sdcc_symbols_header="$out_dir/generated_sm6_symbols_sdcc.h"
 
 if [[ ! -d "$example_dir" ]]; then
     echo "missing SDCC example directory: $example_dir" >&2
@@ -33,11 +35,21 @@ done
 rm -rf "$out_dir"
 mkdir -p "$out_dir"
 
+if [[ -f "$sm6_st" ]] && command -v cc >/dev/null 2>&1; then
+    cc -Wall -Wextra -std=c11 -O2 \
+        "$repo_root/tools/smaky6_st_symbols.c" \
+        "$repo_root/tools/export_smaky6_st_symbols.c" \
+        -o "$out_dir/export_smaky6_st_symbols"
+    "$out_dir/export_smaky6_st_symbols" --sdcc-header "$sm6_st" "$sdcc_symbols_header"
+fi
+
 sdasz80 -plosgff -o "$out_dir/crt0.rel" "$example_dir/crt0.s"
 
 sdcc -mz80 \
     -c \
     --data-loc 0x7000 \
+    -I"$out_dir" \
+    ${sdcc_symbols_header:+-DSMAKY6_HAVE_GENERATED_SM6_SYMBOLS=1} \
     -o "$out_dir/$source_stem.rel" \
     "$source_path"
 

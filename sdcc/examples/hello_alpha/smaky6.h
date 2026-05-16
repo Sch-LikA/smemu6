@@ -3,8 +3,17 @@
 #ifndef SMAKY6_H
 #define SMAKY6_H
 
+#ifdef SMAKY6_HAVE_GENERATED_SM6_SYMBOLS
+#include "generated_sm6_symbols_sdcc.h"
+#endif
+
 #define SMAKY6_ALPHA_COLS 64u
-#define SMAKY6_ALPHA_RAM ((volatile unsigned char *)0x4000u)
+
+#ifndef SMAKY6_SM6_ALPHA
+#define SMAKY6_SM6_ALPHA 0x4000u
+#endif
+
+#define SMAKY6_ALPHA_RAM ((volatile unsigned char *)SMAKY6_SM6_ALPHA)
 
 static inline unsigned short smaky6_alpha_offset(unsigned char row, unsigned char col)
 {

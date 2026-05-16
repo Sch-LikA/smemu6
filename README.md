@@ -111,6 +111,9 @@ The ongoing bring-up notes and follow-up tasks now live in
   `sdcc/examples/hello_alpha/smaky6.h`, for first-target alpha-RAM output
     with a simple row/column helper over the 64-column alpha screen
     plus a minimal row-clear helper for claiming dedicated screen space
+- when archived `SM6.ST` evidence is present, the standalone build script also
+    generates an SDCC-friendly symbol header and the scaffold consumes
+    `SMAKY6_SM6_ALPHA` from it instead of hard-coding the alpha base address
 
 ```bash
 sdcc/build_smaky6_sdcc_example.sh

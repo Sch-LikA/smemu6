@@ -48,6 +48,14 @@ static void st_identifier(char *dst, size_t dst_size, const char *stem)
     dst[out] = '\0';
 }
 
+static void st_upper_identifier(char *dst, size_t dst_size, const char *stem)
+{
+    st_identifier(dst, dst_size, stem);
+
+    for (size_t i = 0; dst[i] != '\0'; ++i)
+        dst[i] = (char)toupper((unsigned char)dst[i]);
+}
+
 static void emit_json_string(FILE *out, const char *text)
 {
     fputc('"', out);
@@ -130,13 +138,46 @@ static void emit_header(FILE *out, const char *path, const struct Smaky6StTable 
     fprintf(out, "#endif\n");
 }
 
+static void emit_sdcc_header(FILE *out, const char *path, const struct Smaky6StTable *table)
+{
+    char stem[32];
+    char ident[32];
+
+    st_stem(stem, sizeof(stem), path);
+    st_upper_identifier(ident, sizeof(ident), stem);
+
+    fprintf(out, "#ifndef GENERATED_SMAKY6_SDCC_%s_H\n", ident);
+    fprintf(out, "#define GENERATED_SMAKY6_SDCC_%s_H\n\n", ident);
+
+    for (size_t i = 0; i < table->count; ++i) {
+        const struct Smaky6StRecord *record = &table->records[i];
+        const char *best_name = smaky6_st_best_name(record);
+        char decoded_ident[64];
+        char best_ident[64];
+
+        st_upper_identifier(decoded_ident, sizeof(decoded_ident), record->decoded_name);
+        fprintf(out, "#ifndef SMAKY6_%s_%s\n", ident, decoded_ident);
+        fprintf(out, "#define SMAKY6_%s_%s 0x%04Xu\n", ident, decoded_ident, record->value);
+        fprintf(out, "#endif\n");
+
+        if (strcmp(best_name, record->decoded_name) != 0) {
+            st_upper_identifier(best_ident, sizeof(best_ident), best_name);
+            fprintf(out, "#ifndef SMAKY6_%s_%s\n", ident, best_ident);
+            fprintf(out, "#define SMAKY6_%s_%s 0x%04Xu\n", ident, best_ident, record->value);
+            fprintf(out, "#endif\n");
+        }
+    }
+
+    fprintf(out, "\n#endif\n");
+}
+
 int main(int argc, char **argv)
 {
     struct Smaky6StTable table;
     FILE *out;
 
     if (argc != 3 && argc != 4) {
-        fprintf(stderr, "usage: %s <--json|--header> <symbol-table.st> [output-file|-]\n", argv[0]);
+        fprintf(stderr, "usage: %s <--json|--header|--sdcc-header> <symbol-table.st> [output-file|-]\n", argv[0]);
         return 2;
     }
 
@@ -154,6 +195,8 @@ int main(int argc, char **argv)
         emit_json(out, argv[2], &table);
     } else if (strcmp(argv[1], "--header") == 0) {
         emit_header(out, argv[2], &table);
+    } else if (strcmp(argv[1], "--sdcc-header") == 0) {
+        emit_sdcc_header(out, argv[2], &table);
     } else {
         fprintf(stderr, "unknown mode: %s\n", argv[1]);
         if (out != stdout)

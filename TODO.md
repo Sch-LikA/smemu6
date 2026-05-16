@@ -989,6 +989,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - The helper scripts now accept an example directory name under
   `sdcc/examples/`, so new one-file SDCC probes can reuse the same
   build/stage/run path without script edits.
+- The standalone build script can now also derive an SDCC-friendly macro header
+  from archived `SM6.ST` evidence, and the first-target helper header consumes
+  `SMAKY6_SM6_ALPHA` from that generated file when available.
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
   `tools/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
   exact 6-byte symbol encoding is still only partially confirmed.
