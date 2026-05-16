@@ -846,6 +846,17 @@ otherwise.
     - on the traced `EDISK` run, that snapshot happens exactly once and changes
       the byte from `0x2B88=0x00` on entry to `0x2B88=0x20` by the time the
       `0x1253` copy block runs; final RAM still shows `0x2BE2=0x20`
+    - a direct follow trace inside that same service pins down the local writer:
+      during the `0x1238` path, execution reaches `0x1B04` with `0x2B88` still
+      at `0x00`, and the next observed snapshot point at `0x1253` already sees
+      `0x2B88=0x20`
+    - that matches the static bytes at `0x1AF8..0x1B06`, where the active path
+      falls through to the literal `LD A,0x20 ; LD (0x2B88),A` sequence at
+      `0x1B02/0x1B04` before the `0x1238` helper copies the value into `0x2BE2`
+    - so on the successful ordinary `EDISK` run, the `A=0x20` later returned by
+      `0x11C0` is now traced one hop further back: it is the producer-side
+      default byte materialized by `0x1B04`, then snapshotted by service
+      `RST 10 / 0x1C`
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
