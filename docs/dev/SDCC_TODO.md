@@ -369,6 +369,25 @@ otherwise.
     through the live `0x0F30` table to handler `0x0299`; the first `0x1D8F`
     re-entry lands on byte `0x2E` at `0x1CF4`, which maps through that same
     table to handler `0x0E4F`
+  - a follow-up pass shows that the `0x1DB9` case is a short **threaded service
+    script**, not a one-byte event. After the first `0x04 -> 0x0299` dispatch,
+    the same selector immediately re-enters with `top=0x1DBB next=0x18EA` and
+    then `top=0x1DBD next=0x18EA`, so the stream at `0x1DB9` is consumed as the
+    sequence `0x04`, `0x02`, `0x1F`, followed by the terminal `RET` byte at
+    `0x1DBE`
+  - the selected handlers on that short stream are concrete too: `0x04` maps to
+    `0x0299`, `0x02` maps to `0x0291`, and `0x1F` maps to `0x029D`. All three
+    are tiny `LD (workspace),HL ; RET` stubs in the `0x0291..0x02AD` family, so
+    this branch currently looks like a compact workspace-vector setup script
+    that finally returns toward `0x18EB`
+  - the `0x1CF4` case behaves differently. Its first byte still dispatches
+    `0x2E -> 0x0E4F`, but after that helper returns the same path re-enters the
+    selector at a later stacked pointer `0x1CFE` while keeping `next=0x1D99`
+  - that second re-entry is important because it shows the deeper branch is not
+    just repeating one isolated compare. It is walking a longer threaded stream:
+    `0x1CF4` starts with byte `0x2E`, and a later nested entry at `0x1CFE`
+    begins with byte `0x2E` again, selecting the same `0x0E4F` compare helper
+    with a new stacked continuation `top=0x25E8 next=0x1CFF`
   - that makes the current best reading more specific: the deep tail does not
     escape low memory by swapping to a new vector surface. It re-enters the
     same low-RAM dispatcher with different per-path work values, which then
