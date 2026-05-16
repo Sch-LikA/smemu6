@@ -976,6 +976,8 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - Current scope is intentionally narrow: ordinary `.SM`, `flags=1`,
   `load=entry=0x6000`, direct alpha-RAM output, and no clean return to the CLI
   yet.
+- Local proof-of-execution now works: the current workflow builds, stages, and
+  launches `HELLO.SM`, and the screen dump shows the expected alpha-RAM text.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and a stable return path is known.
 

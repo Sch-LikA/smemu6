@@ -19,12 +19,18 @@ mkdir -p "$out_dir"
 sdasz80 -plosgff -o "$out_dir/crt0.rel" "$example_dir/crt0.s"
 
 sdcc -mz80 \
+    -c \
+    --data-loc 0x7000 \
+    -o "$out_dir/hello.rel" \
+    "$example_dir/hello.c"
+
+sdcc -mz80 \
     --no-std-crt0 \
     --code-loc 0x6000 \
     --data-loc 0x7000 \
     -o "$out_dir/HELLO.ihx" \
     "$out_dir/crt0.rel" \
-    "$example_dir/hello.c"
+    "$out_dir/hello.rel"
 
 python3 "$repo_root/tools/ihx_to_bin.py" \
     --base 0x6000 \

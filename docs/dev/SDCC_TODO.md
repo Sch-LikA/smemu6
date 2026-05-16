@@ -23,8 +23,19 @@ otherwise.
   - `load=entry=0x6000`
   - direct alpha-RAM output
   - no libc startup and no verified return-to-CLI path yet
-- It has not been exercised end-to-end on this machine in the current session,
-  because `sdcc` is not currently available on `PATH`.
+- It is now exercised end-to-end on this machine:
+  - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,
+    and launch it through the CLI
+  - the current proof point reaches `pc=6000` and produces visible alpha-RAM
+    output (`SDCC HELLO`, `LOAD ENTRY 6000`, `ALPHA RAM ONLY`) in the screen
+    dump
+  - the remaining first-target gap is a clean return path back to the CLI
+- Important linker/layout finding from that proof point:
+  - a one-shot `sdcc ... crt0.rel hello.c` link placed the compiled C object
+    ahead of `crt0.rel`, which made `_put_text` land at `0x6000` and `start`
+    later in the image
+  - the current working build script fixes that by compiling `hello.c` to a
+    `.rel` first and then linking `crt0.rel` before `hello.rel`
 - The plan is grounded in emulator behavior that is already verified elsewhere in
   the dev docs: the machine now boots fully to the CLI, supports prompt-time
   command injection, and can run repeatable disk-based workflows.
