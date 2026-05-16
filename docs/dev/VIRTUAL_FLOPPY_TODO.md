@@ -564,6 +564,17 @@ Deliverable:
 
 ### Phase 2B - Measure the reference boot disk precisely
 
+Known minimum DX0 system-file baseline to preserve while this phase is still
+being measured:
+
+- `SYS.SY`
+- `CLI.SY`
+- `ER.SY`
+
+That does not yet prove those are the only files ever consulted during boot or
+early runtime, but they are the current documented minimum set for a bootable
+system floppy and should be treated as non-optional in DX0 reconstruction work.
+
 - [ ] Add or use repo-local diagnostics in Smemu6 to inspect the reference boot
   floppy and produce a machine-readable placement map.
 - [ ] Capture exact start/end sectors for at least:

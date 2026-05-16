@@ -25,6 +25,15 @@ DX0 floppy boots reliably from the Phantom ROM through the SAMOS CLI.
 The reference `Sys2-2.dsk` image establishes the current bootable DX0 layout
 contract used by the emulator work.
 
+- The current minimum system-file set to reach a bootable SAMOS CLI prompt is:
+  `SYS.SY`, `CLI.SY`, and `ER.SY`.
+- `SYS.SY` is the boot-critical loader/OS image.
+- `CLI.SY` is the command-line shell loaded after the initial SAMOS handoff.
+- `ER.SY` supplies the human-readable error-message table expected by the
+  running system.
+- Other `.SY` files can be present on reference disks, but the current docs
+  should treat those three files as the minimal DX0 system baseline.
+
 - `SYS.SY` starts at sector 3, immediately after the 3 root directory sectors.
 - `SYS.SY` ends at sector 38.
 - `SYS.SY` carries load `0x60C0` and entry `0x5720` in its directory entry.

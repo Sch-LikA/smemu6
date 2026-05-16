@@ -1143,6 +1143,159 @@ otherwise.
     for this producer comes from the trace sequence and the earlier record hits
     (`0x2438` for `EDISK.SM`, `0x2558` for `NATHALIE.IM`), not from the final
     post-refusal `0x2300` bytes alone
+  - a focused decode of the next two active helpers removes another tempting but
+    wrong interpretation:
+    - `0x2155` is **not** the byte-transfer loop. Its live bytes are a seek
+      routine: it calls helper `0x2188`, which chooses track variable
+      `0x2B8B` or `0x2B8C` from drive-control byte `0x2B88`; then it stores the
+      target track from `0x2B92`, computes the signed delta, and steps through
+      ports `0x19` and `0x1A` with explicit delay loops. So the `0x2155` hits in
+      the producer trace are head-positioning work, not record normalization
+    - `0x21B7` is only a tiny compare helper,
+      `PUSH HL ; OR A ; SBC HL,DE ; POP HL ; RET`, used by the active producer
+      path to compare a destination/window boundary while preserving `HL`
+    - the small helper at `0x213A` is also now clear: it masks the low three
+      bits of the current hole index, selects one of the inline bit masks
+      `01 02 04 08 10 20 40 80` at `0x214D`, and returns `HL = 0x2B9F` or
+      `0x2BA0` depending on bit 3 of the hole index. That matches the live trace
+      where later calls see `HL=0x2B9F` or `0x2BA0` before pulling per-hole RAM
+      destinations from the confirmed sector table at `0x2BA3`
+    - the resulting narrow conclusion is more useful than the original guess:
+      the active producer chain around `0x1F47/0x1F57` separates into at least
+      three roles already visible in live RAM:
+      `0x1F6D` builds the hole/destination plan in `0x2B91..0x2BA3`,
+      `0x2155` performs seek/head motion, and the real raw-transfer work sits
+      one hop earlier again
+    - the active transfer split is now specific enough to be useful:
+      - `0x2067` is the real 256-byte sector-read path. It reads the current
+        hole index from port `0x19`, uses `0x213A` plus the bitfields at
+        `0x2B9F/0x2BA0` to decide whether that hole is still pending, fetches
+        the destination address from the confirmed table at `0x2BA3`, validates
+        the header track byte against the selected track variable
+        (`0x2B8B/0x2B8C`), then reads `256` data bytes from port `0x1B` into
+        `DE` while accumulating a checksum in `H`; the final byte is compared
+        against that checksum, and on success the matching pending-hole bit is
+        cleared in `0x2B9F/0x2BA0`
+      - `0x20B2` is **not** another producer-side read candidate after all. Its
+        live bytes show the sibling write path: it clears the pending-hole bit,
+        reloads the same destination from `0x2BA3`, then pushes a framed block
+        out through port `0x18` (sync bytes, selected track byte, `256` payload
+        bytes via `OUTI`, checksum, trailing zero). So it belongs to the same
+        sector-plan machinery, but on the write-back side rather than the cache-
+        fill side used by launch
+      - that leaves a cleaner current model for the active `0x2300` producer:
+        `0x1F6D` constructs the hole-to-destination plan,
+        `0x2155` seeks the target track,
+        `0x2067` performs the actual sector read into RAM pages, and only after
+        those pages exist do later low-memory consumers such as `0x18BF`,
+        `0x194B`, and `0x1D8F` reinterpret them into normalized launch/cache
+        records
+    - the next active boundary is narrower now too: `0x194B` is not another raw-
+      page parser. It already sits on the normalized-cache side of the split
+      between raw transfer and executable selection
+      - the critical local helper is `0x1D08`. Its live bytes are a 32-slot scan
+        over the `0x2300` cache with stride `0x18`: it compares the first 10
+        bytes of each record against a 10-byte lookup buffer in `DE`, returns with
+        carry set on a match, and otherwise advances `HL += 0x18` until the slot
+        count is exhausted. The live trace confirms `DE=0x2B76` whenever
+        `0x194B` falls into this scan
+      - `0x1E23` is the companion token-builder that feeds that lookup. Its live
+        body starts with `HL=0x2B76`, calls `0x1A84` to build a padded filename
+        token there, then `0x1EA9` skips following spaces/tabs, stores the
+        resulting post-token cursor in `0x2BC7`, calls `0x1A53`, and returns with
+        `DE=0x2B76`
+      - the helper `0x1A53` is now concrete enough to explain why `0x194B` sits on
+        the normalized side. It does `CALL 0x1A63 ; XOR A ; LD (0x2B9A),A ;
+        JP 0x1F47`, and `0x1A63` simply seeds `BC=0x0000`, `HL=0x0003`, and
+        `DE=0x2300`. So this stage explicitly re-enters the already-known
+        transfer machinery with a destination rooted at `0x2300`
+      - taken together, the `0x192E..0x195F` sequence now has a more specific
+        interpretation:
+        `0x1AC4` parses or canonicalizes the object prefix,
+        `0x1E23` builds the 10-byte lookup token at `0x2B76` and refreshes the
+        `0x2300` normalized-cache workspace through `0x1A53 -> 0x1F47`,
+        and `0x1D08` then scans those already-normalized `0x18`-byte records for
+        a matching name. So `0x194B` is best treated as the cache lookup / entry-
+        selection stage immediately before the later selector tests, not as the
+        place where raw sector pages are first interpreted into structure
+    - the token-builder itself is now locally decoded enough to be useful:
+      - `0x1A84` calls `0x1EA9` to skip leading spaces and tabs, then copies up
+        to 8 characters into the destination buffer, padding the remainder with
+        spaces via `0x1EB3`
+      - each copied character is validated by `0x1CA0` against the delimiter
+        table at `0x1CB1` (`'['`, space, tab, CR, `'/'`, NUL, `0x80`) and by
+        `0x1C85`, which accepts digits directly, uppercases letters by clearing
+        bit 5, and rejects other punctuation
+      - if a `'.'` is encountered, the second loop copies up to 3 extension
+        characters and again space-pads the remainder; otherwise it falls into
+        the same filler path immediately. In practice this yields the exact
+        `8+2/3` padded token shape later seen at `0x2B76`
+      - the live `EDISK` buffer matches that decode directly:
+        `0x2B76 = "EDISK   SM" ...`, while `0x1D08` compares exactly the first
+        10 bytes of each normalized `0x18`-byte record against that token. So
+        by the time the cache scan runs, filename canonicalization has already
+        collapsed to a plain padded lookup key rather than a richer parser state
+    - the matched-record handoff into `0x18BF -> 0x1916` is also more concrete
+      now, and the byte layout matters because the launcher uses overlapping
+      fields rather than cleanly separated words:
+      - on the successful `EDISK` record at `0x2438`, the visible bytes are
+        `... +0x0A/+0x0B = 00 E8`, `+0x0C/+0x0D = 00 F5`, `+0x10 = 6F`,
+        `+0x11/+0x12 = 00 56`, `+0x12/+0x13 = 56 AE`,
+        `+0x14/+0x15 = 57 10`
+      - on the refusal control `NATHALIE.IM` at `0x2558`, the same overlapping
+        pattern holds:
+        `... +0x0A/+0x0B = 03 1C`, `+0x0C/+0x0D = 03 2B`, `+0x10 = 00`,
+        `+0x11/+0x12 = 00 46`, `+0x12/+0x13 = 46 01`,
+        `+0x14/+0x15 = 00 03`
+      - those bytes line up exactly with the later launch trace:
+        - at `0x18BF`, the stack-top pair matches record words
+          `+0x0A/+0x0C` (`0x00E8/0x00F5` for `EDISK`, `0x031C/0x032B` for
+          `NATHALIE`), and `A` later comes from byte `+0x10`
+        - in the direct-hit path at `0x1968+`, `LD L,(IX+0x11) ; LD H,(IX+0x12)`
+          returns the page-aligned load base (`0x5600` for `EDISK`, `0x4600`
+          for `NATHALIE`)
+        - then at `0x1908+`, `LD E,(IX+0x13) ; LD D,(IX+0x14)` pushes the
+          cross-word selector (`0x57AE` for `EDISK`, `0x0001` for `NATHALIE`)
+          built from the raw-load low byte and the entry high byte
+      - that makes the normalized record contract sharper than before:
+        the matched `0x2300` record already carries every byte later needed by
+        the launch classifier in-place. The launcher does not derive those words
+        from raw sectors at `0x18BF/0x1916`; it only reuses pre-normalized bytes
+        from the chosen `0x18`-byte cache entry, with the aligned load base and
+        the selector both assembled by overlapping adjacent record fields
+    - the `0x0E -> 0x0A` split is now resolved enough to separate two nearby
+      paths that were previously conflated:
+      - the earlier CLI-visible accepted return really does come from
+        `0x195F: LD A,0x0A ; SCF ; RET`, but only on the recursive
+        `0x194B` path that stays on the transient workspace at `IX=0x5800`
+      - the live successful `EDISK` trace for that branch is:
+        `0x194B (AF=0x184D, IX=0x5800) -> CALL C,0x1DAB -> JR C,0x1956 ->
+        0x1956..0x195D -> 0x195F -> 0x18E0 (AF=0x0A09, IX=0x5800)`
+      - byte decode makes that local decision concrete. `0x1DAB` is just:
+        `CP 0x18 ; SCF ; RET Z ; CP 0x11 ; SCF ; RET Z ; POP HL ; RET`
+        So on the observed `EDISK` path, `A=0x18` makes the `CALL C,0x1DAB`
+        site at `0x194C` return with carry still set, which takes the
+        `JR C,+5` at `0x194F`
+      - from there, `0x1956` tests bit 6 of workspace byte `0x2B88`
+        (`LD A,(0x2B88) ; LD H,0x40 ; AND H ; LD A,H ; JR Z,0x1941`). In the
+        accepted run, the immediately preceding `0x1A53` refresh has already
+        promoted `0x2B88` from `0x20` to `0x40`, so the loop does **not** jump
+        back and `0x195F` returns the accepted `A=0x0A`
+      - the later direct-hit path through the matched normalized record is a
+        different outcome. On the same successful `EDISK` launch, once
+        `0x1D08` has matched `HL=0x2438`, execution goes
+        `0x193D -> 0x1963 -> 0x1C4D`, but this is **not** the accepted `0x0A`
+        return. On the live `EDISK.SM` record (`+0x0E=0x01, +0x0F=0x00`), the
+        `0x1C4D` bitmask helper falls through its `RET Z` case, then the caller
+        loads `HL=(IX+0x11/+0x12)=0x5600` and returns `A=0x0E`
+      - that keeps the role of `0x1C4D` narrow and consistent with the earlier
+        decode: it is still a generic pre-filter over record bits `+0x0E/+0x0F`,
+        not the source of the accepted CLI-visible `0x0A`. The later ordinary
+        executable-vs-refusal split still happens at the selector check
+        `0x1916` (`0x57AE` accepted, `0x0001` refused)
+      - the post-`0x18E0` jump target at `0x11D2` remains just a small
+        unwind/restore stub (`POP IX ; PUSH AF ; LD A,(0x457F) ; OUT (0),A ;
+        POP AF ; EI ; RET ...`), so it is also not the missing translator
 
 ## Main unknowns blocking an SDCC target
 

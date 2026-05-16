@@ -376,24 +376,15 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (sm_rst10_follow > 0 &&
-            (pc == 0x003E || pc == 0x0041 || pc == 0x0048 || pc == 0x004A ||
-             pc == 0x004D || pc == 0x0050 ||
-             pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
-             pc == 0x1E6A || pc == 0x1E6D || pc == 0x1E70 ||
-             pc == 0x1DDB || pc == 0x1DEB || pc == 0x1EDF ||
-             pc == 0x1FAE || pc == 0x1FC1 || pc == 0x2155 || pc == 0x2191 ||
-             pc == 0x21B7 ||
-             pc == 0x1F47 || pc == 0x1F59 || pc == 0x1F6D || pc == 0x1F79 ||
-             pc == 0x1F85 || pc == 0x1F90 || pc == 0x2170 || pc == 0x217D ||
-             pc == 0x2186 || pc == 0x21A8 ||
+            (pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
              pc == 0x1A53 || pc == 0x1AC4 || pc == 0x1C4D || pc == 0x1D08 ||
              pc == 0x1DAB || pc == 0x1E23 ||
              pc == 0x18D6 || pc == 0x18E6 || pc == 0x18EA || pc == 0x18FF ||
-             pc == 0x1902 || pc == 0x192E ||
-             pc == 0x012E || pc == 0x0131 || pc == 0x0134 || pc == 0x0136 ||
-             pc == 0x0138 || pc == 0x013B || pc == 0x013E || pc == 0x0141 ||
-             pc == 0x0142 || pc == 0x0145 || pc == 0x0148 || pc == 0x014B ||
-             pc == 0x014D)) {
+             pc == 0x1902 || pc == 0x192E || pc == 0x1935 || pc == 0x1938 ||
+             pc == 0x193A || pc == 0x193D || pc == 0x1941 || pc == 0x1944 ||
+             pc == 0x1948 || pc == 0x194C || pc == 0x194F || pc == 0x1951 ||
+             pc == 0x1954 || pc == 0x1956 || pc == 0x1959 || pc == 0x195B ||
+             pc == 0x195D || pc == 0x195F || pc == 0x1963)) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
@@ -404,11 +395,12 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-rst10] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X 4554=%02X follow=%d\n",
+                    "[flow-rst10] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X 2B88=%02X 4554=%02X follow=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
                     sp, ret0, ret1,
+                    (unsigned)m->bus[0x2B88u],
                     (unsigned)m->bus[0x4554u], sm_rst10_follow);
                 sm_rst10_follow--;
             m->dbg.flow_budget--;
