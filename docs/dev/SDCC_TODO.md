@@ -857,6 +857,23 @@ otherwise.
       `0x11C0` is now traced one hop further back: it is the producer-side
       default byte materialized by `0x1B04`, then snapshotted by service
       `RST 10 / 0x1C`
+    - one more decode on that same helper is enough to demote this branch for
+      SDCC purposes:
+      - helper `0x1BF0` is just `CALL 0x1EA9 ; LD A,(DE) ; CP '$' ; RET`, so it
+        tests whether the current token starts with a `$` prefix after skipping
+        spaces or tabs
+      - the follow-on matcher at `0x1BF7` walks the table rooted at `0x10EE`,
+        which decodes to the CLI-side device names `PP`, `PR`, `PO`, `PI`,
+        `DIS`, `KEY`, `LP`, `MO`, ... with the high bit marking the final
+        character of each token
+      - the traced `0x1B04` hit itself arrives with `BC=0x3030` and
+        `DE=0x10D4`, i.e. on the internal string-table side (`DX0:` / `CLI.SY`
+        / `ER.SY` neighborhood), not on a raw ordinary program token
+      - so this `0x1238 -> 0x1BF0/0x1BF7 -> 0x1AF8..0x1B04` slice is now best
+        read as CLI namespace/device-selection setup that happens to produce the
+        saved default byte `0x20`. It is therefore probably not the main
+        SDCC-facing ordinary `.SM` acceptance mechanism, and should stay
+        deprioritized unless a later accepted-class hop points back into it
     - so the post-copy `0x11C0 -> 0x1D29` wrapper is now fully explained on
       this path: it returns the saved producer-side byte `A=0x20` from `0x2BE2`
       plus the saved `0x2B86 - 0x2B84 = 0x04D0` span in `BC`. That path is not
