@@ -290,10 +290,15 @@ otherwise.
     armed `TDISK` path is now consistent with the older note elsewhere in this
     file that `0x1F47` is one of the transfer-oriented low-memory helpers behind
     the `0x1003/0x1006` stub family
-  - the next instrumented runtime point after `0x1A53` is still the already
-    observed floppy-step helper at `0x2187`, and only after that does the path
-    fall into the low-RAM wrapper `0x0048 -> 0x004A -> 0x0148 -> 0x004D ->
-    0x0050`
+  - a later armed trace removes the remaining gap inside that transfer helper.
+    The live path now shows `0x1F47 -> 0x1F6D -> 0x1F79 -> 0x2186`, and because
+    `0x2186` is just the one-byte entry immediately ahead of the already-known
+    step helper body at `0x2187`, the runtime evidence now directly ties this
+    `0x1F47` helper chain to the `0x2187` floppy-step logic rather than only
+    placing them near each other in time
+  - the same trace also shows the helper calling back into `0x2186` a second
+    time, then reaching `0x1F90 -> 0x21A8 -> 0x217D` before the path falls into
+    the low-RAM wrapper `0x0048 -> 0x004A -> 0x0148 -> 0x004D -> 0x0050`
   - that still does not prove an eventual return into `0x647D+`. It only shows
     that after `0x647A` the path drops through at least two RAM-resident service
     layers: `RST 10` first dispatches via `(0x4564) -> 0x1063 -> 0x18D6`, then
