@@ -385,6 +385,16 @@ otherwise.
     `HL` to `(0x4572)`, and `0x029D` writes `HL` to `(0x455E)`. So the
     `0x1DB9` stream is not arbitrary low-memory traffic; it is explicitly
     preparing a small set of workspace pointer slots before returning
+  - the immediate post-script continuation is visible too. After the `0x1DB9`
+    stream finishes at `RET` byte `0x1DBE`, the same selector re-enters with
+    `top=0x18EB` and `next=0x5602` in one pass of the trace, and with
+    `top=0x18EB` and `next=0x5600` in another. The selector then consumes byte
+    `0x1B` from `0x18EB` and advances to `0x18EC`
+  - that does not yet prove a clean return into `CLI.SY`, but it does narrow the
+    short branch considerably: the workspace-setup script rooted at `0x1DB9`
+    now appears to hand control back into the `0x18EB+` low-memory stream while
+    already carrying a stacked continuation at the `CLI.SY` load base (`0x5600`
+    / `0x5602`)
   - the `0x1CF4` case behaves differently. Its first byte still dispatches
     `0x2E -> 0x0E4F`, but after that helper returns the same path re-enters the
     selector at a later stacked pointer `0x1CFE` while keeping `next=0x1D99`
