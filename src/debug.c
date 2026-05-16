@@ -140,7 +140,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         if (pc == 0x1F57 || pc == 0x2021)
             sm_tail_follow2 = 24;
         if (pc == 0x1D8F)
-            sm_build_follow = 48;
+            sm_build_follow = 96;
 
         if (pc >= 0x0127 && pc <= 0x0147) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
@@ -244,10 +244,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
         }
 
         if (sm_build_follow > 0 &&
-            (pc == 0x1743 || pc == 0x1748 || pc == 0x174D || pc == 0x1750 ||
-             pc == 0x1757 || pc == 0x175E || pc == 0x1761 || pc == 0x1768 ||
-             pc == 0x1771 || pc == 0x1778 || pc == 0x1780 || pc == 0x1788 ||
-             pc == 0x1790 || pc == 0x17E7 || pc == 0x17EB || pc == 0x17F0 ||
+            (pc == 0x1743 || pc == 0x1757 || pc == 0x1771 || pc == 0x1790 ||
+             pc == 0x17E7 || pc == 0x17EB || pc == 0x17F0 ||
              pc == 0x17FD || pc == 0x1803 || pc == 0x180F || pc == 0x1813 ||
              pc == 0x1816 || pc == 0x1821 || pc == 0x1824 || pc == 0x1834 ||
              pc == 0x183C || pc == 0x1841 || pc == 0x1848 || pc == 0x1855 ||
