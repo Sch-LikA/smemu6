@@ -108,6 +108,7 @@ An experimental standalone SDCC proof-of-execution scaffold lives under
 - the example now also carries a tiny reusable target header,
   `examples/sdcc/hello_alpha/smaky6.h`, for first-target alpha-RAM output
     with a simple row/column helper over the 64-column alpha screen
+    plus a minimal row-clear helper for claiming dedicated screen space
 
 ```bash
 tools/build_smaky6_sdcc_example.sh

@@ -984,6 +984,8 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   primitive private to `hello.c`.
 - That header now also provides a small row/column helper so future SDCC
   examples can address the alpha screen without open-coding raw offsets.
+- That header also now provides a minimal row-clear helper so examples can
+  own a dedicated alpha-screen region before writing text.
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 

@@ -20,10 +20,25 @@ static inline void smaky6_alpha_put_text(unsigned short offset, const char *text
     }
 }
 
+static inline void smaky6_alpha_fill(unsigned short offset, unsigned short count,
+                                     unsigned char value)
+{
+    volatile unsigned char *cursor = SMAKY6_ALPHA_RAM + offset;
+
+    while (count-- != 0u) {
+        *cursor++ = value;
+    }
+}
+
 static inline void smaky6_alpha_put_text_xy(unsigned char row, unsigned char col,
                                             const char *text)
 {
     smaky6_alpha_put_text(smaky6_alpha_offset(row, col), text);
+}
+
+static inline void smaky6_alpha_clear_row(unsigned char row)
+{
+    smaky6_alpha_fill(smaky6_alpha_offset(row, 0u), SMAKY6_ALPHA_COLS, ' ');
 }
 
 #endif

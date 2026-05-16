@@ -29,6 +29,8 @@ otherwise.
     `examples/sdcc/hello_alpha/smaky6.h` for reuse by later standalone examples
   - that helper now exposes row/column-to-offset conversion so examples no
     longer need to hard-code raw alpha-RAM line offsets
+  - it also now exposes a minimal row-clear primitive so examples can claim a
+    dedicated text area without depending on prior CLI screen contents
 - It is now exercised end-to-end on this machine:
   - the helper scripts build the `.SM`, stage it into a bootable DX0 hostdir,
     and launch it through the CLI
