@@ -86,6 +86,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             pc == 0x5DD5 ||
             pc == 0x5E69 || pc == 0x5EBB || pc == 0x5EC1 || pc == 0x5EC4 ||
             pc == 0x5EC8 || pc == 0x6457 ||
+            pc == 0x6752 || pc == 0x6755 || pc == 0x6757 || pc == 0x675A ||
+            pc == 0x675C || pc == 0x6761 ||
             pc == 0x647A || pc == 0x647D || pc == 0x6480 || pc == 0x6484 ||
             pc == 0x648C || pc == 0x6496 || pc == 0x649B || pc == 0x64A5 ||
             pc == 0x6F55 || pc == 0x6F5C || pc == 0x6F60 || pc == 0x6F70 ||
@@ -137,7 +139,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                     (unsigned)m->bus[0x710Au],
                     (unsigned)((uint16_t)m->bus[0x710Bu] |
                                ((uint16_t)m->bus[0x710Cu] << 8)));
-            if (pc == 0x647A)
+            if (pc == 0x647A || pc == 0x6755 || pc == 0x675A)
                 sm_rst10_follow = 40;
             else if (pc == 0x649B || pc == 0x64A5 || pc == 0x7017)
                 sm_rst10_follow = 0;

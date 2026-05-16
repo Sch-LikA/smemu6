@@ -808,6 +808,20 @@ otherwise.
       `0x1737` `LD HL,0x11B9 ; PUSH HL ; CALL 0x1AC4` entry, and the accepted
       `A=0x18` must be synthesized later on the high-memory caller side rather
       than anywhere inside `0x1743..0x1790` or the immediate `0x11B9` return
+  - one more narrow hop identifies that immediate high-memory caller:
+    - the apparent `next=0x709B/0x70F6` words captured at `0x11B9` are data
+      pointers, not code PCs. The real code-side return from the dispatcher is
+      the stack-top caller at `0x6752/0x675A`
+    - static bytes around that site decode as:
+      `PUSH AF ; LD BC,0x711A ; RST 10 / 0x0E ; JP C,0x7017 ; LD DE,0x70F6 ; PUSH BC ; RST 10 / 0x1B ; ...`
+    - the live trace matches that decode exactly: after the formatter path
+      returns through `0x11B9 -> 0x11D2`, control resumes at `0x6752` with
+      `AF=0x0044`, so the `JP C,0x7017` reject branch is *not* taken on the
+      successful `EDISK` run
+    - that means the immediate post-formatter accept/reject gate is the
+      CLI-side `RST 10 / 0x0E` service on the populated `0x711A` workspace.
+      The next ordinary successful step after that gate is the follow-on
+      `RST 10 / 0x1B` call with `DE=0x70F6`
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table
