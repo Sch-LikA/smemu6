@@ -358,6 +358,17 @@ otherwise.
     `DE=0x0003`, `0x4554/0x4555 = 0x53/0x04`, and by `0x012C` has moved
     `HL` onto `0x1CF4`; the stacked continuation visible there is
     `top=0x0003 next=0x1D99`
+  - the live bytes make the dispatcher contract there much clearer. The code at
+    `0x0127+` is the already-known RAM selector stub: it stores the incoming
+    `A` in `0x4554`, swaps `HL` with the stacked pointer, reads one byte from
+    `(HL)`, advances that stacked pointer, and then indexes the shared table at
+    `0x0F30` when the byte is below `0x80`
+  - that means `0x1DB9` and `0x1CF4` should currently be read as **byte-source
+    pointers feeding the dispatcher**, not as alternate dispatcher targets.
+    The first `0x18BF` re-entry lands on byte `0x04` at `0x1DB9`, which maps
+    through the live `0x0F30` table to handler `0x0299`; the first `0x1D8F`
+    re-entry lands on byte `0x2E` at `0x1CF4`, which maps through that same
+    table to handler `0x0E4F`
   - that makes the current best reading more specific: the deep tail does not
     escape low memory by swapping to a new vector surface. It re-enters the
     same low-RAM dispatcher with different per-path work values, which then
