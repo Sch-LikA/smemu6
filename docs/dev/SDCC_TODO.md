@@ -225,10 +225,32 @@ otherwise.
     `RST 20` vector entry at `0x0020` now sees the assembled frame
     `top=0x1DB9 next=0x18EA next2=0x5602` (`TDISK`) or
     `top=0x1DB9 next=0x18EA next2=0x5600` (`SHOW HORLOGE.SR`)
-  - this leaves the remaining micro-question even narrower than before. The
-    launch word itself is no longer mysterious by `0x18BF`; the live control
-    point that matters now is the short `0x18E0..0x18E6` normalizer that turns
-    the helper outputs into the stable dispatcher frame seen at `0x0020`
+  - decoding the live bytes at `0x18E0` resolves most of that remaining
+    micro-question too. The block is:
+    `POP BC; POP DE; POP IX; JR C,+0x0E; PUSH HL; CALL 0x1DB5; RST 20; DEC DE;
+    POP DE; LD SP,HL; LD HL,(0x2BC7) ...`
+  - and `0x1DB5` is not an unrelated helper; it is the small threaded-script
+    wrapper that seeds the later selector stream directly:
+    `LD HL,0x0000; RST 20; 0x04; RST 20; 0x02; RST 20; 0x1F; RET`
+  - that explains why the dispatcher later sees `0x1DB9 -> 0x1DBB -> 0x1DBD`.
+    Those are simply the inline script bytes immediately following the three
+    `RST 20` opcodes in the `0x1DB5` helper body
+  - on the ordinary successful path, the carry branch at `0x18E4` is not taken.
+    So `0x18E0` does not compute the selector bytes from scratch; instead it
+    installs the already-decided register pair (`BC/DE`), preserves the already
+    stacked launch word in `HL`, and invokes the shared `0x1DB5` script wrapper
+    to drive the standard `04, 02, 1F` setup sequence before returning to
+    `0x18EA`
+  - in other words, the user-visible `1DB9/18EA/560x` frame seen at `0x0020`
+    is now almost fully accounted for:
+    the launch word is already chosen before `0x18BF`, the helper chain carries
+    it through `0x1916`, and `0x18E0` hands control to the fixed `0x1DB5`
+    threaded-script wrapper whose inline bytes become the later
+    `1DB9/1DBB/1DBD` selector entries
+  - the remaining SDCC-facing unknown is now very small: what exact semantic
+    role the non-branch path of `0x18E0` assigns to the register pair it pops
+    (`BC=0x0080, DE=0x10D5` for `TDISK`; `BC=0x0000, DE=0x45C0` for
+    `SHOW HORLOGE.SR`) before entering the fixed `0x1DB5` setup script
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the
