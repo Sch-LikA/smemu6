@@ -308,6 +308,12 @@ otherwise.
     the earlier `0x6FB0` non-`0x06` splitter; instead it reaches
     `CLI.SY:0x702E` with `A=0x1C`, and that site immediately calls the generic
     file-message formatter at `0x5CDA`
+  - one hop earlier, the same run now shows where that selector is actually
+    rejected: after the shared setup at `0x647A` (`RST 10 / 0x0B`), execution
+    resumes at `0x647D` with `A=0x1C` and takes the inline test
+    `CP 0x0A / JP NZ,0x7017`; the executable side therefore appears to be the
+    accepted `0x0A` return, while `.IM` takes the non-zero/non-`0x0A` branch
+    into the refusal helper
   - that formatter invocation is the observed refusal: it emits
     `pas d'ex cution, fichier: NATHALIE.IM`, then the caller falls through the
     shared CLI tail at `0x7040+` and rejoins the already-known prompt/status
@@ -729,6 +735,11 @@ otherwise.
     `0x5CDA`, and only then continues into the shared `0x7040+ -> 0x56AE`
     reprompt path. That makes `0x702E` the confirmed no-exec message branch,
     while `0x56AE` remains only the common CLI sink that follows it
+  - the immediate predecessor is now confirmed too: `0x647D` compares the class
+    returned by `RST 10 / 0x0B` against `0x0A` and jumps to `0x7017` on any
+    other value. In the explicit `.IM` run that value is `0x1C`; in the known
+    good `TDISK` launch the path reaches the same `0x647A` setup but does not
+    surface `0x7017`, consistent with the accepted `0x0A` side of that test
   - a final pass over the remaining direct `0x569E` callers does not uncover a
     cleaner launch continuation either. The dense cluster at `0x62F7–0x6402`
     stays CLI-local: it decodes nibbles into workspace byte `0x45B7`, updates

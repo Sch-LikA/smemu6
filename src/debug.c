@@ -87,7 +87,8 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             pc == 0x5EC8 || pc == 0x6457 ||
             pc == 0x647A || pc == 0x647D || pc == 0x6480 || pc == 0x6484 ||
             pc == 0x648C || pc == 0x6496 || pc == 0x649B || pc == 0x64A5 ||
-            pc == 0x6F8F || pc == 0x6FB0 || pc == 0x702E ||
+            pc == 0x6F8F || pc == 0x6FB0 || pc == 0x7015 || pc == 0x701D ||
+            pc == 0x7020 || pc == 0x7026 || pc == 0x702D || pc == 0x702E ||
             pc == 0x7017 || pc == 0x569E || pc == 0x56AE) {
             uint16_t line_ptr = (uint16_t)m->bus[0x70B4u] | ((uint16_t)m->bus[0x70B5u] << 8);
             uint16_t save_ptr = (uint16_t)m->bus[0x70C8u] | ((uint16_t)m->bus[0x70C9u] << 8);
