@@ -242,7 +242,10 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
         if (sm_tail_follow2 > 0 &&
             (pc == 0x0020 || pc == 0x0026 || pc == 0x0028 || pc == 0x003E ||
-             pc == 0x0041 || pc == 0x0E1C || pc == 0x18BF || pc == 0x18C0 ||
+             pc == 0x0041 || pc == 0x0E1C || pc == 0x18A8 || pc == 0x18A9 ||
+             pc == 0x18AC || pc == 0x18AD || pc == 0x18AE || pc == 0x18AF ||
+             pc == 0x18B0 || pc == 0x18B2 || pc == 0x18B4 || pc == 0x18B6 ||
+             pc == 0x18B7 || pc == 0x18B8 || pc == 0x18BF || pc == 0x18C0 ||
              pc == 0x18C1 || pc == 0x18C3 || pc == 0x18C5 || pc == 0x18C7 ||
              pc == 0x18C8 || pc == 0x18C9 || pc == 0x18CC || pc == 0x18CE ||
              pc == 0x18CF || pc == 0x18D0 || pc == 0x18E0 || pc == 0x18E3 ||
@@ -318,6 +321,7 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             (pc == 0x003E || pc == 0x0041 || pc == 0x0048 || pc == 0x004A ||
              pc == 0x004D || pc == 0x0050 ||
              pc == 0x1063 || pc == 0x1074 || pc == 0x1087 || pc == 0x1088 ||
+             pc == 0x1E6A || pc == 0x1E6D || pc == 0x1E70 ||
              pc == 0x1FAE || pc == 0x1FC1 || pc == 0x2155 || pc == 0x2191 ||
              pc == 0x21B7 ||
              pc == 0x1F47 || pc == 0x1F59 || pc == 0x1F6D || pc == 0x1F79 ||

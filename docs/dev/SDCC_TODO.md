@@ -314,6 +314,23 @@ otherwise.
     `CP 0x0A / JP NZ,0x7017`; the executable side therefore appears to be the
     accepted `0x0A` return, while `.IM` takes the non-zero/non-`0x0A` branch
     into the refusal helper
+  - a tighter pass on the low-memory return path corrects one part of that
+    reading: on the relevant explicit-`.IM` path, the visible `A=0x1C` at
+    `0x647D` is not returned directly by helper `0x18A8`. Live RAM at
+    `0x1900+` decodes that block as:
+    `CALL 0x192E ; RET C ; SCF ; RET Z ; ... ; CALL 0x18A8 ; JR C,+0x0A ; POP HL ; DEC HL ; LD A,H ; OR L ; INC HL ; RET NZ ; LD A,0x1C ; SCF ; RET`
+  - in the explicit `NATHALIE.IM` run, `0x18A8` returns on the non-carry side
+    and the caller then takes that local fallback: at `0x1916` the stacked word
+    is `0x0001`, so the `DEC HL / OR L / RET NZ` test falls through to the
+    inline `LD A,0x1C ; SCF ; RET` at `0x191C`
+  - by contrast, the known-good executable paths reach the same caller with a
+    nontrivial stacked word (`0x5600` or `0x5602` in current `TDISK` traces), so
+    the same `0x1916` test returns early on the non-zero case instead of
+    synthesizing selector `0x1C`
+  - this also means the preserved `SYS.SY` artifact should not be trusted
+    blindly for `0x1913+`: the live RAM bytes from both current runs agree on
+    the executable code above, while the static extracted file at that address
+    looks like table data
   - that formatter invocation is the observed refusal: it emits
     `pas d'ex cution, fichier: NATHALIE.IM`, then the caller falls through the
     shared CLI tail at `0x7040+` and rejoins the already-known prompt/status
