@@ -100,6 +100,8 @@ tools/serve_web.sh
 
 An experimental standalone SDCC proof-of-execution scaffold lives under
 `sdcc/examples/hello_alpha`. It is intentionally outside CMake and CI for now.
+The ongoing bring-up notes and follow-up tasks now live in
+`sdcc/SDCC_TODO.md`.
 
 - expected tools: `sdcc`, `sdasz80`, `python3`
 - current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`

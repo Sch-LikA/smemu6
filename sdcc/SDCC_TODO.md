@@ -1,10 +1,10 @@
 # Smaky 6 SDCC Bring-up TODO
 
-This file is a planning document for getting SDCC-built Z80 programs to run on a
-Smaky 6 under SAMOS.
+This file is the working bring-up log and TODO list for getting SDCC-built Z80
+programs to run on a Smaky 6 under SAMOS.
 
-Scope for now: analysis and a concrete TODO list only. No SDCC integration has
-been added to the repo yet.
+Scope for now: keep the standalone SDCC scaffold moving forward without pulling
+it into the main CMake or CI paths yet.
 
 ## Current Status
 
