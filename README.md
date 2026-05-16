@@ -122,7 +122,13 @@ sdcc/run_smaky6_sdcc_example.sh build/smemu6
 # Or target another one-file example directory under sdcc/examples/
 sdcc/build_smaky6_sdcc_example.sh hello_alpha
 sdcc/run_smaky6_sdcc_example.sh build/smemu6 hello_alpha
+sdcc/build_smaky6_sdcc_example.sh sm6peek
+sdcc/run_smaky6_sdcc_example.sh build/smemu6 sm6peek
 ```
+
+`sdcc/examples/sm6peek` is the first symbol-backed follow-up example. It uses
+generated `SM6.ST` symbols beyond `ALPHA` and displays live reads from
+`OUTCAR` and `MAXMEM` in the guest workspace.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.

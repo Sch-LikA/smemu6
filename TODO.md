@@ -992,6 +992,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - The standalone build script can now also derive an SDCC-friendly macro header
   from archived `SM6.ST` evidence, and the first-target helper header consumes
   `SMAKY6_SM6_ALPHA` from that generated file when available.
+- There is now a second standalone SDCC example under `sdcc/examples/sm6peek`
+  that uses generated `SM6.ST` symbols beyond `ALPHA` and displays live reads
+  from `OUTCAR` and `MAXMEM`.
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
   `sdcc/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
   exact 6-byte symbol encoding is still only partially confirmed.

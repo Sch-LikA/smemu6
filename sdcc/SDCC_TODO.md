@@ -34,6 +34,9 @@ otherwise.
   - when archived `SM6.ST` evidence is present, the standalone build script now
     emits an SDCC-friendly generated macro header and the helper header consumes
     `SMAKY6_SM6_ALPHA` from it instead of hard-coding `0x4000`
+  - a second standalone example now lives under `sdcc/examples/sm6peek`; it
+    uses generated `SM6.ST` symbols beyond `ALPHA` and displays live workspace
+    reads from `OUTCAR` and `MAXMEM`
   - the standalone helper scripts now accept an example directory name under
     `sdcc/examples/`, so later one-file probes can reuse the same
     build/stage/run path without editing the scripts
