@@ -326,14 +326,27 @@ otherwise.
   - a direct follow-up trace now names the source of that stacked word too. At
     entry to `0x18A8`, the value under the return address exactly matches the
     word loaded from `(IX+0x13/0x14)` just before the call:
-    `NATHALIE.IM` shows `ix13=0x0001` and `next=0x0001`, while executable runs
-    show `ix13=0x5600` or `0x5602` and the same value under the return address
-    at `0x18A8` and again at the later `0x1916` test
+    `NATHALIE.IM` shows `ix13_14=0x0001` and `next=0x0001`, while executable
+    runs show `ix13_14=0x5600` or `0x5602` and the same value under the return
+    address at `0x18A8` and again at the later `0x1916` test
   - that tightens the current interpretation of the non-exec split: the caller
     at `0x1916` is not inventing a value from thin air, it is classifying the
     already-selected descriptor word carried in the `(IX+0x13/0x14)` slot. The
     `.IM` refusal happens because that slot is `0x0001`; the executable path
     succeeds because the same slot carries `0x5600/0x5602`
+  - one more byte-level correction removes the last ambiguity in that label.
+    The normalized 0x18-byte cache record for `NATHALIE.IM` is stable in the
+    directory walker itself at `IX=0x2558` and matches the extracted metadata:
+    `+0x0A/+0x0B = 0x031C` (start sector), `+0x0C/+0x0D = 0x032B`,
+    `+0x0E/+0x0F = 0x0001` (flags), `+0x0F/+0x10 = 0x0000`,
+    `+0x12/+0x13 = 0x4601` (raw load), `+0x14/+0x15 = 0x0003` (entry),
+    `+0x16/+0x17 = 0x8109` (date)
+  - live bytes at `0x1908+` show why the traced selector value looked like a
+    standalone field when it is not: `LD E,(IX+0x13) ; LD D,(IX+0x14) ; PUSH DE ;
+    EX DE,HL ; ... ; CALL 0x18A8`. So the later `0x1916` test classifies the
+    cross-word selector assembled from the high byte of the raw load word and
+    the low byte of the entry word, while the effective runtime load address is
+    already being carried separately in `HL/DE`
   - by contrast, the known-good executable paths reach the same caller with a
     nontrivial stacked word (`0x5600` or `0x5602` in current `TDISK` traces), so
     the same `0x1916` test returns early on the non-zero case instead of

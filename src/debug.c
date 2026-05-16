@@ -264,19 +264,19 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                             ((uint16_t)m->bus[(uint16_t)(sp + 7u)] << 8);
             uint16_t ix = (uint16_t)Z80_IX(m->cpu);
             uint8_t ix10 = m->bus[(uint16_t)(ix + 0x10u)];
-                uint16_t ix13 = (uint16_t)m->bus[(uint16_t)(ix + 0x13u)] |
-                        ((uint16_t)m->bus[(uint16_t)(ix + 0x14u)] << 8);
+            uint16_t ix13_14 = (uint16_t)m->bus[(uint16_t)(ix + 0x13u)] |
+                               ((uint16_t)m->bus[(uint16_t)(ix + 0x14u)] << 8);
 
             if (pc == m->dbg.last_flow_pc)
                 return;
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X ix13=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2BC7=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
+                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X ix13_14=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2BC7=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    ix, ix10, ix13, sp, ret0, ret1, ret2, ret3,
+                    ix, ix10, ix13_14, sp, ret0, ret1, ret2, ret3,
                     (unsigned)((uint16_t)m->bus[0x2BC7u] |
                            ((uint16_t)m->bus[0x2BC8u] << 8)),
                     (unsigned)((uint16_t)m->bus[0x2BD1u] |

@@ -143,7 +143,7 @@ static void usage(const char *argv0)
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
-        "  -inject-str <s> Inject string when CLI prompt appears (use \\n for Enter/CR, \\f to wait for next prompt)\n"
+        "  -inject-str <s> Inject string when CLI prompt appears (use \\n or \\r for Enter/CR, \\f to wait for next prompt)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
         "  -inject-at-frame <n> Inject at absolute frame n instead of waiting for CLI prompt\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
@@ -737,7 +737,7 @@ int main(int argc, char *argv[])
             inject_len = 0;
             for (int j = 0; s[j] && inject_len < 126; j++) {
                 unsigned char c = (unsigned char)s[j];
-                if (c == '\\' && s[j + 1] == 'n') {
+                if (c == '\\' && (s[j + 1] == 'n' || s[j + 1] == 'r')) {
                     inject_codes[inject_len++] = 0x0D; /* Enter (CR, 0x0D) */
                     j++;
                 } else if (c == '\\' && s[j + 1] == 'f') {
