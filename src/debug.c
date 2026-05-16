@@ -391,6 +391,24 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
                         (unsigned)m->bus[0x457Eu],
                         (unsigned)m->bus[0x45C0u],
                         cursor);
+            } else if (pc >= 0x0127 && pc <= 0x0147) {
+                uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+                uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
+                uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
+                                ((uint16_t)m->bus[(uint16_t)(sp + 3u)] << 8);
+                fprintf(stderr,
+                        "[flow-disp] pc=%04X af=%04X bc=%04X de=%04X hl=%04X sp=%04X top=%04X next=%04X "
+                        "4554=%02X 4555=%02X 455C=%02X%02X 4562=%02X%02X 4564=%02X%02X 4566=%02X%02X 711A=%02X%02X\n",
+                        pc,
+                        (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
+                        (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
+                        sp, ret0, ret1,
+                        m->bus[0x4554], m->bus[0x4555],
+                        m->bus[0x455Cu], m->bus[0x455Du],
+                        m->bus[0x4562u], m->bus[0x4563u],
+                        m->bus[0x4564u], m->bus[0x4565u],
+                        m->bus[0x4566u], m->bus[0x4567u],
+                        m->bus[0x711Au], m->bus[0x711Bu]);
             } else {
                 fprintf(stderr,
                         "[flow] pc=%04X af=%04X bc=%04X de=%04X hl=%04X "

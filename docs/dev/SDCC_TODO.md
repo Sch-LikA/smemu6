@@ -345,6 +345,23 @@ otherwise.
     likewise falls into `0x0127 -> 0x0128 -> 0x012B -> 0x012C`. So even these
     deeper executions still rejoin the low-RAM dispatcher region rather than
     surfacing any visible `CLI.SY` continuation
+  - a focused dispatcher-state rerun sharpens that result further. The re-entry
+    surface itself stays stable across both cases: at `0x0127+`, the installed
+    vectors are still `(0x455C)=0x0127`, `(0x4562)=0x2005`,
+    `(0x4564)=0x1063`, and `(0x4566)=0x003E`. What changes is the local
+    payload being fed through that dispatcher, not the dispatcher target
+  - after live `0x18BF`, the dispatcher arrives with `AF=0x5700`,
+    `DE=0x10D5`, `0x4554/0x4555 = 0x57/0x00`, and by `0x012C` has moved
+    `HL` onto `0x1DB9`; the stacked continuation visible there is
+    `top=0x0000 next=0x18EA`
+  - after live `0x1D8F`, the same dispatcher arrives with `AF=0x5305`,
+    `DE=0x0003`, `0x4554/0x4555 = 0x53/0x04`, and by `0x012C` has moved
+    `HL` onto `0x1CF4`; the stacked continuation visible there is
+    `top=0x0003 next=0x1D99`
+  - that makes the current best reading more specific: the deep tail does not
+    escape low memory by swapping to a new vector surface. It re-enters the
+    same low-RAM dispatcher with different per-path work values, which then
+    continues deeper into low-memory helper state
   - that matters because it removes another escape hatch: by this point the
     chain is no longer merely carrying low-memory return words such as `0x18BF`,
     `0x194B`, or `0x1D8F` on the stack. It is actively executing them, and the
