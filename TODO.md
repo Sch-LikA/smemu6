@@ -993,10 +993,10 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   from archived `SM6.ST` evidence, and the first-target helper header consumes
   `SMAKY6_SM6_ALPHA` from that generated file when available.
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
-  `tools/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
+  `sdcc/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
   exact 6-byte symbol encoding is still only partially confirmed.
 - That parser is now also factored into reusable C sources
-  `tools/smaky6_st_symbols.h` / `tools/smaky6_st_symbols.c`, and a companion
+  `sdcc/smaky6_st_symbols.h` / `sdcc/smaky6_st_symbols.c`, and a companion
   exporter can emit JSON or a generated C header for downstream use.
 - Native CMake builds now also expose utility targets for the symbol-table
   tooling and a generated-header consumer example when the archived `SM6.ST`

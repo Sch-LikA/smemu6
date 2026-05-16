@@ -150,10 +150,10 @@ otherwise.
   - `SM6.ST` size: `2008` bytes
   - both sizes are exact multiples of 8, which strongly suggests fixed-width
     binary records
-  - a first practical parser now exists at `tools/dump_smaky6_st_symbols.c`
-  - the shared C-side parser API now lives in `tools/smaky6_st_symbols.h` and
-    `tools/smaky6_st_symbols.c`
-  - export tool `tools/export_smaky6_st_symbols.c` can emit either JSON or a
+  - a first practical parser now exists at `sdcc/dump_smaky6_st_symbols.c`
+  - the shared C-side parser API now lives in `sdcc/smaky6_st_symbols.h` and
+    `sdcc/smaky6_st_symbols.c`
+  - export tool `sdcc/export_smaky6_st_symbols.c` can emit either JSON or a
     generated C header from the parsed records
   - native CMake builds now also expose `dump_smaky6_st_symbols`,
     `export_smaky6_st_symbols`, `smaky6_st_exports`, and a

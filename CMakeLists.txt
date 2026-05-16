@@ -100,17 +100,17 @@ add_executable(smemu6
 )
 
 add_library(smaky6_st_symbols STATIC
-    tools/smaky6_st_symbols.c
+    sdcc/smaky6_st_symbols.c
 )
-target_include_directories(smaky6_st_symbols PUBLIC tools)
+target_include_directories(smaky6_st_symbols PUBLIC sdcc)
 
 add_executable(dump_smaky6_st_symbols
-    tools/dump_smaky6_st_symbols.c
+    sdcc/dump_smaky6_st_symbols.c
 )
 target_link_libraries(dump_smaky6_st_symbols PRIVATE smaky6_st_symbols)
 
 add_executable(export_smaky6_st_symbols
-    tools/export_smaky6_st_symbols.c
+    sdcc/export_smaky6_st_symbols.c
 )
 target_link_libraries(export_smaky6_st_symbols PRIVATE smaky6_st_symbols)
 
@@ -158,7 +158,7 @@ if(EXISTS ${SMAKY6_SM6_ST} AND EXISTS ${SMAKY6_FLO_ST})
     )
 
     add_executable(smaky6_st_generated_example
-        tools/smaky6_st_generated_example.c
+        sdcc/smaky6_st_generated_example.c
         ${SMAKY6_SM6_HEADER}
     )
     add_dependencies(smaky6_st_generated_example smaky6_st_exports)

@@ -37,8 +37,8 @@ mkdir -p "$out_dir"
 
 if [[ -f "$sm6_st" ]] && command -v cc >/dev/null 2>&1; then
     cc -Wall -Wextra -std=c11 -O2 \
-        "$repo_root/tools/smaky6_st_symbols.c" \
-        "$repo_root/tools/export_smaky6_st_symbols.c" \
+        "$sdcc_root/smaky6_st_symbols.c" \
+        "$sdcc_root/export_smaky6_st_symbols.c" \
         -o "$out_dir/export_smaky6_st_symbols"
     "$out_dir/export_smaky6_st_symbols" --sdcc-header "$sm6_st" "$sdcc_symbols_header"
 fi
