@@ -10,14 +10,14 @@ Confirmed hardware layout (nibble-interleaved):
                                 60 byte-pairs x 2 scan lines = 120 tall)
   Displayed: 512x480 with 2x stretch in both axes.
 
-Output: tmp/TESTGFX.IM   (load at 0x4601 on the Smaky 6, matching NATHALIE.IM)
+Output: tmp/TESTGFX.IM   (load at 0x4600 on the Smaky 6 graphic plane)
         tmp/TESTGFX_expected.png  (reference render, requires Pillow)
 
 Usage:
     python3 tools/gen_test_im.py
     # Copy tmp/TESTGFX.IM to a disk image via smaky6_samos.py, then:
     #   TESTGFX  (at the SAMOS prompt) then  G  (graphic mode)
-    # Or: ./build/smemu6 -loadbin 4601 tmp/TESTGFX.IM -vmode graphic
+    # Or: ./build/smemu6 -loadbin 4600 tmp/TESTGFX.IM -vmode graphic
     #          -no-launcher -no-display-off -freeze
 """
 
@@ -86,7 +86,7 @@ os.makedirs("tmp", exist_ok=True)
 out_bin = "tmp/TESTGFX.IM"
 with open(out_bin, "wb") as f:
     f.write(buf)
-print(f"Written {out_bin}  ({len(buf)} bytes, load at 0x4601)")
+print(f"Written {out_bin}  ({len(buf)} bytes, load at 0x4600)")
 
 try:
     from PIL import Image

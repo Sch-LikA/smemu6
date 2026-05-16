@@ -765,8 +765,9 @@ source for current CLI usage.
 3. **NATHALIE.IM** — confirmed as genuine bitmap content on the floppy disk.
   Directory entry: load=`0x4601`, size=`3840` bytes = `60 × 64` bytes = `512 × 60` raw pixels,
   with an aspect-corrected presentation of roughly `512 × 240` on the original display.
-  The load address is `0x4601` — 1 byte past the graphic base `0x4600` — so the image
-  starts 8 pixels (one byte) from the left edge of the first row.
+  Live RAM now shows the image bytes at graphic base `0x4600`, so the preserved
+  `0x4601` sidecar value appears to be a metadata or loader-convention quirk
+  rather than the real framebuffer origin.
   Direct rendering shows a recognizable portrait, so IM files are definitely 1bpp graphic-plane
   assets rather than encoded text/resources. The earlier assumption that this proved the machine
   always overlays graphics was too strong: after fixing the alpha-mode corruption bug, NATHALIE.IM

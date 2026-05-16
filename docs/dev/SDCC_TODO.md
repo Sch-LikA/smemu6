@@ -288,6 +288,21 @@ otherwise.
     enough to upgrade that reading to fact on its own, because `SHOW` without an
     argument does not follow the same successful ordinary-command launch path as
     `SHOW HORLOGE.SR`
+  - a cleaner negative control is `NATHALIE.IM`, but only when invoked with the
+    explicit `.IM` extension. Bare `NATHALIE` is just a CLI error because only
+    `.SM` and `.MC` participate in the extensionless executable fallback
+  - the explicit `NATHALIE.IM` run is useful precisely because it does **not**
+    re-enter the ordinary executable launch family. After the system has booted,
+    the command-time trace shows no fresh hits on the known `.SM` path anchors
+    `0x57D2 -> 0x5812 -> 0x6457 -> 0x647A` and no later handoff through
+    `0x18BF -> 0x1916 -> 0x18E0 -> 0x18EA`
+  - live RAM still shows that the file load itself succeeds. The preserved
+    `NATHALIE.IM` payload matches the post-run RAM dump byte-for-byte at
+    `0x4600`, even though the extracted sidecar metadata records `load=0x4601`
+  - so `NATHALIE.IM` is now a useful control for “file resolved and loaded, but
+    not handed to the ordinary executable trampoline”. That helps bound the SDCC
+    target more sharply: the `.SM` ABI work is about the later executable
+    classifier/handoff path, not about generic file loading
   - that is enough to upgrade one SDCC-facing constraint from “unknown” to
     “unlikely”: the ordinary `.SM` launch contract is not a simple `JP entry`
     taken directly from preserved directory metadata. `load` still matches the

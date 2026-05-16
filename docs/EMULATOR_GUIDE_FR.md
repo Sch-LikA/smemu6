@@ -185,7 +185,7 @@ Exemple de sidecar :
 {
   "type": "SM",
   "flags": 4660,
-  "load": "0x4601",
+  "load": "0x5600",
   "entry": "0x5678",
   "date_month": 12,
   "date_year": 82
