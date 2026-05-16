@@ -750,6 +750,29 @@ otherwise.
     `SM6.ST`, and later `HORLOGE.SR`, `BIORY.BS`, and `TSTFLO.SM`
   - that also resolves the role of `0x25E8`: it is not just an arbitrary zero
     work buffer. `0x25E8 - 0x2300 = 0x02E8`, which is exactly `31 * 0x18`, and
+  - a refreshed focused run makes the `0x1D8F -> 0x1CD6/0x1CF6` loop more
+    concrete on the SDCC-relevant path:
+    - the loop starts with `DE=0x0003` and `IX=0x2300`, so the first
+      `RST 20 / 0x2E` compare at `0x1CF6` matches the normalized record whose
+      `+0x0A/+0x0B` start sector is `0x0003` (`SYS.SY`)
+    - after the first compare succeeds, `0x1CFF -> 0x1E72` reloads
+      `DE = (IX+0x0C/+0x0D)`, so the next pass looks for the record whose start
+      sector equals the previous record's end sector: `0x0026` (`CLI.SY`), then
+      `0x0041` (`ER.SY`), then `0x0044` (`OKI80LP.SY`), and so on through the
+      later `.SM` region including `SMILE.SM`, `SHOW.SM`, `EDISK.SM`,
+      `TDISK.SM`, and `CCOPY.SM`
+    - the live `flow-long` trace shows that this walk preserves the first byte
+      of the current normalized record in `A` (`0x53` for `SYS`, `0x43` for
+      `CLI`, `0x45` for `ER`, `0x4D` for `MATPAC`, `0x45` for `EDISK`,
+      `0x54` for `TDISK`, ...), while the compare helper only toggles flags
+    - that is a useful negative result for the accepted-class investigation:
+      the upstream `0x1D8F` scan is a contiguous-sector enumerator over the
+      normalized cache, but it does **not** itself synthesize the later
+      accepted `A=0x18` seen at `0x194B -> 0x1DAB -> 0x18E0`
+    - the refreshed `tail2` probe also shows the range-tracking workspace words
+      `0x2B80/0x2B82/0x2BC5/0x2BDC` still zero on the later accepted-return
+      path. So the `A=0x18` transition is downstream of this contiguous-record
+      walk and downstream of the `0x1D57` range-selection scratch state
     the full `0x18`-byte slot at `0x25E8` is all zero. So the long branch is
     comparing against a one-past-end zero sentinel immediately after a 31-entry
     cached directory table

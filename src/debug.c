@@ -308,8 +308,9 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
              pc == 0x18E6 || pc == 0x18EA || pc == 0x18EB || pc == 0x1913 || pc == 0x1916 ||
              pc == 0x1918 || pc == 0x191A || pc == 0x191D || pc == 0x191E ||
              pc == 0x1920 || pc == 0x1921 || pc == 0x1922 || pc == 0x1923 ||
-             pc == 0x194B || pc == 0x1D8F || pc == 0x1A53 || pc == 0x1D08 ||
-             pc == 0x1DAB)) {
+             pc == 0x194B || pc == 0x1A53 || pc == 0x1CD6 || pc == 0x1CF6 ||
+             pc == 0x1D08 || pc == 0x1D29 || pc == 0x1D42 || pc == 0x1D57 ||
+             pc == 0x1D80 || pc == 0x1D8F || pc == 0x1D99 || pc == 0x1DAB)) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
             uint16_t ret0 = (uint16_t)m->bus[sp] | ((uint16_t)m->bus[(uint16_t)(sp + 1u)] << 8);
             uint16_t ret1 = (uint16_t)m->bus[(uint16_t)(sp + 2u)] |
@@ -319,6 +320,10 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             uint16_t ret3 = (uint16_t)m->bus[(uint16_t)(sp + 6u)] |
                             ((uint16_t)m->bus[(uint16_t)(sp + 7u)] << 8);
             uint16_t ix = (uint16_t)Z80_IX(m->cpu);
+            uint16_t ix0a = (uint16_t)m->bus[(uint16_t)(ix + 0x0Au)] |
+                            ((uint16_t)m->bus[(uint16_t)(ix + 0x0Bu)] << 8);
+            uint16_t ix0c = (uint16_t)m->bus[(uint16_t)(ix + 0x0Cu)] |
+                            ((uint16_t)m->bus[(uint16_t)(ix + 0x0Du)] << 8);
             uint8_t ix10 = m->bus[(uint16_t)(ix + 0x10u)];
             uint16_t ix13_14 = (uint16_t)m->bus[(uint16_t)(ix + 0x13u)] |
                                ((uint16_t)m->bus[(uint16_t)(ix + 0x14u)] << 8);
@@ -328,13 +333,27 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
             m->dbg.last_flow_pc = pc;
 
             fprintf(stderr,
-                    "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix10=%02X ix13_14=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2BC7=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
+                      "[flow-tail2] pc=%04X af=%04X bc=%04X de=%04X hl=%04X ix=%04X ix0A=%04X ix0C=%04X ix10=%02X ix13_14=%04X sp=%04X top=%04X next=%04X next2=%04X next3=%04X 2B80=%04X 2B82=%04X 2B84=%04X 2B86=%04X 2B89=%04X 2BC5=%04X 2BC7=%04X 2BDC=%04X 2BD1=%04X 455C=%04X 4566=%04X 4568=%04X tail2=%d\n",
                     pc,
                     (unsigned)Z80_AF(m->cpu), (unsigned)Z80_BC(m->cpu),
                     (unsigned)Z80_DE(m->cpu), (unsigned)Z80_HL(m->cpu),
-                    ix, ix10, ix13_14, sp, ret0, ret1, ret2, ret3,
+                      ix, ix0a, ix0c, ix10, ix13_14, sp, ret0, ret1, ret2, ret3,
+                      (unsigned)((uint16_t)m->bus[0x2B80u] |
+                          ((uint16_t)m->bus[0x2B81u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B82u] |
+                          ((uint16_t)m->bus[0x2B83u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B84u] |
+                          ((uint16_t)m->bus[0x2B85u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B86u] |
+                          ((uint16_t)m->bus[0x2B87u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2B89u] |
+                          ((uint16_t)m->bus[0x2B8Au] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2BC5u] |
+                          ((uint16_t)m->bus[0x2BC6u] << 8)),
                     (unsigned)((uint16_t)m->bus[0x2BC7u] |
                            ((uint16_t)m->bus[0x2BC8u] << 8)),
+                      (unsigned)((uint16_t)m->bus[0x2BDCu] |
+                          ((uint16_t)m->bus[0x2BDDu] << 8)),
                     (unsigned)((uint16_t)m->bus[0x2BD1u] |
                            ((uint16_t)m->bus[0x2BD2u] << 8)),
                     (unsigned)((uint16_t)m->bus[0x455Cu] |
