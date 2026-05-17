@@ -1,0 +1,1 @@
+volatile unsigned char smaky6_ditexasm_anchor;

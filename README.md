@@ -149,6 +149,14 @@ helper still falls through shared CLI line-maintenance code internally, but
 switching the example's explicit exit from the raw `0x56AE` sink to documented
 `?RTN` removes the visible doubled-text tail.
 
+`sdcc/examples/sm6ditexasm` is the matching hand-written assembly-only probe.
+Its first draft was skewed by a local startup bug: a raw `ldir` clear of the
+full alpha buffer also zeroed the live CLI buffer at `0x45C0+`, so the probe
+corrupted launch state before reaching `RST 20 / 0x06`. With that raw clear
+removed, the assembly-only probe now reaches raw `?DITEX` and visibly prints
+`RST20/06 CALL OK`, but the run still falls into the same post-output keywait /
+bad-return family instead of cleanly restoring the CLI prompt.
+
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.
 The shared parser API is in `sdcc/smaky6_st_symbols.h` /

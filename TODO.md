@@ -1014,6 +1014,12 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   the helper's internal `0x56AE+` maintenance pass. That internal path still
   runs, but changing `sm6emitz` to exit via documented `?RTN` instead of the raw
   `0x56AE` sink removes the visible doubled `RST20/06 CALL OK` tail.
+- A new assembly-only companion probe under `sdcc/examples/sm6ditexasm` now
+  rules out one more local setup bug: its first draft failed because a raw
+  alpha-memory `ldir` clear also wiped the live CLI buffer at `0x45C0+` during
+  launch. With that clear removed, the probe does reach raw `RST 20 / 0x06` and
+  prints `RST20/06 CALL OK`, but it still drops into the same bad post-output
+  keywait path instead of restoring the CLI prompt cleanly.
 - The last remaining `crt0` return constant at `0x56AE` still has no recovered
   symbol-table name; it is now factored as a descriptive local alias only,
   based on repeated CLI reprompt evidence.

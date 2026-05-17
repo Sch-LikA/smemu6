@@ -275,6 +275,27 @@ First callable-routine probe correction:
   - that makes the remaining model tighter: the internal `56AE+` pass is not by
     itself the bug; the visible duplication came from stacking that internal
     maintenance together with a second explicit jump into the same CLI sink
+- `sm6ditexasm` asm-only follow-up (2026-05-17): a hand-written assembly-only
+  companion probe at `0x5500` now removes the C caller frame from the equation.
+  Its first draft was malformed locally: a raw `ldir` clear of the full alpha
+  buffer zeroed the live CLI buffer at `0x45C0+` during launch, which is why the
+  early runs devolved into dot-filled alpha rows and confusing CLI behavior
+  before the probe reached `RST 20 / 0x06`.
+  - removing that raw clear fixes the local startup defect
+  - with the corrected minimal probe launched under the short name `DITEX`, the
+    probe now visibly writes its own labels and then prints `RST20/06 CALL OK`
+  - that is the key discriminating result: raw `?DITEX` still reproduces from a
+    hand-written assembly caller too, so the remaining failure is not specific
+    to SDCC's generated C caller frame
+  - however, the run still does not restore a clean CLI prompt afterward
+  - focused `-traceflow` on the corrected asm-only run shows the same late bad
+    post-output family immediately after row 17 reaches `RST20/06 CALL OK`:
+    `sp=0xEFFE`, `top=0x5519`, `next=0x0000`, followed by the familiar keywait
+    spin loop
+  - so the current narrowed model is: the raw full-screen clear was only a
+    probe bug; once that is removed, the underlying post-`?DITEX` return/
+    caller-context problem remains and is reproducible even from a hand-written
+    assembly-only `.SM` caller
 - the runtime handoff evidence is now specific enough to narrow one part of that
   uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
   first-PC contract for the launch path.
