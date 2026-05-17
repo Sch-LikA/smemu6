@@ -1,6 +1,8 @@
     .module crt0
     .include "generated_sm6_symbols_sdcc.inc"
 
+SMAKY6_CLI_REPROMPT_SINK .equ 0x56AE
+
     .area _CODE
 
 start::
@@ -12,7 +14,9 @@ start::
     rst 0x20
     .db 0x06
 
-    jp SMAKY6_SM6__RTN
+    ld a,#0x44
+    ld hl,#SMAKY6_SM6_BUFLIN
+    jp SMAKY6_CLI_REPROMPT_SINK
 
 write_probe_labels:
     ld hl,#(SMAKY6_SM6_ALPHA + (8 * 64))

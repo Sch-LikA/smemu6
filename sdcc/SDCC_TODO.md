@@ -284,18 +284,28 @@ First callable-routine probe correction:
   - removing that raw clear fixes the local startup defect
   - with the corrected minimal probe launched under the short name `DITEX`, the
     probe now visibly writes its own labels and then prints `RST20/06 CALL OK`
-  - that is the key discriminating result: raw `?DITEX` still reproduces from a
-    hand-written assembly caller too, so the remaining failure is not specific
-    to SDCC's generated C caller frame
-  - however, the run still does not restore a clean CLI prompt afterward
-  - focused `-traceflow` on the corrected asm-only run shows the same late bad
-    post-output family immediately after row 17 reaches `RST20/06 CALL OK`:
-    `sp=0xEFFE`, `top=0x5519`, `next=0x0000`, followed by the familiar keywait
-    spin loop
-  - so the current narrowed model is: the raw full-screen clear was only a
-    probe bug; once that is removed, the underlying post-`?DITEX` return/
-    caller-context problem remains and is reproducible even from a hand-written
-    assembly-only `.SM` caller
+  - a caller-side `R` marker immediately after `rst 0x20 / 0x06` proves that raw
+    `?DITEX` does return to the asm-only caller; the failure is later than the
+    raw call/return boundary itself
+  - that keeps the main discriminating result intact: raw `?DITEX` still
+    reproduces from a hand-written assembly caller too, so the remaining issue
+    is not specific to SDCC's generated C caller frame
+  - with the asm-only probe still exiting through documented `?RTN`, focused
+    `-traceflow` shows the same late bad post-output family after row 17 reaches
+    `RST20/06 CALL OK`: `sp=0xEFFE`, now carrying caller-local return bytes
+    `top=0x550A/0x550B`, followed by the familiar keywait spin loop
+  - replacing only the final exit with the same verified raw CLI reprompt sink
+    used by `hello_alpha` / `sm6peek`
+    (`ld a,#0x44 ; ld hl,#SMAKY6_SM6_BUFLIN ; jp 0x56AE`) changes that result:
+    the keywait loop disappears and `CLI.SY` comes back after the asm-only probe
+  - the restored CLI handoff is still not perfectly clean, though: the previous
+    command text is preserved in the live edit buffer, so follow-up typing gets
+    appended/prepended until the line is cleared explicitly (for example with
+    `ESC`)
+  - so the current narrowed model is: the raw full-screen clear was one local
+    probe bug, and `?RTN` is still the wrong explicit exit for this asm-only
+    `?DITEX` path; a raw `0x56AE` reprompt restores CLI control, but one small
+    command-line state mismatch remains to be understood
 - the runtime handoff evidence is now specific enough to narrow one part of that
   uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
   first-PC contract for the launch path.

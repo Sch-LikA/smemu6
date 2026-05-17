@@ -1018,8 +1018,12 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   rules out one more local setup bug: its first draft failed because a raw
   alpha-memory `ldir` clear also wiped the live CLI buffer at `0x45C0+` during
   launch. With that clear removed, the probe does reach raw `RST 20 / 0x06` and
-  prints `RST20/06 CALL OK`, but it still drops into the same bad post-output
-  keywait path instead of restoring the CLI prompt cleanly.
+  prints `RST20/06 CALL OK`. A caller-side marker proves `?DITEX` does return
+  to the asm-only caller. In this probe, documented `?RTN` still falls into the
+  bad post-output keywait path, but switching the final exit to the verified raw
+  `0x56AE` CLI reprompt sink brings `CLI.SY` back. The remaining rough edge is
+  that the old command text still sits in the edit buffer, so the line must be
+  cleared before typing the next command.
 - The last remaining `crt0` return constant at `0x56AE` still has no recovered
   symbol-table name; it is now factored as a descriptive local alias only,
   based on repeated CLI reprompt evidence.

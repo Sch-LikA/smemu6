@@ -154,8 +154,14 @@ Its first draft was skewed by a local startup bug: a raw `ldir` clear of the
 full alpha buffer also zeroed the live CLI buffer at `0x45C0+`, so the probe
 corrupted launch state before reaching `RST 20 / 0x06`. With that raw clear
 removed, the assembly-only probe now reaches raw `?DITEX` and visibly prints
-`RST20/06 CALL OK`, but the run still falls into the same post-output keywait /
-bad-return family instead of cleanly restoring the CLI prompt.
+`RST20/06 CALL OK`. A post-call marker proved that raw `?DITEX` does return to
+the caller. The next narrowing result is that documented `?RTN` still leads to
+the bad post-output keywait family here, but switching this asm-only probe to
+the same raw `0x56AE` CLI reprompt sink used by the known-good ordinary `.SM`
+controls restores `CLI.SY` instead. That restored CLI handoff is still not
+perfect, though: the previous command name remains in the live edit buffer, so
+the user must clear the line (for example with `ESC`) before entering the next
+command.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.
