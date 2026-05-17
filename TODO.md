@@ -1010,6 +1010,10 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   one: adding the same `ld sp,#0xF000` startup used by `hello_alpha` and
   `sm6peek` fixes the initial launch-handoff mismatch, but `RST 20 / 0x06`
   still reaches a later bad `?DITEX` return/keywait path after the helper runs.
+- A follow-up exit-path probe now shows that the post-`?DITEX` bug is not just
+  the helper's internal `0x56AE+` maintenance pass. That internal path still
+  runs, but changing `sm6emitz` to exit via documented `?RTN` instead of the raw
+  `0x56AE` sink removes the visible doubled `RST20/06 CALL OK` tail.
 - The last remaining `crt0` return constant at `0x56AE` still has no recovered
   symbol-table name; it is now factored as a descriptive local alias only,
   based on repeated CLI reprompt evidence.

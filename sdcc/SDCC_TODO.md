@@ -260,6 +260,21 @@ First callable-routine probe correction:
     that visible behavior, so the remaining fault is narrower than the original
     launch stack setup and narrower than SDCC's tail-call choice at the call
     site
+- `sm6emitz` exit-path follow-up (2026-05-17): the next discriminating probe was
+  to change only the explicit program exit from the raw CLI sink at `0x56AE` to
+  the documented system return entry `?RTN` (`0x0FD7`). That result is useful:
+  - the internal post-`?DITEX` path through shared CLI maintenance still exists;
+    focused `-traceflow` keeps showing the `0x56AE+` formatter running with
+    `sp=0xEFFE top=0x5506`
+  - so `?DITEX` really does fall through CLI line/prompt maintenance before the
+    program's own exit path resumes
+  - however, the visible doubled row-17 tail disappears once the example stops
+    doing its own extra `jp 0x56AE` afterward
+  - in a clean rerun, row 17 now ends as a single `RST20/06 CALL OK` instead of
+    the previous doubled `RST20/06 CALL OKRST20/06 CALL OK`
+  - that makes the remaining model tighter: the internal `56AE+` pass is not by
+    itself the bug; the visible duplication came from stacking that internal
+    maintenance together with a second explicit jump into the same CLI sink
 - the runtime handoff evidence is now specific enough to narrow one part of that
   uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
   first-PC contract for the launch path.

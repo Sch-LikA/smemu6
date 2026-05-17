@@ -144,8 +144,10 @@ documented `RST 20 / 0x06` zero-terminated string helper and calls it from SDCC
 code via a tiny example-local assembly stub. Its current relocation probe runs
 at `0x5500` through an example-local `layout.conf`. Initializing `SP` to the
 same `0xF000` value used by the known-good SDCC examples fixes the earlier
-launch-handoff mismatch, but the `?DITEX` probe still falls into a later bad
-return/keywait path after the text helper runs.
+launch-handoff mismatch. The remaining post-`?DITEX` issue is narrower: the
+helper still falls through shared CLI line-maintenance code internally, but
+switching the example's explicit exit from the raw `0x56AE` sink to documented
+`?RTN` removes the visible doubled-text tail.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.
