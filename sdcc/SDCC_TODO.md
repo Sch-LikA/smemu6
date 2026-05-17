@@ -241,6 +241,25 @@ First callable-routine probe correction:
     `0x6000` specifically are required later”; it is “the bad late path falls
     back into the loaded ordinary `.SM` image, wherever that image currently
     lives”
+- `sm6emitz` stack follow-up (2026-05-17): the example had one local startup
+  mismatch with the known-good SDCC probes too. `hello_alpha` and `sm6peek`
+  both set `SP=0xF000` before calling `_main`, while `sm6emitz` did not.
+  Adding the same `ld sp,#0xF000` to `sdcc/examples/sm6emitz/crt0.s` changes
+  the first handoff back to the clean `hello_alpha` pattern:
+  - the initial launch no longer reaches `0x18FF` with `top=0x5500`
+  - instead it now follows the clean `0x028D -> 0x18EC -> 0x11D2 -> 0x5602`
+    path seen in `hello_alpha`
+  - so the earlier `0x5500/0x5503` stack evidence was partly conflating a real
+    local `crt0` bug with the later `?DITEX` problem
+  - the probe is still not solved overall, though: after `rst 0x20 / 0x06`
+    runs, the program still hits an intermediate bad `0x56AE` path with
+    `sp=0xEFFE top=0x5506`, visibly leaves the system in the same doubled-text
+    / no-clean-prompt state, and only later reaches a second cleaner `0x56AE`
+    pass with `sp=0xF000 top=0x0000`
+  - forcing a non-tail `call _smaky6_emit_text` in generated C did not change
+    that visible behavior, so the remaining fault is narrower than the original
+    launch stack setup and narrower than SDCC's tail-call choice at the call
+    site
 - the runtime handoff evidence is now specific enough to narrow one part of that
   uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
   first-PC contract for the launch path.

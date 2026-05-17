@@ -8,6 +8,7 @@ SMAKY6_CLI_REPROMPT_SINK .equ 0x56AE
     .area _CODE
 
 start::
+    ld sp,#0xF000
     call _main
 
     ; Verified ordinary .SM exit path back to the Sys2-2 CLI.

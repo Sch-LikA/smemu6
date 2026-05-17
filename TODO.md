@@ -1006,6 +1006,10 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   with the example moved to `0x5500`, the bad late path still re-enters the
   loaded `.SM` image and now carries `0x5500/0x5503` through the failing
   dispatcher-side handoff.
+- A narrower `sm6emitz` follow-up now shows two separate problems instead of
+  one: adding the same `ld sp,#0xF000` startup used by `hello_alpha` and
+  `sm6peek` fixes the initial launch-handoff mismatch, but `RST 20 / 0x06`
+  still reaches a later bad `?DITEX` return/keywait path after the helper runs.
 - The last remaining `crt0` return constant at `0x56AE` still has no recovered
   symbol-table name; it is now factored as a descriptive local alias only,
   based on repeated CLI reprompt evidence.

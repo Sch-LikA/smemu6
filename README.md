@@ -142,8 +142,10 @@ generated `SM6.ST` symbols beyond `ALPHA` and displays live reads from
 `sdcc/examples/sm6emitz` is the first callable-routine probe. It wraps the
 documented `RST 20 / 0x06` zero-terminated string helper and calls it from SDCC
 code via a tiny example-local assembly stub. Its current relocation probe runs
-at `0x5500` through an example-local `layout.conf`, and the bad late return path
-still re-enters the relocated `.SM` image.
+at `0x5500` through an example-local `layout.conf`. Initializing `SP` to the
+same `0xF000` value used by the known-good SDCC examples fixes the earlier
+launch-handoff mismatch, but the `?DITEX` probe still falls into a later bad
+return/keywait path after the text helper runs.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.
