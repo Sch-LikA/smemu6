@@ -9,7 +9,9 @@ Current focus:
 - calls a documented `RST 20` helper through an example-local assembly wrapper
 - treats the C string pointer as the `HL` input expected by that helper
 - keeps direct alpha-RAM text on screen so the expected emitter output location is clear
-- returns to the CLI through the verified `0x56AE` exit path
+- currently exits through documented `?RTN` rather than the raw `0x56AE` sink
+- now forces a real SDCC `call _smaky6_emit_text` by storing to a volatile byte after the helper returns
+- that call-site change did not remove the remaining post-`?DITEX` keywait failure
 
 Build from the repository root:
 

@@ -147,7 +147,12 @@ same `0xF000` value used by the known-good SDCC examples fixes the earlier
 launch-handoff mismatch. The remaining post-`?DITEX` issue is narrower: the
 helper still falls through shared CLI line-maintenance code internally, but
 switching the example's explicit exit from the raw `0x56AE` sink to documented
-`?RTN` removes the visible doubled-text tail.
+`?RTN` removes the visible doubled-text tail. A later probe also forced SDCC to
+emit a real `call _smaky6_emit_text` instead of a final tail `jp` by adding a
+post-call volatile store in `main`; that changed the generated call site as
+intended, but the runtime still hit the same bad `sp=0xEFFE top=0x5506`
+post-`?DITEX` keywait family, so SDCC tail-call elimination is not the root
+cause.
 
 `sdcc/examples/sm6ditexasm` is the matching hand-written assembly-only probe.
 Its first draft was skewed by a local startup bug: a raw `ldir` clear of the
