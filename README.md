@@ -104,7 +104,9 @@ The ongoing bring-up notes and follow-up tasks now live in
 `sdcc/SDCC_TODO.md`.
 
 - expected tools: `sdcc`, `sdasz80`, `python3`
-- current target shape: ordinary `.SM`, `flags=1`, `load=entry=0x6000`
+- current target shape: ordinary `.SM`, `flags=1`, default `load=entry=0x6000`
+    with optional example-local layout overrides via
+    `sdcc/examples/<name>/layout.conf`
 - current runtime scope: confirmed direct alpha-RAM output, no libc startup,
     and a verified return-to-CLI path for returning `main`
 - the example now also carries a tiny reusable target header,
@@ -139,7 +141,9 @@ generated `SM6.ST` symbols beyond `ALPHA` and displays live reads from
 
 `sdcc/examples/sm6emitz` is the first callable-routine probe. It wraps the
 documented `RST 20 / 0x06` zero-terminated string helper and calls it from SDCC
-code via a tiny example-local assembly stub.
+code via a tiny example-local assembly stub. Its current relocation probe runs
+at `0x5500` through an example-local `layout.conf`, and the bad late return path
+still re-enters the relocated `.SM` image.
 
 For reverse-engineering work on the archived symbol-table files, a small
 standalone C dumper now lives at `sdcc/dump_smaky6_st_symbols.c`.

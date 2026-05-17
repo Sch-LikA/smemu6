@@ -20,7 +20,8 @@ otherwise.
 - That scaffold is intentionally narrow:
   - ordinary `.SM` only
   - `flags=1`
-  - `load=entry=0x6000`
+  - default `load=entry=0x6000`, with optional example-local overrides via
+    `sdcc/examples/<name>/layout.conf`
   - direct alpha-RAM output
   - no libc startup
   - `main` may return through the verified Sys2-2 CLI sink at `0x56AE` when
@@ -43,6 +44,9 @@ otherwise.
   - a third standalone example now lives under `sdcc/examples/sm6emitz`; it
     wraps the documented `RST 20 / 0x06` zero-terminated string helper via a
     tiny example-local assembly stub
+  - the standalone build script now also honors optional example-local
+    `layout.conf` files so focused probes can move `code-loc`, the binary base,
+    and preserved `load`/`entry` metadata without cloning the shared script
   - the standalone helper scripts now accept an example directory name under
     `sdcc/examples/`, so later one-file probes can reuse the same
     build/stage/run path without editing the scripts
@@ -226,6 +230,17 @@ First callable-routine probe correction:
   be true runtime addresses interpreted together with loader logic, they may use
   a different origin convention, or some program classes may encode them
   differently.
+- Relocated `sm6emitz` follow-up (2026-05-17): moving the same probe from
+  `0x6000` to `0x5500` does not restore a clean exit. The visible corruption
+  remains, and focused `-traceflow` runs now show the same late dispatcher-side
+  handoff re-entering `0x5500` instead of `0x6000`:
+  - `pc=0x18FF` reaches the low-level helper with `top=0x5500`
+  - the next live high-memory PC is `0x5500`
+  - the failing `0x56AE` path now carries `top=0x5503`
+  - so the current root-cause direction is no longer “upper CLI bytes above
+    `0x6000` specifically are required later”; it is “the bad late path falls
+    back into the loaded ordinary `.SM` image, wherever that image currently
+    lives”
 - the runtime handoff evidence is now specific enough to narrow one part of that
   uncertainty: preserved ordinary `.SM` `entry` is **not** a reliable literal
   first-PC contract for the launch path.

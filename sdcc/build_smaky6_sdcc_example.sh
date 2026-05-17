@@ -10,10 +10,22 @@ out_dir="${2:-$repo_root/tmp/sdcc-$example_name-build}"
 sm6_st="$repo_root/private/floppies/extracted/Sys2-2-boot/SM6.ST"
 sdcc_symbols_header="$out_dir/generated_sm6_symbols_sdcc.h"
 sdcc_symbols_asm="$out_dir/generated_sm6_symbols_sdcc.inc"
+layout_file="$example_dir/layout.conf"
+code_loc="0x6000"
+bin_base="$code_loc"
+meta_load="$code_loc"
+meta_entry="$code_loc"
+data_loc="0x7000"
 
 if [[ ! -d "$example_dir" ]]; then
     echo "missing SDCC example directory: $example_dir" >&2
     exit 1
+fi
+
+if [[ -f "$layout_file" ]]; then
+    # Example-local layout overrides keep focused probes out of the shared scaffold.
+    # shellcheck disable=SC1090
+    source "$layout_file"
 fi
 
 mapfile -t c_sources < <(find "$example_dir" -maxdepth 1 -type f -name '*.c' | sort)
@@ -49,7 +61,7 @@ sdasz80 -I"$out_dir" -plosgff -o "$out_dir/crt0.rel" "$example_dir/crt0.s"
 
 sdcc -mz80 \
     -c \
-    --data-loc 0x7000 \
+    --data-loc "$data_loc" \
     -I"$out_dir" \
     ${sdcc_symbols_header:+-DSMAKY6_HAVE_GENERATED_SM6_SYMBOLS=1} \
     -o "$out_dir/$source_stem.rel" \
@@ -57,14 +69,14 @@ sdcc -mz80 \
 
 sdcc -mz80 \
     --no-std-crt0 \
-    --code-loc 0x6000 \
-    --data-loc 0x7000 \
+    --code-loc "$code_loc" \
+    --data-loc "$data_loc" \
     -o "$out_dir/$program_name.ihx" \
     "$out_dir/crt0.rel" \
     "$out_dir/$source_stem.rel"
 
 python3 "$sdcc_root/ihx_to_bin.py" \
-    --base 0x6000 \
+    --base "$bin_base" \
     "$out_dir/$program_name.ihx" \
     "$out_dir/$program_name.SM"
 
@@ -72,9 +84,9 @@ cat > "$out_dir/$program_name.SM.meta.json" <<EOF
 {
   "date_month": 5,
   "date_year": 26,
-  "entry": 24576,
+    "entry": $((meta_entry)),
   "flags": 1,
-  "load": 24576,
+    "load": $((meta_load)),
   "type": "SM"
 }
 EOF

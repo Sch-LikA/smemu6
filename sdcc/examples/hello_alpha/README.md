@@ -5,7 +5,8 @@ programs.
 
 Current constraints:
 
-- fixed `load=entry=0x6000`
+- default `load=entry=0x6000` via the shared build script, with optional
+	example-local overrides through `layout.conf`
 - ordinary `.SM` metadata with `flags=1`
 - no libc startup, no initialized globals, no heap
 - output goes directly to alpha RAM at `0x4000`

@@ -997,8 +997,15 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - The same archived `SM6.ST` evidence now also feeds an assembler include, so
   `crt0.s` can use `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0` for the
   verified CLI return path.
+- The standalone build script now also accepts example-local layout overrides
+  through `sdcc/examples/<name>/layout.conf`, so focused probes can move the
+  `.SM` load base without forking the shared build path.
 - A third standalone example now probes callable SM6 routines by wrapping the
   documented `RST 20 / 0x06` zero-terminated string helper from SDCC code.
+- The `sm6emitz` relocation probe now also rules out a `0x6000`-only overlap:
+  with the example moved to `0x5500`, the bad late path still re-enters the
+  loaded `.SM` image and now carries `0x5500/0x5503` through the failing
+  dispatcher-side handoff.
 - The last remaining `crt0` return constant at `0x56AE` still has no recovered
   symbol-table name; it is now factored as a descriptive local alias only,
   based on repeated CLI reprompt evidence.
