@@ -12,6 +12,8 @@ Current focus:
 - currently exits through documented `?RTN` rather than the raw `0x56AE` sink
 - now forces a real SDCC `call _smaky6_emit_text` by storing to a volatile byte after the helper returns
 - that call-site change did not remove the remaining post-`?DITEX` keywait failure
+- the helper now also proves that raw `?DITEX` returns to the post-call instruction path: a direct breadcrumb after the syscall runs, a direct breadcrumb after the call in `main` runs, and `crt0` reaches its final exit with `SP=0xF000 TOP=0x0000`
+- the remaining failure therefore starts only after the explicit exit handoff itself
 
 Build from the repository root:
 

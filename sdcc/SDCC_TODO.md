@@ -260,6 +260,20 @@ First callable-routine probe correction:
     that visible behavior, so the remaining fault is narrower than the original
     launch stack setup and narrower than SDCC's tail-call choice at the call
     site
+  - a later direct breadcrumb probe tightened the call/return boundary further:
+    immediately after raw `?DITEX`, `_smaky6_emit_text` itself still runs code
+    with `SP=0xEFFC` and a stacked word that points at the next instruction in
+    `main`
+  - that means the helper regains control and still has the ordinary caller
+    return address on top of the stack at that moment
+  - a direct alpha-RAM marker after the call in `main` also appears, so the
+    helper `ret` does reach the first post-call C statement
+  - another direct marker in `crt0` after `_main` returns shows the final
+    pre-exit state is still clean too: `SP=0xF000 top=0x0000`
+  - so the surviving failure is now narrower again: it does not begin at the
+    raw `?DITEX` return boundary, the helper `ret`, the post-call C statement,
+    or the `_main` return back into `crt0`; it begins only after the explicit
+    exit handoff that follows those steps
 - `sm6emitz` exit-path follow-up (2026-05-17): the next discriminating probe was
   to change only the explicit program exit from the raw CLI sink at `0x56AE` to
   the documented system return entry `?RTN` (`0x0FD7`). That result is useful:

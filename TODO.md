@@ -1019,6 +1019,11 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   `call _smaky6_emit_text` plus a post-call store changes the call site as
   intended, but the runtime still reaches the same `sp=0xEFFE top=0x5506`
   keywait family after `?DITEX`.
+- A follow-up stack probe tightens that again: raw `?DITEX` still returns into
+  the helper with the expected caller return word on the stack, the first
+  post-call C statement in `main` does run, and `crt0` reaches its explicit
+  exit with `SP=0xF000 top=0x0000`. The remaining failure now begins only after
+  the final exit handoff itself.
 - A new assembly-only companion probe under `sdcc/examples/sm6ditexasm` now
   rules out one more local setup bug: its first draft failed because a raw
   alpha-memory `ldir` clear also wiped the live CLI buffer at `0x45C0+` during

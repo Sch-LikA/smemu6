@@ -152,7 +152,13 @@ emit a real `call _smaky6_emit_text` instead of a final tail `jp` by adding a
 post-call volatile store in `main`; that changed the generated call site as
 intended, but the runtime still hit the same bad `sp=0xEFFE top=0x5506`
 post-`?DITEX` keywait family, so SDCC tail-call elimination is not the root
-cause.
+cause. The next stack-focused probe then proved the call/return path itself is
+still intact: immediately after raw `?DITEX`, the helper sees `SP=0xEFFC` with
+the stacked word pointing at the post-call instruction in `main`; the first
+post-call C statement runs; and after `_main` returns, `crt0` reaches its
+explicit exit with `SP=0xF000 top=0x0000`. The remaining failure therefore
+starts only after the explicit exit handoff, not at the raw `?DITEX` return or
+ordinary C return boundary.
 
 `sdcc/examples/sm6ditexasm` is the matching hand-written assembly-only probe.
 Its first draft was skewed by a local startup bug: a raw `ldir` clear of the
