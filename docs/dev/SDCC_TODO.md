@@ -1981,6 +1981,36 @@ Deliverable:
 
 - a tiny `libsmaky6`-style support layer suitable for simple games and demos.
 
+## ✅ RESOLVED: Exit Path Fixed (2026-05-18)
+
+The investigation into why SDCC-compiled programs failed to return cleanly to the CLI
+has resolved successfully. The root cause was not a complex system state issue but rather
+a simple contracting mismatch in the exit handoff sequence.
+
+**Key Finding**: The correct exit sequence must exactly match the proven working pattern
+from verified baseline programs like `hello_alpha`:
+
+```asm
+ld a,#0x44              ; Standard exit configuration A
+ld hl,#SMAKY6_SM6_BUFLIN  ; = 0x45C0
+jp SMAKY6_CLI_REPROMPT_SINK  ; = 0x56AE
+```
+
+**Testing**: Both `hello_alpha` and `sm6emitz` now execute cleanly and return to the
+Sys2-2 CLI prompt without hanging or screen corruption.
+
+**Implementation Status**:
+- ✅ Applied fix to all SDCC example `crt0.s` files
+- ✅ Verified with multiple test programs
+- ✅ Removed all debug instrumentation and failed workarounds
+- ✅ Committed to repository
+
+**Remaining Unknowns**: The exact mechanism of why this specific register/address
+combination works correctly is still not fully documented in the recovered SAMOS
+source, but the empirical pattern is stable and reliable.
+
+---
+
 ## Phase 9 - Only then consider nicer integration
 
 - [ ] Add CMake support for SDCC only after the manual workflow is proven.
@@ -2011,9 +2041,9 @@ Deliverable:
 - The third risk is overcommitting to libc too early. The first milestone should
   stay extremely small and avoid standard-library expectations.
 
-## Definition of done for the first usable milestone
+## ✅ Definition of done for the first usable milestone (ACHIEVED)
 
-- An SDCC-built C file can be compiled into a `.SM` program.
-- The program can be placed on a Smaky disk image reproducibly.
-- The emulator can boot that disk and run the program from the CLI by name.
-- The program can write visible output and return cleanly to the CLI.
+- ✅ An SDCC-built C file can be compiled into a `.SM` program.
+- ✅ The program can be placed on a Smaky disk image reproducibly.
+- ✅ The emulator can boot that disk and run the program from the CLI by name.
+- ✅ The program can write visible output and return cleanly to the CLI.
