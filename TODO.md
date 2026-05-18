@@ -1052,24 +1052,6 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 - Keep this out of CMake and CI until the local SDCC workflow is proven
   end-to-end and the runtime contract is stable enough to integrate.
 
-#### ✅ SDCC exit path fixed — `.SM` programs now return to CLI cleanly
-
-- **Problem**: SDCC-compiled programs like `hello_alpha` and `sm6emitz` executed correctly
-  but failed to return to the Sys2-2 CLI on program exit, instead hanging in a keywait loop.
-- **Root cause**: The crt0.s exit sequence was missing the proper handoff context setup.
-- **Solution**: Matched the proven working exit pattern from baseline programs:
-  ```asm
-  ld a,#0x44              ; Standard exit registers
-  ld hl,#SMAKY6_SM6_BUFLIN
-  jp SMAKY6_CLI_REPROMPT_SINK  ; = 0x56AE
-  ```
-- **Verification**: Both `hello_alpha` and `sm6emitz` now execute and return to CLI cleanly.
-- **Implementation**: Applied fix to all SDCC example crt0.s files; removed debug
-  instrumentation and workspace repair attempts that were not needed.
-- **Notes**: The exact mechanism of why this sequence works correctly is still not
-  fully understood (it appears to involve system mode/banking state at exit), but the
-  empirical fix is stable across multiple test programs.
-
 ---
 
 ## Known Bugs
