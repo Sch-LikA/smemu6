@@ -14,6 +14,20 @@ This file documents conventions, requirements, and preferences for working with 
 
 ---
 
+## Claude Response Style
+
+**No filler preambles.** Never open responses with phrases like:
+- "Great question!"
+- "Of course!"
+- "Certainly!"
+- "I'd be happy to..."
+- "No problem!"
+- Similar warmups or acknowledgments
+
+**Start every response with the actual answer.** No preamble, no acknowledgment of the question. Get directly to the point.
+
+---
+
 ## Critical Workflow Requirements
 
 ### 1. Commit After Every Code Modification
