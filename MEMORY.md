@@ -185,17 +185,24 @@ if (fkey_mask != 0x00) {
 **Issue:** F1 echoing "à" indicates possible incorrect OS behavior or emulator not properly separating function key bits from character codes
 
 **ROOT CAUSE FOUND (Line 713 in keyboard.c):**
-When no character is latched (found=0), `keyboard_read_cla()` returns function key bits:
+When no character is latched (found=0), `keyboard_read_cla()` was returning function key bits:
 ```c
-return 0x80u | (m->kbd.fonct_bits & 0x7Fu);
+return 0x80u | (m->kbd.fonct_bits & 0x7Fu);  // WRONG!
 ```
 - F1 sets bit 0x10 in `fonct_bits`
 - OS reads port 0x00 (CLA) and gets 0x90 instead of waiting for actual character
 - OS interprets 0x90 as character code and displays "à" 
 - This is the root cause of the character appearing and repeating
 
-**Fix needed:** Port 0x00 (CLA) should NEVER return function key bits. Function keys should only be available through port 0x01 status byte, not as character codes.
+**FIXED (Commit 09054a9):**
+Changed `keyboard_read_cla()` to return only 0x80 when no character is latched:
+```c
+return 0x80u;  // Don't include function key bits!
+```
+Function keys are separate from character matrix and should never be returned as character codes through CLA.
 
-Current port 0x01 write fix (clearing bits on OS write) is incomplete - doesn't address the CLA return value issue.
+**Related changes:**
+- Commit 7aedd58: Added port 0x01 write handler to clear function key bits when OS acknowledges (incomplete fix but helps)
+- Commit 124d55c: Added `!ev->repeat` check to prevent function key repeat events (incomplete fix)
 
 ---
