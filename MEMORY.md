@@ -80,6 +80,10 @@ Without both, screen output may be incomplete or cut off.
 
 **Beeper:** Always use `-no-beeper` argument when running the emulator to suppress sound output.
 
+**Timeout for Full Boot:** Use ≥ 20 seconds when running emulator to full CLI prompt.
+- 5 seconds: Too short, OS won't finish booting
+- 20 seconds: Appropriate for full SAMOS boot and testing
+
 **Note:** `-autoboot` flag was removed in previous development; machine boots from DX0 automatically.
 
 ### Floppy Extraction Preference
@@ -170,6 +174,6 @@ if (fkey_mask != 0x00) {
 - Use timeout ≥ 20 seconds for full OS boot to CLI (5 seconds is too short)
 - Test with `-tracekbd -no-display-off -scrdump -inject-str "F1"` to verify fix
 
-**Commit:** Applied to `src/machine.c` (pending testing verification)
+**Commit:** Applied to `src/machine.c` (commit 7aedd58)
 
 ---
