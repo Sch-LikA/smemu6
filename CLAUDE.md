@@ -57,6 +57,15 @@ Maintain [MEMORY.md](MEMORY.md) in this project. After any significant decision:
 
 Read MEMORY.md at the start of every session. Never contradict a logged decision without flagging it first.
 
+## Error Logging
+
+Maintain [ERRORS.md](ERRORS.md) in this project. When an approach takes more than 2 attempts to work, log it:
+- What didn't work
+- What worked instead
+- Note for next time
+
+Check ERRORS.md before suggesting approaches to similar tasks.
+
 ## Session Summaries
 
 When you say "session end", "wrapping up", or "see you later": I will write a session summary to MEMORY.md. Include:
