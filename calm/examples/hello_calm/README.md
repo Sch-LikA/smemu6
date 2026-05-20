@@ -1,5 +1,17 @@
 # hello_calm: CALM Assembly Example
 
+⚠️ **LEARNING EXAMPLE - Not Recommended**
+
+This is our first attempt at creating a CALM program. **Use [hello_smug](../hello_smug/README.md) instead** for proper baseline testing.
+
+This example is kept to show what NOT to do:
+- Hardcodes memory addresses instead of using system symbols
+- Manual screen writing instead of system routines
+- Over-complicated approach to a simple problem
+- Not representative of proper CALM programming
+
+---
+
 ## Purpose
 
 A minimal "Hello World" program written directly in CALM assembly that serves as a baseline reference for understanding how native programs can exit cleanly.

@@ -37,24 +37,34 @@ To use SMILE:
 
 ### 1. Create Your Program
 
-Write Z80 assembly in a `.SR` file. Example structure:
+Write CALM assembly in a `.SR` file. Use proper CALM syntax with system routines.
 
-```asm
-; hello.SR - Simple CALM program
-            ORG 0x6000          ; Load address
+**Proper CALM pattern (RECOMMENDED):**
+```calm
+.TITLE MYPROGRAM
+.REF SM6                    ; Reference system symbol table
 
-ALPHA       EQU 0x4000          ; Screen base
-BUFLIN      EQU 0x45C0          ; CLI buffer
-CLI_EXIT    EQU 0x56AE          ; Exit handler
-
-START:      LD SP, 0xF000       ; Initialize stack
-            ; ... your program code ...
-            
-            ; Return to CLI
-            LD A, 0x44          ; Magic value
-            LD HL, BUFLIN       ; CLI state
-            JP CLI_EXIT         ; Jump to exit handler
+    .LOC 43000              ; Load location
+START:
+    .W ?TEXTIM              ; Call text output routine
+    .ASCIZ /Hello/          ; String to output
+    .W ?RTN                 ; Return to CLI
+.END START
 ```
+
+**Key points:**
+- Use `.REF SM6` to access system routines
+- System routines have `?`-prefixed names (?TEXTIM, ?RTN, etc.)
+- Let SMILE handle linking and memory management
+- Don't hardcode addresses like 0x6000 or 0x45C0
+
+**Avoid this pattern (INCORRECT):**
+```asm
+ORG 0x6000                  ; Manual address (wrong!)
+LD HL, 0x4000               ; Hardcoded screen address (wrong!)
+```
+
+See `calm/examples/hello_smug/hello.sr` for a complete working example.
 
 ### 2. Prepare the Build
 
@@ -90,18 +100,41 @@ Check the screen dump log for:
 
 ## Example Programs
 
-### hello_calm
+### ⭐ hello_smug (RECOMMENDED)
 
-A minimal test program that writes "HELLO CALM!" to the screen and tests whether the native exit handler works correctly.
+A proper "Hello World" program using correct CALM syntax and system routines.
 
-**Purpose:** Compare native CALM exit behavior against SDCC programs, which exhibit corruption.
+**Features:**
+- Uses proper CALM directives (`.TITLE`, `.REF SM6`, `.LOC`, `.ASCIZ`, etc.)
+- Calls system routines (?TEXTIM for output, ?RTN for clean exit)
+- Minimal and clean (~10 lines)
+- **This is the golden standard for CALM programs**
+
+**Purpose:** Baseline reference for what proper CALM programs should look like. Use this to:
+1. Verify SMILE can assemble CALM correctly
+2. Test if native programs exit cleanly
+3. Compare against SDCC output corruption
 
 **Run:**
 ```bash
-calm/build_smaky6_calm_example.sh hello_calm
+calm/build_smaky6_calm_example.sh hello_smug
 ```
 
-See [calm/examples/hello_calm/README.md](examples/hello_calm/README.md) for detailed testing instructions.
+See [calm/examples/hello_smug/README.md](examples/hello_smug/README.md) for step-by-step testing.
+
+### hello_calm (Learning Example)
+
+⚠️ **Note:** This was our first attempt at creating a CALM program. It does NOT follow proper CALM conventions.
+
+**Issues with this version:**
+- Manual memory addresses instead of using system routines
+- Incorrect approach to output (manual alpha screen writes)
+- Over-complicated for the task (~80 lines vs 10 lines)
+- Not representative of proper CALM programming
+
+**Use hello_smug instead.** This example is kept for reference/learning purposes to show what NOT to do.
+
+If you're curious how it differs, see [calm/examples/hello_calm/README.md](examples/hello_calm/README.md).
 
 ## Memory Layout Reference
 
@@ -115,17 +148,26 @@ See [calm/examples/hello_calm/README.md](examples/hello_calm/README.md) for deta
 | 0x6000-0xEFFF | ~40 KB | User program area (default) |
 | 0xF000-0xF300 | 768 B | User stack (recommended: SP=0xF000) |
 
-## Exit Sequence (Documented)
+## Exit Sequence in CALM Programs
 
-To return cleanly to the CLI from a `.SM` program:
+**Proper approach (use system routine):**
+```calm
+.W ?RTN                     ; Return to CLI via system routine
+```
 
+**Low-level approach (if system routine unavailable):**
 ```asm
 LD A, 0x44          ; Magic register value for CLI handoff
 LD HL, 0x45C0       ; Point to CLI line buffer
 JP 0x56AE           ; Jump to SAMOS CLI reprompt sink
 ```
 
-**Critical:** Use `JP` (jump), not `RET` (return). Returning would cause issues because the stack may not have a valid return address in mapped memory.
+**Avoid:**
+- Plain `RET` instruction (may jump to invalid address)
+- Manual screen clearing (can corrupt CLI state)
+- Complex shutdown code (SAMOS handles this)
+
+The `?RTN` system routine is the **recommended** way to exit cleanly.
 
 ## Z80 Instruction Set
 

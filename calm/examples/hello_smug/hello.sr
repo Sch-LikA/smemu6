@@ -1,0 +1,11 @@
+.TITLE HELLO
+
+.REF SM6
+
+	.LOC	43000
+START:
+	.W	?TEXTIM
+	.ASCIZ /Hello World/
+	.W	?RTN
+
+.END  START
