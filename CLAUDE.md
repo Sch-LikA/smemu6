@@ -48,6 +48,8 @@ All temporary files, logs, test output → `tmp/` at project root, NOT `/tmp`.
 
 For any task involving architecture decisions, debugging complex issues, or non-trivial features: work through the problem step by step before writing any code. Show your reasoning. Identify where you're uncertain. Then implement.
 
+For questions involving system architecture, performance tradeoffs, database design, or long-term technical decisions: use extended thinking mode. Work through the problem step by step. Surface tradeoffs you haven't considered. Flag assumptions that might not hold at scale. Then give a clear recommendation.
+
 ## Decision Logging
 
 Maintain [MEMORY.md](MEMORY.md) in this project. After any significant decision:
