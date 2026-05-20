@@ -179,8 +179,16 @@ static const AccentEntry ACCENT_TABLE[] = {
 
 static void refresh_function_bits(struct Smaky6 *m)
 {
+    uint8_t old_bits = m->kbd.fonct_bits;
     m->kbd.fonct_bits = (uint8_t)((m->kbd.fonct_keyboard_bits |
                                    m->kbd.fonct_mouse_bits) & 0x7Fu);
+    if (m->dbg.trace_kbd && old_bits != m->kbd.fonct_bits) {
+        fprintf(stderr, "[kbd] fonct_bits changed: 0x%02X -> 0x%02X (kbd=0x%02X mouse=0x%02X)\n",
+                (unsigned)old_bits,
+                (unsigned)m->kbd.fonct_bits,
+                (unsigned)m->kbd.fonct_keyboard_bits,
+                (unsigned)m->kbd.fonct_mouse_bits);
+    }
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
@@ -592,6 +600,11 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     for (int i = 0; i < (int)(sizeof(FUNCTION_KEYS) / sizeof(FUNCTION_KEYS[0])); i++) {
         if (FUNCTION_KEYS[i].scan != scan)
             continue;
+        if (m->dbg.trace_kbd) {
+            fprintf(stderr, "[kbd-fn] matched fkey[%d] scan=%d type=%s\n",
+                    i, (int)scan,
+                    (ev->type == SDL_KEYDOWN) ? "down" : "up");
+        }
         if (ev->type == SDL_KEYDOWN && !ev->repeat)
             m->kbd.fonct_keyboard_bits |= FUNCTION_KEYS[i].bit;
         else if (ev->type == SDL_KEYUP)
