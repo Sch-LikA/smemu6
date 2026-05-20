@@ -23,6 +23,8 @@ Only modify what's directly related to current task. No refactoring, renaming, r
 
 Before making any change that significantly alters content you've already created (rewriting sections, removing paragraphs, restructuring flow, changing tone): stop. Describe exactly what you're about to change and why. Wait for confirmation before proceeding.
 
+Before deleting any file, overwriting existing code, dropping database records, or removing dependencies: stop. List exactly what will be affected. Ask for explicit confirmation. Only proceed after you say yes in the current message. "You mentioned this earlier" is not confirmation.
+
 ### 1. Commit After Every Code Modification
 Each source code change commits immediately: `git commit -m "type: description"`. Never accumulate uncommitted changes.
 
