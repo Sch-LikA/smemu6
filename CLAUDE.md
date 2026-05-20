@@ -34,6 +34,18 @@ This file documents conventions, requirements, and preferences for working with 
 
 ---
 
+## User Context
+
+**About:** Marcel
+**Role:** Senior Security Expert, Program Manager
+**Strong background in:** System administration, shell scripting, web development, security, infrastructure, hardware
+**Strong expertise in:** Infrastructure, hardware, networking
+**Still learning:** Low-level coding, C, assembler
+
+**Response adjustment:** Always match explanation depth to this background. Never over-explain concepts you already know (infrastructure, security, shell scripting, system administration). Never skip context you need for learning (low-level coding details, C semantics, assembler patterns). Assume you can read C and assembler but are building foundational understanding.
+
+---
+
 ## Critical Workflow Requirements
 
 ### 1. Commit After Every Code Modification
