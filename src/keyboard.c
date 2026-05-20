@@ -708,7 +708,12 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         return value;
     }
 
-    return 0x80u | (m->kbd.fonct_bits & 0x7Fu);
+    /* When no character is latched (found=0), return only the fixed high bit.
+     * DO NOT return function key bits here - they should only be read via port 0x01
+     * (keyboard_read_status). Returning fonct_bits from CLA caused F1-F7 to be
+     * interpreted as character codes and echoed to the display, creating the
+     * appearance of repeating function key characters. */
+    return 0x80u;
 }
 
 /* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */
