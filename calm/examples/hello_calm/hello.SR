@@ -1,0 +1,85 @@
+; CALM Assembly - Hello World Example
+; ====================================
+; This is a simple native CALM program that demonstrates how to:
+; 1. Write text to the alpha screen
+; 2. Return cleanly to the CLI
+;
+; This serves as a baseline for understanding proper exit sequences
+; vs SDCC-compiled programs.
+
+; Program entry point (loaded at 0x6000 by default)
+            ORG 0x6000
+
+; Alpha screen base address (row 0)
+ALPHA       EQU 0x4000
+
+; CLI buffer address (used in exit)
+BUFLIN      EQU 0x45C0
+
+; CLI reprompt sink (where we jump to return to CLI)
+CLI_REPROMPT EQU 0x56AE
+
+; Entry point label (this is where the program starts)
+START:
+            ; Initialize stack - CRITICAL for proper return
+            LD SP, 0xF000
+
+            ; Calculate alpha screen address for row 10
+            ; Row 10 = 0x4000 + (10 * 64) = 0x4280
+            LD HL, ALPHA
+            LD DE, 640          ; 10 rows * 64 chars/row
+            ADD HL, DE
+
+            ; Now HL points to row 10, write "HELLO CALM!" there
+            LD A, 'H'
+            LD (HL), A
+            INC HL
+
+            LD A, 'E'
+            LD (HL), A
+            INC HL
+
+            LD A, 'L'
+            LD (HL), A
+            INC HL
+
+            LD A, 'L'
+            LD (HL), A
+            INC HL
+
+            LD A, 'O'
+            LD (HL), A
+            INC HL
+
+            LD A, ' '
+            LD (HL), A
+            INC HL
+
+            LD A, 'C'
+            LD (HL), A
+            INC HL
+
+            LD A, 'A'
+            LD (HL), A
+            INC HL
+
+            LD A, 'L'
+            LD (HL), A
+            INC HL
+
+            LD A, 'M'
+            LD (HL), A
+            INC HL
+
+            LD A, '!'
+            LD (HL), A
+            INC HL
+
+            ; Exit cleanly to CLI
+            ; This is the documented exit sequence for native .SM programs
+            LD A, 0x44          ; Magic value for CLI handoff
+            LD HL, BUFLIN       ; CLI line buffer
+            JP CLI_REPROMPT     ; Jump to CLI reprompt sink
+
+            ; Failsafe halt (should never reach here if exit works)
+HALT:       JR HALT
