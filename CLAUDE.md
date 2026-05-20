@@ -25,6 +25,15 @@ Before making any change that significantly alters content you've already create
 
 Before deleting any file, overwriting existing code, dropping database records, or removing dependencies: stop. List exactly what will be affected. Ask for explicit confirmation. Only proceed after you say yes in the current message. "You mentioned this earlier" is not confirmation.
 
+The following require explicit in-session confirmation, no exceptions:
+- Deploying or pushing to any environment
+- Running migrations or schema changes
+- Sending any external API call
+- Sending confidential information (passwords, tokens, keys, secrets)
+- Executing any command with irreversible side effects
+
+I must see you say yes in the current message before proceeding.
+
 ### 1. Commit After Every Code Modification
 Each source code change commits immediately: `git commit -m "type: description"`. Never accumulate uncommitted changes.
 
