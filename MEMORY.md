@@ -133,15 +133,43 @@ calm/build_smaky6_calm_example.sh example_name
 
 ---
 
+## Session: May 20, 2026 (Continued) — Function Key Repeat Fix
 
-**Decision:** [Brief title]
+### Decision: Implement Function Key Acknowledgment in Port 0x01 Write Handler
 
-**Decided:** [What was chosen and implemented]
+**Root Cause Identified:** Function keys (F1-F7) get stuck repeating because OS writes to port 0x01 to acknowledge/clear function key bits, but the emulator wasn't handling those writes.
 
-**Why:** [Reasoning, context, constraints that led to this choice]
+**Decided:** Added function key acknowledgment logic to `machine_port_out()` in `src/machine.c` port 0x01 write handler:
+- Extract bits 0-6 from the value OS writes to port 0x01
+- Clear corresponding bits from `m->kbd.fonct_keyboard_bits`
+- Add debug trace output when `-tracekbd` is enabled
+- Preserve existing Phantom ROM bank-switch (data=0x00) and ISR ACK (data=0x08) behavior
 
-**Rejected:** [Alternative approaches considered]
-- [Option 1]: Why not chosen
-- [Option 2]: Why not chosen
+**Implementation Details:**
+```c
+/* In machine.c port 0x01 write handler: */
+uint8_t fkey_mask = data & 0x7Fu;  /* bits 0-6 only */
+if (fkey_mask != 0x00) {
+    m->kbd.fonct_keyboard_bits &= ~fkey_mask;
+    /* Clear the corresponding bits to break the repeat loop */
+}
+```
+
+**Why:**
+- Real hardware SAMOS and Flipper program work correctly with function keys
+- Same SAMOS binary gets stuck in emulator → emulator bug, not OS bug
+- OS enters infinite loop reading port 0x01, then writing to it to acknowledge
+- Without clearing the bits on write, OS sees them still set and loops forever
+- Bits 0-6 map to F7, F6, F5, F4, F3, F2, F1 respectively
+
+**Rejected:**
+- Blocking SDL repeat events: Superficially fixes symptom but doesn't address root cause (OS behavior is correct)
+- Ignoring function key writes: Breaks function key interrupt handling protocol
+
+**Testing Notes:**
+- Use timeout ≥ 20 seconds for full OS boot to CLI (5 seconds is too short)
+- Test with `-tracekbd -no-display-off -scrdump -inject-str "F1"` to verify fix
+
+**Commit:** Applied to `src/machine.c` (pending testing verification)
 
 ---

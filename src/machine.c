@@ -162,10 +162,22 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
         if (data == 0x00)
             memory_unprotect_rom(m, 0x0000, 0x0800);
         else {
+            /* Function key acknowledgment: when OS writes bits 0-6 of port 0x01,
+             * it's acknowledging/clearing those function key bits. Clear the
+             * corresponding bits from fonct_keyboard_bits to terminate any
+             * on-going function key repeat. Bits 0-6 map to F7, F6, F5, F4, F3, F2, F1. */
+            uint8_t fkey_mask = data & 0x7Fu;  /* bits 0-6 only */
+            if (fkey_mask != 0x00) {
+                m->kbd.fonct_keyboard_bits &= ~fkey_mask;
+                if (m->dbg.trace_kbd) {
+                    fprintf(stderr, "[kbd] FKEY ACK pc=%04X data=%02X -> fonct_kb=%02X\n",
+                            (unsigned)Z80_PC(m->cpu), data, (unsigned)m->kbd.fonct_keyboard_bits);
+                }
+            }
+
             /* SAMOS ISR ACK: OUT (0x01), A with data=0x08 acknowledges the 50 Hz
-             * frame tick.  No keyboard state changes needed — the unified CLA model
-             * does not use cla_seen. */
-            if (m->dbg.trace_kbd) {
+             * frame tick.  No additional keyboard state changes needed beyond fkey ACK. */
+            if (m->dbg.trace_kbd && (data & 0x08)) {
                 uint16_t ptr = (uint16_t)m->bus[0x457Cu] | ((uint16_t)m->bus[0x457Du] << 8);
                 fprintf(stderr, "[kbd] ISR ACK pc=%04X data=%02X  ptr=0x%04X [ptr]=0x%02X\n",
                         (unsigned)Z80_PC(m->cpu), data, ptr, (unsigned)m->bus[ptr]);
