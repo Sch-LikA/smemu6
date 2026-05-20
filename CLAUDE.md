@@ -44,6 +44,10 @@ Before committing code: update TODO.md, sdcc/SDCC_TODO.md, calm/README.md, featu
 ### 3. Use repo-local tmp/
 All temporary files, logs, test output → `tmp/` at project root, NOT `/tmp`.
 
+## Problem-Solving Approach
+
+For any task involving architecture decisions, debugging complex issues, or non-trivial features: work through the problem step by step before writing any code. Show your reasoning. Identify where you're uncertain. Then implement.
+
 ## Emulator Usage
 
 **Screen Capture (both flags required):**
