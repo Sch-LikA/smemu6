@@ -48,6 +48,9 @@ This file documents conventions, requirements, and preferences for working with 
 
 ## Critical Workflow Requirements
 
+### 0. Strict Scope Discipline
+Only modify files, functions, and lines of code directly related to the current task. Do not refactor, rename, reorganize, reformat, or "improve" anything you did not explicitly ask me to change. If I notice something worth fixing elsewhere, mention it in a note at the end. Do not touch it. Ever.
+
 ### 1. Commit After Every Code Modification
 **MANDATORY:** Each source code change must be committed immediately with a clear message.
 
