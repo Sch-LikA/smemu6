@@ -974,83 +974,57 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
   `sdcc/build_smaky6_sdcc_example.sh` and
   `sdcc/run_smaky6_sdcc_example.sh`.
 - Current scope is intentionally narrow: ordinary `.SM`, `flags=1`,
-  `load=entry=0x6000`, direct alpha-RAM output, and a verified return-to-CLI
-  path for a returning `main`.
-- Local proof-of-execution now works end-to-end: the current workflow builds,
-  stages, and launches `HELLO.SM`, the screen dump shows the expected
-  alpha-RAM text, and control returns to the Sys2-2 CLI.
+  `load=entry=0x6000`, and direct alpha-RAM output.
+- **Status: KNOWN LIMITATION — Programs execute correctly but cannot cleanly return to CLI**.
+  - Programs build, launch, and run correctly with proper output to alpha screen.
+  - When `main()` returns, screen corruption occurs: rows 15-18 become garbled,
+    row 19 loops with underscore repetition until timeout.
+  - CLI prompt never reappears; user must manually quit via emulator termination.
+  - This issue is pre-existing (confirmed across multiple investigation sessions)
+    and appears to be an architectural mismatch between SDCC program state and
+    SAMOS/CLI exit handler expectations at `0x56AE`.
+- The attempted exit sequence (A=0x44, HL=0x45C0, jp 0x56AE) was previously
+  claimed as "verified" but was later reverted as "false claims" (commits
+  44d21f3 → 2dff971). Investigation confirms the exit path remains broken for
+  SDCC programs while native `.SM` programs can exit cleanly, suggesting a
+  fundamental incompatibility in how SDCC programs set up the exit state.
 - The example now exposes a tiny reusable first-target header,
-  `sdcc/examples/hello_alpha/smaky6.h`, instead of keeping the alpha-RAM write
-  primitive private to `hello.c`.
-- That header now also provides a small row/column helper so future SDCC
-  examples can address the alpha screen without open-coding raw offsets.
-- That header also now provides a minimal row-clear helper so examples can
-  own a dedicated alpha-screen region before writing text.
-- That helper now also provides a whole-screen clear helper so standalone SDCC
-  probes start from a readable blank alpha plane.
+  `sdcc/examples/hello_alpha/smaky6.h`, for alpha-RAM write primitives.
+- That header now also provides row/column helpers so future SDCC examples can
+  address the alpha screen without open-coding raw offsets.
+- The helper now also provides a minimal row-clear and whole-screen-clear
+  helper so standalone SDCC probes start from a readable blank alpha plane.
 - The helper scripts now accept an example directory name under
   `sdcc/examples/`, so new one-file SDCC probes can reuse the same
   build/stage/run path without script edits.
 - The standalone build script can now also derive an SDCC-friendly macro header
   from archived `SM6.ST` evidence, and the first-target helper header consumes
   `SMAKY6_SM6_ALPHA` from that generated file when available.
-- The same archived `SM6.ST` evidence now also feeds an assembler include, so
-  `crt0.s` can use `SMAKY6_SM6_BUFLIN` instead of hard-coding `0x45C0` for the
-  verified CLI return path.
 - The standalone build script now also accepts example-local layout overrides
   through `sdcc/examples/<name>/layout.conf`, so focused probes can move the
   `.SM` load base without forking the shared build path.
-- A third standalone example now probes callable SM6 routines by wrapping the
-  documented `RST 20 / 0x06` zero-terminated string helper from SDCC code.
-- The `sm6emitz` relocation probe now also rules out a `0x6000`-only overlap:
-  with the example moved to `0x5500`, the bad late path still re-enters the
-  loaded `.SM` image and now carries `0x5500/0x5503` through the failing
-  dispatcher-side handoff.
-- A narrower `sm6emitz` follow-up now shows two separate problems instead of
-  one: adding the same `ld sp,#0xF000` startup used by `hello_alpha` and
-  `sm6peek` fixes the initial launch-handoff mismatch, but `RST 20 / 0x06`
-  still reaches a later bad `?DITEX` return/keywait path after the helper runs.
-- A follow-up exit-path probe now shows that the post-`?DITEX` bug is not just
-  the helper's internal `0x56AE+` maintenance pass. That internal path still
-  runs, but changing `sm6emitz` to exit via documented `?RTN` instead of the raw
-  `0x56AE` sink removes the visible doubled `RST20/06 CALL OK` tail.
-- A later `sm6emitz` probe also rules out SDCC's final tail-call choice as the
-  remaining root cause: forcing generated C to use a real
-  `call _smaky6_emit_text` plus a post-call store changes the call site as
-  intended, but the runtime still reaches the same `sp=0xEFFE top=0x5506`
-  keywait family after `?DITEX`.
-- A follow-up stack probe tightens that again: raw `?DITEX` still returns into
-  the helper with the expected caller return word on the stack, the first
-  post-call C statement in `main` does run, and `crt0` reaches its explicit
-  exit with `SP=0xF000 top=0x0000`. The remaining failure now begins only after
-  the final exit handoff itself.
-- A new assembly-only companion probe under `sdcc/examples/sm6ditexasm` now
-  rules out one more local setup bug: its first draft failed because a raw
-  alpha-memory `ldir` clear also wiped the live CLI buffer at `0x45C0+` during
-  launch. With that clear removed, the probe does reach raw `RST 20 / 0x06` and
-  prints `RST20/06 CALL OK`. A caller-side marker proves `?DITEX` does return
-  to the asm-only caller. In this probe, documented `?RTN` still falls into the
-  bad post-output keywait path, but switching the final exit to the verified raw
-  `0x56AE` CLI reprompt sink brings `CLI.SY` back. The remaining rough edge is
-  that the old command text still sits in the edit buffer, so the line must be
-  cleared before typing the next command.
-- The last remaining `crt0` return constant at `0x56AE` still has no recovered
-  symbol-table name; it is now factored as a descriptive local alias only,
-  based on repeated CLI reprompt evidence.
 - There is now a second standalone SDCC example under `sdcc/examples/sm6peek`
-  that uses generated `SM6.ST` symbols beyond `ALPHA` and displays live reads
-  from `OUTCAR` and `MAXMEM`.
+  that uses generated `SM6.ST` symbols and displays live reads from `OUTCAR`
+  and `MAXMEM`.
+- There is a third example under `sdcc/examples/sm6emitz` that probes callable
+  SM6 routines by wrapping the documented `RST 20 / 0x06` zero-terminated
+  string helper; execution is correct, but exit still exhibits the same
+  corruption pattern as hello_alpha.
 - A first standalone C-side dumper for `FLO.ST` / `SM6.ST` now exists at
-  `sdcc/dump_smaky6_st_symbols.c`; it is useful for analysis already, but the
-  exact 6-byte symbol encoding is still only partially confirmed.
-- That parser is now also factored into reusable C sources
+  `sdcc/dump_smaky6_st_symbols.c`; it is useful for analysis but the exact
+  6-byte symbol encoding is only partially confirmed.
+- That parser is now factored into reusable C sources
   `sdcc/smaky6_st_symbols.h` / `sdcc/smaky6_st_symbols.c`, and a companion
   exporter can emit JSON or a generated C header for downstream use.
 - Native CMake builds now also expose utility targets for the symbol-table
   tooling and a generated-header consumer example when the archived `SM6.ST`
   and `FLO.ST` files are present.
-- Keep this out of CMake and CI until the local SDCC workflow is proven
-  end-to-end and the runtime contract is stable enough to integrate.
+- **TODO: Resolve the SDCC program exit issue.**
+  - Requires deeper understanding of SAMOS 0x56AE entry contract
+  - May need disassembly of SAMOS or tracing of native .SM program exits
+  - Consider if architectural workaround is needed (e.g., infinite loop, or launcher termination)
+- Keep full CMake integration deferred until the exit issue is understood or
+  explicitly accepted as a known limitation.
 
 ---
 
