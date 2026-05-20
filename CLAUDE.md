@@ -26,6 +26,8 @@ This file documents conventions, requirements, and preferences for working with 
 
 **Start every response with the actual answer.** No preamble, no acknowledgment of the question. Get directly to the point.
 
+**Match response length to task complexity.** Simple questions get direct, short answers. Complex tasks get full, detailed responses. Never pad responses with restatements of the question or closing sentences that repeat what you just said.
+
 ---
 
 ## Critical Workflow Requirements
