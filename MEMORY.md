@@ -83,12 +83,53 @@ Without both, screen output may be incomplete or cut off.
 **Note:** `-autoboot` flag was removed in previous development; machine boots from DX0 automatically.
 
 ### Floppy Extraction Preference
-**Workflow Decision:** When extracted files from a floppy already exist (e.g., `private/extracted/1 Systeme_1HComplet/`), always reuse them instead of re-extracting from the DSK file.
+**Workflow Decision:** When extracted files from a floppy already exist (e.g., `private/floppies/extracted/Sys2-2`), always reuse them instead of re-extracting from the DSK file.
 **Reason:** Avoids unnecessary re-extraction; uses already-prepared content.
 
 ### File Output Location
 **Standard Practice:** Use repo-local `tmp/` directory for all temporary files, logs, and test output. Never use system `/tmp`.
 **GitHub Base URL:** https://github.com/Sch-LikA
+
+### Git Commit Format
+**Standard:** `type: description`
+- `feat:` New feature or example
+- `fix:` Bug fix
+- `docs:` Documentation update
+- `refactor:` Code reorganization
+- `test:` Testing infrastructure
+
+### Critical Memory Layout (Smaky 6)
+```
+0x0000–0x07FF   Phantom ROM / SYSMON (2 KB)
+0x0800–0x22FF   SAMOS kernel (from SYS.SY)
+0x4000–0x44FF   Alpha screen (20 rows × 64 cols = 1,280 B)
+0x4500–0x45FF   OS workspace (256 B)
+  0x45C0        BUFLIN (CLI line buffer)
+0x4600–0x54FF   Graphics buffer (3,840 B)
+0x6000–0xEFFF   User program area (default for .SM programs)
+0xF000–0xF300   User stack (recommended: SP=0xF000)
+```
+
+### SDCC Build Command
+```bash
+sdcc/build_smaky6_sdcc_example.sh example_name
+```
+**Critical:** Stack pointer SP=0xF000 must be set before main.
+
+### CALM Build Command
+```bash
+calm/build_smaky6_calm_example.sh example_name
+```
+**Note:** Assembly happens inside emulator via SMILE (interactive), not offline.
+
+### Example Emulator Commands
+```bash
+# Standard run with output capture
+./smemu6 floppies/Sys2-2.dsk -scrdump -no-display-off -no-beeper > tmp/out.log
+
+# With command injection (fires on machine_cli_prompt_visible())
+./smemu6 floppies/Sys2-2.dsk -inject-str "HELLO" -scrdump -no-display-off -no-beeper > tmp/out.log
+```
 
 ---
 
