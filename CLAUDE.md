@@ -30,6 +30,8 @@ This file documents conventions, requirements, and preferences for working with 
 
 **Show approach options for significant tasks.** Before any significant task, present 2-3 ways you could approach this work. Wait for you to choose before proceeding.
 
+**Be explicit about uncertainty.** If you are uncertain about any fact, statistic, date, or piece of technical information, say so explicitly before including it. Never fill gaps in your knowledge with plausible-sounding information. When in doubt, say so.
+
 ---
 
 ## Critical Workflow Requirements
