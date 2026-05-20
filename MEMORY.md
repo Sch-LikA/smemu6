@@ -140,6 +140,8 @@ calm/build_smaky6_calm_example.sh example_name
 
 ---
 
+---
+
 ## Session: May 20, 2026 (Continued) — Function Key Repeat Fix
 
 ### Decision: Implement Function Key Acknowledgment in Port 0x01 Write Handler
@@ -207,5 +209,47 @@ Function keys are separate from character matrix and should never be returned as
 - Some keyboard loop activity seen via -tracekbd (expected behavior, likely interrupt/reassert processing)
 
 **Status:** Function key repeat bug RESOLVED. F1-F7 now work correctly without echoing characters or repeating.
+
+**Commit History:**
+- `09054a9` - fix: don't return function key bits from CLA (port 0x00) read [MAIN FIX]
+- `7aedd58` - fix: function key acknowledgment in port 0x01 write handler [SUPPORTING]
+- `d54d766` - docs: document root cause and fix for function key repeat bug
+- `5d1aa80` - docs: function key repeat bug FIXED
+
+---
+
+## Session Summary: May 20, 2026
+
+**Worked on:** Function key repeat bug affecting F1-F7 in emulator
+
+**Completed:** 
+✓ Identified root cause: `keyboard_read_cla()` returning function key bits as character codes
+✓ Implemented fix: Return only 0x80 from port 0x00 when no character latched
+✓ Verified fix: F1 no longer produces "à" or repeats
+✓ All changes committed with clear commit messages
+
+**Decisions Made:**
+- Function key bits must never be mixed into character latch reads (port 0x00)
+- Port 0x01 write handler needs to acknowledge/clear function key bits
+- All keyboard-related documentation moved to MEMORY.md (this file)
+
+**Documentation Updated:**
+- MEMORY.md: Added comprehensive root cause analysis and fix documentation
+- Added testing guidance: 20 second timeout, -no-launcher, -no-beeper flags
+- Noted -no-display-off is no longer needed (was workaround for this bug)
+
+**Next Session Priorities:**
+- Test all F1-F7 keys to ensure they all work correctly
+- Verify no side effects on other keyboard functionality
+- Check if the port 0x01 write handler needs any adjustments
+- Monitor for any regressions in keyboard handling
+
+**Key Technical Notes:**
+- Function keys are separate I/O pins from character matrix
+- Port 0x00 (CLA) = character latch area (characters only, NOT function keys)
+- Port 0x01 (status) = function key bits (bits 0-6) + FOUND status (bit 2)
+- Function keys should never produce character output
+
+
 
 ---
