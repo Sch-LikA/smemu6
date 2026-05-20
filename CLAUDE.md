@@ -57,6 +57,17 @@ Maintain [MEMORY.md](MEMORY.md) in this project. After any significant decision:
 
 Read MEMORY.md at the start of every session. Never contradict a logged decision without flagging it first.
 
+## Session Summaries
+
+When you say "session end", "wrapping up", or "see you later": I will write a session summary to MEMORY.md. Include:
+- **Worked on:** What tasks were tackled this session
+- **Completed:** What was finished (with commit messages or file references)
+- **In progress:** What is unfinished and needs next session
+- **Decisions made:** Any significant decisions logged (with MEMORY.md references)
+- **Next session priorities:** What should be done first next time
+
+This ensures continuity across sessions and preserves important context.
+
 ## Emulator Usage
 
 **Screen Capture (both flags required):**
