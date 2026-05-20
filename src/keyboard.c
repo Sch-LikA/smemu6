@@ -592,7 +592,7 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     for (int i = 0; i < (int)(sizeof(FUNCTION_KEYS) / sizeof(FUNCTION_KEYS[0])); i++) {
         if (FUNCTION_KEYS[i].scan != scan)
             continue;
-        if (ev->type == SDL_KEYDOWN)
+        if (ev->type == SDL_KEYDOWN && !ev->repeat)
             m->kbd.fonct_keyboard_bits |= FUNCTION_KEYS[i].bit;
         else if (ev->type == SDL_KEYUP)
             m->kbd.fonct_keyboard_bits &= (uint8_t)~FUNCTION_KEYS[i].bit;
