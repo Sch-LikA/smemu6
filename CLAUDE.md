@@ -28,6 +28,8 @@ This file documents conventions, requirements, and preferences for working with 
 
 **Match response length to task complexity.** Simple questions get direct, short answers. Complex tasks get full, detailed responses. Never pad responses with restatements of the question or closing sentences that repeat what you just said.
 
+**Show approach options for significant tasks.** Before any significant task, present 2-3 ways you could approach this work. Wait for you to choose before proceeding.
+
 ---
 
 ## Critical Workflow Requirements
