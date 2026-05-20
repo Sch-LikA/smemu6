@@ -72,6 +72,10 @@ Program exits cleanly to CLI prompt with no screen corruption.
 **Screen Capture:** Use `-scrdump` flag to enable screen dump on exit.
 - `-no-display-off`: No longer needed (was workaround for function key repeat bug, now fixed)
 
+**Launcher:** Use `-no-launcher` to skip the launcher screen and go directly to CLI prompt.
+- Speeds up testing significantly, especially for command injection tests
+- Recommended for all testing workflows where launcher UI is not needed
+
 **Command Injection:** `-inject-str` fires only when `machine_cli_prompt_visible()` returns true (CLI is ready).
 
 **Boot Behavior:** DX0 boots automatically (no `-autoboot` flag needed in current codebase).
@@ -81,6 +85,7 @@ Program exits cleanly to CLI prompt with no screen corruption.
 **Timeout for Full Boot:** Use ≥ 20 seconds when running emulator to full CLI prompt.
 - 5 seconds: Too short, OS won't finish booting
 - 20 seconds: Appropriate for full SAMOS boot and testing
+- With `-no-launcher`: Can complete faster
 
 **Note:** `-autoboot` flag was removed in previous development; machine boots from DX0 automatically.
 
@@ -170,9 +175,13 @@ if (fkey_mask != 0x00) {
 
 **Testing Notes:**
 - Use timeout ≥ 20 seconds for full OS boot to CLI (5 seconds is too short)
-- Test with `-tracekbd -scrdump -inject-str "F1"` to verify fix (no need for `-no-display-off`)
-- `-no-display-off` workaround is no longer needed after function key fix
+- With `-no-launcher -no-beeper`, boot completes cleanly
+- Test result: F1 produces "à" character (WRONG - function keys should not echo anything)
+- After "à" appeared, it briefly stopped, then repeated
+- Function keys should NOT produce any character output to display
 
 **Commit:** Applied to `src/machine.c` (commit 7aedd58)
+
+**Issue:** F1 echoing "à" indicates possible incorrect OS behavior or emulator not properly separating function key bits from character codes
 
 ---
