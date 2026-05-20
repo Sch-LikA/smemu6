@@ -22,7 +22,74 @@ Read at the start of every session. Never contradict a logged decision without f
 
 ---
 
-## Format for Future Entries
+## Session: Previous Sessions — Key Findings & Notes
+
+### SDCC Exit Corruption Issue
+**Status:** Pre-existing architectural incompatibility, documented as known limitation.
+**Finding:** SDCC-compiled programs execute correctly but fail to return cleanly to CLI.
+- Programs produce correct output
+- Screen corruption occurs on exit (rows 15–19 garbled, repeated underscores in row 19)
+- CLI prompt never reappears
+- User must manually terminate emulator
+**Investigation Outcome:** Root cause unknown (SDCC-specific vs. system-level). Comparison with native CALM (hello_smug) needed to determine if issue is SDCC-specific or architectural in SAMOS.
+
+### CALM Assembly Findings
+**Proper Approach:** Use system routines, not hardcoded addresses.
+- `.REF SM6` — REQUIRED to access system symbols (NOT optional)
+- `.LOC` — OPTIONAL; SMILE provides sensible default load address if omitted
+- System routines use `?`-prefixed names: ?TEXTIM, ?RTN, ?IALPHA, ?IGRA, ?IAGRA
+- Threading pattern (data-driven program) is idiomatic for CALM
+- Let SMILE handle memory management and linking
+
+**Improper Approach (AVOID):**
+- Manual hardcoding of memory addresses (0x6000, 0x45C0, 0x56AE)
+- Not portable, not maintainable, doesn't use system conventions
+
+**CALM Baseline:** `calm/examples/hello_smug/hello.sr`
+- 10-line proper implementation
+- Uses .REF SM6 and system routines
+- Expected behavior: Exits cleanly to CLI with no corruption
+
+**SMILE Assembler:** Interactive-only tool inside emulator. No batch/headless mode available.
+
+### Testing Framework & Comparison
+**Created:** Reusable build script `calm/build_smaky6_calm_example.sh` for CALM examples.
+**Baseline Comparison:** hello_smug prepared as golden standard for comparing with SDCC corruption.
+**Expected Success Pattern:** 
+```
+Hello World
+>
+```
+Program exits cleanly to CLI prompt with no screen corruption.
+
+### Documentation Refactoring
+**SDCC_TODO.md:** Reduced from 2,097 lines to 230 lines.
+- Created status table, technical facts, phased plan
+- Moved investigation details to "Investigation Archive" at bottom
+- Preserved detailed traces for reference without cluttering main content
+
+### Emulator Behavior & Flags
+**Screen Capture:** Both flags required together:
+- `-scrdump`: Enable screen dump on exit
+- `-no-display-off`: Prevent display cutoff (keeps alpha screen active)
+Without both, screen output may be incomplete or cut off.
+
+**Command Injection:** `-inject-str` fires only when `machine_cli_prompt_visible()` returns true (CLI is ready).
+
+**Boot Behavior:** DX0 boots automatically (no `-autoboot` flag needed in current codebase).
+
+**Note:** `-autoboot` flag was removed in previous development; machine boots from DX0 automatically.
+
+### Floppy Extraction Preference
+**Workflow Decision:** When extracted files from a floppy already exist (e.g., `private/extracted/1 Systeme_1HComplet/`), always reuse them instead of re-extracting from the DSK file.
+**Reason:** Avoids unnecessary re-extraction; uses already-prepared content.
+
+### File Output Location
+**Standard Practice:** Use repo-local `tmp/` directory for all temporary files, logs, and test output. Never use system `/tmp`.
+**GitHub Base URL:** https://github.com/Sch-LikA
+
+---
+
 
 **Decision:** [Brief title]
 
