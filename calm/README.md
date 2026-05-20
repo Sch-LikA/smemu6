@@ -44,7 +44,7 @@ Write CALM assembly in a `.SR` file. Use proper CALM syntax with system routines
 .TITLE MYPROGRAM
 .REF SM6                    ; Reference system symbol table
 
-    .LOC 43000              ; Load location
+    .LOC 43000              ; Load location (optional - SMILE uses default if omitted)
 START:
     .W ?TEXTIM              ; Call text output routine
     .ASCIZ /Hello/          ; String to output
@@ -53,8 +53,9 @@ START:
 ```
 
 **Key points:**
-- Use `.REF SM6` to access system routines
+- Use `.REF SM6` to access system routines (required)
 - System routines have `?`-prefixed names (?TEXTIM, ?RTN, etc.)
+- `.LOC` specifies load address (optional — SMILE provides default if omitted)
 - Let SMILE handle linking and memory management
 - Don't hardcode addresses like 0x6000 or 0x45C0
 
@@ -169,24 +170,35 @@ JP 0x56AE           ; Jump to SAMOS CLI reprompt sink
 
 The `?RTN` system routine is the **recommended** way to exit cleanly.
 
-## Z80 Instruction Set
+## CALM vs Standard Z80 Assembly
 
-CALM uses standard Zilog Z80 assembly mnemonics. Common instructions:
-
-```asm
-LD A, 0x44          ; Load value into register A
-LD (HL), A          ; Store A to memory address in HL
-LD HL, 0x4000       ; Load 16-bit address into HL pair
-LD SP, 0xF000       ; Load stack pointer
-INC HL              ; Increment 16-bit register pair
-ADD HL, DE          ; Add DE to HL
-JP 0x56AE           ; Unconditional jump
-CALL 0x0020         ; Call subroutine (push PC to stack)
-RET                 ; Return (pop PC from stack)
-JR HALT             ; Relative jump (short form)
+**CALM (Proper Smaky 6 Approach):**
+```calm
+.TITLE PROGRAM
+.REF SM6
+    .LOC 43000          ; Optional
+START:
+    .W ?TEXTIM          ; System routine
+    .ASCIZ /Text/
+    .W ?RTN
+.END START
 ```
 
-For complete Z80 documentation, consult standard references.
+**Z80 Assembly (Low-level approach - avoid for Smaky 6):**
+```asm
+ORG 0x6000              ; Don't use this pattern!
+LD A, 0x44
+LD HL, 0x45C0
+JP 0x56AE
+```
+
+**Why CALM is better:**
+- Uses system routines, not hardcoded addresses
+- More portable (SMILE manages memory)
+- Cleaner, easier to understand
+- Follows SAMOS programming conventions
+
+Use CALM syntax with system routines (`.W ?TEXTIM`, `.W ?RTN`, etc.) for proper Smaky 6 programs.
 
 ## Creating a New Program
 

@@ -21,7 +21,7 @@ A minimal "Hello World" program written in proper CALM assembly syntax. This pro
 ```calm
 .TITLE HELLO              ; Program name/title
 .REF SM6                  ; Reference SM6 symbol table
-.LOC 43000               ; Load location (octal or decimal?)
+.LOC 43000               ; Load location (optional - SMILE uses default if omitted)
 START:                   ; Entry point label
   .W ?TEXTIM             ; Word: address of text output routine
   .ASCIZ /Hello World/   ; Null-terminated ASCII string
@@ -33,9 +33,10 @@ START:                   ; Entry point label
 - `?TEXTIM` — Text output routine (takes string pointer)
 - `?RTN` — Return to SAMOS CLI (clean exit)
 
-**Memory Layout:**
-- Load address: 43000 (octal: 0o43000 = 0x43C0? decimal: 43000 = 0xA7E8?)
-- [Need to verify if this is octal or decimal and what the actual address is]
+**Important Notes:**
+- `.LOC` specifies the load address (like `ORG` in standard Z80 assembly)
+- `.LOC` is **optional** — SMILE will choose a sensible default if omitted
+- `.REF SM6` must be present to access system routine symbols
 
 ## Comparison with Manual Approach
 
