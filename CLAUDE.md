@@ -31,6 +31,7 @@ The following require explicit in-session confirmation, no exceptions:
 - Sending any external API call
 - Sending confidential information (passwords, tokens, keys, secrets)
 - Executing any command with irreversible side effects
+- Sending, posting, publishing, or scheduling anything on your behalf (emails, calendar invites, document shares, or any action outside this conversation)
 
 I must see you say yes in the current message before proceeding.
 
