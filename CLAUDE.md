@@ -48,6 +48,15 @@ All temporary files, logs, test output → `tmp/` at project root, NOT `/tmp`.
 
 For any task involving architecture decisions, debugging complex issues, or non-trivial features: work through the problem step by step before writing any code. Show your reasoning. Identify where you're uncertain. Then implement.
 
+## Decision Logging
+
+Maintain [MEMORY.md](MEMORY.md) in this project. After any significant decision:
+- What was decided
+- Why it was chosen
+- What was rejected and why
+
+Read MEMORY.md at the start of every session. Never contradict a logged decision without flagging it first.
+
 ## Emulator Usage
 
 **Screen Capture (both flags required):**
