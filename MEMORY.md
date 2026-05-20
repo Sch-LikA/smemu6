@@ -78,6 +78,8 @@ Without both, screen output may be incomplete or cut off.
 
 **Boot Behavior:** DX0 boots automatically (no `-autoboot` flag needed in current codebase).
 
+**Beeper:** Always use `-no-beeper` argument when running the emulator to suppress sound output.
+
 **Note:** `-autoboot` flag was removed in previous development; machine boots from DX0 automatically.
 
 ### Floppy Extraction Preference
