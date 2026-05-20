@@ -21,6 +21,8 @@
 ### 0. Strict Scope Discipline
 Only modify what's directly related to current task. No refactoring, renaming, reorganizing, or reformatting unless explicitly requested. Note other issues at end but do not touch them.
 
+Before making any change that significantly alters content you've already created (rewriting sections, removing paragraphs, restructuring flow, changing tone): stop. Describe exactly what you're about to change and why. Wait for confirmation before proceeding.
+
 ### 1. Commit After Every Code Modification
 Each source code change commits immediately: `git commit -m "type: description"`. Never accumulate uncommitted changes.
 
