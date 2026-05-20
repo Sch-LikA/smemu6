@@ -69,10 +69,8 @@ Program exits cleanly to CLI prompt with no screen corruption.
 - Preserved detailed traces for reference without cluttering main content
 
 ### Emulator Behavior & Flags
-**Screen Capture:** Both flags required together:
-- `-scrdump`: Enable screen dump on exit
-- `-no-display-off`: Prevent display cutoff (keeps alpha screen active)
-Without both, screen output may be incomplete or cut off.
+**Screen Capture:** Use `-scrdump` flag to enable screen dump on exit.
+- `-no-display-off`: No longer needed (was workaround for function key repeat bug, now fixed)
 
 **Command Injection:** `-inject-str` fires only when `machine_cli_prompt_visible()` returns true (CLI is ready).
 
@@ -172,7 +170,8 @@ if (fkey_mask != 0x00) {
 
 **Testing Notes:**
 - Use timeout ≥ 20 seconds for full OS boot to CLI (5 seconds is too short)
-- Test with `-tracekbd -no-display-off -scrdump -inject-str "F1"` to verify fix
+- Test with `-tracekbd -scrdump -inject-str "F1"` to verify fix (no need for `-no-display-off`)
+- `-no-display-off` workaround is no longer needed after function key fix
 
 **Commit:** Applied to `src/machine.c` (commit 7aedd58)
 
