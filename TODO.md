@@ -446,6 +446,25 @@ Implemented:
   mirror does not change the mixed-path result; the surviving first `0x0171`
   payload comes from `SYS.SY` Stage 1 itself, not from a frame-time mirror.
 
+#### ?GETFO Syscall Support  ✅ Implemented
+
+The `?GETFO` syscall (address 0x0EE7 in SYS.SY) reads function key state from
+memory cache locations 0x45BD and 0x45BE rather than directly from the CLA port.
+This allows applications like SMILE to detect function keys without reading the
+CLA hardware port.
+
+**Implementation (commit fb6e029):**
+- `refresh_function_bits()` now writes to both 0x4580 (GETFON) and 0x45BD/0x45BE (?GETFO cache)
+- Function key state updates propagate to both locations whenever keys are pressed/released
+- ?GETFO can now read cached function key state from 0x45BD
+- No guard conditions — cache writes don't affect boot (verified safe)
+
+**Testing:**
+- GUI must be visible for keyboard input (headless mode with `-no-display-off` doesn't capture SDL events)
+- A simple test tool `FKTEST.SM` is available in the extracted Sys2-2-SMILE directory
+- Usage: Run emulator with `-floppy floppies/Sys2-2.dsk`, boot to CLI, press `FKTEST` to run
+- The tool calls ?GETFO continuously and displays which keys are pressed
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|
