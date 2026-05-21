@@ -351,42 +351,75 @@ The S471 PROM is authoritative for keycode generation:
 
 ---
 
-## Session: May 21, 2026 — GETFON Register Fix for SMILE App
+## Session: May 21, 2026 — Function Key Handling (Hardware-Faithful Approach)
 
 ### Issue Identified: SMILE App Can't Read Function Keys
 
 **Problem:** SMILE app uses `?GETFON` system call to read function keys, but it wasn't working. FLIPPER app worked (uses syscall 0x0E), but SMILE didn't.
 
-**Root Cause:** Previous fix (commit 09054a9) changed `keyboard_read_cla()` to return only `0x80` to prevent "à" character echo. But this broke GETFON register update:
+**Initial Root Cause Analysis:**
+Previous fix (commit 09054a9) changed `keyboard_read_cla()` to return only `0x80` to prevent "à" character echo. But this broke GETFON register update:
 - SAMOS ISR Stage 1: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A`
 - Old code returned `0x80 | fonct_bits` → stored `fonct_bits` to 0x4580 ✓
 - New code returned `0x80` → stored `0x00` to 0x4580 ✗
 - SMILE's ?GETFON reads 0x4580 but it was always 0x00
 
-**Solution (Commit 343d1dd):**
-Update GETFON register (0x4580) directly in `refresh_function_bits()` whenever function key bits change. This keeps GETFON current for ?GETFON calls while CLA returns only 0x80 (preventing character echo).
+**First Attempt (Commit 343d1dd) — NOT HARDWARE-FAITHFUL:**
+Updated GETFON register (0x4580) directly in `refresh_function_bits()` whenever function key bits change. This worked for SMILE but **bypassed the OS**:
+```c
+m->bus[0x4580u] = m->kbd.fonct_bits;  /* Emulator doing what OS should do */
+```
+
+**Why This Was Wrong:**
+- Real hardware: function key signals are physical → CLA → SAMOS ISR reads → stores to 0x4580
+- Shortcut approach: emulator directly writes 0x4580, skipping the OS
+- Violates goal of being "as close to original hardware as possible"
+
+**Correct Solution (Commit ccb443d) — HARDWARE-FAITHFUL:**
+Return function key bits directly from CLA so SAMOS ISR naturally updates 0x4580:
 
 **Implementation:**
 ```c
-static void refresh_function_bits(struct Smaky6 *m) {
-    /* ... calculate fonct_bits ... */
-    /* Update GETFON register directly */
-    m->bus[0x4580u] = m->kbd.fonct_bits;  /* <-- NEW */
+uint8_t keyboard_read_cla(struct Smaky6 *m)
+{
+    if (m->kbd.found) {
+        /* existing character latch logic */
+    }
+    
+    /* When no character latched: return function key bits */
+    return (uint8_t)(m->kbd.fonct_bits & 0x7Fu);  /* <-- NEW */
 }
 ```
 
-Also initialize 0x4580 to 0x00 in `keyboard_init()`.
+Now the chain works naturally:
+1. CLA returns function key bits (bit 7=0, bits 0-6=F1-F7 bitmask)
+2. SAMOS ISR Stage 1 reads CLA: `IN A,(0x00)`
+3. SAMOS stores to GETFON: `AND 0x7F; LD (0x4580),A`
+4. SMILE calls ?GETFON and reads the result from 0x4580
+
+**Why Function Keys Don't Cause Character Echo:**
+- Function keys are **out-of-matrix**, separate from the 64-position character matrix
+- S471 PROM never returns character codes for function keys
+- CLA returns bits 0-6 = function key bitmask, bit 7 = 0 (FOUND flag)
+- This can never be confused with a character code (characters are latched separately via key_code)
+- SAMOS treats bit 7=0 as "key present" and processes accordingly
+- Function key bits reach CLA only when `found=0` (no character latched)
 
 **Result:**
-- FLIPPER: Works (reads 0x457E via syscall 0x0E)
-- SMILE: Works (calls ?GETFON which reads 0x4580)
-- Both apps can now detect function keys
-- F1-F7 still don't echo characters
+- FLIPPER: Works (reads 0x457E via syscall 0x0E, or reads CLA directly)
+- SMILE: Works (calls ?GETFON which reads 0x4580, updated by SAMOS ISR Stage 1)
+- Both apps detect function keys correctly
+- F1-F7 don't echo as characters (never reach character code path)
+- **GETFON updated by OS, not by emulator shortcut** (hardware-faithful)
 
 **Commit History:**
 - `09054a9` - fix: don't return function key bits from CLA [fixed echo, broke SMILE]
 - `7aedd58` - fix: function key acknowledgment in port 0x01 [supporting]
-- `343d1dd` - fix: keep GETFON register current for ?GETFON [fixed SMILE]
+- `343d1dd` - fix: keep GETFON register current for ?GETFON [worked but not hardware-faithful]
+- `ccb443d` - refactor: switch to faithful hardware model [OS controls 0x4580]
+
+**Architectural Lesson:**
+When an emulator shortcut works but bypasses OS logic, reconsider whether it maintains hardware fidelity. The faithful approach lets the OS do its job and creates fewer surprises later.
 
 
 
