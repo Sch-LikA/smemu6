@@ -250,6 +250,146 @@ Function keys are separate from character matrix and should never be returned as
 - Port 0x01 (status) = function key bits (bits 0-6) + FOUND status (bit 2)
 - Function keys should never produce character output
 
+---
+
+## Hardware Reference (from docs/dev/HARDWARE.md, PLAN.md)
+
+### CPU & Clock
+- **Z80 @ 2.5 MHz** (12.0576 MHz crystal ÷ 5)
+- **T-states/frame**: 50,000 (50 Hz interrupt)
+- **Interrupt mode**: IM 0 (RST 38h for display, RST 50h for traps)
+- **Reset**: Power-on + RESET signal
+
+### Memory Map (64 KB Phantom Model)
+- `0x0000–0x07FF`: 2 KB **Phantom ROM** (TMS2716 EPROM SYS17) → writable RAM after `OUT (01h), A=00h`
+- `0x0800–0x3FFF`: OS + lower RAM (~14 KB available after SAMOS loads)
+- `0x4000–0x44FF`: **Alpha (text) framebuffer** (20 rows × 64 cols = 1280 B)
+- `0x4500–0x45FF`: **SAMOS OS workspace** (256 B, includes CLI buffer, current filename)
+- `0x4600–0x54FF`: **Graphic framebuffer** (60 rows × 64 bytes = 3840 B)
+- `0x8000–0xFFFF`: Upper 32 KB RAM (on extension board)
+
+### Keyboard Hardware (from docs/dev/keyboard_analysis.md)
+
+**Key ICs:**
+- **B5 = S471** — keyboard encoder EPROM (64-position matrix + 4 layers → 7-bit keycode)
+- **A8 = 4013** dual D flip-flop → generates FOUND signal + FULCLA latch
+- **A4, A6 = LS 257 (C157)** → quad 2-to-1 mux (drives Z80 data bus)
+
+**I/O Ports:**
+- **Port 0x00 (CLA)**: Read/Write keyboard character latch area
+  - Bit 7 = FOUND flag (0 = key present, 1 = no key)
+  - Bits 0–6 = 7-bit keycode (character) OR function key bitmask
+  - **Reading CLA clears the FOUND latch** via STROBE pulse
+  - Scanner reasserts FOUND within **200µs** if key still held
+
+- **Port 0x01**: Status register
+  - Bit 2 = FOUND (reflects latch state)
+  - Other bits = unused/reserved
+  - **Writing to port 0x01 does NOT affect FOUND or FULCLA** (confirmed from docs)
+
+**Function Key Bits (bottom-row out-of-matrix keys):**
+- F1 = 0x10 (CURSOR)
+- F2 = 0x08 (COPY)
+- F3 = 0x40 (KILL)
+- F4 = 0x20 (PROGRA)
+- F5 = 0x04 (SHOW)
+- F6 = 0x02 (SEARCH)
+- F7 = 0x01 (CHANGE)
+
+**SAMOS ISR Keyboard Workspace:**
+- `0x457E`: Direct key code from CLA Stage 1 (used by FLIPPER/syscall 0x0E)
+- `0x4580` (**GETFON register**): Function key status (used by SMILE/?GETFON call)
+- `0x4558`: Repeat countdown (35 frames = 700 ms initially, then 3 frames = 60 ms)
+- `0x4577`: Repeat key code (auto-repeat at 60 ms intervals after 700 ms delay)
+- `0x4582`: Inter-frame keycode register (Stage 2 gate with 0x80 sentinel)
+- `0x458A–0x4595`: Circular buffer workspace (managed by Stage 3)
+
+**SAMOS ISR Stages:**
+1. **Stage 1 (0x015B–0x016D)**: Direct CLA read → stores key at 0x457E, zeros 0x4558, returns early
+2. **Stage 2 (0x016E–0x0197)**: No-key path / debounce → checks 0x4582 sentinel, waits 256 iterations, re-reads status + CLA
+3. **Stage 3 (0x019B–0x01DF)**: Circular buffer management → promotes keys into workspace for Stage 4
+4. **Stage 4 (0x01DF–0x0206)**: Auto-repeat (SAMOS 1.3+) → injects repeat at 700 ms / 60 ms intervals
+
+**Power-on Boot (FOUND=1 automatic DX0 boot):**
+- FOUND powers up asserted (undefined state, in practice SET)
+- Phantom ROM `kbd_wait` at 0x00FD reads CLA in tight loop, exits when bit 7 = 0
+- First CLA read returns 0x00 (Enter), ROM boots from DX0 without user keypress
+- Emulator models with `found=1`, `key_code=0x00`, `physically_held=1` at startup
+- Virtual key held until SAMOS ISR vector written to 0x003E (after init kbd_wait at 0x00B5)
+
+### S471 Lookup Table (from docs/dev/keyboard-implementation.md)
+
+The S471 PROM is authoritative for keycode generation:
+- **4 × 64 lookup entries**: layers 0 (normal), 1 (Shift), 2 (FNCT), 3 (Caps)
+- Maps **physical key position + layer** → **7-bit keycode**
+- **Validated positions** (from S471 dump):
+  - ESC/UNDO (top-left) = 0x06 on all layers
+  - Backspace = 0x08 / 0x7F / 0x01 / 0x08
+  - Tab = 0x09 / 0x0B / 0x03 / 0x09
+  - Space = 0x20 / 0x20 / 0x02 / 0x20
+  - CTRL = 0x1E on all layers
+  - RETURN = 0x0D / 0x0C / 0x0A / 0x0D
+  - DEFINE = 0x1F on all layers
+- **Full matrix reference**: `docs/dev/smaky6_full_matrix_map.tsv` (64-position physical map)
+- Alphanumeric matrix is **real Swiss-German QWERTZ hardware**, not ASCII
+
+### Boot Media Contract (from docs/dev/SAMOS_BOOT_MEDIA.md)
+
+**Bootable DX0 Floppy Structure:**
+- Minimum system files: `SYS.SY`, `CLI.SY`, `ER.SY`
+- Directory occupies first 3 sectors (32 entries max, 24 bytes each)
+- Each entry stores `start_sector`, `end_sector`, `flags`, `load`, `entry`, date, type
+- `SYS.SY`: starts sector 3, load 0x60C0, entry 0x5720 → Phantom ROM expects this
+- `CLI.SY`: starts sector 38, load 0x5602, entry 0x5625 → shell UI after boot
+
+**Why Plain Extraction Fails:**
+- Requires metadata preservation: `flags`, `load`, `entry`, dates, sector order
+- Emulator rebuilds with metadata sidecars: `NAME.TT.meta.json` and `NAME.DR.meta.json`
+- Tool: `python3 tools/extract_samos_image.py <disk.dsk> <output-dir>`
+- Rebuild: `./build/smemu6 -floppy-hostdir <hostdir>`
+- Test: `ctest --test-dir build -R smemu6_virtual_floppy_dx0_hostdir_boot`
+
+---
+
+## Session: May 21, 2026 — GETFON Register Fix for SMILE App
+
+### Issue Identified: SMILE App Can't Read Function Keys
+
+**Problem:** SMILE app uses `?GETFON` system call to read function keys, but it wasn't working. FLIPPER app worked (uses syscall 0x0E), but SMILE didn't.
+
+**Root Cause:** Previous fix (commit 09054a9) changed `keyboard_read_cla()` to return only `0x80` to prevent "à" character echo. But this broke GETFON register update:
+- SAMOS ISR Stage 1: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A`
+- Old code returned `0x80 | fonct_bits` → stored `fonct_bits` to 0x4580 ✓
+- New code returned `0x80` → stored `0x00` to 0x4580 ✗
+- SMILE's ?GETFON reads 0x4580 but it was always 0x00
+
+**Solution (Commit 343d1dd):**
+Update GETFON register (0x4580) directly in `refresh_function_bits()` whenever function key bits change. This keeps GETFON current for ?GETFON calls while CLA returns only 0x80 (preventing character echo).
+
+**Implementation:**
+```c
+static void refresh_function_bits(struct Smaky6 *m) {
+    /* ... calculate fonct_bits ... */
+    /* Update GETFON register directly */
+    m->bus[0x4580u] = m->kbd.fonct_bits;  /* <-- NEW */
+}
+```
+
+Also initialize 0x4580 to 0x00 in `keyboard_init()`.
+
+**Result:**
+- FLIPPER: Works (reads 0x457E via syscall 0x0E)
+- SMILE: Works (calls ?GETFON which reads 0x4580)
+- Both apps can now detect function keys
+- F1-F7 still don't echo characters
+
+**Commit History:**
+- `09054a9` - fix: don't return function key bits from CLA [fixed echo, broke SMILE]
+- `7aedd58` - fix: function key acknowledgment in port 0x01 [supporting]
+- `343d1dd` - fix: keep GETFON register current for ?GETFON [fixed SMILE]
+
+
+
 
 
 ---
