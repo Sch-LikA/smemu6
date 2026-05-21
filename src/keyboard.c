@@ -189,6 +189,10 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_keyboard_bits,
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
+    
+    /* Keep GETFON register (0x4580) current for apps reading it directly (e.g. SMILE ?GETFON).
+     * This ensures 0x4580 is always up-to-date with the current function key state. */
+    m->bus[0x4580u] = m->kbd.fonct_bits;
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
