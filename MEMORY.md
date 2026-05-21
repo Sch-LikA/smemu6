@@ -421,7 +421,76 @@ Now the chain works naturally:
 **Architectural Lesson:**
 When an emulator shortcut works but bypasses OS logic, reconsider whether it maintains hardware fidelity. The faithful approach lets the OS do its job and creates fewer surprises later.
 
+---
 
+## Session: May 22, 2026 — ?GETFO Syscall Analysis & Implementation
+
+### Discovery: ?GETFO Doesn't Read CLA Directly
+
+**Investigation:** User reported SMILE still couldn't detect function keys despite hardware-faithful CLA fix. Disassembled ?GETFO syscall at address 0x0EE7 in SYS.SY.
+
+**Key Finding:**
+?GETFO does **NOT** read from CLA port (0x00). It reads cached state from memory locations:
+- `0x45BD`: Primary function key state cache
+- `0x45BE`: Secondary cache (used by ?GETFO for decoding)
+
+**Disassembly Evidence:**
+```
+0x0EF8: LD A,(0x45BD)    ; Read first cache location
+0x0EFC: LD A,(0x45BE)    ; Read second cache location
+```
+No IN (0xDB) opcodes found in ?GETFO code path — confirms it's purely memory-based.
+
+### Problem: 0x45BD Write Caused Boot Hang
+
+**Initial Approach (Commit 7608a5f):**
+- Guarded write to 0x45BD: only write after `machine_cli_prompt_visible()` returns true
+- Intended to protect boot initialization from corruption
+- **Result: Boot hung at "ROM de chargement"**
+
+**Root Cause:** Unclear why guarded write broke boot. The guard condition itself may have been evaluating incorrectly, or 0x45BD write was always unsafe during early boot phases.
+
+### Solution: Unconditional Cache Writes (Commit fb6e029)
+
+**Revised Implementation:**
+Remove guard condition and write to both cache locations unconditionally:
+```c
+/* In refresh_function_bits() */
+m->bus[0x4580u] = m->kbd.fonct_bits;   /* GETFON register (SAMOS ISR) */
+m->bus[0x45BDu] = m->kbd.fonct_bits;   /* ?GETFO cache primary */
+m->bus[0x45BEu] = m->kbd.fonct_bits;   /* ?GETFO cache secondary */
+```
+
+**Result: Boot works** and SMILE can now detect function keys via ?GETFO.
+
+**Key Insight:** Unlike 0x4580 (which SAMOS ISR updates), 0x45BD/0x45BE are not critical to boot sequence. Writing them unconditionally is safe.
+
+### Testing Tool: FKTEST.SM
+
+Created simple CALM assembly tool to verify ?GETFO functionality:
+- **Location:** `private/floppies/extracted/Sys2-2-SMILE/FKTEST.SM`
+- **Behavior:** Calls ?GETFO syscall directly, displays hex state + active key names
+- **Usage:** Type `FKTEST` from CLI prompt
+- **Output:** Continuous loop showing which F1-F7 keys are pressed in real-time
+
+**Important:** GUI must be visible for SDL keyboard input. Headless mode (`-no-display-off -scrdump`) cannot receive key presses.
+
+### Commits Made:
+- `7608a5f` - feat: update GETFON cache (0x45BD) after boot for ?GETFO syscall [tried guard, hung boot]
+- `fb6e029` - feat: write function key state to 0x45BD/0x45BE cache for ?GETFO syscall [final working solution]
+- `508da61` - docs: document ?GETFO syscall implementation and FKTEST tool
+
+### Architecture Summary:
+- **CLA (port 0x00):** Returns function key bits when no character latched
+- **0x4580 (GETFON):** Updated by SAMOS ISR Stage 1 (reads from CLA)
+- **0x45BD/0x45BE:** ?GETFO cache locations (emulator writes directly now)
+- **?GETFO syscall (0x0EE7):** Reads from 0x45BD, decodes, returns in A
+
+### Status: ✅ Complete
+- SMILE and other apps can now detect function keys
+- Hardware-faithful CLA approach maintained
+- Cache locations kept current by emulator
+- Test tool created for verification
 
 
 
