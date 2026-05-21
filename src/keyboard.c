@@ -194,16 +194,14 @@ static void refresh_function_bits(struct Smaky6 *m)
      * This ensures 0x4580 is always up-to-date with the current function key state. */
     m->bus[0x4580u] = m->kbd.fonct_bits;
     
-    /* Also update cached function key state for ?GETFO syscall (0x45BD).
-     * ?GETFO reads from 0x45BD/0x45BE, not from CLA port. We defer this write
-     * until boot completes to avoid corrupting boot initialization. */
-    if (machine_cli_prompt_visible(m)) {
-        m->bus[0x45BDu] = m->kbd.fonct_bits;
-        if (m->dbg.trace_kbd && m->kbd.fonct_bits != 0) {
-            fprintf(stderr, "[kbd] DEBUG: wrote 0x%02X to 0x45BD (prompt visible)\n",
-                    (unsigned)m->kbd.fonct_bits);
-        }
-    }
+    /* Also update ?GETFO syscall cache locations (0x45BD, 0x45BE).
+     * ?GETFO reads these cached values, not from CLA port. We write them
+     * even before boot completes since they're not critical to boot sequence
+     * (0x4580 is the main GETFON register used by SAMOS ISR).
+     * 0x45BD: primary function key state
+     * 0x45BE: secondary cache (used by ?GETFO for decoding) */
+    m->bus[0x45BDu] = m->kbd.fonct_bits;
+    m->bus[0x45BEu] = m->kbd.fonct_bits;
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
