@@ -1,0 +1,58 @@
+; z80dasm 1.1.6
+; command line: z80dasm -a -o 0x0EE0 tmp/getfo.bin
+
+	org	00100h
+
+	ld h,a			;0100
+	ld a,l			;0101
+	or a			;0102
+	jp p,00683h		;0103
+	and 07fh		;0106
+	inc b			;0108
+	jr $-102		;0109
+	ld (045beh),a		;010b
+	ld a,002h		;010e
+	ld (045bdh),a		;0110
+	ret			;0113
+	push hl			;0114
+	push de			;0115
+	push bc			;0116
+	push af			;0117
+	ld a,(045bdh)		;0118
+	ld b,a			;011b
+	ld a,(045beh)		;011c
+	or a			;011f
+	jr z,$+28		;0120
+	dec a			;0122
+	jp z,007c2h		;0123
+	dec a			;0126
+	jr z,$+53		;0127
+	dec a			;0129
+	jr z,$+64		;012a
+	dec a			;012c
+	jr z,$+71		;012d
+	dec a			;012f
+	jr z,$+77		;0130
+	dec a			;0132
+	jr z,$+102		;0133
+	ld a,b			;0135
+	ld (045bdh),a		;0136
+	jp 007c7h		;0139
+	inc e			;013c
+	call 007cch		;013d
+	dec d			;0140
+	call 007cch		;0141
+	dec e			;0144
+	call 007cch		;0145
+	dec e			;0148
+	call 007cch		;0149
+	inc d			;014c
+	call 007cch		;014d
+	inc d			;0150
+	call 007cch		;0151
+	inc e			;0154
+	call 007cch		;0155
+	inc e			;0158
+	jp 007d0h		;0159
+	call 007beh		;015c
+	inc d			;015f

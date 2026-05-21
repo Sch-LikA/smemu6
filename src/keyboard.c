@@ -193,6 +193,17 @@ static void refresh_function_bits(struct Smaky6 *m)
     /* Keep GETFON register (0x4580) current for apps reading it directly (e.g. SMILE ?GETFON).
      * This ensures 0x4580 is always up-to-date with the current function key state. */
     m->bus[0x4580u] = m->kbd.fonct_bits;
+    
+    /* Also update cached function key state for ?GETFO syscall (0x45BD).
+     * ?GETFO reads from 0x45BD/0x45BE, not from CLA port. We defer this write
+     * until boot completes to avoid corrupting boot initialization. */
+    if (machine_cli_prompt_visible(m)) {
+        m->bus[0x45BDu] = m->kbd.fonct_bits;
+        if (m->dbg.trace_kbd && m->kbd.fonct_bits != 0) {
+            fprintf(stderr, "[kbd] DEBUG: wrote 0x%02X to 0x45BD (prompt visible)\n",
+                    (unsigned)m->kbd.fonct_bits);
+        }
+    }
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
@@ -714,10 +725,10 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
     }
 
     /* When no character is latched (found=0), return function key bits.
-     * Bit 7 = 0 (FOUND flag indicating key/status present).
+     * Bit 7 = 0 (FOUND flag indicating no key).
      * Bits 0-6 = function key bits (F1-F7 out-of-matrix keys).
-     * This lets SAMOS ISR Stage 1 read CLA and naturally update 0x4580 (GETFON)
-     * via: IN A,(0x00); AND 0x7F; LD (0x4580),A
+     * Returning function bits here allows SAMOS Stage 2 and ?GETFO to read them.
+     * SAMOS does: IN A,(0x00); AND 0x7F; LD (0x4580),A
      * Function keys are out-of-matrix, so they never collide with character codes. */
     return (uint8_t)(m->kbd.fonct_bits & 0x7Fu);
 }
