@@ -406,8 +406,8 @@ no-key sentinel already occupies the FOUND=1 / no-key case — the FOUND=0 path 
 needs to return `fonct_bits` instead of `0x80`.
 
 ✅ Done — `fonct_bits` field added to `struct kbd`; FONCT[] table in `keyboard_event()`
-sets/clears bits on KEYDOWN/KEYUP; `keyboard_read_cla()` returns `0x80 | fonct_bits`
-when no regular key is held.
+sets/clears bits on KEYDOWN/KEYUP. Function keys work correctly with no character echo
+and no infinite repeat.
 
 **Refactor keyboard CLA to a single hardware-accurate model** ✅ Done
 
@@ -416,17 +416,26 @@ The hardware model (schematic §10.4):
 |Condition|`IN A,(0)` returns|
 |---|---|
 |FOUND=1 (key held)|`key_code & 0x7F`|
-|FOUND=0|`0x80` OR `fonct_bits` (idle = `0x80`)|
+|FOUND=0|`0x80` (idle, function key state in 0x4580)|
 
 STROBE clears FOUND+FULCLA; scanner reasserts within ≤200µs if key still held.
 Identical for Phantom ROM polling, SAMOS ISR, and monitor — no mode flag needed.
+
+Working solution uses port separation:
+- **CLA (port 0x00) read:** returns `0x80` when no character (avoids boot hang caused by function bits)
+- **GETFON (0x4580) register:** kept current via direct write in `refresh_function_bits()` for apps like SMILE
+- **Port 0x01 write:** acknowledges function key presses (prevents infinite repeat)
 
 Implemented:
 
 - `keyboard_read_cla()`: if `found` → clear found, re-assert if `physically_held`,
   and for post-boot injected held regular keys make the first CLA read return
   `0x80 | key_code`; otherwise return the normal `key_code & 0x7F`. If `found=0`,
-  return `0x80 | fonct_bits`.
+  return only `0x80` (no function bits) to avoid boot hang.
+- `refresh_function_bits()`: updates `fonct_bits` from keyboard and mouse state,
+  then writes it to GETFON register `0x4580` for apps to read (e.g., SMILE ?GETFON).
+- Port 0x01 write handler: acknowledges function key presses by latching the current
+  function key state, preventing infinite repeat on held keys.
 - `physically_held=1` at power-on models FOUND latch SET (4013 FF2). Every CLA read
   re-asserts `found=1` while held, so all boot-phase `kbd_wait` loops exit
   automatically (Phantom ROM 0x00FD + SAMOS init 0x00B5). Released when SAMOS ISR
