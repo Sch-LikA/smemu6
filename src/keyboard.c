@@ -189,6 +189,13 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_keyboard_bits,
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
+    
+    /* Update GETFON register (0x4580) directly whenever function bits change.
+     * This ensures ?GETFON system calls see the current function key state,
+     * independent of whether CLA returns them. SAMOS ISR Stage 1 also writes
+     * to 0x4580, but keeping it live here ensures apps like SMILE that call
+     * ?GETFON always see the current state. */
+    m->bus[0x4580u] = m->kbd.fonct_bits;
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
@@ -526,6 +533,9 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = 0;
+    
+    /* Initialize GETFON register (0x4580) - no function keys held at startup */
+    m->bus[0x4580u] = 0x00u;
 }
 
 /* No dynamic keyboard-side resources currently need explicit teardown. */
