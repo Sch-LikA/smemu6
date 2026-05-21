@@ -189,13 +189,6 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_keyboard_bits,
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
-    
-    /* Update GETFON register (0x4580) directly whenever function bits change.
-     * This ensures ?GETFON system calls see the current function key state,
-     * independent of whether CLA returns them. SAMOS ISR Stage 1 also writes
-     * to 0x4580, but keeping it live here ensures apps like SMILE that call
-     * ?GETFON always see the current state. */
-    m->bus[0x4580u] = m->kbd.fonct_bits;
 }
 
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
@@ -534,8 +527,6 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = 0;
     
-    /* Initialize GETFON register (0x4580) - no function keys held at startup */
-    m->bus[0x4580u] = 0x00u;
 }
 
 /* No dynamic keyboard-side resources currently need explicit teardown. */
@@ -718,12 +709,13 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         return value;
     }
 
-    /* When no character is latched (found=0), return only the fixed high bit.
-     * DO NOT return function key bits here - they should only be read via port 0x01
-     * (keyboard_read_status). Returning fonct_bits from CLA caused F1-F7 to be
-     * interpreted as character codes and echoed to the display, creating the
-     * appearance of repeating function key characters. */
-    return 0x80u;
+    /* When no character is latched (found=0), return function key bits.
+     * Bit 7 = 0 (FOUND flag indicating key/status present).
+     * Bits 0-6 = function key bits (F1-F7 out-of-matrix keys).
+     * This lets SAMOS ISR Stage 1 read CLA and naturally update 0x4580 (GETFON)
+     * via: IN A,(0x00); AND 0x7F; LD (0x4580),A
+     * Function keys are out-of-matrix, so they never collide with character codes. */
+    return (uint8_t)(m->kbd.fonct_bits & 0x7Fu);
 }
 
 /* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */
