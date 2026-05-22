@@ -859,6 +859,38 @@ This means the hardware-faithful CLA model is:
 
 The remaining direct writes to `0x45BD/0x45BE` are documented as a compatibility mirror for the currently observed `?GETFO` software path, not as the source of the hardware truth. `0x4580` has now been returned to the normal SAMOS Stage 1 update path.
 
+## Session Summary - 2026-05-23
+
+**Worked on:**
+- continued the SMILE simultaneous-key investigation for `PROGRA+z` and `PROGRA+END`
+- tested several narrower keyboard-model changes aimed at removing synthetic behavior without breaking ordinary CLI typing
+- repeatedly validated each slice with focused compile and DX0 boot checks
+
+**Completed:**
+- committed `74cfceb` (`fix: correct getfo read hook`) to widen the `GETFO` routine window to `0x0516..0x0519`
+- committed `de9d8f0` (`fix: restore cla function idle bit`) to restore the bit-7-set CLA no-key/function return
+- committed `69bfe2c` (`fix: narrow ordinary cla prefix`) as an experiment, then later falsified it by user retest
+- committed `7c665e5` (`fix: remove function workspace mirrors`) to remove direct guest RAM writes from `refresh_function_bits()`
+- committed `ff732f1` (`fix: narrow getfo override`) as an experiment, then later falsified it by user retest
+- committed `268fc5c` (`fix: restore getfo override`) to return to the prior stable `?GETFO` behavior after repeat/function echo regressions reappeared
+- kept `TODO.md`, `ERRORS.md`, `docs/dev/keyboard_analysis.md`, and `docs/dev/SMILE_SM_function_key_analysis.md` synchronized with each accepted or rejected slice
+
+**In progress:**
+- the original SMILE bug is still unresolved: simultaneous `PROGRA+ordinary` input does not trigger the expected SMILE actions
+- current stable baseline is after `268fc5c`: ordinary CLI typing works, the earlier repeat/function echo regressions are not reintroduced, but SMILE still does not behave like real hardware for held function + ordinary combinations
+
+**Decisions made:**
+- keep the seven bottom-row function keys on host `F1`..`F7` only; no alternate host mapping
+- keep the bit-7-first ordinary CLA prefix for normal post-boot typing; removing it breaks ordinary CLI input
+- keep the bit-7-set CLA no-key/function return (`0x80 | fonct_bits`)
+- keep the broad always-function `?GETFO` override for now; the narrower staged-byte-first variant is below baseline because it revives the old repeat bug and makes function keys echo regular characters again
+- remove the direct function workspace mirrors from `refresh_function_bits()`; that slice is currently retained because it did not break build or baseline boot
+
+**Next session priorities:**
+- investigate the actual simultaneous ordinary/function scan ordering around the ordinary CLA path and the Stage 1 / Stage 2 handoff, rather than changing high-level `?GETFO` policy again
+- anchor the next change to one falsifiable timing hypothesis near the first simultaneous-key CLA / Stage 1 transition
+- revalidate specifically against user-reported SMILE behavior for `PROGRA+z` and `PROGRA+END` after the next low-level timing slice
+
 ### Discovery: nearby SYS.SY code reads 0x45BD/0x45BE directly
 
 **Investigation:** User reported SMILE still couldn't detect function keys despite hardware-faithful CLA fix. Disassembly around the previously suspected SYS.SY function-key helper path showed direct reads from `0x45BD` and `0x45BE`.
