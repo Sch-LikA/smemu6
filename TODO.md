@@ -587,9 +587,13 @@ Fourteenth slice completed:
 - build and DX0 boot still work after restoring the hardware-style CLA idle return
 
 Fifteenth slice completed:
-- narrowed the ordinary bit-7 prefix to plain non-function typing only: simultaneous function+ordinary keys now keep the ordinary byte bit-7 clear on first CLA delivery
-- refined root cause: the post-boot compatibility prefix is still needed for plain CLI typing, but forcing the same prefix while `PROGRA` is already held pushes simultaneous ordinary keys onto the Stage 2 workspace path instead of leaving them as plain ordinary bytes alongside the separate function state
-- build and DX0 boot still work after narrowing the simultaneous-key prefix
+- intermediate hypothesis only: narrowed the ordinary bit-7 prefix while a function key was already held
+- later user validation falsified it: `PROGRA+z` and `PROGRA+END` then had no visible effect at all
+
+Sixteenth slice completed:
+- removed the unconditional live function-key workspace mirrors from `refresh_function_bits()`
+- refined root cause: publishing synthetic function state directly into `0x4580` / `0x45BD` / `0x45BE` outside the real CLA timing is not hardware-faithful and could explain why SMILE briefly applies then cancels simultaneous `PROGRA+ordinary` input
+- build and DX0 boot still work after removing the live function mirrors
 
 SDL mapping (current):
 

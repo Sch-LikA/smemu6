@@ -217,6 +217,12 @@ function state is read separately; pushing the ordinary key through the same
 Stage 2 workspace path during a held function key appears to be the remaining
 delivery mismatch.
 
+That timing change was later falsified by user retest because `PROGRA+z` and
+`PROGRA+END` then had no visible effect at all. The next hardware-oriented step
+instead removes the unconditional guest-workspace mirrors of `fonct_bits` at
+`0x4580`, `0x45BD`, and `0x45BE`, so the function state is no longer published
+outside the real CLA / `?GETFO` timing path.
+
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:
 

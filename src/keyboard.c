@@ -189,16 +189,6 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_keyboard_bits,
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
-    
-    /* Keep the live function-key compatibility mirrors current.
-     * Some software paths still observe GETFON / ?GETFO state through these
-     * derived workspace bytes rather than waiting for the next SAMOS ISR pass.
-     * 0x4580: GETFON register compatibility mirror
-     * 0x45BD: primary function key state
-     * 0x45BE: secondary cache (used by ?GETFO for decoding) */
-    m->bus[0x4580u] = m->kbd.fonct_bits;
-    m->bus[0x45BDu] = m->kbd.fonct_bits;
-    m->bus[0x45BEu] = m->kbd.fonct_bits;
 }
 
 void keyboard_clear_all_function_bits(struct Smaky6 *m)
@@ -554,7 +544,7 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
     m->kbd.physically_held = 1;
     m->kbd.cla_seen_current = 0;
     m->kbd.boot_key_held = 0;
-    m->kbd.regular_prefix_pending = (m->kbd.fonct_bits == 0);
+    m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = 0;
@@ -580,7 +570,7 @@ static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t k
     m->kbd.physically_held = (scan != SDL_SCANCODE_UNKNOWN);
     m->kbd.cla_seen_current = 0;
     m->kbd.boot_key_held = 0;
-    m->kbd.regular_prefix_pending = (m->kbd.fonct_bits == 0);
+    m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = (scan == SDL_SCANCODE_UNKNOWN) ? 1 : 0;

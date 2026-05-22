@@ -746,16 +746,34 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ### Fifteenth refactor slice on branch
 
-**Completed:** narrowed the ordinary-key bit-7 prefix so it is not used while a function key is already held.
+**Completed:** tested the hypothesis that simultaneous `PROGRA+ordinary` input should suppress the ordinary-key bit-7 prefix.
 
 **Refined root cause:**
 - the bit-7-first ordinary CLA prefix is still required for plain post-boot CLI typing
 - but applying that same prefix during simultaneous `PROGRA+ordinary` input likely forces the ordinary key onto the Stage 2 workspace race that the hardware audit already identified as the remaining mismatch
 - the new user symptom (`z` or the END glyph appears briefly, then is deleted) is consistent with SMILE seeing enough of the combination to cancel the visible ordinary key, but still not getting the final hardware-faithful timing it expects
 
+**Later correction:**
+- this hypothesis was falsified by immediate user retest: `PROGRA+z` and `PROGRA+END` then had no visible effect at all
+- the change was rolled back before the next hardware-oriented slice
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE revalidation is still required
+
+### Sixteenth refactor slice on branch
+
+**Completed:** removed the live function-workspace mirrors.
+
+**Refined root cause:**
+- the branch was still publishing `fonct_bits` directly into guest workspace bytes `0x4580`, `0x45BD`, and `0x45BE`
+- those writes bypass the actual CLA timing the hardware audit is trying to reproduce
+- they are a cleaner next compatibility layer to remove than the `?GETFO` override, because older notes had already suggested the `0x4580` mirror itself was not the controlling cause of ordinary CLI typing
+
 **What changed:**
-- `latch_matrix_key_code()` and `latch_direct_key_code()` now arm the one-shot bit-7 ordinary prefix only when no function bits are currently held
-- plain typing keeps the validated post-boot behavior, while simultaneous function+ordinary keys stay on the plain ordinary CLA path
+- `refresh_function_bits()` now only recomputes `m->kbd.fonct_bits`
+- no direct guest RAM writes are performed when function-key state changes
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
