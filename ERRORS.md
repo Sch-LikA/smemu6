@@ -33,10 +33,11 @@ Check this file before suggesting approaches to similar tasks.
 7. **Attempt 7:** treated `?GETFO` as a single `pc == 0x0519` read-site; existing traces already showed the actual `0x457E` read at `pc == 0x0516`, so the hook could silently miss live function-bit delivery even though the rest of the function-key path looked correct.
 8. **Attempt 8:** suppressed the ordinary-key bit-7 prefix while a function key was already held; build and boot still passed, but user validation showed `PROGRA+z` and `PROGRA+END` then had no visible effect at all.
 9. **Attempt 9:** added a consume-on-read side effect to the staged-byte-first `?GETFO` policy; build still passed, but the standard headless boot check immediately showed stray prompt characters, so that side effect had to be removed.
+10. **Attempt 10:** kept the staged-byte-first `?GETFO` policy without consume-on-read; build and boot passed, but user validation showed the old repeat bug reappeared and function keys again echoed regular characters.
 
 **Current working floor:** keep the normal keyboard path intact: suppress the SDL text bypass, make the `0x0516..0x0519` `?GETFO` helper return held function bits directly, do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT`, keep the audited bit-7-first ordinary CLA delivery for normal post-boot keys, and keep the no-key/function CLA path on the hardware-style `0x80 | fonct_bits` form.
 
-**Current simultaneous-key hypothesis:** the next suspect is now the repaired staged-byte-first `?GETFO` policy itself. The mirror writes are gone, but SMILE may still depend on an ordering or storage rule around `0x457E` that this narrowed override does not yet match.
+**Current simultaneous-key hypothesis:** the remaining mismatch is now more likely in the simultaneous ordinary/function scan ordering itself than in the high-level `?GETFO` policy. The narrower `?GETFO` change is below baseline because it revives known bugs.
 
 **Note for next time:** when a Smaky application combines a function key with an ordinary key, check the whole chain in order: host event path, matrix/text split, `?GETFO` accessor policy, host keyboard layout, whether the function key should modify the ordinary matrix byte at all, and whether a proposed CLA-path change also preserves ordinary CLI typing. A fix that passes build and boot but kills all prompt typing is almost certainly touching the wrong abstraction layer.
 

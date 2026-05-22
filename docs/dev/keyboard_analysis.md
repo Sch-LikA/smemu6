@@ -758,6 +758,12 @@ function bits are synthesized only when `0x457E` is empty. A short-lived
 consume-on-read variant was rejected immediately because it corrupted the idle
 CLI prompt during the standard boot validation.
 
+That narrower staged-byte-first `?GETFO` policy was later rejected too, because
+user retest showed it reintroduced the old repeat and regular-character echo
+bugs. The current branch therefore remains on the broader always-function
+override while the unresolved simultaneous-key timing is investigated in the
+ordinary CLA / Stage 1 / Stage 2 interaction instead.
+
 **Why returning `0x80 | fonct_bits` is correct:**  
 SAMOS Stage 1 at `0x015E–0x016D` does: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A; BIT 7,A; JR NZ,0x016E`.  When CLA returns `0x80 | fonct_bits`, the `AND 0x7F` strips bit 7 and stores exactly `fonct_bits` to `0x4580` — the GETFON register.  The old claim that Stage 2 (CLA Read #2 at 0x0183) is permanently blocked by `0x4582=0x80` has been withdrawn after direct binary audit showed the init sentinel write is to `0x458A`, not `0x4582`.
 

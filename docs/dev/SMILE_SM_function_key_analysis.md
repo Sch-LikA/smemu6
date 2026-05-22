@@ -231,6 +231,12 @@ is otherwise empty. A first attempt also consumed `0x457E` on each `?GETFO`
 read, but that caused stray prompt characters during the normal headless boot
 check and was therefore removed again.
 
+That staged-byte-first policy was then falsified by user retest because it made
+the old repeat bug reappear and made function keys echo regular characters
+again. So the branch has been rolled back to the previous always-function
+`?GETFO` override while the remaining simultaneous-key mismatch is investigated
+elsewhere.
+
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:
 

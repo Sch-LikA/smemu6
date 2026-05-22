@@ -596,10 +596,13 @@ Sixteenth slice completed:
 - build and DX0 boot still work after removing the live function mirrors
 
 Seventeenth slice completed:
-- narrowed the `?GETFO` override to a staged-byte-first policy: `0x457E` is returned when nonzero, and held function bits are synthesized only when `0x457E` is otherwise empty
-- refined root cause: the always-function override was still too synthetic and could hide the real staged-byte ordering that SMILE relies on
-- intermediate repair note: consuming `0x457E` on every `?GETFO` read caused idle prompt corruption during the standard boot check, so that side effect was removed again
-- build and DX0 boot still work after the repaired `?GETFO` policy change
+- intermediate hypothesis only: narrowed the `?GETFO` override to a staged-byte-first policy
+- later user validation falsified it: the old repeat bug returned and function keys again echoed regular characters
+
+Eighteenth slice completed:
+- restored the previous always-function `?GETFO` override policy
+- refined root cause: staged-byte-first `?GETFO` is not compatible with the current keyboard pipeline and reintroduces known regressions before it fixes SMILE
+- build and DX0 boot still work after rolling back the failed `?GETFO` change
 
 SDL mapping (current):
 

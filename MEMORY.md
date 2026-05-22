@@ -782,21 +782,36 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ### Seventeenth refactor slice on branch
 
-**Completed:** narrowed the `?GETFO` override to staged-byte-first behavior.
+**Completed:** tested the hypothesis that `?GETFO` should prefer staged `0x457E` bytes over synthesized function bits.
 
 **Refined root cause:**
 - the remaining synthetic read policy in `memory_read()` was still stronger than the older strict branch: it always replaced `0x457E` with held function bits across the `GETFO` routine window
 - that policy could explain the persistent SMILE mismatch after removing the live function workspace mirrors
 
-**What changed:**
-- for `0x457E` reads inside the `0x0516..0x0519` `GETFO` routine window, the emulator now returns the staged byte when it is nonzero
-- only when `0x457E` is empty does the emulator synthesize held function bits through `keyboard_read_stage1_code()`
-- a first local repair removed an added consume-on-read side effect after it caused stray prompt characters during the standard boot check
+**Later correction:**
+- this hypothesis was falsified by user retest: the old repeat bug returned and function keys again echoed regular characters
+- the staged-byte-first change was rolled back before the next slice
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` again reaches the CLI prompt (`* -`) after removing the consume-on-read side effect
 - interactive SMILE revalidation is still required
+
+### Eighteenth refactor slice on branch
+
+**Completed:** rolled back the staged-byte-first `?GETFO` policy.
+
+**Refined root cause:**
+- whatever the remaining SMILE mismatch is, it is not solved by letting `?GETFO` prefer staged `0x457E` bytes in the current pipeline
+- that policy revives already-known regressions, so it is below the current acceptable baseline
+
+**What changed:**
+- `memory_read()` again returns `keyboard_read_stage1_code()` for `0x457E` reads inside the audited `GETFO` routine window
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the rollback
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive repeat/function regression reports should be back to the pre-slice baseline
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
