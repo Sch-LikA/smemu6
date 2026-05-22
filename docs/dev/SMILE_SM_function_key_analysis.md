@@ -203,6 +203,12 @@ special read as `pc == 0x0519`, while existing traces showed the actual
 `LD A,(0x457E)` access at `pc == 0x0516`. The current code now recognizes the
 full `GETFO` routine window `0x0516..0x0519` instead.
 
+Another low-level mismatch was corrected afterwards: when no ordinary key was
+latched, the emulator had drifted to returning bare `fonct_bits` from the CLA
+port. The hardware audit notes and `SYS.SY` Stage 1/2 model instead require the
+no-key/function path to be `0x80 | fonct_bits`, so the current code now restores
+ that bit-7-set idle/function behavior.
+
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:
 

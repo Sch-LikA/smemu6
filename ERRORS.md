@@ -32,7 +32,7 @@ Check this file before suggesting approaches to similar tasks.
 6. **Attempt 6:** removed that first ordinary-key CLA prefix; build and boot still passed, but user validation showed the regression immediately because no normal key worked at the CLI prompt any more.
 7. **Attempt 7:** treated `?GETFO` as a single `pc == 0x0519` read-site; existing traces already showed the actual `0x457E` read at `pc == 0x0516`, so the hook could silently miss live function-bit delivery even though the rest of the function-key path looked correct.
 
-**Current working floor:** keep the normal keyboard path intact: suppress the SDL text bypass, make the `0x0519` / `?GETFO` helper return held function bits directly, do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT`, and keep the audited bit-7-first ordinary CLA delivery for normal post-boot keys.
+**Current working floor:** keep the normal keyboard path intact: suppress the SDL text bypass, make the `0x0516..0x0519` `?GETFO` helper return held function bits directly, do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT`, keep the audited bit-7-first ordinary CLA delivery for normal post-boot keys, and keep the no-key/function CLA path on the hardware-style `0x80 | fonct_bits` form.
 
 **Note for next time:** when a Smaky application combines a function key with an ordinary key, check the whole chain in order: host event path, matrix/text split, `?GETFO` accessor policy, host keyboard layout, whether the function key should modify the ordinary matrix byte at all, and whether a proposed CLA-path change also preserves ordinary CLI typing. A fix that passes build and boot but kills all prompt typing is almost certainly touching the wrong abstraction layer.
 

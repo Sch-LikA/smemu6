@@ -581,6 +581,11 @@ Thirteenth slice completed:
 - refined root cause: the existing traces already showed the `LD A,(0x457E)` read at `pc=0x0516`, so the narrower hook could miss live function-bit delivery to SMILE even though ordinary matrix input still worked
 - build and DX0 boot still work after the `GETFO` hook correction
 
+Fourteenth slice completed:
+- restored the bit-7-set CLA idle/function return: `FOUND=0` now yields `0x80 | fonct_bits` instead of bare function bits
+- refined root cause: the bit-7-clear idle return was not hardware-faithful and made the no-key/function path look like an ordinary matrix byte source rather than the separate Stage 2 function/no-key path audited in `SYS.SY`
+- build and DX0 boot still work after restoring the hardware-style CLA idle return
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

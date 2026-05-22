@@ -33,7 +33,7 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles);
 /*
  * Port 0x00 (CLA) read:
  *   FOUND=1 -> returns the latched ordinary-key code with bit 7 clear
- *   FOUND=0 -> returns fonct_bits with bit 7 clear for the 7 non-matrix function keys
+ *   FOUND=0 -> returns 0x80 | fonct_bits for the no-key/function path
  *   Reading CLA clears the FOUND latch and may schedule reassertion if the
  *   same ordinary key remains physically held.
  */

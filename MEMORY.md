@@ -726,6 +726,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE revalidation is still required
 
+### Fourteenth refactor slice on branch
+
+**Completed:** restored the bit-7-set CLA idle/function return.
+
+**Refined root cause:**
+- the current branch had drifted away from the audited hardware model by returning bare `fonct_bits` when no ordinary key was latched
+- the audit notes and `SYS.SY` Stage 1/2 analysis consistently treat the no-key/function CLA path as `0x80 | fonct_bits`, not as an ordinary bit-7-clear byte
+- that mismatch is a plausible reason simultaneous `PROGRA+matrix` input still degenerates into plain ordinary-key behavior inside SMILE
+
+**What changed:**
+- `keyboard_read_cla()` now returns `0x80 | fonct_bits` whenever `FOUND=0`
+- public keyboard comments were updated to match the restored low-level behavior
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE revalidation is still required
+
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)

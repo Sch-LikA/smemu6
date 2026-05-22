@@ -735,6 +735,10 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
 }
 ```
 
+The current branch had later drifted away from this audited rule by returning
+bare `fonct_bits` when `FOUND=0`. That was corrected again after user retest of
+SMILE still showed plain ordinary-key behavior for `PROGRA+matrix` input.
+
 **Why returning `0x80 | fonct_bits` is correct:**  
 SAMOS Stage 1 at `0x015E–0x016D` does: `LD (0x4580),0x00; IN A,(0x00); AND 0x7F; LD (0x4580),A; BIT 7,A; JR NZ,0x016E`.  When CLA returns `0x80 | fonct_bits`, the `AND 0x7F` strips bit 7 and stores exactly `fonct_bits` to `0x4580` — the GETFON register.  The old claim that Stage 2 (CLA Read #2 at 0x0183) is permanently blocked by `0x4582=0x80` has been withdrawn after direct binary audit showed the init sentinel write is to `0x458A`, not `0x4582`.
 

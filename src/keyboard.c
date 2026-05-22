@@ -783,7 +783,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
         latch_direct_key_code(m, scan, key_code);
 }
 
-/* Emulate CLA port reads: ordinary keys return bit7 clear, otherwise bit7 set plus function bits. */
+/* Emulate CLA port reads: ordinary keys return bit7 clear, otherwise idle/function reads return bit7 set. */
 uint8_t keyboard_read_cla(struct Smaky6 *m)
 {
     if (m->kbd.found) {
@@ -808,13 +808,11 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         return value;
     }
 
-    /* When no character is latched (found=0), return function key bits.
-     * Bit 7 = 0 (FOUND flag indicating no key).
-     * Bits 0-6 = function key bits (F1-F7 out-of-matrix keys).
-     * Returning function bits here allows SAMOS Stage 2 and ?GETFO to read them.
-     * SAMOS does: IN A,(0x00); AND 0x7F; LD (0x4580),A
-     * Function keys are out-of-matrix, so they never collide with character codes. */
-    return (uint8_t)(m->kbd.fonct_bits & 0x7Fu);
+    /* No ordinary key is currently latched. Real hardware presents the
+     * function/no-key state on the bit-7-set CLA path, so SAMOS Stage 1 can
+     * distinguish it from ordinary matrix bytes while still recovering the
+     * function bits with AND 0x7F. */
+    return (uint8_t)(0x80u | (m->kbd.fonct_bits & 0x7Fu));
 }
 
 /* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */
