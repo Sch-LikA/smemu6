@@ -547,6 +547,25 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - the current ACK/held-state behavior did not regress the already-working FLIPPER path
 - the remaining keyboard bug is narrower and now appears specific to the SMILE-facing function-key path rather than to generic function-key hold/repeat handling
 
+### SMILE.SM static function-key audit
+
+**Observed from the binary itself:**
+- `SMILE.SM` does not directly read `0x4580`, `0x45BD`, or `0x45BE`
+- `SMILE.SM` does not directly `CALL 0x0EE7`
+- it contains a single `RST 20h / 0x0E` function-key-related call site at `0x55D0`
+
+**Documented syscall mapping:**
+- `private/docs/disasm/SYS.SR` maps `CODE 0EH = ?GETFO`
+- the same source lists `GETFO` as a read of octal `42576`, i.e. `0x457E`
+
+**Important static implication:**
+- for SMILE, the relevant path is syscall-mediated and keyed by exact bitmask values
+- exported `FLO.ST` constants give `PROGRA=0x08`, `KILL=0x10`, `COPY=0x20`, `CURSOR=0x40`
+- the current emulator mapping still uses a different assignment for those higher four function keys
+
+**Most likely explanation for the current user report:**
+- SMILE is reading function-key state, but the emulator is returning the wrong named bit for at least `PROGRA/F4`
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.
