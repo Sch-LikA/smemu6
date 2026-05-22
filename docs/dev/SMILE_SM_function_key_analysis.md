@@ -155,6 +155,25 @@ This also explains why a different application can still appear correct:
 - an app that only checks coarse groups or masks may still work
 - an app that distinguishes named function keys by exact bit value will not
 
+## Concurrent PROGRA + Matrix-Key Issue
+
+Later interactive validation narrowed a second, separate issue:
+
+- pressing `PROGRA+z` while assembling `HELLO.SR` produced plain `z`
+
+That symptom is not explained by the bit-order mismatch alone. The emulator
+also had a modeling gap in the matrix-layer selector:
+
+- `keyboard.c` already defined `S471_LAYER_FNCT`
+- but `current_layer()` only considered Shift and Caps Lock
+- so even with `PROGRA` held, a concurrent matrix key still resolved through the
+    normal S471 layer
+
+That means combinations such as `PROGRA+z` could never produce their `FNCT`
+layer code until the layer selector was fixed.
+
+The branch now enables `S471_LAYER_FNCT` whenever `PROGRA` (`0x08`) is held.
+
 ## Practical Conclusion
 
 For `SMILE.SM`, the relevant read path is:

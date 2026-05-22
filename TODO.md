@@ -540,6 +540,11 @@ Fifth slice completed:
 - the emulator function-key tables now use that canonical order
 - build and DX0 boot still work after the bit-order change
 
+Sixth slice completed:
+- `PROGRA` now selects the S471 `FNCT` layer for concurrent matrix-key combinations
+- root cause: the emulator had an `S471_LAYER_FNCT` table but `current_layer()` never selected it, so combinations such as `PROGRA+z` still resolved through the normal layer and produced plain `z`
+- build and DX0 boot still work after enabling the `FNCT` layer on `PROGRA`
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

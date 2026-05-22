@@ -595,6 +595,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE and FLIPPER revalidation is still required after the semantic change
 
+### Sixth refactor slice on branch
+
+**Completed:** enabled the S471 `FNCT` layer when `PROGRA` is held.
+
+**Root cause identified from user validation:**
+- `PROGRA+z` degraded to plain `z` while assembling `HELLO.SR`
+- `keyboard.c` already had a four-layer S471 table including `S471_LAYER_FNCT`
+- but `current_layer()` only considered `shift_pressed` and `caps_lock_active`
+- so concurrent `PROGRA` + matrix-key combinations were always resolved through the normal layer
+
+**What changed:**
+- `current_layer()` now returns `S471_LAYER_FNCT` when `PROGRA` (`fonct_bits & 0x08`) is held
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive revalidation of `PROGRA+matrix-key` shortcuts is still required
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.

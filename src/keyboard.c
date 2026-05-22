@@ -318,6 +318,9 @@ static int decode_text_input_code(const char *text, uint8_t *code_out)
 /* Select the active S471 lookup layer from the current modifier state. */
 static S471Layer current_layer(const struct Smaky6 *m)
 {
+    /* PROGRA acts as the hardware FNCT modifier for matrix-key combinations. */
+    if (m->kbd.fonct_bits & 0x08u)
+        return S471_LAYER_FNCT;
     if (m->kbd.shift_pressed)
         return S471_LAYER_SHIFT;
     if (m->kbd.caps_lock_active)
