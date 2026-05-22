@@ -427,6 +427,26 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ## Session: May 22, 2026 — ?GETFO Syscall Analysis & Implementation
 
+### Decision: use a dedicated branch for the hardware-first keyboard refactor
+
+**Decided:** carry the full keyboard/CLA cleanup on branch `refactor/keyboard-hardware-model` instead of continuing directly on `master`.
+
+**Why:**
+- the current implementation mixes hardware-faithful CLA behavior with compatibility mirrors and helper hacks
+- keyboard state is currently mutated in multiple files (`keyboard.c`, `machine.c`, `main.c`, plus a helper in `memory.c`)
+- reducing that to one owning abstraction is architectural work and needs safer isolation
+- we now have stronger hardware documentation, so the refactor target is clear enough to pursue aggressively
+
+**Acceptance criteria:**
+- preserve DX0 autoboot and ordinary-key delivery
+- preserve the documented `FOUND=0 => CLA returns function-key bits` behavior
+- keep `0x4580` and `0x45BD/0x45BE` consistent for software that currently reads them
+- revalidate FLIPPER, SMILE, and FKTEST before merge
+
+**Rejected:**
+- continuing directly on `master`: too easy to destabilize the current keyboard path while removing compatibility scaffolding
+- big-bang rewrite with no staged validation: too risky given the number of existing helper paths
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:

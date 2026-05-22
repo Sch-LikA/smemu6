@@ -477,6 +477,30 @@ Important distinction:
 - Usage: Run emulator with `-floppy floppies/Sys2-2.dsk`, boot to CLI, press `FKTEST` to run
 - The tool calls ?GETFO continuously and displays which keys are pressed
 
+#### Hardware-first refactor branch  🚧 In progress
+
+Branch: `refactor/keyboard-hardware-model`
+
+Refactor goal:
+- make CLA / FOUND / FULCLA semantics the primary source of truth
+- treat `0x4580` and `0x45BD/0x45BE` as derived compatibility mirrors only
+- centralize keyboard state ownership inside the keyboard subsystem
+- remove ad-hoc direct mutations of `fonct_bits` and related cache state from unrelated files
+
+Acceptance criteria for the branch:
+- DX0 autoboot still works from the power-on virtual Enter path
+- ordinary keys still enter through the S471 / CLA path correctly
+- function keys still do not echo visible characters unexpectedly
+- function keys no longer depend on scattered direct state mutations outside the keyboard subsystem
+- current compatibility readers still see consistent state: `0x4580`, `0x45BD`, `0x45BE`, and any retained helper paths
+- FLIPPER and SMILE behavior must be revalidated before merge
+
+Planned staging:
+- stage 1: centralize function-key state recomputation and cache mirroring in keyboard code
+- stage 2: route main.c and machine.c function-key updates through keyboard-owned helpers
+- stage 3: re-audit `memory.c` helper-path hacks and keep only the ones still justified by real software behavior
+- stage 4: validate against boot, CLI, FLIPPER, SMILE, and FKTEST
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|
