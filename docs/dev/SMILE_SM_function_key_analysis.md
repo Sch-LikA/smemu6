@@ -223,6 +223,14 @@ instead removes the unconditional guest-workspace mirrors of `fonct_bits` at
 `0x4580`, `0x45BD`, and `0x45BE`, so the function state is no longer published
 outside the real CLA / `?GETFO` timing path.
 
+The next remaining compatibility layer is the `?GETFO` override itself. The
+current branch now uses a narrower staged-byte-first policy: inside the audited
+`GETFO` routine window (`0x0516..0x0519`), it returns the staged `0x457E` byte
+when that byte is nonzero and only synthesizes held function bits when `0x457E`
+is otherwise empty. A first attempt also consumed `0x457E` on each `?GETFO`
+read, but that caused stray prompt characters during the normal headless boot
+check and was therefore removed again.
+
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:
 

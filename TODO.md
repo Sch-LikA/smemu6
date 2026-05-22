@@ -595,6 +595,12 @@ Sixteenth slice completed:
 - refined root cause: publishing synthetic function state directly into `0x4580` / `0x45BD` / `0x45BE` outside the real CLA timing is not hardware-faithful and could explain why SMILE briefly applies then cancels simultaneous `PROGRA+ordinary` input
 - build and DX0 boot still work after removing the live function mirrors
 
+Seventeenth slice completed:
+- narrowed the `?GETFO` override to a staged-byte-first policy: `0x457E` is returned when nonzero, and held function bits are synthesized only when `0x457E` is otherwise empty
+- refined root cause: the always-function override was still too synthetic and could hide the real staged-byte ordering that SMILE relies on
+- intermediate repair note: consuming `0x457E` on every `?GETFO` read caused idle prompt corruption during the standard boot check, so that side effect was removed again
+- build and DX0 boot still work after the repaired `?GETFO` policy change
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

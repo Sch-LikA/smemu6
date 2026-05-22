@@ -780,6 +780,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE revalidation is still required
 
+### Seventeenth refactor slice on branch
+
+**Completed:** narrowed the `?GETFO` override to staged-byte-first behavior.
+
+**Refined root cause:**
+- the remaining synthetic read policy in `memory_read()` was still stronger than the older strict branch: it always replaced `0x457E` with held function bits across the `GETFO` routine window
+- that policy could explain the persistent SMILE mismatch after removing the live function workspace mirrors
+
+**What changed:**
+- for `0x457E` reads inside the `0x0516..0x0519` `GETFO` routine window, the emulator now returns the staged byte when it is nonzero
+- only when `0x457E` is empty does the emulator synthesize held function bits through `keyboard_read_stage1_code()`
+- a first local repair removed an added consume-on-read side effect after it caused stray prompt characters during the standard boot check
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` again reaches the CLI prompt (`* -`) after removing the consume-on-read side effect
+- interactive SMILE revalidation is still required
+
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
