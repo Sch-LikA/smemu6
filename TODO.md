@@ -512,6 +512,13 @@ Second slice completed:
 - `memory.c` no longer contains function-key fallback policy directly; it delegates that keyboard-specific decision to the keyboard subsystem
 - DX0 boot to CLI revalidated after the helper move
 
+Remaining gaps versus the latest manual:
+- **Direct cache mirrors remain:** `refresh_function_bits()` still writes `0x4580` and `0x45BD/0x45BE` directly, which is a compatibility choice rather than pure hardware behavior
+- **Port 0x01 ACK remains emulator policy:** needed for current software behavior, but not yet reconciled cleanly with the manual language about keyboard register semantics
+- **Double / triple CLA side effects are not modeled yet:** two `LOAD A,$CLA` within `<5 us` should enter joystick mode, and three should toggle speaker / lamp
+- **Keyboard scan timing is only approximated:** the code models a generic reassert delay, not the documented `300 kHz` scan or the `~3 us` adjacent-key edge case
+- **FLIPPER / SMILE / FKTEST need branch revalidation:** boot to CLI is confirmed after the first two slices, but application-level keyboard behavior still needs explicit regression checks before merge
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

@@ -480,6 +480,21 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - `make -C build smemu6 -j4` completed successfully
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 
+### Current evaluation after the first two slices
+
+**What now matches the updated documentation better:**
+- CLA semantics and public comments are aligned with `FOUND=0 => function-key bits`
+- function-key compatibility policy is being pulled back under keyboard ownership instead of being scattered across subsystems
+
+**What is still intentionally not fully hardware-pure:**
+- direct mirroring to `0x4580` and `0x45BD/0x45BE`
+- the emulator-side function-key ACK behavior on port `0x01`
+- the syscall `0x0E` compatibility helper path now lives in `keyboard.c`, but still exists
+
+**What remains unimplemented from the newer manual page:**
+- the special side effects of two and three consecutive `LOAD A,$CLA`
+- finer-grained scan timing around the documented `300 kHz` keyboard oscillator and `~3 us` adjacent-key case
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:
