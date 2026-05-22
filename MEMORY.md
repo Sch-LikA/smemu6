@@ -566,6 +566,35 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 **Most likely explanation for the current user report:**
 - SMILE is reading function-key state, but the emulator is returning the wrong named bit for at least `PROGRA/F4`
 
+### Fifth refactor slice on branch
+
+**Completed:** reconciled the emulator's named function-key bit assignments with the canonical `FLO.ST` values while keeping host `F1`..`F7` as the physical input mapping.
+
+**Canonical values from `FLO.ST`:**
+- `CHANGE=0x01`
+- `SEARCH=0x02`
+- `SHOW=0x04`
+- `PROGRA=0x08`
+- `KILL=0x10`
+- `COPY=0x20`
+- `CURSOR=0x40`
+
+**Why this is the right next step:**
+- `SMILE.SM` uses `RST 20h / 0x0E = ?GETFO` and branches on exact bitmask values
+- the current emulator mapping matches only the lower three bits and permutes the upper four
+- that mismatch cleanly explains why SMILE misses named keys such as `PROGRA/F4` while FLIPPER can still appear fine
+
+**What changed:**
+- `keyboard.c` now maps the seven host function keys as
+  `CURSOR=0x40`, `COPY=0x20`, `KILL=0x10`, `PROGRA=0x08`,
+  `SHOW=0x04`, `SEARCH=0x02`, `CHANGE=0x01`
+- `main.c` and `video.c` were updated to use the same canonical bit order for the on-screen function-key bar
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the bit-order change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE and FLIPPER revalidation is still required after the semantic change
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.

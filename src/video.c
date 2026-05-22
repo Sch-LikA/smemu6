@@ -462,8 +462,8 @@ void video_render(struct Smaky6 *m)
     /* ── Function-key button bar ────────────────────────────────────────── */
     {
         static const struct { const char *label; uint8_t bit; } FKEYS[7] = {
-            { "CURSOR", 0x10 }, { "COPY",   0x08 }, { "KILL",   0x40 },
-            { "PROGRA", 0x20 }, { "SHOW",   0x04 }, { "SEARCH", 0x02 },
+            { "CURSOR", 0x40 }, { "COPY",   0x20 }, { "KILL",   0x10 },
+            { "PROGRA", 0x08 }, { "SHOW",   0x04 }, { "SEARCH", 0x02 },
             { "CHANGE", 0x01 },
         };
 

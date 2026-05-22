@@ -404,14 +404,14 @@ static void main_loop_iter(void)
 
                 /* Hit-test each function-key button.
                  * Bit order must match FKEYS[] in video.c:
-                 * CURSOR=0x10, COPY=0x08, KILL=0x40, PROGRA=0x20,
+                 * CURSOR=0x40, COPY=0x20, KILL=0x10, PROGRA=0x08,
                  * SHOW=0x04, SEARCH=0x02, CHANGE=0x01
                  *
                  * Left-click: held while button is down, released on mouse-up
                  *   (but stays set if latched).
                  * Right-click (DOWN only): toggle persistent latch for this bit. */
                 static const uint8_t FKEY_BITS[7] = {
-                    0x10, 0x08, 0x40, 0x20, 0x04, 0x02, 0x01
+                    0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01
                 };
                 if (ev.button.button == SDL_BUTTON_LEFT &&
                     ev.type == SDL_MOUSEBUTTONUP &&

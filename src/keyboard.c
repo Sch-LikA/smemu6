@@ -133,10 +133,10 @@ static const struct {
     SDL_Scancode scan;
     uint8_t bit;
 } FUNCTION_KEYS[] = {
-    { SDL_SCANCODE_F1, 0x10 }, /* CURSOR */
-    { SDL_SCANCODE_F2, 0x08 }, /* COPY */
-    { SDL_SCANCODE_F3, 0x40 }, /* KILL */
-    { SDL_SCANCODE_F4, 0x20 }, /* PROGRA */
+    { SDL_SCANCODE_F1, 0x40 }, /* CURSOR */
+    { SDL_SCANCODE_F2, 0x20 }, /* COPY */
+    { SDL_SCANCODE_F3, 0x10 }, /* KILL */
+    { SDL_SCANCODE_F4, 0x08 }, /* PROGRA */
     { SDL_SCANCODE_F5, 0x04 }, /* SHOW */
     { SDL_SCANCODE_F6, 0x02 }, /* SEARCH */
     { SDL_SCANCODE_F7, 0x01 }, /* CHANGE */

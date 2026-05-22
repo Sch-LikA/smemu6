@@ -532,6 +532,14 @@ Current interactive validation status:
 - FLIPPER still shows no repeat bug
 - SMILE still does not see at least PROGRA/F4
 
+Fifth slice completed:
+- static `SMILE.SM` analysis shows it reads function keys through `RST 20h / 0x0E = ?GETFO`
+- exported `FLO.ST` constants give the canonical named-bit order:
+  `CHANGE=0x01`, `SEARCH=0x02`, `SHOW=0x04`, `PROGRA=0x08`,
+  `KILL=0x10`, `COPY=0x20`, `CURSOR=0x40`
+- the emulator function-key tables now use that canonical order
+- build and DX0 boot still work after the bit-order change
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|
@@ -546,6 +554,7 @@ SDL mapping (current):
 
 Decision for this branch:
 - keep the seven bottom-row function keys on `F1`..`F7` only
+- use the canonical `FLO.ST` bit values for those seven keys
 - do not add alternate host mappings such as `LCTRL`, `LALT`, `RALT`, `LGUI`, `Home`, `End`, or `Insert`
 
 **Category 2 — regular FIFO keys with special codes** ✅ Done
