@@ -496,10 +496,16 @@ Acceptance criteria for the branch:
 - FLIPPER and SMILE behavior must be revalidated before merge
 
 Planned staging:
-- stage 1: centralize function-key state recomputation and cache mirroring in keyboard code
+- stage 1: centralize function-key state recomputation and cache mirroring in keyboard code  ✅ first slice landed
 - stage 2: route main.c and machine.c function-key updates through keyboard-owned helpers
 - stage 3: re-audit `memory.c` helper-path hacks and keep only the ones still justified by real software behavior
 - stage 4: validate against boot, CLI, FLIPPER, SMILE, and FKTEST
+
+First slice completed:
+- `keyboard.c` now owns helper APIs for clearing all function bits, setting mouse-held function bits, and acknowledging function-key masks
+- `main.c` focus-loss and mouse-button paths now call keyboard-owned helpers instead of writing `fonct_*` fields directly
+- `machine.c` port `0x01` ACK path and reset/injection helpers now call keyboard-owned helpers for function-key clearing/acknowledgment
+- `keyboard.h` CLA comment corrected to match the current hardware-faithful implementation (`FOUND=0 -> fonct_bits & 0x7F`)
 
 SDL mapping (current):
 

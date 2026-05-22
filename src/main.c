@@ -329,9 +329,7 @@ static void main_loop_iter(void)
             if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
                 L->running = 0;
             else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-                L->m->kbd.fonct_keyboard_bits = 0;
-                L->m->kbd.fonct_mouse_bits = 0;
-                L->m->kbd.fonct_bits = 0;
+                keyboard_clear_all_function_bits(L->m);
                 L->m->kbd.host_text_down_count = 0;
                 memset(L->m->kbd.host_text_down, 0, sizeof(L->m->kbd.host_text_down));
             }
@@ -418,8 +416,7 @@ static void main_loop_iter(void)
                 if (ev.button.button == SDL_BUTTON_LEFT &&
                     ev.type == SDL_MOUSEBUTTONUP &&
                     L->m->kbd.fonct_mouse_bits != 0) {
-                    L->m->kbd.fonct_mouse_bits = 0;
-                    L->m->kbd.fonct_bits = L->m->kbd.fonct_keyboard_bits;
+                    keyboard_set_mouse_function_bits(L->m, 0);
                 }
                 for (int i = 0; i < 7; i++) {
                     int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
@@ -428,9 +425,7 @@ static void main_loop_iter(void)
                         ly >= by && ly < by + VIDEO_FKEY_BTN_H) {
                         if (ev.button.button == SDL_BUTTON_LEFT) {
                             if (ev.type == SDL_MOUSEBUTTONDOWN) {
-                                L->m->kbd.fonct_mouse_bits = FKEY_BITS[i];
-                                L->m->kbd.fonct_bits = (uint8_t)(L->m->kbd.fonct_keyboard_bits |
-                                                                 L->m->kbd.fonct_mouse_bits);
+                                keyboard_set_mouse_function_bits(L->m, FKEY_BITS[i]);
                             }
                         }
                         break;

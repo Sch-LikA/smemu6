@@ -33,7 +33,7 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles);
 /*
  * Port 0x00 (CLA) read:
  *   FOUND=1 -> returns the latched ordinary-key code with bit 7 clear
- *   FOUND=0 -> returns 0x80 | fonct_bits for the 7 non-matrix function keys
+ *   FOUND=0 -> returns fonct_bits with bit 7 clear for the 7 non-matrix function keys
  *   Reading CLA clears the FOUND latch and may schedule reassertion if the
  *   same ordinary key remains physically held.
  */
@@ -44,5 +44,11 @@ int     keyboard_found(struct Smaky6 *m);
 
 /* Port 0x01 (STATUS) read: bit 2 mirrors FOUND and bit 3 stays high. */
 uint8_t keyboard_read_status(struct Smaky6 *m);
+
+/* Function-key state ownership lives in the keyboard subsystem.
+ * These helpers recompute the effective bitmask and update any compatibility mirrors. */
+void keyboard_clear_all_function_bits(struct Smaky6 *m);
+void keyboard_set_mouse_function_bits(struct Smaky6 *m, uint8_t bits);
+void keyboard_acknowledge_function_bits(struct Smaky6 *m, uint8_t mask);
 
 #endif /* KEYBOARD_H */

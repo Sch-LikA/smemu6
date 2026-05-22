@@ -204,6 +204,37 @@ static void refresh_function_bits(struct Smaky6 *m)
     m->bus[0x45BEu] = m->kbd.fonct_bits;
 }
 
+void keyboard_clear_all_function_bits(struct Smaky6 *m)
+{
+    m->kbd.fonct_keyboard_bits = 0;
+    m->kbd.fonct_mouse_bits = 0;
+    refresh_function_bits(m);
+}
+
+void keyboard_set_mouse_function_bits(struct Smaky6 *m, uint8_t bits)
+{
+    m->kbd.fonct_mouse_bits = bits & 0x7Fu;
+    refresh_function_bits(m);
+}
+
+void keyboard_acknowledge_function_bits(struct Smaky6 *m, uint8_t mask)
+{
+    uint8_t fkey_mask = mask & 0x7Fu;
+
+    if (fkey_mask == 0x00)
+        return;
+
+    m->kbd.fonct_keyboard_bits &= (uint8_t)~fkey_mask;
+    refresh_function_bits(m);
+
+    if (m->dbg.trace_kbd) {
+        fprintf(stderr, "[kbd] FKEY ACK mask=%02X -> fonct_kb=%02X fonct=%02X\n",
+                (unsigned)fkey_mask,
+                (unsigned)m->kbd.fonct_keyboard_bits,
+                (unsigned)m->kbd.fonct_bits);
+    }
+}
+
 static int matrix_position_uses_text_input(SmakyMatrixPosition position)
 {
     switch (position) {

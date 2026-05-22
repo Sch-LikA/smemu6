@@ -447,6 +447,23 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - continuing directly on `master`: too easy to destabilize the current keyboard path while removing compatibility scaffolding
 - big-bang rewrite with no staged validation: too risky given the number of existing helper paths
 
+### First refactor slice on branch
+
+**Completed:** centralized function-key state mutations behind keyboard-owned helpers.
+
+**What changed:**
+- added keyboard helpers for clearing all function bits, setting mouse-held function bits, and acknowledging function-key masks
+- switched `main.c` focus-loss and mouse paths to those helpers
+- switched `machine.c` port `0x01` ACK and reset/injection paths to those helpers
+- corrected stale public CLA comment in `keyboard.h`
+
+**Why:**
+- this is the smallest safe step toward a hardware-first model with one owning abstraction
+- it reduces the chance of `fonct_keyboard_bits`, `fonct_mouse_bits`, `fonct_bits`, and cache mirrors drifting apart
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully on the refactor branch after the slice landed
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:

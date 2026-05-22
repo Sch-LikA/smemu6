@@ -167,13 +167,7 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
              * corresponding bits from fonct_keyboard_bits to terminate any
              * on-going function key repeat. Bits 0-6 map to F7, F6, F5, F4, F3, F2, F1. */
             uint8_t fkey_mask = data & 0x7Fu;  /* bits 0-6 only */
-            if (fkey_mask != 0x00) {
-                m->kbd.fonct_keyboard_bits &= ~fkey_mask;
-                if (m->dbg.trace_kbd) {
-                    fprintf(stderr, "[kbd] FKEY ACK pc=%04X data=%02X -> fonct_kb=%02X\n",
-                            (unsigned)Z80_PC(m->cpu), data, (unsigned)m->kbd.fonct_keyboard_bits);
-                }
-            }
+            keyboard_acknowledge_function_bits(m, fkey_mask);
 
             /* SAMOS ISR ACK: OUT (0x01), A with data=0x08 acknowledges the 50 Hz
              * frame tick.  No additional keyboard state changes needed beyond fkey ACK. */
@@ -525,9 +519,7 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.caps_lock_active = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
-    m->kbd.fonct_bits = 0;
-    m->kbd.fonct_keyboard_bits = 0;
-    m->kbd.fonct_mouse_bits = 0;
+    keyboard_clear_all_function_bits(m);
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
@@ -549,9 +541,7 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     m->kbd.caps_lock_active = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
-    m->kbd.fonct_bits = 0;
-    m->kbd.fonct_keyboard_bits = 0;
-    m->kbd.fonct_mouse_bits = 0;
+    keyboard_clear_all_function_bits(m);
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
@@ -571,9 +561,7 @@ void machine_release_key(struct Smaky6 *m)
     m->kbd.shift_pressed   = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
-    m->kbd.fonct_bits = 0;
-    m->kbd.fonct_keyboard_bits = 0;
-    m->kbd.fonct_mouse_bits = 0;
+    keyboard_clear_all_function_bits(m);
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
@@ -599,6 +587,7 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.regular_prefix_armed = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
+    keyboard_clear_all_function_bits(m);
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
