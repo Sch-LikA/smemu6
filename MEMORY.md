@@ -531,7 +531,21 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
-- interactive SMILE validation is still pending
+- later interactive revalidation showed FLIPPER still works correctly, including held function keys, with no repeat bug
+- SMILE is still the remaining failing application path
+
+### Application revalidation update
+
+**Observed:** FLIPPER still works fine on the refactor branch.
+
+**Confirmed:**
+- function keys still work in FLIPPER
+- keeping a function key held still works in FLIPPER
+- the earlier repeat bug is still absent in FLIPPER
+
+**Implication:**
+- the current ACK/held-state behavior did not regress the already-working FLIPPER path
+- the remaining keyboard bug is narrower and now appears specific to the SMILE-facing function-key path rather than to generic function-key hold/repeat handling
 
 ### Host mapping decision correction
 

@@ -514,7 +514,7 @@ Remaining gaps versus the latest manual:
 - **Port 0x01 ACK remains emulator policy:** the branch now preserves host-held F-key state across ACK writes, but the exact hardware/software contract still needs interactive SMILE revalidation
 - **Double / triple CLA side effects are not modeled yet:** two `LOAD A,$CLA` within `<5 us` should enter joystick mode, and three should toggle speaker / lamp
 - **Keyboard scan timing is only approximated:** the code models a generic reassert delay, not the documented `300 kHz` scan or the `~3 us` adjacent-key edge case
-- **FLIPPER / SMILE still need branch revalidation:** boot to CLI is confirmed after the current slices, but application-level keyboard behavior still needs explicit regression checks before merge; `FKTEST.SM` is not yet trusted as evidence
+- **SMILE still needs branch revalidation:** boot to CLI is confirmed after the current slices, FLIPPER has now been revalidated successfully, but SMILE still does not see at least PROGRA/F4; `FKTEST.SM` is not yet trusted as evidence
 
 Third slice completed:
 - removed the direct `fonct_bits -> 0x4580` mirror from `refresh_function_bits()`
@@ -525,6 +525,12 @@ Fourth slice completed:
 - port `0x01` ACK no longer clears `fonct_keyboard_bits`, so ACK writes no longer destroy the host-held F-key state
 - DX0 boot to CLI still works after that ACK change
 - interactive SMILE revalidation is still required before treating this as the final fix
+
+Current interactive validation status:
+- FLIPPER still works correctly on this branch
+- holding a function key in FLIPPER still works correctly
+- FLIPPER still shows no repeat bug
+- SMILE still does not see at least PROGRA/F4
 
 SDL mapping (current):
 
