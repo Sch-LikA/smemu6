@@ -576,6 +576,11 @@ Twelfth slice completed:
 - this rollback restores ordinary typing while preserving the separate `PROGRA` function-bit model and the direct `0x4580` mirror
 - build and DX0 boot still work after restoring the ordinary-key CLA prefix
 
+Thirteenth slice completed:
+- corrected the `?GETFO` / `0x457E` interception to match the actual `GETFO` routine window `0x0516..0x0519` instead of the stale single `0x0519` PC check
+- refined root cause: the existing traces already showed the `LD A,(0x457E)` read at `pc=0x0516`, so the narrower hook could miss live function-bit delivery to SMILE even though ordinary matrix input still worked
+- build and DX0 boot still work after the `GETFO` hook correction
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

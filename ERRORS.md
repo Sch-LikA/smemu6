@@ -30,6 +30,7 @@ Check this file before suggesting approaches to similar tasks.
 4. **Attempt 4:** corrected the QWERTZ logical-letter handling inside the FNCT-layer path; the user then returned to `û`, which showed the deeper problem was not host layout any more but the assumption that `PROGRA` should remap the ordinary key through `S471_LAYER_FNCT` at all.
 5. **Attempt 5:** kept `PROGRA` separate from the matrix layer; plain `z` returned, but `PROGRA+END` still echoed the ordinary END glyph, which exposed a different bug: the first ordinary CLA read was still being prefixed as `0x80 | key_code` and could overwrite the function workspace.
 6. **Attempt 6:** removed that first ordinary-key CLA prefix; build and boot still passed, but user validation showed the regression immediately because no normal key worked at the CLI prompt any more.
+7. **Attempt 7:** treated `?GETFO` as a single `pc == 0x0519` read-site; existing traces already showed the actual `0x457E` read at `pc == 0x0516`, so the hook could silently miss live function-bit delivery even though the rest of the function-key path looked correct.
 
 **Current working floor:** keep the normal keyboard path intact: suppress the SDL text bypass, make the `0x0519` / `?GETFO` helper return held function bits directly, do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT`, and keep the audited bit-7-first ordinary CLA delivery for normal post-boot keys.
 

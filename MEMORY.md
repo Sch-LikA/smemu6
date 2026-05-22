@@ -708,6 +708,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - ordinary CLI typing should be restored; simultaneous `PROGRA+ordinary` behavior still needs interactive revalidation
 
+### Thirteenth refactor slice on branch
+
+**Completed:** corrected the `?GETFO` read-hook address window.
+
+**Refined root cause:**
+- the emulator still treated syscall `0x0E` / `?GETFO` as a special case in `memory_read()`
+- that special case keyed off `pc == 0x0519`, but existing trace logs already showed the actual `LD A,(0x457E)` access at `pc = 0x0516`
+- that mismatch can leave SMILE seeing a plain ordinary key with no concurrent function-bit state, even though the canonical function-bit mapping is otherwise correct
+
+**What changed:**
+- `memory_read()` now recognizes the `GETFO` routine across `0x0516..0x0519` when deciding whether to return the current function-key state
+- public comments were updated to stop documenting the stale single-PC assumption
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE revalidation is still required
+
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)

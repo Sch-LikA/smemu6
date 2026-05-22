@@ -11,7 +11,8 @@
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
     if (addr == 0x457Eu) {
-        int is_syscall_0e_read = (uint16_t)Z80_PC(m->cpu) == 0x0519u;
+        uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+        int is_syscall_0e_read = (pc >= 0x0516u && pc <= 0x0519u);
         uint8_t value = is_syscall_0e_read ? keyboard_read_stage1_code(m) : m->bus[addr];
 
         if (m->dbg.trace_flow) {

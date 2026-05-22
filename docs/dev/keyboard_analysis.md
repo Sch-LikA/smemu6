@@ -593,6 +593,11 @@ contains direct references to `0x4580..0x4582`, and they are exactly the already
 known `0x015B` / `0x019B` Stage 2 / 3 sites. So the remaining producer is not an
 obvious second absolute writer in those boot modules.
 
+One stale emulator-side assumption was corrected later: the special `?GETFO`
+read hook had drifted to a single `pc == 0x0519` check, but the trace evidence
+for the actual `LD A,(0x457E)` access already showed `pc == 0x0516`. The hook
+now recognizes the full `0x0516..0x0519` routine window instead of a single PC.
+
 **OS-boundary narrowing (2026-05-13):** for this machine, the OS is only composed of
 the Phantom ROM, `SYS.SY` (SAMOS), and `CLI.SY`. A full disassembly scan of the
 extracted post-boot modules on `Sys1-H.dsk` therefore matters only insofar as it can

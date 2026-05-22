@@ -197,7 +197,11 @@ One more emulator-side policy bug remained after those fixes:
     key code rather than the function key state
 
 The branch now makes `?GETFO` return the held function bits directly and leaves
-ordinary-key staging on the ordinary-key delivery path.
+ordinary-key staging on the ordinary-key delivery path. One more concrete bug
+was found in that compatibility hook itself: the emulator was still treating the
+special read as `pc == 0x0519`, while existing traces showed the actual
+`LD A,(0x457E)` access at `pc == 0x0516`. The current code now recognizes the
+full `GETFO` routine window `0x0516..0x0519` instead.
 
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:
