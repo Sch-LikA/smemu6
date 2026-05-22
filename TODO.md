@@ -541,10 +541,9 @@ Fifth slice completed:
 - build and DX0 boot still work after the bit-order change
 
 Sixth slice completed:
-- `PROGRA` now selects the S471 `FNCT` layer for concurrent matrix-key combinations
-- root cause part 1: the emulator had an `S471_LAYER_FNCT` table but `current_layer()` never selected it, so combinations such as `PROGRA+z` still resolved through the normal layer
-- root cause part 2: text-capable keys such as `z` were also bypassing the matrix path through `SDL_TEXTINPUT`, so plain text injection could still overwrite the intended FNCT-layer combination result
-- build and DX0 boot still work after enabling the `FNCT` layer on `PROGRA`
+- initial hypothesis only: treat `PROGRA` as an S471 `FNCT`-layer selector for concurrent matrix-key combinations
+- later user validation falsified that model for SMILE: it changed plain `z` into remapped bytes (`û`, then `ù`) instead of leaving the ordinary key plain while `PROGRA` stayed a separate function bit
+- the surviving useful part of this investigation was that text-capable keys had to stay on the matrix path while `PROGRA` is held, rather than falling back to plain SDL text injection
 
 Seventh slice completed:
 - text-capable keys now go through the S471 matrix path when `PROGRA/FNCT` is active instead of being skipped as plain SDL text keys
@@ -558,10 +557,14 @@ Eighth slice completed:
 - build and DX0 boot still work after the `?GETFO` fix
 
 Ninth slice completed:
-- FNCT-layer alphabetic shortcuts now prefer SDL logical key symbols instead of raw physical scancodes
-- root cause: on a QWERTZ host, pressing the key labeled `z` arrives as `scancode=Y`, so the previous FNCT matrix lookup resolved the Smaky `y` position and produced `ù`
-- the FNCT path now maps logical `z` to the Smaky `z` key even on non-QWERTY host layouts while keeping the existing scancode-based path for non-letter keys
-- build and DX0 boot still work after the host-layout FNCT fix
+- intermediate hypothesis only: if `PROGRA` really selected the matrix FNCT layer, alphabetic shortcuts would also need logical-letter mapping on QWERTZ hosts
+- later user validation falsified that broader model too, because SMILE still wanted plain `z` rather than an FNCT-layer byte
+
+Tenth slice completed:
+- `PROGRA` no longer changes the matrix layer; it remains a separate function bit while ordinary keys stay on the normal/Shift/Caps lookup path
+- refined root cause: for SMILE assembly shortcuts such as `PROGRA+z`, remapping the ordinary key through `S471_LAYER_FNCT` was itself the bug
+- the `PROGRA` path still forces text-capable keys through matrix delivery instead of plain SDL text injection, so the ordinary key can coexist with the separate function-bit read
+- build and DX0 boot still work after removing `PROGRA` from the matrix-layer selector
 
 SDL mapping (current):
 

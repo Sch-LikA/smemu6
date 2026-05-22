@@ -597,7 +597,7 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ### Sixth refactor slice on branch
 
-**Completed:** enabled the S471 `FNCT` layer when `PROGRA` is held.
+**Completed:** tested the hypothesis that `PROGRA` should enable the S471 `FNCT` layer when held.
 
 **Root cause identified from user validation:**
 - `PROGRA+z` degraded to plain `z` while assembling `HELLO.SR`
@@ -605,26 +605,25 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - but `current_layer()` only considered `shift_pressed` and `caps_lock_active`
 - so concurrent `PROGRA` + matrix-key combinations were always resolved through the normal layer
 
-**What changed:**
-- `current_layer()` now returns `S471_LAYER_FNCT` when `PROGRA` (`fonct_bits & 0x08`) is held
+**What changed at the time:**
+- `current_layer()` was changed to return `S471_LAYER_FNCT` when `PROGRA` (`fonct_bits & 0x08`) was held
 
-**Validation:**
-- `make -C build smemu6 -j4` completed successfully after the change
-- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
-- interactive revalidation of `PROGRA+matrix-key` shortcuts is still required
+**Later correction:**
+- subsequent user tests (`û`, then `ù`) showed that this model was wrong for SMILE shortcuts
+- the final working direction is to keep `PROGRA` as a separate function bit and leave the ordinary key on the normal matrix layer
 
 ### Seventh refactor slice on branch
 
-**Completed:** finished the `PROGRA+matrix-key` fix by correcting the SDL text-input bypass.
+**Completed:** fixed the SDL text-input bypass while the `PROGRA` path is active.
 
 **Refined root cause:**
-- the sixth slice fixed only the S471 layer selector
+- the sixth slice's S471-layer hypothesis was still in place at the time
 - text-capable keys such as `z` were still skipped in `keyboard_event()` when they had SDL text input support
 - their matching `SDL_TEXTINPUT` events then injected plain direct text, which is why `PROGRA+z` could still degrade to plain `z`
 
 **What changed:**
-- text-capable scancodes no longer bypass the matrix path when `PROGRA/FNCT` is active
-- `keyboard_text_event()` now ignores matching SDL text input while the FNCT layer is active
+- text-capable scancodes no longer bypass the matrix path when `PROGRA` is active
+- `keyboard_text_event()` now ignores matching SDL text input while `PROGRA` is active
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
@@ -651,16 +650,33 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ### Ninth refactor slice on branch
 
-**Completed:** corrected the FNCT shortcut host-layout handling for alphabetic keys.
+**Completed:** tested the host-layout hypothesis for alphabetic `PROGRA+letter` shortcuts.
 
 **Refined root cause:**
 - after the `?GETFO` fix, `PROGRA+z` still produced `ù` on the user's machine
 - that value matches the FNCT-layer code for the Smaky `y` position, not `z`
 - the remaining bug was host-layout dependent: on a QWERTZ keyboard, the key labeled `z` arrives from SDL as `scancode=Y`
 
+**Later correction:**
+- this addressed the intermediate `ù` symptom but did not solve the actual behavioral mismatch for SMILE
+- the remaining issue was deeper: SMILE wanted plain `z` plus a separate `PROGRA` bit, not an FNCT-layer ordinary byte at all
+
+### Tenth refactor slice on branch
+
+**Completed:** removed `PROGRA` from the matrix-layer selector.
+
+**Refined root cause:**
+- the static SMILE dispatch preserves the ordinary key separately in `B` and reads `PROGRA` through `?GETFO`
+- treating `PROGRA` as a matrix FNCT-layer selector therefore changed the ordinary key into the wrong byte (`û` / `ù`) instead of leaving it as plain `z`
+
 **What changed:**
-- when the FNCT layer is active, alphabetic matrix shortcuts now prefer `ev->keysym.sym` over the raw scancode
-- this keeps `PROGRA+z` bound to the logical Smaky `z` key on non-QWERTY hosts while leaving the rest of the matrix path unchanged
+- `current_layer()` no longer switches to `S471_LAYER_FNCT` when `PROGRA` is held
+- the existing matrix-path and `?GETFO` fixes remain, so `PROGRA` can coexist with a plain ordinary key instead of rewriting it
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change

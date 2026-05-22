@@ -161,18 +161,18 @@ Later interactive validation narrowed a second, separate issue:
 
 - pressing `PROGRA+z` while assembling `HELLO.SR` produced plain `z`
 
-That symptom is not explained by the bit-order mismatch alone. The emulator
-also had a modeling gap in the matrix-layer selector:
+That symptom is not explained by the bit-order mismatch alone. An early
+emulator hypothesis was that `PROGRA` should also select the S471 `FNCT` layer:
 
 - `keyboard.c` already defined `S471_LAYER_FNCT`
 - but `current_layer()` only considered Shift and Caps Lock
 - so even with `PROGRA` held, a concurrent matrix key still resolved through the
     normal S471 layer
 
-That means combinations such as `PROGRA+z` could never produce their `FNCT`
-layer code until the layer selector was fixed.
-
-The branch now enables `S471_LAYER_FNCT` whenever `PROGRA` (`0x08`) is held.
+That hypothesis turned out to be wrong for SMILE. Later user validation showed
+that changing the ordinary key into an FNCT-layer byte (`û`, then `ù`) was
+itself the bug: SMILE preserves the ordinary key separately and reads `PROGRA`
+through `?GETFO`.
 
 There was also a second implementation bug in the host-input path:
 
@@ -182,8 +182,9 @@ There was also a second implementation bug in the host-input path:
 - so even after the FNCT layer selector was corrected, a `PROGRA+z` press could
     still be overwritten by a plain text `z`
 
-The branch now suppresses `SDL_TEXTINPUT` injection while the FNCT layer is
-active and routes those key presses through the S471 matrix path instead.
+The branch now suppresses `SDL_TEXTINPUT` injection while `PROGRA` is active
+and routes those key presses through the S471 matrix path instead, but leaves
+the ordinary key on the normal/Shift/Caps matrix layers.
 
 One more emulator-side policy bug remained after those fixes:
 
@@ -198,7 +199,8 @@ One more emulator-side policy bug remained after those fixes:
 The branch now makes `?GETFO` return the held function bits directly and leaves
 ordinary-key staging on the ordinary-key delivery path.
 
-One last host-side mismatch remained after that:
+One last host-side mismatch appeared while the wrong FNCT-layer model was still
+in place:
 
 - on a QWERTZ host keyboard, pressing the key labeled `z` reaches SDL as
     `scancode=Y` with logical symbol `z`
@@ -207,8 +209,9 @@ One last host-side mismatch remained after that:
 - that explains the next observed symptom exactly: `PROGRA+z` no longer yielded
     `z` or `û`, but still echoed `ù`
 
-The branch now prefers SDL logical letter symbols for alphabetic FNCT shortcuts,
-so `PROGRA+z` tracks the intended Smaky letter key even on non-QWERTY hosts.
+That host-layout workaround is no longer the controlling fix for SMILE, because
+the final correction is to stop remapping the ordinary key through the FNCT
+layer in the first place.
 
 ## Practical Conclusion
 
@@ -219,9 +222,11 @@ For `SMILE.SM`, the relevant read path is:
 3. return a function-key-related byte in `A`
 4. branch on exact bitmask values inside SMILE
 
-The strongest static explanation for the current `PROGRA` failure is therefore
-**bit assignment mismatch plus a wrong `?GETFO` accessor policy**, not failure of
-SMILE to poll function keys at all.
+The strongest explanation is therefore: the bit assignment had to be corrected,
+the `?GETFO` accessor had to return function bits, and the ordinary key must
+remain plain while `PROGRA` is read separately. SMILE is not failing to poll
+function keys; the emulator was conflating the function-bit path with matrix
+byte remapping.
 
 ## Follow-Up
 

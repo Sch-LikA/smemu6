@@ -373,9 +373,6 @@ static SmakyMatrixPosition lookup_matrix_position(SDL_Scancode scan, SDL_Keycode
 /* Select the active S471 lookup layer from the current modifier state. */
 static S471Layer current_layer(const struct Smaky6 *m)
 {
-    /* PROGRA acts as the hardware FNCT modifier for matrix-key combinations. */
-    if (fnct_layer_active(m))
-        return S471_LAYER_FNCT;
     if (m->kbd.shift_pressed)
         return S471_LAYER_SHIFT;
     if (m->kbd.caps_lock_active)

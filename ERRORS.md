@@ -27,8 +27,9 @@ Check this file before suggesting approaches to similar tasks.
 1. **Attempt 1:** enabled `S471_LAYER_FNCT` for held `PROGRA`; this fixed one real gap, but SMILE still received plain `z` because text-capable keys were bypassing the matrix path through `SDL_TEXTINPUT`.
 2. **Attempt 2:** suppressed `SDL_TEXTINPUT` while the FNCT layer was active; this removed the plain `z`, but SMILE then saw `û` because the `?GETFO` accessor still preferred the staged ordinary byte in `0x457E`.
 3. **Attempt 3:** made `?GETFO` return held function bits directly; that removed the `û`, but the user still got `ù` because the FNCT shortcut path was using raw scancodes and their host keyboard layout was QWERTZ.
+4. **Attempt 4:** corrected the QWERTZ logical-letter handling inside the FNCT-layer path; the user then returned to `û`, which showed the deeper problem was not host layout any more but the assumption that `PROGRA` should remap the ordinary key through `S471_LAYER_FNCT` at all.
 
-**Solution:** fix the whole chain: suppress the SDL text bypass, make the `0x0519` / `?GETFO` helper return held function bits directly, and for alphabetic FNCT shortcuts prefer SDL logical key symbols over raw scancodes.
+**Solution:** fix the whole chain, but keep the two paths separate: suppress the SDL text bypass, make the `0x0519` / `?GETFO` helper return held function bits directly, and do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT` for SMILE-style shortcuts.
 
-**Note for next time:** when a Smaky application combines a function key with an ordinary key, check the whole chain in order: host event path, matrix/text split, `?GETFO` accessor policy, and finally host keyboard layout. A visible progression from `z` to `û` to `ù` means each stage was fixed in turn, with the last one exposing a QWERTZ-vs-QWERTY shortcut mapping bug.
+**Note for next time:** when a Smaky application combines a function key with an ordinary key, check the whole chain in order: host event path, matrix/text split, `?GETFO` accessor policy, host keyboard layout, and finally whether the function key should actually modify the ordinary matrix byte at all. The progression `z -> û -> ù -> û` is a warning sign that the emulator may be mixing two separate concepts: function-bit reads and matrix-layer remapping.
 
