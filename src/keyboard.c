@@ -190,14 +190,11 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
     
-    /* Keep GETFON register (0x4580) current for apps reading it directly (e.g. SMILE ?GETFON).
-     * This ensures 0x4580 is always up-to-date with the current function key state. */
-    m->bus[0x4580u] = m->kbd.fonct_bits;
-    
     /* Also update ?GETFO syscall cache locations (0x45BD, 0x45BE).
      * ?GETFO reads these cached values, not from CLA port. We write them
      * even before boot completes since they're not critical to boot sequence
-     * (0x4580 is the main GETFON register used by SAMOS ISR).
+     * while the hardware-faithful GETFON path continues to flow through CLA
+     * reads and SAMOS ISR updates to 0x4580.
      * 0x45BD: primary function key state
      * 0x45BE: secondary cache (used by ?GETFO for decoding) */
     m->bus[0x45BDu] = m->kbd.fonct_bits;

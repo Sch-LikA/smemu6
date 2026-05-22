@@ -495,6 +495,27 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - the special side effects of two and three consecutive `LOAD A,$CLA`
 - finer-grained scan timing around the documented `300 kHz` keyboard oscillator and `~3 us` adjacent-key case
 
+### Third refactor slice on branch
+
+**Completed:** removed the direct `0x4580` compatibility mirror while keeping the `?GETFO` cache path intact.
+
+**What changed:**
+- `refresh_function_bits()` no longer writes `m->bus[0x4580u]`
+- direct compatibility mirroring is now limited to `0x45BD/0x45BE`
+
+**Why:**
+- page 10.4-2 makes CLA the hardware source of truth for function keys when `FOUND=0`
+- SAMOS Stage 1 already copies that CLA value into `0x4580`, so the emulator-side `0x4580` write was redundant if the hardware model is correct
+- this is the smallest next reduction toward a hardware-first model without disturbing the currently observed `?GETFO` path
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+
+**New floor confirmed for now:**
+- raw SYS.SY bytes still show direct reads from `0x45BD` at `0x0EF8` and `0x45BE` at `0x0EFC`
+- until FLIPPER / SMILE / FKTEST are revalidated with a narrower change, `0x45BD/0x45BE` remain the compatibility floor for `?GETFO`
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:
@@ -510,7 +531,7 @@ This means the hardware-faithful CLA model is:
 - ordinary key latched: read ordinary key code
 - `FOUND=0`: read function-key bitmask directly from CLA
 
-The direct writes to `0x4580` and `0x45BD/0x45BE` remain documented as a compatibility mirror for the currently observed software paths, not as the source of the hardware truth.
+The remaining direct writes to `0x45BD/0x45BE` are documented as a compatibility mirror for the currently observed `?GETFO` software path, not as the source of the hardware truth. `0x4580` has now been returned to the normal SAMOS Stage 1 update path.
 
 ### Discovery: ?GETFO Doesn't Read CLA Directly
 
@@ -540,17 +561,16 @@ No IN (0xDB) opcodes found in ?GETFO code path — confirms it's purely memory-b
 ### Solution: Unconditional Cache Writes (Commit fb6e029)
 
 **Revised Implementation:**
-Remove guard condition and write to both cache locations unconditionally:
+Remove guard condition and write to the `?GETFO` cache locations unconditionally:
 ```c
 /* In refresh_function_bits() */
-m->bus[0x4580u] = m->kbd.fonct_bits;   /* GETFON register (SAMOS ISR) */
 m->bus[0x45BDu] = m->kbd.fonct_bits;   /* ?GETFO cache primary */
 m->bus[0x45BEu] = m->kbd.fonct_bits;   /* ?GETFO cache secondary */
 ```
 
-**Result: Boot works** and SMILE can now detect function keys via ?GETFO.
+**Result:** Boot works with the direct `0x45BD/0x45BE` cache path, and later branch validation also confirmed that boot still works after removing the redundant direct `0x4580` mirror.
 
-**Key Insight:** Unlike 0x4580 (which SAMOS ISR updates), 0x45BD/0x45BE are not critical to boot sequence. Writing them unconditionally is safe.
+**Key Insight:** Unlike `0x4580` (which SAMOS ISR updates from CLA), `0x45BD/0x45BE` are the current software compatibility floor for `?GETFO`. Writing those two unconditionally is safe for boot.
 
 ### Testing Tool: FKTEST.SM
 
