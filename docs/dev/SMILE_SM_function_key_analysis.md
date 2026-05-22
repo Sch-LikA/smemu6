@@ -207,7 +207,15 @@ Another low-level mismatch was corrected afterwards: when no ordinary key was
 latched, the emulator had drifted to returning bare `fonct_bits` from the CLA
 port. The hardware audit notes and `SYS.SY` Stage 1/2 model instead require the
 no-key/function path to be `0x80 | fonct_bits`, so the current code now restores
- that bit-7-set idle/function behavior.
+that bit-7-set idle/function behavior.
+
+The next timing correction narrows the ordinary-key compatibility prefix itself:
+plain post-boot typing still keeps the first `0x80 | key_code` ordinary CLA
+delivery, but simultaneous `PROGRA+ordinary` input no longer uses that prefix.
+The rationale is that SMILE expects the ordinary key to remain plain while the
+function state is read separately; pushing the ordinary key through the same
+Stage 2 workspace path during a held function key appears to be the remaining
+delivery mismatch.
 
 One last host-side mismatch appeared while the wrong FNCT-layer model was still
 in place:

@@ -586,6 +586,11 @@ Fourteenth slice completed:
 - refined root cause: the bit-7-clear idle return was not hardware-faithful and made the no-key/function path look like an ordinary matrix byte source rather than the separate Stage 2 function/no-key path audited in `SYS.SY`
 - build and DX0 boot still work after restoring the hardware-style CLA idle return
 
+Fifteenth slice completed:
+- narrowed the ordinary bit-7 prefix to plain non-function typing only: simultaneous function+ordinary keys now keep the ordinary byte bit-7 clear on first CLA delivery
+- refined root cause: the post-boot compatibility prefix is still needed for plain CLI typing, but forcing the same prefix while `PROGRA` is already held pushes simultaneous ordinary keys onto the Stage 2 workspace path instead of leaving them as plain ordinary bytes alongside the separate function state
+- build and DX0 boot still work after narrowing the simultaneous-key prefix
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

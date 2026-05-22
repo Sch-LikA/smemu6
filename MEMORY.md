@@ -744,6 +744,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE revalidation is still required
 
+### Fifteenth refactor slice on branch
+
+**Completed:** narrowed the ordinary-key bit-7 prefix so it is not used while a function key is already held.
+
+**Refined root cause:**
+- the bit-7-first ordinary CLA prefix is still required for plain post-boot CLI typing
+- but applying that same prefix during simultaneous `PROGRA+ordinary` input likely forces the ordinary key onto the Stage 2 workspace race that the hardware audit already identified as the remaining mismatch
+- the new user symptom (`z` or the END glyph appears briefly, then is deleted) is consistent with SMILE seeing enough of the combination to cancel the visible ordinary key, but still not getting the final hardware-faithful timing it expects
+
+**What changed:**
+- `latch_matrix_key_code()` and `latch_direct_key_code()` now arm the one-shot bit-7 ordinary prefix only when no function bits are currently held
+- plain typing keeps the validated post-boot behavior, while simultaneous function+ordinary keys stay on the plain ordinary CLA path
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE revalidation is still required
+
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)

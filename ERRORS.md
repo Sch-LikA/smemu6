@@ -34,5 +34,7 @@ Check this file before suggesting approaches to similar tasks.
 
 **Current working floor:** keep the normal keyboard path intact: suppress the SDL text bypass, make the `0x0516..0x0519` `?GETFO` helper return held function bits directly, do not let `PROGRA` rewrite the ordinary matrix key through `S471_LAYER_FNCT`, keep the audited bit-7-first ordinary CLA delivery for normal post-boot keys, and keep the no-key/function CLA path on the hardware-style `0x80 | fonct_bits` form.
 
+**Current simultaneous-key hypothesis:** that validated ordinary-key prefix is not globally correct. It appears to be needed for plain prompt typing, but not while a function key is already held; simultaneous `PROGRA+ordinary` input should likely leave the ordinary byte bit-7 clear while the function state stays separate.
+
 **Note for next time:** when a Smaky application combines a function key with an ordinary key, check the whole chain in order: host event path, matrix/text split, `?GETFO` accessor policy, host keyboard layout, whether the function key should modify the ordinary matrix byte at all, and whether a proposed CLA-path change also preserves ordinary CLI typing. A fix that passes build and boot but kills all prompt typing is almost certainly touching the wrong abstraction layer.
 
