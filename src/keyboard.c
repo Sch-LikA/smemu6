@@ -320,6 +320,56 @@ static int fnct_layer_active(const struct Smaky6 *m)
     return (m->kbd.fonct_bits & 0x08u) != 0;
 }
 
+static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)
+{
+    switch (sym) {
+    case SDLK_q: return 17;
+    case SDLK_w: return 18;
+    case SDLK_e: return 19;
+    case SDLK_r: return 20;
+    case SDLK_t: return 21;
+    case SDLK_z: return 22;
+    case SDLK_u: return 23;
+    case SDLK_i: return 24;
+    case SDLK_o: return 25;
+    case SDLK_p: return 26;
+    case SDLK_a: return 33;
+    case SDLK_s: return 34;
+    case SDLK_d: return 35;
+    case SDLK_f: return 36;
+    case SDLK_g: return 37;
+    case SDLK_h: return 38;
+    case SDLK_j: return 39;
+    case SDLK_k: return 40;
+    case SDLK_l: return 41;
+    case SDLK_y: return 49;
+    case SDLK_x: return 50;
+    case SDLK_c: return 51;
+    case SDLK_v: return 52;
+    case SDLK_b: return 53;
+    case SDLK_n: return 54;
+    case SDLK_m: return 55;
+    default:
+        return MATRIX_POS_NONE;
+    }
+}
+
+static SmakyMatrixPosition lookup_matrix_position(SDL_Scancode scan, SDL_Keycode sym, int prefer_logical_letters)
+{
+    if (prefer_logical_letters) {
+        SmakyMatrixPosition logical_position = lookup_letter_matrix_position(sym);
+        if (logical_position != MATRIX_POS_NONE)
+            return logical_position;
+    }
+
+    for (int i = 0; i < (int)(sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0])); i++) {
+        if (HOST_MATRIX_KEYS[i].scan == scan)
+            return HOST_MATRIX_KEYS[i].position;
+    }
+
+    return MATRIX_POS_NONE;
+}
+
 /* Select the active S471 lookup layer from the current modifier state. */
 static S471Layer current_layer(const struct Smaky6 *m)
 {
@@ -613,6 +663,7 @@ void keyboard_frame_tick(struct Smaky6 *m)
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 {
     SDL_Scancode scan = ev->keysym.scancode;
+    SmakyMatrixPosition position;
 
     if (m->dbg.trace_kbd) {
         fprintf(stderr,
@@ -676,14 +727,13 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     if (is_host_text_scancode(scan) && !fnct_layer_active(m))
         return;
 
-    for (int i = 0; i < (int)(sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0])); i++) {
-        if (HOST_MATRIX_KEYS[i].scan == scan) {
-            if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
-                queue_ordinary_key(m, scan, HOST_MATRIX_KEYS[i].position);
-            else
-                latch_matrix_key(m, scan, HOST_MATRIX_KEYS[i].position);
-            return;
-        }
+    position = lookup_matrix_position(scan, ev->keysym.sym, fnct_layer_active(m));
+    if (position != MATRIX_POS_NONE) {
+        if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
+            queue_ordinary_key(m, scan, position);
+        else
+            latch_matrix_key(m, scan, position);
+        return;
     }
 
     if (m->dbg.trace_kbd) {

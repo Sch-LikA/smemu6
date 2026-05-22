@@ -557,6 +557,12 @@ Eighth slice completed:
 - ordinary-key staging in `0x457E` is no longer consumed by the `?GETFO` helper path
 - build and DX0 boot still work after the `?GETFO` fix
 
+Ninth slice completed:
+- FNCT-layer alphabetic shortcuts now prefer SDL logical key symbols instead of raw physical scancodes
+- root cause: on a QWERTZ host, pressing the key labeled `z` arrives as `scancode=Y`, so the previous FNCT matrix lookup resolved the Smaky `y` position and produced `ù`
+- the FNCT path now maps logical `z` to the Smaky `z` key even on non-QWERTY host layouts while keeping the existing scancode-based path for non-letter keys
+- build and DX0 boot still work after the host-layout FNCT fix
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

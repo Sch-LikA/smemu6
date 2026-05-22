@@ -646,9 +646,15 @@ cross-activation.
 
 ### Physical keyboard: strict CLA-centric delivery
 
-`keyboard_event()` now handles physical ordinary keys by host scancode position.  It resolves the
+`keyboard_event()` now handles ordinary keys primarily by host scancode position.  It resolves the
 matrix position through the audited S471 table, then latches the resulting 7-bit code into the
 CLA-visible `found/key_code` state.
+
+One narrow exception now exists for alphabetic FNCT shortcuts: when `PROGRA/FNCT`
+is active, the emulator prefers SDL's logical letter symbol (`ev->keysym.sym`)
+over the raw physical scancode for `A`..`Z`.  That keeps shortcuts such as
+`PROGRA+z` stable on QWERTY and QWERTZ hosts alike while leaving non-letter
+matrix keys on the strict scancode path.
 
 If another ordinary key arrives while one is already latched or awaiting reassertion, the second key
 is stored in `pending_ordinary[8]` together with its already-resolved key code.  That preserves the

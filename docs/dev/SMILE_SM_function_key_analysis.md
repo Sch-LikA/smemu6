@@ -198,6 +198,18 @@ One more emulator-side policy bug remained after those fixes:
 The branch now makes `?GETFO` return the held function bits directly and leaves
 ordinary-key staging on the ordinary-key delivery path.
 
+One last host-side mismatch remained after that:
+
+- on a QWERTZ host keyboard, pressing the key labeled `z` reaches SDL as
+    `scancode=Y` with logical symbol `z`
+- the FNCT shortcut path was still using raw scancode positions, so it resolved
+    the Smaky `y` key and produced `0x19` (`ù`) instead of the Smaky `z` key
+- that explains the next observed symptom exactly: `PROGRA+z` no longer yielded
+    `z` or `û`, but still echoed `ù`
+
+The branch now prefers SDL logical letter symbols for alphabetic FNCT shortcuts,
+so `PROGRA+z` tracks the intended Smaky letter key even on non-QWERTY hosts.
+
 ## Practical Conclusion
 
 For `SMILE.SM`, the relevant read path is:

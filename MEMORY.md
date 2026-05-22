@@ -649,6 +649,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
 
+### Ninth refactor slice on branch
+
+**Completed:** corrected the FNCT shortcut host-layout handling for alphabetic keys.
+
+**Refined root cause:**
+- after the `?GETFO` fix, `PROGRA+z` still produced `ù` on the user's machine
+- that value matches the FNCT-layer code for the Smaky `y` position, not `z`
+- the remaining bug was host-layout dependent: on a QWERTZ keyboard, the key labeled `z` arrives from SDL as `scancode=Y`
+
+**What changed:**
+- when the FNCT layer is active, alphabetic matrix shortcuts now prefer `ev->keysym.sym` over the raw scancode
+- this keeps `PROGRA+z` bound to the logical Smaky `z` key on non-QWERTY hosts while leaving the rest of the matrix path unchanged
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.
