@@ -530,13 +530,17 @@ SDL mapping (current):
 
 |Key|SDL scancode|Host key|
 |---|---|---|
-|CHANGE|`SDL_SCANCODE_END`|End|
-|SEARCH|`SDL_SCANCODE_HOME`|Home|
-|SHOW|`SDL_SCANCODE_INSERT`|Insert|
-|COPY|`SDL_SCANCODE_LALT`|Left Alt|
-|CURSOR|`SDL_SCANCODE_LCTRL`|Left Ctrl|
-|PROGRA|`SDL_SCANCODE_LGUI`|Left Windows / Super|
-|KILL|`SDL_SCANCODE_RALT`|AltGr (Right Alt)|
+|CURSOR|`SDL_SCANCODE_F1`|F1|
+|COPY|`SDL_SCANCODE_F2`|F2|
+|KILL|`SDL_SCANCODE_F3`|F3|
+|PROGRA|`SDL_SCANCODE_F4`|F4|
+|SHOW|`SDL_SCANCODE_F5`|F5|
+|SEARCH|`SDL_SCANCODE_F6`|F6|
+|CHANGE|`SDL_SCANCODE_F7`|F7|
+
+Decision for this branch:
+- keep the seven bottom-row function keys on `F1`..`F7` only
+- do not add alternate host mappings such as `LCTRL`, `LALT`, `RALT`, `LGUI`, `Home`, `End`, or `Insert`
 
 **Category 2 — regular FIFO keys with special codes** ✅ Done
 

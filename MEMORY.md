@@ -533,6 +533,19 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE validation is still pending
 
+### Host mapping decision correction
+
+**Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.
+
+**Why:**
+- the previously written note that mapped them to `LCTRL`, `LALT`, `RALT`, `LGUI`, `Home`, `End`, and `Insert` does not match the live keyboard matrix code
+- some of those host keys are already used elsewhere in the ordinary matrix path, so broad alternate mappings are not a safe drop-in change
+- user explicitly wants the canonical `F1`..`F7` behavior retained and the alternate mappings removed
+
+**Effect:**
+- PROGRA remains `F4`
+- no alternate host mapping is retained for the bottom-row function keys on this branch
+
 ### Correction: FKTEST and the exact ?GETFO entry are not trusted evidence yet
 
 **Corrected understanding:**
