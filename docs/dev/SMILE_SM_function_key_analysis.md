@@ -174,6 +174,17 @@ layer code until the layer selector was fixed.
 
 The branch now enables `S471_LAYER_FNCT` whenever `PROGRA` (`0x08`) is held.
 
+There was also a second implementation bug in the host-input path:
+
+- text-capable keys such as `z` were treated specially through `SDL_TEXTINPUT`
+- before the fix, `keyboard_event()` skipped those scancodes entirely and let
+    `keyboard_text_event()` inject plain direct text
+- so even after the FNCT layer selector was corrected, a `PROGRA+z` press could
+    still be overwritten by a plain text `z`
+
+The branch now suppresses `SDL_TEXTINPUT` injection while the FNCT layer is
+active and routes those key presses through the S471 matrix path instead.
+
 ## Practical Conclusion
 
 For `SMILE.SM`, the relevant read path is:

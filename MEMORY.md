@@ -613,6 +613,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive revalidation of `PROGRA+matrix-key` shortcuts is still required
 
+### Seventh refactor slice on branch
+
+**Completed:** finished the `PROGRA+matrix-key` fix by correcting the SDL text-input bypass.
+
+**Refined root cause:**
+- the sixth slice fixed only the S471 layer selector
+- text-capable keys such as `z` were still skipped in `keyboard_event()` when they had SDL text input support
+- their matching `SDL_TEXTINPUT` events then injected plain direct text, which is why `PROGRA+z` could still degrade to plain `z`
+
+**What changed:**
+- text-capable scancodes no longer bypass the matrix path when `PROGRA/FNCT` is active
+- `keyboard_text_event()` now ignores matching SDL text input while the FNCT layer is active
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.

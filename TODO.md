@@ -542,8 +542,14 @@ Fifth slice completed:
 
 Sixth slice completed:
 - `PROGRA` now selects the S471 `FNCT` layer for concurrent matrix-key combinations
-- root cause: the emulator had an `S471_LAYER_FNCT` table but `current_layer()` never selected it, so combinations such as `PROGRA+z` still resolved through the normal layer and produced plain `z`
+- root cause part 1: the emulator had an `S471_LAYER_FNCT` table but `current_layer()` never selected it, so combinations such as `PROGRA+z` still resolved through the normal layer
+- root cause part 2: text-capable keys such as `z` were also bypassing the matrix path through `SDL_TEXTINPUT`, so plain text injection could still overwrite the intended FNCT-layer combination result
 - build and DX0 boot still work after enabling the `FNCT` layer on `PROGRA`
+
+Seventh slice completed:
+- text-capable keys now go through the S471 matrix path when `PROGRA/FNCT` is active instead of being skipped as plain SDL text keys
+- matching `SDL_TEXTINPUT` events are ignored while the `FNCT` layer is active, so combinations such as `PROGRA+z` are no longer overwritten by plain `z`
+- build and DX0 boot still work after the text-path fix
 
 SDL mapping (current):
 

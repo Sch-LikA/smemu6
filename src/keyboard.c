@@ -315,11 +315,16 @@ static int decode_text_input_code(const char *text, uint8_t *code_out)
     return 0;
 }
 
+static int fnct_layer_active(const struct Smaky6 *m)
+{
+    return (m->kbd.fonct_bits & 0x08u) != 0;
+}
+
 /* Select the active S471 lookup layer from the current modifier state. */
 static S471Layer current_layer(const struct Smaky6 *m)
 {
     /* PROGRA acts as the hardware FNCT modifier for matrix-key combinations. */
-    if (m->kbd.fonct_bits & 0x08u)
+    if (fnct_layer_active(m))
         return S471_LAYER_FNCT;
     if (m->kbd.shift_pressed)
         return S471_LAYER_SHIFT;
@@ -668,7 +673,7 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     if (ev->type != SDL_KEYDOWN || ev->repeat)
         return;
 
-    if (is_host_text_scancode(scan))
+    if (is_host_text_scancode(scan) && !fnct_layer_active(m))
         return;
 
     for (int i = 0; i < (int)(sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0])); i++) {
@@ -693,6 +698,12 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
     uint8_t key_code;
     SDL_Scancode scan = SDL_SCANCODE_UNKNOWN;
     int needs_fresh_text_key = (ev->text[0] != '\0' && ev->text[1] == '\0');
+
+    if (fnct_layer_active(m)) {
+        if (m->dbg.trace_kbd)
+            fprintf(stderr, "[kbd-text] ignored \"%s\" while FNCT layer active\n", ev->text);
+        return;
+    }
 
     if (!decode_text_input_code(ev->text, &key_code)) {
         if (m->dbg.trace_kbd)
