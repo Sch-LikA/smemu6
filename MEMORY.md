@@ -680,16 +680,33 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 ### Eleventh refactor slice on branch
 
-**Completed:** removed the ordinary-key bit-7 prefix from the first CLA delivery.
+**Completed:** tested the hypothesis that removing the ordinary-key bit-7 prefix would fix simultaneous `PROGRA+ordinary` handling.
 
 **Refined root cause:**
 - after keeping `PROGRA` separate from the matrix layer, `PROGRA+END` still echoed the ordinary END glyph instead of triggering SMILE's function-key action
 - the remaining culprit was the `regular_prefix_pending` path: the first ordinary CLA read still returned `0x80 | key_code`
 - that let SAMOS route an ordinary key through the same workspace path used for function/no-key payloads, clobbering live function state with the ordinary key code
 
+**Later correction:**
+- this hypothesis was falsified immediately by user retest: ordinary keyboard input stopped working at the CLI prompt
+- the audited SAMOS model still requires the first ordinary CLA read to be `0x80 | key_code` for normal post-boot typing
+
+### Twelfth refactor slice on branch
+
+**Completed:** restored the bit-7-first ordinary CLA delivery.
+
+**Refined root cause:**
+- removing the prefix broke the normal SAMOS Stage 1 / Stage 3 path for ordinary post-boot input
+- the earlier audit around `pc=0x0162` / `pc=0x0171` remains the controlling evidence: the first ordinary key still needs to appear as `0x80 | key_code`
+
 **What changed:**
-- `keyboard_read_cla()` now returns the latched ordinary key code without forcing bit 7 on the first read
-- the existing `PROGRA` function-bit mirrors remain, so simultaneous function+ordinary input no longer rewrites the function workspace with the ordinary key code
+- `keyboard_read_cla()` again prefixes the first ordinary latched read with bit 7 when `regular_prefix_pending` is set
+- the direct `0x4580` compatibility mirror remains in place from the previous slice
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- ordinary CLI typing should be restored; simultaneous `PROGRA+ordinary` behavior still needs interactive revalidation
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change

@@ -656,11 +656,10 @@ injection, and the emulator may prefer SDL's logical letter symbol
 (`ev->keysym.sym`) over the raw physical scancode for `A`..`Z`.  This keeps a
 plain ordinary key available alongside the separate `PROGRA` function bit.
 
-Another corrected detail now matters for simultaneous function+ordinary input:
-ordinary CLA reads are no longer prefixed as `0x80 | key_code`.  That earlier
-compatibility hack let a normal key enter the same SAMOS workspace path used for
-function/no-key payloads and could overwrite the live GETFON state with the
-ordinary key code itself.
+One tested alternative was to remove the `0x80 | key_code` prefix from the first
+ordinary CLA read. That was falsified by immediate runtime behavior: ordinary CLI
+typing stopped working. So the current model keeps the audited bit-7-first
+ordinary CLA delivery for post-boot keys.
 
 If another ordinary key arrives while one is already latched or awaiting reassertion, the second key
 is stored in `pending_ordinary[8]` together with its already-resolved key code.  That preserves the

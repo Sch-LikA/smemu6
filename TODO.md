@@ -567,10 +567,14 @@ Tenth slice completed:
 - build and DX0 boot still work after removing `PROGRA` from the matrix-layer selector
 
 Eleventh slice completed:
-- the first ordinary CLA read no longer forces `0x80 | key_code`; ordinary keys now stay bit-7 clear on the CLA path
-- refined root cause: that compatibility prefix could overwrite the live GETFON workspace with the ordinary key code during simultaneous `PROGRA+letter` or `PROGRA+END` input
-- this matches the later `PROGRA+END` symptom directly: the right-triangle / chevron echo came from ordinary `END` code `0x04` being routed through the function/no-key path instead of remaining a plain ordinary key
-- build and DX0 boot still work after removing the ordinary-key CLA prefix
+- intermediate hypothesis only: remove the `0x80 | key_code` prefix from the first ordinary CLA read
+- later user validation falsified it immediately: ordinary keyboard input stopped working at the CLI prompt
+
+Twelfth slice completed:
+- restored the bit-7-first ordinary CLA delivery for normal post-boot keys
+- refined root cause: SAMOS still depends on that first `0x80 | key_code` ordinary CLA value to seed the live `0x4580` workspace and reach the CLI buffer path
+- this rollback restores ordinary typing while preserving the separate `PROGRA` function-bit model and the direct `0x4580` mirror
+- build and DX0 boot still work after restoring the ordinary-key CLA prefix
 
 SDL mapping (current):
 

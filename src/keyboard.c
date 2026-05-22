@@ -790,7 +790,10 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         uint8_t value = m->kbd.key_code & 0x7Fu;
         int held = m->kbd.physically_held;
 
-        m->kbd.regular_prefix_pending = 0;
+        if (m->kbd.regular_prefix_pending) {
+            value |= 0x80u;
+            m->kbd.regular_prefix_pending = 0;
+        }
 
         m->kbd.cla_seen_current = 1;
         m->kbd.found = 0;
