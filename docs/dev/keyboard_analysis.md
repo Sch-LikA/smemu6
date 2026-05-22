@@ -630,21 +630,14 @@ bridge, but it is the only defensible remaining place to look.
 | Caller | Path | Destination |
 | ------ | ---- | ----------- |
 | Physical ordinary key (`SDL_KEYDOWN`/`KEYUP`) | Host scancode position → S471 lookup → CLA-visible `found/key_code` latch; overlapping taps queue in `pending_ordinary[8]` until promoted | `SYS.SY` Stage 1 / 2 / 3 / 4 → SAMOS circular buffer → syscall 0x0D (CLI blocking read) |
-| Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned when CLA has no ordinary key latched, and synthesized on syscall `0x0E` reads when `0x457E` has no staged ordinary byte | `0x4580` via GETFON semantics and any callers that poll function-bit state through CLA or syscall `0x0E` |
+| Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned when CLA has no ordinary key latched, and returned directly by the `?GETFO` accessor at `0x0519` | `0x4580` via GETFON semantics and any callers that poll function-bit state through CLA or syscall `0x0E` |
 | Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on virtual-Enter hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
-**Syscall 0x0E and function keys:** syscall `0x0E` still reads `0x457E` directly, while the CLI
-blocking read uses the circular buffer. In the final emulator model, the `0x0519` accessor returns
-the staged ordinary byte from `0x457E` when present; otherwise it synthesizes the currently-held
-`fonct_bits`. This keeps `FLIPPER.SM` and similar direct helper consumers level-sensitive while the
-CLI remains entirely on the circular-buffer path.
-
-One extra validated emulator detail now matters here: the staged ordinary `0x457E` byte cannot
-remain sticky after that direct accessor reads it. A stale `0x457E` value caused the CLI helper to
-keep seeing the same direct key through `0x0519`, which masked later printable keys even though
-they had already been enqueued and dequeued correctly through the circular-buffer path. The held
-function-key value is different: it is synthesized on demand at read time and therefore must not be
-consumed until the host key is actually released.
+**Syscall 0x0E and function keys:** syscall `0x0E` is the function-key helper path. The current
+emulator model now treats the `0x0519` accessor as function-only and returns the currently-held
+`fonct_bits` directly, even when an ordinary key byte is staged in `0x457E`. The CLI blocking read
+remains entirely on the circular-buffer path, and ordinary-key staging remains on the ordinary-key
+delivery side instead of being consumed by `?GETFO`.
 
 **FLIPPER.SM analysis:** `FLIPPER.SM` detects flippers exclusively via syscall 0x0E followed by
 `AND 0xF0` (left flipper: CURSOR, fonct\_bit=`0x10`) and `AND 0x0F` (right flipper: CHANGE,

@@ -45,9 +45,9 @@ int     keyboard_found(struct Smaky6 *m);
 /* Port 0x01 (STATUS) read: bit 2 mirrors FOUND and bit 3 stays high. */
 uint8_t keyboard_read_status(struct Smaky6 *m);
 
-/* Compatibility helper for the SYS.SY / syscall 0x0E accessor that reads 0x457E.
- * This remains keyboard-owned so any synthesized function-bit fallback stays in
- * one subsystem while the hardware-first refactor is in progress. */
+/* Compatibility helper for the SYS.SY / ?GETFO accessor at 0x0519.
+ * Keep this keyboard-owned so the function-key policy stays in one subsystem
+ * while the hardware-first refactor is in progress. */
 uint8_t keyboard_read_stage1_code(struct Smaky6 *m);
 
 /* Function-key state ownership lives in the keyboard subsystem.

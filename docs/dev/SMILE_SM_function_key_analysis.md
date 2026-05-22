@@ -185,6 +185,19 @@ There was also a second implementation bug in the host-input path:
 The branch now suppresses `SDL_TEXTINPUT` injection while the FNCT layer is
 active and routes those key presses through the S471 matrix path instead.
 
+One more emulator-side policy bug remained after those fixes:
+
+- the `?GETFO` compatibility helper at the `0x0519` accessor still preferred the
+    staged ordinary byte in `0x457E`
+- so with `PROGRA+z`, SMILE could receive `A=0x1A` (`û`) from `?GETFO` instead of
+    the held function-bit mask `A=0x08`
+- that matches the later interactive symptom exactly: the shortcut no longer
+    produced plain `z`, but still failed because `?GETFO` was seeing the ordinary
+    key code rather than the function key state
+
+The branch now makes `?GETFO` return the held function bits directly and leaves
+ordinary-key staging on the ordinary-key delivery path.
+
 ## Practical Conclusion
 
 For `SMILE.SM`, the relevant read path is:
@@ -195,7 +208,8 @@ For `SMILE.SM`, the relevant read path is:
 4. branch on exact bitmask values inside SMILE
 
 The strongest static explanation for the current `PROGRA` failure is therefore
-**bit assignment mismatch**, not failure of SMILE to poll function keys at all.
+**bit assignment mismatch plus a wrong `?GETFO` accessor policy**, not failure of
+SMILE to poll function keys at all.
 
 ## Follow-Up
 

@@ -631,6 +631,24 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
 
+### Eighth refactor slice on branch
+
+**Completed:** corrected the `?GETFO` accessor policy for simultaneous function + ordinary keys.
+
+**Refined root cause:**
+- the prior slices fixed the host key path and the text-input bypass
+- but the `0x0519` compatibility helper still preferred the staged ordinary byte in `0x457E`
+- with `PROGRA+z`, SMILE therefore saw `A=0x1A` (`û`) from `?GETFO` instead of the held function bit `A=0x08`
+
+**What changed:**
+- `keyboard_read_stage1_code()` now returns the live held function bits directly
+- the `?GETFO` helper no longer consumes or shadows ordinary-key staging from `0x457E`
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
+
 ### Host mapping decision correction
 
 **Decided:** keep the seven bottom-row function keys on host `F1`..`F7` only.

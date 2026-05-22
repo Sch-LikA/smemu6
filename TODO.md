@@ -551,6 +551,12 @@ Seventh slice completed:
 - matching `SDL_TEXTINPUT` events are ignored while the `FNCT` layer is active, so combinations such as `PROGRA+z` are no longer overwritten by plain `z`
 - build and DX0 boot still work after the text-path fix
 
+Eighth slice completed:
+- the `?GETFO` / `0x0519` compatibility helper now returns held function bits directly instead of preferring the staged ordinary byte in `0x457E`
+- root cause: with `PROGRA+z`, SMILE's `RST 20h / 0x0E = ?GETFO` call was receiving the staged ordinary code `0x1A` (`û`) instead of the held function bit `0x08`
+- ordinary-key staging in `0x457E` is no longer consumed by the `?GETFO` helper path
+- build and DX0 boot still work after the `?GETFO` fix
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|
