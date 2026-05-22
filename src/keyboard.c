@@ -771,6 +771,26 @@ uint8_t keyboard_read_status(struct Smaky6 *m)
     return st;
 }
 
+uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
+{
+    uint8_t value = m->bus[0x457Eu];
+
+    /* Compatibility path: syscall 0x0E historically observes staged ordinary-key
+     * bytes via 0x457E, but some software also expects current function-bit state
+     * when no staged ordinary key is present. Keep that policy local to the
+     * keyboard subsystem while the hardware-first refactor is in progress. */
+    if (value == 0x00u && m->kbd.fonct_bits != 0)
+        value = m->kbd.fonct_bits;
+
+    /* Consume only real staged ordinary-key bytes so helper readers do not keep
+     * seeing the same stale Stage 1 character forever. Synthesized function bits
+     * remain level-held and must not clear the backing state here. */
+    if (m->bus[0x457Eu] != 0x00u)
+        m->bus[0x457Eu] = 0x00u;
+
+    return value;
+}
+
 /* Report the raw FOUND latch state without applying any CLA side effects. */
 int keyboard_found(struct Smaky6 *m)
 {

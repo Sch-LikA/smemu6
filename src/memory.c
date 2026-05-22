@@ -3,6 +3,7 @@
 /* memory.c – Smaky 6 address bus and memory subsystem */
 #include "machine_internal.h"
 #include "memory.h"
+#include "keyboard.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,10 +12,7 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
     if (addr == 0x457Eu) {
         int is_syscall_0e_read = (uint16_t)Z80_PC(m->cpu) == 0x0519u;
-        uint8_t value = m->bus[addr];
-
-        if (is_syscall_0e_read && value == 0x00u && m->kbd.fonct_bits != 0)
-            value = m->kbd.fonct_bits;
+        uint8_t value = is_syscall_0e_read ? keyboard_read_stage1_code(m) : m->bus[addr];
 
         if (m->dbg.trace_flow) {
             uint16_t sp = (uint16_t)Z80_SP(m->cpu);
@@ -27,13 +25,6 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
                     (unsigned)sp,
                     (unsigned)ret);
         }
-        /* Syscall 0x0E reads 0x457E via the 0x0516/0x0519 accessor path.
-         * Consume only real staged ordinary-key bytes there so later helper
-         * polls do not keep seeing the same stale Stage 1 key forever; held
-         * function bits are synthesized on demand and must remain level-held
-         * while the host key stays down. */
-        if (is_syscall_0e_read && m->bus[addr] != 0x00u)
-            m->bus[addr] = 0x00u;
         return value;
     }
     return m->bus[addr];

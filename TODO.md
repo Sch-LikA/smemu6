@@ -507,6 +507,11 @@ First slice completed:
 - `machine.c` port `0x01` ACK path and reset/injection helpers now call keyboard-owned helpers for function-key clearing/acknowledgment
 - `keyboard.h` CLA comment corrected to match the current hardware-faithful implementation (`FOUND=0 -> fonct_bits & 0x7F`)
 
+Second slice completed:
+- the syscall `0x0E` / `0x457E` compatibility helper path is now owned by `keyboard.c` via `keyboard_read_stage1_code()`
+- `memory.c` no longer contains function-key fallback policy directly; it delegates that keyboard-specific decision to the keyboard subsystem
+- DX0 boot to CLI revalidated after the helper move
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

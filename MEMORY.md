@@ -464,6 +464,22 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully on the refactor branch after the slice landed
 
+### Second refactor slice on branch
+
+**Completed:** moved the syscall `0x0E` / `0x457E` compatibility helper path under keyboard ownership.
+
+**What changed:**
+- added `keyboard_read_stage1_code()` to `keyboard.c` / `keyboard.h`
+- changed `memory.c` to delegate the `0x457E` helper-path policy there instead of directly consulting `fonct_bits`
+
+**Why:**
+- `0x457E` fallback behavior is keyboard policy, not generic memory behavior
+- this keeps hardware-primary behavior and compatibility shims in the same subsystem while the branch is being simplified
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:
