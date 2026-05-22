@@ -409,8 +409,7 @@ Now the chain works naturally:
 
 **Result:**
 - FLIPPER: Works (reads 0x457E via syscall 0x0E, or reads CLA directly)
-- SMILE: Works (calls ?GETFON which reads 0x4580, updated by SAMOS ISR Stage 1)
-- Both apps detect function keys correctly
+- SMILE: not yet revalidated; later user testing reported it still had never seen function keys
 - F1-F7 don't echo as characters (never reach character code path)
 - **GETFON updated by OS, not by emulator shortcut** (hardware-faithful)
 
@@ -516,6 +515,35 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - raw SYS.SY bytes still show direct reads from `0x45BD` at `0x0EF8` and `0x45BE` at `0x0EFC`
 - until FLIPPER / SMILE / FKTEST are revalidated with a narrower change, `0x45BD/0x45BE` remain the compatibility floor for `?GETFO`
 
+### Fourth refactor slice on branch
+
+**Completed:** changed the emulator-side port `0x01` ACK handling so it no longer clears the host-held F-key state.
+
+**What changed:**
+- `keyboard_acknowledge_function_bits()` no longer mutates `fonct_keyboard_bits`
+- ACK writes are now treated as software-side acknowledgment only, not as physical host key release
+
+**Why:**
+- `fonct_keyboard_bits` is the host-held F1..F7 state in the current model
+- clearing it from the ACK path collapses two different meanings into one variable: physical host hold state and software-consumed visibility
+- user revalidation says SMILE still has never seen function keys, so the older assumption that the current ACK behavior was correct is no longer credible
+
+**Validation:**
+- `make -C build smemu6 -j4` completed successfully after the change
+- DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
+- interactive SMILE validation is still pending
+
+### Correction: FKTEST and the exact ?GETFO entry are not trusted evidence yet
+
+**Corrected understanding:**
+- `FKTEST.SM` is currently untested and must not be treated as proof of correct function-key behavior
+- the `CALL 0x0EE7` in `FKTEST.SM` is also not trustworthy as a confirmed `?GETFO` entry point
+- a direct blob dump from `SYS.SY` shows that `0x0EE7` sits in the middle of an existing routine, so the earlier conclusion "?GETFO is the callable routine at `0x0EE7`" is not established
+
+**What still remains useful from that investigation:**
+- the nearby SYS.SY code does directly read `0x45BD` and `0x45BE`
+- those addresses are still relevant compatibility state, but the exact callable contract around them needs re-checking from trusted software behavior, especially SMILE itself
+
 ### Documentation Clarification from Smaky6_V4_clean page 10.4-2
 
 The newer manual resolves the remaining ambiguity in the hardware description:
@@ -533,12 +561,12 @@ This means the hardware-faithful CLA model is:
 
 The remaining direct writes to `0x45BD/0x45BE` are documented as a compatibility mirror for the currently observed `?GETFO` software path, not as the source of the hardware truth. `0x4580` has now been returned to the normal SAMOS Stage 1 update path.
 
-### Discovery: ?GETFO Doesn't Read CLA Directly
+### Discovery: nearby SYS.SY code reads 0x45BD/0x45BE directly
 
-**Investigation:** User reported SMILE still couldn't detect function keys despite hardware-faithful CLA fix. Disassembled ?GETFO syscall at address 0x0EE7 in SYS.SY.
+**Investigation:** User reported SMILE still couldn't detect function keys despite hardware-faithful CLA fix. Disassembly around the previously suspected SYS.SY function-key helper path showed direct reads from `0x45BD` and `0x45BE`.
 
 **Key Finding:**
-?GETFO does **NOT** read from CLA port (0x00). It reads cached state from memory locations:
+A nearby SYS.SY routine does **not** read from CLA port (0x00). It reads cached state from memory locations:
 - `0x45BD`: Primary function key state cache
 - `0x45BE`: Secondary cache (used by ?GETFO for decoding)
 
@@ -547,7 +575,7 @@ The remaining direct writes to `0x45BD/0x45BE` are documented as a compatibility
 0x0EF8: LD A,(0x45BD)    ; Read first cache location
 0x0EFC: LD A,(0x45BE)    ; Read second cache location
 ```
-No IN (0xDB) opcodes found in ?GETFO code path — confirms it's purely memory-based.
+No `IN` (`0xDB`) opcodes were found in that nearby read/dispatch path.
 
 ### Problem: 0x45BD Write Caused Boot Hang
 
@@ -574,11 +602,9 @@ m->bus[0x45BEu] = m->kbd.fonct_bits;   /* ?GETFO cache secondary */
 
 ### Testing Tool: FKTEST.SM
 
-Created simple CALM assembly tool to verify ?GETFO functionality:
+Created simple CALM assembly tool intended to probe function-key behavior:
 - **Location:** `private/floppies/extracted/Sys2-2-SMILE/FKTEST.SM`
-- **Behavior:** Calls ?GETFO syscall directly, displays hex state + active key names
-- **Usage:** Type `FKTEST` from CLI prompt
-- **Output:** Continuous loop showing which F1-F7 keys are pressed in real-time
+- **Current status:** untested; do not treat it as proof of the correct syscall entry or return convention yet
 
 **Important:** GUI must be visible for SDL keyboard input. Headless mode (`-no-display-off -scrdump`) cannot receive key presses.
 
@@ -591,13 +617,13 @@ Created simple CALM assembly tool to verify ?GETFO functionality:
 - **CLA (port 0x00):** Returns function key bits when no character latched
 - **0x4580 (GETFON):** Updated by SAMOS ISR Stage 1 (reads from CLA)
 - **0x45BD/0x45BE:** ?GETFO cache locations (emulator writes directly now)
-- **?GETFO syscall (0x0EE7):** Reads from 0x45BD, decodes, returns in A
+- **Exact `?GETFO` entry:** still unresolved; `0x0EE7` is not yet trusted as the callable entry point
 
-### Status: ✅ Complete
-- SMILE and other apps can now detect function keys
-- Hardware-faithful CLA approach maintained
-- Cache locations kept current by emulator
-- Test tool created for verification
+### Status: not yet complete
+- hardware-faithful CLA approach is still the branch target
+- cache locations are still kept current by the emulator where currently modeled
+- user revalidation says SMILE has still never seen function keys so far
+- `FKTEST.SM` exists as a draft probe only and is not yet verification evidence
 
 
 

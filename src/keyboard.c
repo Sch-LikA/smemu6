@@ -221,11 +221,8 @@ void keyboard_acknowledge_function_bits(struct Smaky6 *m, uint8_t mask)
     if (fkey_mask == 0x00)
         return;
 
-    m->kbd.fonct_keyboard_bits &= (uint8_t)~fkey_mask;
-    refresh_function_bits(m);
-
     if (m->dbg.trace_kbd) {
-        fprintf(stderr, "[kbd] FKEY ACK mask=%02X -> fonct_kb=%02X fonct=%02X\n",
+        fprintf(stderr, "[kbd] FKEY ACK mask=%02X (held state unchanged) fonct_kb=%02X fonct=%02X\n",
                 (unsigned)fkey_mask,
                 (unsigned)m->kbd.fonct_keyboard_bits,
                 (unsigned)m->kbd.fonct_bits);

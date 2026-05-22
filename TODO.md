@@ -453,29 +453,26 @@ Implemented:
   mirror does not change the mixed-path result; the surviving first `0x0171`
   payload comes from `SYS.SY` Stage 1 itself, not from a frame-time mirror.
 
-#### ?GETFO Syscall Support  ✅ Implemented
+#### ?GETFO-adjacent cache path  🚧 Under revalidation
 
-The `?GETFO` syscall (address 0x0EE7 in SYS.SY) reads function key state from
-memory cache locations 0x45BD and 0x45BE rather than directly from the CLA port.
-This allows applications like SMILE to detect function keys without reading the
-CLA hardware port.
+Nearby SYS.SY code reads function-key-related state from memory cache locations
+0x45BD and 0x45BE rather than directly from the CLA port. The exact callable
+entry and software contract still need revalidation against trusted behavior,
+especially SMILE itself.
 
 Important distinction:
 - **Hardware fact:** page 10.4-2 documents that when `FOUND=0`, a CLA read itself returns the function-key value
-- **Current software detail:** the observed SYS.SY `?GETFO` implementation reads cached values from `0x45BD/0x45BE`
-- **Current emulator choice:** keep the hardware-faithful CLA behavior, let SAMOS Stage 1 refresh `0x4580` from CLA, and retain only the direct `0x45BD/0x45BE` compatibility mirrors for the observed `?GETFO` path
+- **Current software detail:** observed SYS.SY code near the previously suspected helper path reads cached values from `0x45BD/0x45BE`
+- **Current emulator choice:** keep the hardware-faithful CLA behavior, let SAMOS Stage 1 refresh `0x4580` from CLA, and retain the direct `0x45BD/0x45BE` compatibility mirrors only until SMILE revalidation proves they can be changed safely
 
 **Implementation (commit fb6e029 + refactor follow-up):**
 - `refresh_function_bits()` now writes directly only to `0x45BD/0x45BE` (?GETFO cache)
 - Function key state updates reach `0x4580` through the normal SAMOS Stage 1 CLA read path rather than an emulator-side mirror
-- ?GETFO can now read cached function key state from 0x45BD
 - No guard conditions — the surviving `0x45BD/0x45BE` cache writes don't affect boot (verified safe)
 
 **Testing:**
 - GUI must be visible for keyboard input (headless mode with `-no-display-off` doesn't capture SDL events)
-- A simple test tool `FKTEST.SM` is available in the extracted Sys2-2-SMILE directory
-- Usage: Run emulator with `-floppy floppies/Sys2-2.dsk`, boot to CLI, press `FKTEST` to run
-- The tool calls ?GETFO continuously and displays which keys are pressed
+- `FKTEST.SM` currently exists only as an unvalidated draft probe and must not be treated as evidence yet
 
 #### Hardware-first refactor branch  🚧 In progress
 
@@ -514,15 +511,20 @@ Second slice completed:
 
 Remaining gaps versus the latest manual:
 - **Direct ?GETFO cache mirrors remain:** `refresh_function_bits()` still writes `0x45BD/0x45BE` directly, which is a compatibility choice rather than pure hardware behavior
-- **Port 0x01 ACK remains emulator policy:** needed for current software behavior, but not yet reconciled cleanly with the manual language about keyboard register semantics
+- **Port 0x01 ACK remains emulator policy:** the branch now preserves host-held F-key state across ACK writes, but the exact hardware/software contract still needs interactive SMILE revalidation
 - **Double / triple CLA side effects are not modeled yet:** two `LOAD A,$CLA` within `<5 us` should enter joystick mode, and three should toggle speaker / lamp
 - **Keyboard scan timing is only approximated:** the code models a generic reassert delay, not the documented `300 kHz` scan or the `~3 us` adjacent-key edge case
-- **FLIPPER / SMILE / FKTEST need branch revalidation:** boot to CLI is confirmed after the first two slices, but application-level keyboard behavior still needs explicit regression checks before merge
+- **FLIPPER / SMILE still need branch revalidation:** boot to CLI is confirmed after the current slices, but application-level keyboard behavior still needs explicit regression checks before merge; `FKTEST.SM` is not yet trusted as evidence
 
 Third slice completed:
 - removed the direct `fonct_bits -> 0x4580` mirror from `refresh_function_bits()`
 - DX0 boot to CLI still works without that shortcut, confirming `0x4580` no longer needs an emulator-side mirror for startup
 - SYS.SY still directly reads `0x45BD` at `0x0EF8` and `0x45BE` at `0x0EFC`, so those two compatibility mirrors remain the current floor for `?GETFO`
+
+Fourth slice completed:
+- port `0x01` ACK no longer clears `fonct_keyboard_bits`, so ACK writes no longer destroy the host-held F-key state
+- DX0 boot to CLI still works after that ACK change
+- interactive SMILE revalidation is still required before treating this as the final fix
 
 SDL mapping (current):
 
