@@ -186,6 +186,8 @@ if (fkey_mask != 0x00) {
 
 **Issue:** F1 echoing "à" indicates possible incorrect OS behavior or emulator not properly separating function key bits from character codes
 
+**Superseded by later documentation review:** the newer Smaky6_V4_clean manual page 10.4-2 explicitly states that when `FOUND=0`, the CLA read value corresponds to function keys. The conclusion below remains useful as a record of what the emulator did at the time, but it is no longer the hardware truth.
+
 **ROOT CAUSE FOUND (Line 713 in keyboard.c):**
 When no character is latched (found=0), `keyboard_read_cla()` was returning function key bits:
 ```c
@@ -229,7 +231,7 @@ Function keys are separate from character matrix and should never be returned as
 ✓ All changes committed with clear commit messages
 
 **Decisions Made:**
-- Function key bits must never be mixed into character latch reads (port 0x00)
+- Historical note only: the later manual review contradicted this; hardware actually documents function-key data on CLA when `FOUND=0`
 - Port 0x01 write handler needs to acknowledge/clear function key bits
 - All keyboard-related documentation moved to MEMORY.md (this file)
 
@@ -246,7 +248,7 @@ Function keys are separate from character matrix and should never be returned as
 
 **Key Technical Notes:**
 - Function keys are separate I/O pins from character matrix
-- Port 0x00 (CLA) = character latch area (characters only, NOT function keys)
+- Port 0x00 (CLA) = character latch area for ordinary keys, and function-key bitmask when `FOUND=0`
 - Port 0x01 (status) = function key bits (bits 0-6) + FOUND status (bit 2)
 - Function keys should never produce character output
 
@@ -424,6 +426,23 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 ---
 
 ## Session: May 22, 2026 — ?GETFO Syscall Analysis & Implementation
+
+### Documentation Clarification from Smaky6_V4_clean page 10.4-2
+
+The newer manual resolves the remaining ambiguity in the hardware description:
+- when `FOUND=0`, the value read from CLA corresponds to the function keys
+- bit 7 is sufficient to distinguish `FOUND=0` from `FOUND=1`
+- the keyboard status register is therefore not required for ordinary key/function-key discrimination
+- two consecutive `LOAD A,$CLA` within less than 5 us enter joystick / potentiometer sampling mode for about 5 ms
+- three consecutive `LOAD A,$CLA` toggle the speaker or lamp
+- the keyboard scan oscillator is 300 kHz
+- for two adjacent keys in scan order, only about 3 us separates clear of `FOUND` from reassertion of `FOUND`
+
+This means the hardware-faithful CLA model is:
+- ordinary key latched: read ordinary key code
+- `FOUND=0`: read function-key bitmask directly from CLA
+
+The direct writes to `0x4580` and `0x45BD/0x45BE` remain documented as a compatibility mirror for the currently observed software paths, not as the source of the hardware truth.
 
 ### Discovery: ?GETFO Doesn't Read CLA Directly
 

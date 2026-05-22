@@ -416,14 +416,21 @@ The hardware model (schematic §10.4):
 |Condition|`IN A,(0)` returns|
 |---|---|
 |FOUND=1 (key held)|`key_code & 0x7F`|
-|FOUND=0|`0x80` (idle, function key state in 0x4580)|
+|FOUND=0|`fonct_bits & 0x7F` (function-key bitmask, bit 7 clear)|
 
 STROBE clears FOUND+FULCLA; scanner reasserts within ≤200µs if key still held.
 Identical for Phantom ROM polling, SAMOS ISR, and monitor — no mode flag needed.
 
-Working solution uses port separation:
-- **CLA (port 0x00) read:** returns `0x80` when no character (avoids boot hang caused by function bits)
-- **GETFON (0x4580) register:** kept current via direct write in `refresh_function_bits()` for apps like SMILE
+Confirmed by the newer manual page 10.4-2:
+- **CLA (port 0x00) read:** when `FOUND=0`, the read value corresponds to function keys
+- **Bit 7 alone distinguishes `FOUND=0` vs `FOUND=1`:** the separate keyboard status register is not required for normal reads
+- **Two consecutive `LOAD A,$CLA` (<5 us):** enter joystick / potentiometer sampling mode for about 5 ms
+- **Three consecutive `LOAD A,$CLA`:** toggle the speaker or lamp
+
+Current emulator behavior:
+- **CLA (port 0x00) read:** returns `fonct_bits & 0x7F` when no ordinary key is latched
+- **GETFON (0x4580) register:** also mirrored in `refresh_function_bits()` as compatibility state for current software paths
+- **?GETFO cache (0x45BD/0x45BE):** also mirrored in `refresh_function_bits()` because the current SYS.SY implementation reads those locations
 - **Port 0x01 write:** acknowledges function key presses (prevents infinite repeat)
 
 Implemented:
@@ -431,9 +438,9 @@ Implemented:
 - `keyboard_read_cla()`: if `found` → clear found, re-assert if `physically_held`,
   and for post-boot injected held regular keys make the first CLA read return
   `0x80 | key_code`; otherwise return the normal `key_code & 0x7F`. If `found=0`,
-  return only `0x80` (no function bits) to avoid boot hang.
+  return `fonct_bits & 0x7F` to match the hardware-documented function-key path.
 - `refresh_function_bits()`: updates `fonct_bits` from keyboard and mouse state,
-  then writes it to GETFON register `0x4580` for apps to read (e.g., SMILE ?GETFON).
+  then mirrors it to `0x4580` and `0x45BD/0x45BE` for compatibility with the currently observed SAMOS / SYS.SY helper paths.
 - Port 0x01 write handler: acknowledges function key presses by latching the current
   function key state, preventing infinite repeat on held keys.
 - `physically_held=1` at power-on models FOUND latch SET (4013 FF2). Every CLA read
@@ -453,8 +460,13 @@ memory cache locations 0x45BD and 0x45BE rather than directly from the CLA port.
 This allows applications like SMILE to detect function keys without reading the
 CLA hardware port.
 
+Important distinction:
+- **Hardware fact:** page 10.4-2 documents that when `FOUND=0`, a CLA read itself returns the function-key value
+- **Current software detail:** the observed SYS.SY `?GETFO` implementation reads cached values from `0x45BD/0x45BE`
+- **Current emulator choice:** keep the hardware-faithful CLA behavior and also mirror the same state into `0x4580` and `0x45BD/0x45BE` so both paths see consistent data
+
 **Implementation (commit fb6e029):**
-- `refresh_function_bits()` now writes to both 0x4580 (GETFON) and 0x45BD/0x45BE (?GETFO cache)
+- `refresh_function_bits()` now writes to both 0x4580 (GETFON mirror) and 0x45BD/0x45BE (?GETFO cache)
 - Function key state updates propagate to both locations whenever keys are pressed/released
 - ?GETFO can now read cached function key state from 0x45BD
 - No guard conditions — cache writes don't affect boot (verified safe)
@@ -1062,14 +1074,14 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 #### Root cause (confirmed from schematic doc 10.4)
 
-When FOUND=0, CLA hardware returns `0x80 | fonct_bits`.
+When FOUND=0, CLA hardware returns `fonct_bits` with bit 7 clear.
 SAMOS ISR Stage 1 stores `CLA & 0x7F = fonct_bits` to `0x4580` (GETFON register).
 Stage 2 CLA Read #2 would echo `fonct_bits` as a character — but the old claim that this
 path is permanently blocked by `0x4582=0x80` has been withdrawn pending re-audit.
 
 **Fix — unified hardware-accurate CLA model** ✅ (see refactor item above)
 
-- `keyboard_read_cla()` always returns `0x80 | fonct_bits` when no regular key is held.
+- `keyboard_read_cla()` returns `fonct_bits & 0x7F` when no regular key is held.
 - Stage 1 stores `fonct_bits` to `0x4580` automatically via `AND 0x7F; LD (0x4580),A`.
 - Whether Stage 2 CLA Read #2 is reached post-boot is under re-audit; the old
   `0x4582=0x80` permanent-block explanation is no longer trusted.
