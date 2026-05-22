@@ -566,6 +566,12 @@ Tenth slice completed:
 - the `PROGRA` path still forces text-capable keys through matrix delivery instead of plain SDL text injection, so the ordinary key can coexist with the separate function-bit read
 - build and DX0 boot still work after removing `PROGRA` from the matrix-layer selector
 
+Eleventh slice completed:
+- the first ordinary CLA read no longer forces `0x80 | key_code`; ordinary keys now stay bit-7 clear on the CLA path
+- refined root cause: that compatibility prefix could overwrite the live GETFON workspace with the ordinary key code during simultaneous `PROGRA+letter` or `PROGRA+END` input
+- this matches the later `PROGRA+END` symptom directly: the right-triangle / chevron echo came from ordinary `END` code `0x04` being routed through the function/no-key path instead of remaining a plain ordinary key
+- build and DX0 boot still work after removing the ordinary-key CLA prefix
+
 SDL mapping (current):
 
 |Key|SDL scancode|Host key|

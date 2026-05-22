@@ -228,6 +228,20 @@ remain plain while `PROGRA` is read separately. SMILE is not failing to poll
 function keys; the emulator was conflating the function-bit path with matrix
 byte remapping.
 
+One more delivery bug then showed up with non-letter combinations such as
+`PROGRA+END`:
+
+- even after the matrix/FNCT remap was removed, the first ordinary CLA read was
+    still being prefixed as `0x80 | key_code`
+- that made SAMOS treat a normal ordinary key as a function/no-key payload source
+    for the live workspace path
+- for `END`, the ordinary code `0x04` therefore surfaced as the visible chevron
+    glyph instead of leaving the function state intact for SMILE's command logic
+
+The branch now leaves ordinary CLA reads bit-7 clear, so simultaneous
+`PROGRA+ordinary-key` input no longer overwrites the live function workspace with
+the ordinary key code.
+
 ## Follow-Up
 
 The next code-side check should be to reconcile the emulator's function-key bit

@@ -678,10 +678,23 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
 
+### Eleventh refactor slice on branch
+
+**Completed:** removed the ordinary-key bit-7 prefix from the first CLA delivery.
+
+**Refined root cause:**
+- after keeping `PROGRA` separate from the matrix layer, `PROGRA+END` still echoed the ordinary END glyph instead of triggering SMILE's function-key action
+- the remaining culprit was the `regular_prefix_pending` path: the first ordinary CLA read still returned `0x80 | key_code`
+- that let SAMOS route an ordinary key through the same workspace path used for function/no-key payloads, clobbering live function state with the ordinary key code
+
+**What changed:**
+- `keyboard_read_cla()` now returns the latched ordinary key code without forcing bit 7 on the first read
+- the existing `PROGRA` function-bit mirrors remain, so simultaneous function+ordinary input no longer rewrites the function workspace with the ordinary key code
+
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
-- interactive revalidation of `PROGRA+z` / SMILE assembly shortcuts is still required
+- interactive revalidation of `PROGRA+z` / `PROGRA+END` in SMILE is still required
 
 ### Host mapping decision correction
 

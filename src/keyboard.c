@@ -190,13 +190,13 @@ static void refresh_function_bits(struct Smaky6 *m)
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
     
-    /* Also update ?GETFO syscall cache locations (0x45BD, 0x45BE).
-     * ?GETFO reads these cached values, not from CLA port. We write them
-     * even before boot completes since they're not critical to boot sequence
-     * while the hardware-faithful GETFON path continues to flow through CLA
-     * reads and SAMOS ISR updates to 0x4580.
+    /* Keep the live function-key compatibility mirrors current.
+     * Some software paths still observe GETFON / ?GETFO state through these
+     * derived workspace bytes rather than waiting for the next SAMOS ISR pass.
+     * 0x4580: GETFON register compatibility mirror
      * 0x45BD: primary function key state
      * 0x45BE: secondary cache (used by ?GETFO for decoding) */
+    m->bus[0x4580u] = m->kbd.fonct_bits;
     m->bus[0x45BDu] = m->kbd.fonct_bits;
     m->bus[0x45BEu] = m->kbd.fonct_bits;
 }
@@ -790,10 +790,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         uint8_t value = m->kbd.key_code & 0x7Fu;
         int held = m->kbd.physically_held;
 
-        if (m->kbd.regular_prefix_pending) {
-            value |= 0x80u;
-            m->kbd.regular_prefix_pending = 0;
-        }
+        m->kbd.regular_prefix_pending = 0;
 
         m->kbd.cla_seen_current = 1;
         m->kbd.found = 0;
