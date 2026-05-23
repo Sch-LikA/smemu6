@@ -85,6 +85,20 @@ Read at the start of every session. Never contradict a logged decision without f
 **Open point:**
 - manual confirmation is still needed to prove that the visible SMILE confirmation-line flicker is gone on interactive input
 
+### Decision: keep status-bar mouse function latches outside keyboard one-shot consumption
+
+**Decided:** Restore right-click toggle behavior for the status-bar function buttons and exclude mouse-latched function bits from the keyboard one-shot consumption mask.
+
+**Why:**
+- right-click on the status-bar function keys is intended to create a persistent latch, but the click handler no longer had any right-click toggle branch
+- the newer one-shot function-consumption logic also applied globally, which hid mouse-latched bits after their first use even though they should remain asserted until the user unlatches them
+- the correct scope for one-shot consumption is keyboard-held function bits only; mouse-latched bits are UI-controlled persistent state
+
+**Intended effect:**
+- right-click toggles the selected status-bar function bit on and off again
+- left-click remains a temporary hold released on mouse-up
+- keyboard chord repeat suppression stays intact without breaking mouse latches
+
 
 ## Session: May 20, 2026
 

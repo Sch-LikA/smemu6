@@ -32,6 +32,10 @@ against disassembly or hardware documentation.
   still keep re-exposing the held `PROGRA` bit. The current slice therefore
   suppresses only that later no-key CLA function exposure until release, while
   still letting `?GETFO` see the held function bit for `PROGRA+z` at `pc=0x0524`.
+- Status-bar function-key buttons must keep their original mouse semantics:
+  left-click acts as a hold while pressed, and right-click toggles a persistent
+  latch. The function one-shot logic should apply only to keyboard-held bits,
+  not to mouse-latched bits.
 
 ### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 

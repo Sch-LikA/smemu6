@@ -194,7 +194,9 @@ static void refresh_function_bits(struct Smaky6 *m)
 
 static uint8_t visible_function_bits(const struct Smaky6 *m)
 {
-    return (uint8_t)(m->kbd.fonct_bits & (uint8_t)~m->kbd.fonct_consumed_bits);
+    uint8_t keyboard_visible = (uint8_t)(m->kbd.fonct_keyboard_bits &
+                                         (uint8_t)~m->kbd.fonct_consumed_bits);
+    return (uint8_t)((keyboard_visible | m->kbd.fonct_mouse_bits) & 0x7Fu);
 }
 
 void keyboard_clear_all_function_bits(struct Smaky6 *m)
@@ -832,7 +834,7 @@ uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
      * Ordinary-key delivery stays on the CLA / circular-buffer path instead of
      * being consumed here. */
     uint8_t value = m->kbd.fonct_bits;
-    m->kbd.fonct_consumed_bits |= value;
+    m->kbd.fonct_consumed_bits |= (uint8_t)(value & m->kbd.fonct_keyboard_bits);
     return value;
 }
 

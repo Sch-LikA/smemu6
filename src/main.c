@@ -531,6 +531,14 @@ static void main_loop_iter(void)
                             if (ev.type == SDL_MOUSEBUTTONDOWN) {
                                 keyboard_set_mouse_function_bits(L->m, FKEY_BITS[i]);
                             }
+                        } else if (ev.button.button == SDL_BUTTON_RIGHT &&
+                                   ev.type == SDL_MOUSEBUTTONDOWN) {
+                            uint8_t latched = L->m->kbd.fonct_mouse_bits;
+                            uint8_t bit = FKEY_BITS[i];
+                            keyboard_set_mouse_function_bits(
+                                L->m,
+                                (uint8_t)((latched & bit) ? (latched & (uint8_t)~bit)
+                                                         : (latched | bit)));
                         }
                         break;
                     }
