@@ -77,15 +77,15 @@ your-dsk-tool add floppies/Sys2-2.dsk tmp/calm-hello_smug-build/hello.SR
 
 **Option B: Manual extraction/repacking**
 ```bash
-python3 tools/extract_samos_image.py floppies/Sys2-2.dsk /tmp/sys2-2
-cp tmp/calm-hello_smug-build/hello.SR /tmp/sys2-2/
+python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/sys2-2
+cp tmp/calm-hello_smug-build/hello.SR tmp/sys2-2/
 # (Repack with your DSK tool)
 ```
 
 ### Step 3: Boot Emulator with Screen Capture
 
 ```bash
-./smemu6 floppies/Sys2-2.dsk -scrdump -no-display-off > /tmp/hello_smug.log 2>&1
+./smemu6 floppies/Sys2-2.dsk -scrdump -no-display-off > tmp/hello_smug.log 2>&1
 ```
 
 ### Step 4: Inside Emulator, Assemble with SMILE

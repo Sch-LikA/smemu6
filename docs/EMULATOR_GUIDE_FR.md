@@ -120,6 +120,10 @@ python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hos
 ./smemu6 -floppy-hostdir ../tmp/Sys2-2-hostdir
 ```
 
+`../tools/extract_samos_image.py` conserve cette interface historique, mais
+agit maintenant comme un wrapper autour du flux unifié
+`../smaky6-tools/smaky6_samos.py extract-all ... --metadata --clear`.
+
 > Sur les Smaky 6 équipés d'un Winchester, le disque dur **est** DX0.
 > Le lecteur de disquettes (s'il est installé) occupe l'emplacement DX1.
 > Combiner `-floppy` (DX0) avec `-harddisk` ne correspond pas au matériel réel ;
@@ -153,6 +157,8 @@ Limites actuelles des disquettes issues d'un répertoire hôte :
   métadonnées et l'ordre SAMOS. `tools/extract_samos_image.py` exporte un
   arbre adapté depuis une image `.dsk` existante comme `Sys2-2.dsk`, avec des
   sidecars contenant `flags`, `load`, `entry`, les dates et `start_sector`.
+  Ce script délègue désormais à l'implémentation unifiée
+  `smaky6_samos.py extract-all ... --metadata --clear`.
 - Les noms de fichiers doivent actuellement suivre `NAME.TT` avec un nom de base de 1 à 8 caractères, `_` autorisé, et un type Smaky à 2 caractères connu.
 - L'arborescence hôte peut aussi contenir des répertoires imbriqués `NAME.DR/`. Les entrées à l'intérieur d'un conteneur `.DR` sont encodées avec des numéros de secteur relatifs au début du conteneur, comme sur disque sous SAMOS.
 - Les sidecars optionnels `NAME.TT.meta.json` sont pris en charge pour les fichiers ordinaires et `NAME.DR.meta.json` pour les conteneurs de répertoire. Ils peuvent fournir `type` (validation uniquement), `flags`, `load`, `entry`, `date_month`, `date_year` et `start_sector`.
@@ -410,8 +416,8 @@ Le répertoire `floppies/` du dépôt est l'emplacement conventionnel.
 Utilisez les outils du projet compagnon `../smaky6-tools/` :
 
 ```bash
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk list
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk extract-all private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py list ../floppies/Sys1-H.dsk
+python3 ../smaky6-tools/smaky6_samos.py extract-all ../floppies/Sys1-H.dsk private/extracted/ --metadata --clear
 ```
 
 ### Sous-répertoires (fichiers `.DR`)

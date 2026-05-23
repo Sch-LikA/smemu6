@@ -443,6 +443,7 @@ The S471 PROM is authoritative for keycode generation:
 - Requires metadata preservation: `flags`, `load`, `entry`, dates, sector order
 - Emulator rebuilds with metadata sidecars: `NAME.TT.meta.json` and `NAME.DR.meta.json`
 - Tool: `python3 tools/extract_samos_image.py <disk.dsk> <output-dir>`
+  (wrapper around unified `smaky6_samos.py extract-all ... --metadata --clear`)
 - Rebuild: `./build/smemu6 -floppy-hostdir <hostdir>`
 - Test: `ctest --test-dir build -R smemu6_virtual_floppy_dx0_hostdir_boot`
 

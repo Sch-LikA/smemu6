@@ -65,6 +65,10 @@ python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/Sys2-2-hostdir
 ./build/smemu6 -floppy-hostdir tmp/Sys2-2-hostdir
 ```
 
+`tools/extract_samos_image.py` preserves that repo-local interface, but now
+delegates to the unified `smaky6_samos.py extract-all ... --metadata --clear`
+implementation from the companion `smaky6-tools` project.
+
 That exporter writes host files plus `NAME.TT.meta.json` or `NAME.DR.meta.json`
 sidecars containing:
 

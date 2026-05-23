@@ -134,7 +134,7 @@ Relocatable object (.rel)
 Intel HEX (.ihx)
     ↓ (tools/ihx_to_bin.py)
 Binary (.SM)
-    ↓ (tools/extract_samos_image.py with metadata)
+    ↓ (tools/extract_samos_image.py wrapper / smaky6_samos.py extract-all --metadata --clear)
 Floppy-ready package (with .meta.json sidecar)
 ```
 

@@ -115,6 +115,10 @@ python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hos
 ./smemu6 -floppy-hostdir ../tmp/Sys2-2-hostdir
 ```
 
+`../tools/extract_samos_image.py` keeps that legacy interface but now acts as a
+wrapper around the unified `../smaky6-tools/smaky6_samos.py extract-all ...
+--metadata --clear` workflow.
+
 > On Winchester-equipped Smaky 6 machines the hard disk **is** DX0.
 > The floppy drive (if installed) occupies the DX1 slot.
 > Combining `-floppy` (DX0) with `-harddisk` is not a real hardware
@@ -145,7 +149,8 @@ Current host-directory floppy limitations:
 - Bootable DX0 hostdir media must preserve SAMOS metadata and ordering.
   `tools/extract_samos_image.py` exports a suitable tree from an existing
   floppy image such as `Sys2-2.dsk` by writing sidecars with `flags`, `load`,
-  `entry`, dates, and `start_sector`.
+  `entry`, dates, and `start_sector`. That script now delegates to the unified
+  `smaky6_samos.py extract-all ... --metadata --clear` implementation.
 - Host file names must currently use `NAME.TT` with a 1-8 character base name,
   `_` allowed, and a known 2-character Smaky type.
 - Host trees may also contain nested `NAME.DR/` directories. Entries inside a
@@ -371,8 +376,8 @@ The `floppies/` directory in the repository is the conventional location.
 Use the tools from the companion project `../smaky6-tools/`:
 
 ```bash
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk list
-python3 ../smaky6-tools/smaky6_samos.py disk ../floppies/Sys1-H.dsk extract-all private/extracted/
+python3 ../smaky6-tools/smaky6_samos.py list ../floppies/Sys1-H.dsk
+python3 ../smaky6-tools/smaky6_samos.py extract-all ../floppies/Sys1-H.dsk private/extracted/ --metadata --clear
 ```
 
 ### Subdirectories (`.DR` files)

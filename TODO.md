@@ -119,7 +119,9 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 - That metadata-preserving path now exists via `tools/extract_samos_image.py` +
   `-floppy-hostdir <dir>`: exporting `floppies/Sys2-2.dsk` with preserved
   `start_sector`, `flags`, `load`, `entry`, and date fields produces a DX0
-  hostdir tree that boots to the SAMOS CLI.
+  hostdir tree that boots to the SAMOS CLI. The script now acts as a wrapper
+  around the unified `smaky6_samos.py extract-all ... --metadata --clear`
+  implementation.
 - Maintain a separate technical note for the SAMOS filesystem and boot-media
   contract, so directory layout, file metadata, and DX0 boot requirements live in
   one dedicated reference file instead of being scattered across TODO entries.

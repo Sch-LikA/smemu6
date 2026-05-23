@@ -68,10 +68,10 @@ your-dsk-tool add floppies/Sys2-2.dsk tmp/calm-hello_calm-build/hello.SR
 **Option B: Manual extraction/repacking (more involved)**
 ```bash
 # Extract the floppy contents
-python3 tools/extract_samos_image.py floppies/Sys2-2.dsk /tmp/sys2-2-extract
+python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/sys2-2-extract
 
 # Copy source file
-cp tmp/calm-hello_calm-build/hello.SR /tmp/sys2-2-extract/
+cp tmp/calm-hello_calm-build/hello.SR tmp/sys2-2-extract/
 
 # Repack (requires DSK creation tool — consult your system)
 # Your tool here

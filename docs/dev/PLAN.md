@@ -1131,9 +1131,9 @@ $FLUXENGINE read -c smaky6 -s drive:0 -o smaky6.img
 # Result: 315,392-byte flat image (77 × 16 × 256)
 
 # Day-to-day work should then switch to the Smaky tools:
-python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img list
-python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img extract SYS /tmp/SYS.SY
-python3 ../smaky6-tools/smaky6_samos.py disk smaky6.img image NATHALIE.IM /tmp/nathalie.png
+python3 ../smaky6-tools/smaky6_samos.py list smaky6.img
+python3 ../smaky6-tools/smaky6_samos.py extract smaky6.img SYS tmp/SYS.SY
+python3 ../smaky6-tools/smaky6_samos.py image smaky6.img NATHALIE.IM tmp/nathalie.png
 
 # Capture to a flux file first (for archival / re-reading without the drive):
 $FLUXENGINE read -c smaky6 -s drive:0 --copy-flux-to capture.flux -o smaky6.img

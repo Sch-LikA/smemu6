@@ -137,6 +137,8 @@ otherwise.
 - The repo also now has a repo-local metadata-preserving disk workflow that is
   directly relevant to SDCC packaging experiments:
   - `tools/extract_samos_image.py` exports files with `.meta.json` sidecars
+    via the unified `smaky6_samos.py extract-all ... --metadata --clear`
+    implementation
   - sidecars already preserve `type`, `flags`, `load`, `entry`, `date_month`,
     `date_year`, and `start_sector`
   - `src/virtual_floppy.c` consumes those sidecars when rebuilding a virtual
@@ -576,7 +578,7 @@ otherwise.
   - helper `0x5FE6` starts with `RST 10 / 0x00` and soon compares `A` with
     `0x09` at `0x5FEF`; this still looks like a loader-class or file-kind check,
     but it is **not** a raw on-disk two-letter type comparison. The disk format
-    used by both `tools/extract_samos_image.py` and `src/virtual_floppy.c`
+    used by the unified `smaky6_samos.py` extractor and `src/virtual_floppy.c`
     stores file type as two ASCII bytes such as `SM`, `SY`, `BS`, and `DR` in
     directory-entry bytes `8:10`.
   - a narrower caller-side pass shows the first clearly directory-derived memory
@@ -1929,6 +1931,7 @@ Deliverable:
 - [ ] Reuse the repo-local image and virtual-floppy tooling path where possible.
 - [ ] Prefer the in-repo metadata workflow before adding any new external helper:
   - `tools/extract_samos_image.py` for known-good reference exports
+    (wrapper around the unified `smaky6_samos.py extract-all` path)
   - `.meta.json` sidecars for `type`, `load`, `entry`, `flags`, dates, and
     placement hints
   - `src/virtual_floppy.c` as the first target for packaging experiments
