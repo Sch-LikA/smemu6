@@ -223,6 +223,18 @@ instead removes the unconditional guest-workspace mirrors of `fonct_bits` at
 `0x4580`, `0x45BD`, and `0x45BE`, so the function state is no longer published
 outside the real CLA / `?GETFO` timing path.
 
+An automated headless repro now exists for this scenario as well. With the
+prepared hostdir media on DX0 (`-floppy-hostdir private/floppies/extracted/Sys2-2-SMILE`),
+the emulator can now inject `SMILE HELLO.SR` at the CLI prompt, wait a
+configurable number of frames for the editor to load `HELLO.SR`, then inject a
+simultaneous chord such as `PROGRA+z`.
+
+That scripted repro still shows the same underlying bug. Once `HELLO.SR` is
+visible in SMILE, the automated `PROGRA+z` chord degrades into visible `z`
+input on the source line instead of invoking the expected PROGRA behavior.
+So the new injector is useful as a stable repro harness, but it does not alter
+the remaining simultaneous-key mismatch.
+
 The next remaining compatibility layer is the `?GETFO` override itself. The
 current branch now uses a narrower staged-byte-first policy: inside the audited
 `GETFO` routine window (`0x0516..0x0519`), it returns the staged `0x457E` byte

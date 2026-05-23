@@ -20,6 +20,23 @@ Read at the start of every session. Never contradict a logged decision without f
 - another immediate behavior tweak around `?GETFO` or prefix handling: too likely to reintroduce earlier regressions without resolving the timing question
 - broad new keyboard rewrite without fresh trace evidence: too much risk for the current uncertainty
 
+### Decision: add a scripted chord injector for interactive keyboard repros
+
+**Decided:** Extend the existing CLI injector so headless runs can type a command, wait a configurable number of frames, then assert one simultaneous function-key + ordinary-key chord such as `PROGRA+z`.
+
+**Why:**
+- `SMILE` is interactive, so the remaining simultaneous-key bug is hard to replay in automated validation without a dedicated chord injector
+- the previous injector could only send one ordinary CLA key and explicitly cleared function bits, so it could not model `PROGRA+z`
+- the prepared hostdir media `private/floppies/extracted/Sys2-2-SMILE` now lets the emulator load `HELLO.SR` and replay the exact editor scenario in headless mode
+
+**Validated:**
+- `SMILE HELLO.SR` loads successfully from `-floppy-hostdir private/floppies/extracted/Sys2-2-SMILE`
+- the scripted `PROGRA+z` repro still degenerates into visible `z` input in the SMILE editor, so the injector reproduces the bug but does not fix it
+
+**Rejected:**
+- relying on the stock `Sys2-2.dsk` for this repro: it does not contain `HELLO.SR`
+- adding a broader generic automation layer first: unnecessary when one chord injector is enough to replay the current failure
+
 
 ## Session: May 20, 2026
 

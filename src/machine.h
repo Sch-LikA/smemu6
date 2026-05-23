@@ -88,6 +88,9 @@ void machine_set_phosphor_decay(struct Smaky6 *m, float decay); /* 0.0=instant, 
 /* Inject a key into the keyboard buffer (code=0 → Return/floppy-boot) */
 void machine_inject_key(struct Smaky6 *m, uint8_t code);
 
+/* Inject one simultaneous function-key mask plus ordinary CLA-visible key. */
+void machine_inject_key_chord(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits);
+
 /* Release/clear injected key latch (simulate key-up) */
 void machine_release_key(struct Smaky6 *m);
 

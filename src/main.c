@@ -145,6 +145,8 @@ static void usage(const char *argv0)
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n or \\r for Enter/CR, \\f to wait for next prompt)\n"
         "  -inject-keycode <hex> Inject one raw keyboard code via CLA when CLI prompt appears\n"
+        "  -inject-chord <combo> Inject one function-key chord such as PROGRA+z or 0x08+0x7A\n"
+        "  -inject-chord-delay <f> Frames to wait after the typed command finishes before firing -inject-chord\n"
         "  -inject-at-frame <n> Inject at absolute frame n instead of waiting for CLI prompt\n"
         "  -inject-delay <f> Frames to wait after CLI prompt appears before injection (default 2)\n"
         "  -inject-hold-frames <f> Hold -inject-keycode for this many frames (default 1)\n"
@@ -201,6 +203,13 @@ typedef struct {
     int  inject_keycode_enabled;
     uint8_t inject_keycode;
     int  inject_keycode_done;
+    int  inject_chord_enabled;
+    uint8_t inject_chord_keycode;
+    uint8_t inject_chord_fonct_bits;
+    int  inject_chord_delay_frames;
+    int  inject_chord_release_at;
+    int  inject_chord_done;
+    int  inject_chord_after_frame;
     int  trace;
     /* Timing */
     Uint64 last_tick;
@@ -263,6 +272,101 @@ static int injection_ready(const MainLoopCtx *L, int prompt_now)
     if (L->inject_at_frame >= 0)
         return L->frame_cnt >= L->inject_at_frame;
     return prompt_injection_ready(L, prompt_now);
+}
+
+static int parse_inject_chord(const char *arg, uint8_t *fonct_bits_out, uint8_t *keycode_out)
+{
+    static const struct {
+        const char *name;
+        uint8_t bit;
+    } function_names[] = {
+        { "CURSOR", 0x40u },
+        { "COPY",   0x20u },
+        { "KILL",   0x10u },
+        { "PROGRA", 0x08u },
+        { "SHOW",   0x04u },
+        { "SEARCH", 0x02u },
+        { "CHANGE", 0x01u },
+    };
+    static const struct {
+        const char *name;
+        uint8_t code;
+    } key_names[] = {
+        { "END", 0x04u },
+        { "ESC", 0x06u },
+        { "UNDO", 0x06u },
+        { "TAB", 0x09u },
+        { "ENTER", 0x0Du },
+        { "RETURN", 0x0Du },
+        { "SPACE", 0x20u },
+    };
+
+    const char *plus = strchr(arg, '+');
+    char left[32];
+    char right[32];
+
+    if (!plus)
+        return 0;
+    if ((size_t)(plus - arg) >= sizeof(left))
+        return 0;
+    if (strlen(plus + 1) >= sizeof(right))
+        return 0;
+
+    memcpy(left, arg, (size_t)(plus - arg));
+    left[plus - arg] = '\0';
+    strcpy(right, plus + 1);
+
+    for (char *p = left; *p; p++) {
+        if (*p >= 'a' && *p <= 'z')
+            *p = (char)(*p - ('a' - 'A'));
+    }
+    for (char *p = right; *p; p++) {
+        if (*p >= 'a' && *p <= 'z')
+            *p = (char)(*p - ('a' - 'A'));
+    }
+
+    *fonct_bits_out = 0x00u;
+    *keycode_out = 0x00u;
+
+    for (size_t i = 0; i < sizeof(function_names) / sizeof(function_names[0]); i++) {
+        if (strcmp(left, function_names[i].name) == 0) {
+            *fonct_bits_out = function_names[i].bit;
+            break;
+        }
+    }
+
+    if (*fonct_bits_out == 0x00u) {
+        char *end = NULL;
+        unsigned long bits = strtoul(left, &end, 0);
+        if (!end || *end != '\0' || bits > 0x7Fu)
+            return 0;
+        *fonct_bits_out = (uint8_t)bits;
+    }
+
+    if (strlen(right) == 1) {
+        unsigned char c = (unsigned char)right[0];
+        if (c >= 'A' && c <= 'Z')
+            c = (unsigned char)(c + ('a' - 'A'));
+        *keycode_out = (uint8_t)(c & 0x7Fu);
+        return 1;
+    }
+
+    for (size_t i = 0; i < sizeof(key_names) / sizeof(key_names[0]); i++) {
+        if (strcmp(right, key_names[i].name) == 0) {
+            *keycode_out = key_names[i].code;
+            return 1;
+        }
+    }
+
+    {
+        char *end = NULL;
+        unsigned long code = strtoul(right, &end, 0);
+        if (!end || *end != '\0' || code > 0x7Fu)
+            return 0;
+        *keycode_out = (uint8_t)code;
+    }
+
+    return 1;
 }
 
 static void main_loop_cleanup(void)
@@ -497,6 +601,11 @@ static void main_loop_iter(void)
             L->stage1_release_at = -1;
         }
 
+        if (L->inject_chord_release_at == L->frame_cnt) {
+            machine_release_key(L->m);
+            L->inject_chord_release_at = -1;
+        }
+
         /* Track prompt transitions to distinguish init prompt from post-command prompt */
         int prompt_now = machine_cli_prompt_visible(L->m);
         if (prompt_now != L->prompt_was_visible) {
@@ -573,6 +682,44 @@ static void main_loop_iter(void)
                 L->inject_codes[L->inject_idx] == INJECT_WAIT_FOR_NEXT_PROMPT) {
                 L->inject_idx++;
                 L->inject_at_prompt++;
+            } else if (L->inject_idx >= L->inject_len &&
+                       L->inject_chord_enabled &&
+                       !L->inject_chord_done &&
+                       L->inject_chord_after_frame < 0) {
+                L->inject_chord_after_frame = L->frame_cnt + L->inject_chord_delay_frames;
+                if (L->trace) {
+                    fprintf(stderr,
+                            "[inject] chord armed after typed command; frame=%d target=%d\n",
+                            L->frame_cnt,
+                            L->inject_chord_after_frame);
+                }
+            }
+        }
+
+        if (L->inject_chord_enabled && !L->inject_chord_done) {
+            int chord_ready;
+
+            if (L->inject_len == 0 && L->inject_chord_after_frame < 0 && injection_ready(L, prompt_now)) {
+                L->inject_chord_after_frame = L->frame_cnt + L->inject_chord_delay_frames;
+            }
+
+            chord_ready = (L->inject_chord_after_frame >= 0 &&
+                           L->frame_cnt >= L->inject_chord_after_frame);
+            if (chord_ready) {
+                machine_inject_key_chord(L->m,
+                                         L->inject_chord_keycode,
+                                         L->inject_chord_fonct_bits);
+                L->inject_chord_done = 1;
+                L->inject_chord_release_at = L->frame_cnt + L->inject_hold_frames;
+                if (L->trace || L->m->dbg.trace_kbd) {
+                    fprintf(stderr,
+                            "[inject] chord f=%02X key=%02X fired at frame %d; hold=%d release at %d\n",
+                            (unsigned)L->inject_chord_fonct_bits,
+                            (unsigned)L->inject_chord_keycode,
+                            L->frame_cnt,
+                            L->inject_hold_frames,
+                            L->inject_chord_release_at);
+                }
             }
         }
     }
@@ -688,6 +835,10 @@ int main(int argc, char *argv[])
     int inject_hold_frames = 1;        /* -inject-hold-frames N: hold CLA key for N frames */
     int inject_keycode_enabled = 0;    /* -inject-keycode: inject one key via CLA path */
     uint8_t inject_keycode = 0;
+    int inject_chord_enabled = 0;      /* -inject-chord: inject function-key + ordinary-key combo */
+    uint8_t inject_chord_keycode = 0;
+    uint8_t inject_chord_fonct_bits = 0;
+    int inject_chord_delay_frames = 0; /* -inject-chord-delay N: wait N frames after typed command */
     int display_scale = 1;             /* -scale N: integer pixel scale factor */
     int global_timeout_sec = -1;  /* -1 = auto policy */
     const char *disk_hostdir = NULL;
@@ -780,6 +931,22 @@ int main(int argc, char *argv[])
             }
             inject_keycode_enabled = 1;
             inject_keycode = (uint8_t)v;
+        } else if (strcmp(argv[i], "-inject-chord") == 0 && i + 1 < argc) {
+            if (!parse_inject_chord(argv[++i], &inject_chord_fonct_bits, &inject_chord_keycode)) {
+                fprintf(stderr,
+                        "Invalid -inject-chord value: %s (expected PROGRA+z or 0x08+0x7A)\n",
+                        argv[i]);
+                return 1;
+            }
+            inject_chord_enabled = 1;
+        } else if (strcmp(argv[i], "-inject-chord-delay") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            long v = strtol(argv[++i], &end, 0);
+            if (!end || *end != '\0' || v < 0 || v > 100000) {
+                fprintf(stderr, "Invalid -inject-chord-delay value: %s\n", argv[i]);
+                return 1;
+            }
+            inject_chord_delay_frames = (int)v;
         } else if (strcmp(argv[i], "-inject-hold-frames") == 0 && i + 1 < argc) {
             char *end = NULL;
             long v = strtol(argv[++i], &end, 0);
@@ -1222,6 +1389,13 @@ int main(int argc, char *argv[])
     ctx.inject_keycode_enabled = inject_keycode_enabled;
     ctx.inject_keycode     = inject_keycode;
     ctx.inject_keycode_done = 0;
+    ctx.inject_chord_enabled = inject_chord_enabled;
+    ctx.inject_chord_keycode = inject_chord_keycode;
+    ctx.inject_chord_fonct_bits = inject_chord_fonct_bits;
+    ctx.inject_chord_delay_frames = inject_chord_delay_frames;
+    ctx.inject_chord_release_at = -1;
+    ctx.inject_chord_done = 0;
+    ctx.inject_chord_after_frame = -1;
     ctx.trace              = trace;
     ctx.last_tick          = SDL_GetPerformanceCounter();
     ctx.freq               = SDL_GetPerformanceFrequency();

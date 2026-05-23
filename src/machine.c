@@ -530,8 +530,7 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.reassert_cycles = 0;
 }
 
-/* Inject one ordinary CLA-visible keycode directly into the strict keyboard latch. */
-void machine_inject_key(struct Smaky6 *m, uint8_t code)
+static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits)
 {
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
@@ -543,13 +542,26 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     m->kbd.caps_lock_active = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
-    keyboard_clear_all_function_bits(m);
+    m->kbd.fonct_keyboard_bits = fonct_bits & 0x7Fu;
+    m->kbd.fonct_mouse_bits = 0;
+    m->kbd.fonct_bits = m->kbd.fonct_keyboard_bits;
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
     m->kbd.reassert_pending = 0;
     m->kbd.reassert_cycles = 0;
+}
+
+/* Inject one ordinary CLA-visible keycode directly into the strict keyboard latch. */
+void machine_inject_key(struct Smaky6 *m, uint8_t code)
+{
+    machine_inject_key_state(m, code, 0x00u);
+}
+
+void machine_inject_key_chord(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits)
+{
+    machine_inject_key_state(m, code, fonct_bits);
 }
 
 /* Clear the injected ordinary-key latch and stop any pending reassertion. */
