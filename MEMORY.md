@@ -717,8 +717,8 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 - their matching `SDL_TEXTINPUT` events then injected plain direct text, which is why `PROGRA+z` could still degrade to plain `z`
 
 **What changed:**
-- text-capable scancodes no longer bypass the matrix path when `PROGRA` is active
-- `keyboard_text_event()` now ignores matching SDL text input while `PROGRA` is active
+- text-capable scancodes no longer bypass the matrix path when any function key is active
+- `keyboard_text_event()` now ignores matching SDL text input while any function key is active
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the change

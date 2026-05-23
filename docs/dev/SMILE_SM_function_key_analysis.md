@@ -182,9 +182,9 @@ There was also a second implementation bug in the host-input path:
 - so even after the FNCT layer selector was corrected, a `PROGRA+z` press could
     still be overwritten by a plain text `z`
 
-The branch now suppresses `SDL_TEXTINPUT` injection while `PROGRA` is active
-and routes those key presses through the S471 matrix path instead, but leaves
-the ordinary key on the normal/Shift/Caps matrix layers.
+The branch now suppresses `SDL_TEXTINPUT` injection while any function key is
+active and routes those key presses through the S471 matrix path instead, but
+leaves the ordinary key on the normal/Shift/Caps matrix layers.
 
 One more emulator-side policy bug remained after those fixes:
 

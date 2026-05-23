@@ -316,7 +316,7 @@ static int decode_text_input_code(const char *text, uint8_t *code_out)
 
 static int fnct_layer_active(const struct Smaky6 *m)
 {
-    return (m->kbd.fonct_bits & 0x08u) != 0;
+    return m->kbd.fonct_bits != 0;
 }
 
 static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)

@@ -571,11 +571,11 @@ Fifth slice completed:
 Sixth slice completed:
 - initial hypothesis only: treat `PROGRA` as an S471 `FNCT`-layer selector for concurrent matrix-key combinations
 - later user validation falsified that model for SMILE: it changed plain `z` into remapped bytes (`û`, then `ù`) instead of leaving the ordinary key plain while `PROGRA` stayed a separate function bit
-- the surviving useful part of this investigation was that text-capable keys had to stay on the matrix path while `PROGRA` is held, rather than falling back to plain SDL text injection
+- the surviving useful part of this investigation was that text-capable keys had to stay on the matrix path while a function key is held, rather than falling back to plain SDL text injection
 
 Seventh slice completed:
-- text-capable keys now go through the S471 matrix path when `PROGRA/FNCT` is active instead of being skipped as plain SDL text keys
-- matching `SDL_TEXTINPUT` events are ignored while the `FNCT` layer is active, so combinations such as `PROGRA+z` are no longer overwritten by plain `z`
+- text-capable keys now go through the S471 matrix path when any function key is active instead of being skipped as plain SDL text keys
+- matching `SDL_TEXTINPUT` events are ignored while any function key is active, so combinations such as `PROGRA+z` are no longer overwritten by plain `z`
 - build and DX0 boot still work after the text-path fix
 
 Eighth slice completed:

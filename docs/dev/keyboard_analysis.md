@@ -655,11 +655,11 @@ cross-activation.
 matrix position through the audited S471 table, then latches the resulting 7-bit code into the
 CLA-visible `found/key_code` state.
 
-One narrow exception now exists while `PROGRA` is held: text-capable alphabetic
-keys are still forced through the matrix path rather than plain SDL text
-injection, and the emulator may prefer SDL's logical letter symbol
-(`ev->keysym.sym`) over the raw physical scancode for `A`..`Z`.  This keeps a
-plain ordinary key available alongside the separate `PROGRA` function bit.
+One narrow exception now exists while any function key is held: text-capable
+alphabetic keys are still forced through the matrix path rather than plain SDL
+text injection, and the emulator may prefer SDL's logical letter symbol
+(`ev->keysym.sym`) over the raw physical scancode for `A`..`Z`. This keeps a
+plain ordinary key available alongside the separate held function bit.
 
 One tested alternative was to remove the `0x80 | key_code` prefix from the first
 ordinary CLA read. That was falsified by immediate runtime behavior: ordinary CLI
