@@ -54,6 +54,37 @@ Read at the start of every session. Never contradict a logged decision without f
 **Open point:**
 - this narrows the active SMILE compatibility path, but it does not yet prove that the remaining PROGRA action is fully identical to real hardware
 
+### Decision: suppress ordinary CLA reassert for function-layer chords
+
+**Decided:** Do not arm the normal ordinary-key CLA reassert delay when the same delivery is part of a function-layer chord.
+
+**Why:**
+- the traced `PROGRA+END` path showed the first correct chord delivery latching ordinary `END` (`code=04`) and immediately arming `reassert=1` with the normal scan delay while `fonct=08` was still held
+- that exactly matches the user-visible symptom: the confirmation request first appears stably, then starts flickering after the repeat delay
+- SDL key repeat was already filtered in `keyboard_event()`, so the delayed re-trigger had to come from the emulator's CLA reassert path instead of host auto-repeat events
+
+**Intended effect:**
+- function-layer chords remain one-shot on the ordinary-key side
+- plain ordinary keys keep their existing held-key reassert behavior
+
+### Decision: suppress repeated no-key CLA function exposure after a successful function read
+
+**Decided:** After `?GETFO` has delivered a held function bit, stop re-exposing that same function bit on the later no-key CLA path until the key is released.
+
+**Why:**
+- user retest showed that disabling ordinary `END` reassert alone was not enough: `PROGRA+END` still flickered on the confirmation line
+- the follow-up trace showed the remaining loop was no longer ordinary-key repeat; it was the held `PROGRA` bit staying visible on later no-key CLA reads after the first successful `mem-457e-getfo pc=0524` function read
+- a first broader attempt to consume the bit directly inside `?GETFO` regressed `PROGRA+z`, because that path still needs the later `0x0524` function read to see `08`
+- the narrower fix is therefore: keep `?GETFO` returning the current held function state, but suppress the later no-key CLA re-exposure once that function read has happened
+
+**Validated:**
+- `make -C build smemu6 -j4` still succeeds
+- scripted `PROGRA+z` still reaches `mem-457e-getfo pc=0524` with `08`
+- scripted `PROGRA+END` now shows `mem-457e-getfo pc=0524` returning `08`, followed by later no-key CLA reads returning `0x80` rather than re-exposing `0x88`
+
+**Open point:**
+- manual confirmation is still needed to prove that the visible SMILE confirmation-line flicker is gone on interactive input
+
 
 ## Session: May 20, 2026
 

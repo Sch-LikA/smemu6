@@ -182,6 +182,7 @@ static void refresh_function_bits(struct Smaky6 *m)
     uint8_t old_bits = m->kbd.fonct_bits;
     m->kbd.fonct_bits = (uint8_t)((m->kbd.fonct_keyboard_bits |
                                    m->kbd.fonct_mouse_bits) & 0x7Fu);
+    m->kbd.fonct_consumed_bits &= m->kbd.fonct_bits;
     if (m->dbg.trace_kbd && old_bits != m->kbd.fonct_bits) {
         fprintf(stderr, "[kbd] fonct_bits changed: 0x%02X -> 0x%02X (kbd=0x%02X mouse=0x%02X)\n",
                 (unsigned)old_bits,
@@ -191,8 +192,14 @@ static void refresh_function_bits(struct Smaky6 *m)
     }
 }
 
+static uint8_t visible_function_bits(const struct Smaky6 *m)
+{
+    return (uint8_t)(m->kbd.fonct_bits & (uint8_t)~m->kbd.fonct_consumed_bits);
+}
+
 void keyboard_clear_all_function_bits(struct Smaky6 *m)
 {
+    m->kbd.fonct_consumed_bits = 0;
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
     refresh_function_bits(m);
@@ -609,6 +616,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.fonct_keyboard_bits = 0;
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = 0;
+    m->kbd.fonct_consumed_bits = 0;
     
 }
 
@@ -779,6 +787,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
     if (m->kbd.found) {
         uint8_t value = m->kbd.key_code & 0x7Fu;
         int held = m->kbd.physically_held;
+        int chord_repeat = held && (m->kbd.fonct_bits != 0);
 
         if (m->kbd.regular_prefix_pending) {
             value |= 0x80u;
@@ -787,10 +796,12 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
 
         m->kbd.cla_seen_current = 1;
         m->kbd.found = 0;
-        if (held) {
+        if (held && !chord_repeat) {
             m->kbd.reassert_pending = 1;
             m->kbd.reassert_cycles = SMAKY6_SCAN_REASSERT_TSTATES;
         } else {
+            if (chord_repeat)
+                m->kbd.physically_held = 0;
             m->bus[0x4558u] = 0;
             m->bus[0x4577u] = 0;
         }
@@ -802,7 +813,7 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
      * function/no-key state on the bit-7-set CLA path, so SAMOS Stage 1 can
      * distinguish it from ordinary matrix bytes while still recovering the
      * function bits with AND 0x7F. */
-    return (uint8_t)(0x80u | (m->kbd.fonct_bits & 0x7Fu));
+    return (uint8_t)(0x80u | visible_function_bits(m));
 }
 
 /* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */
@@ -820,7 +831,9 @@ uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
      * function-bit state even while an ordinary key byte is staged in 0x457E.
      * Ordinary-key delivery stays on the CLA / circular-buffer path instead of
      * being consumed here. */
-    return m->kbd.fonct_bits;
+    uint8_t value = m->kbd.fonct_bits;
+    m->kbd.fonct_consumed_bits |= value;
+    return value;
 }
 
 void keyboard_trace_snapshot(struct Smaky6 *m, const char *site,

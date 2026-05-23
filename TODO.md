@@ -22,6 +22,16 @@ against disassembly or hardware documentation.
   `pc=0x0524`, outside the current `0x0516..0x0519` compatibility hook.
   Test the smallest possible widening there before changing broader keyboard
   timing behavior.
+- Latest traced `PROGRA+END` repro shows the first chord delivery still arming
+  ordinary CLA reassert (`code=04`, `reassert=1`, `cycles=400`) while
+  `fonct=08` is held. That matches the delayed confirmation-line flicker
+  report, so function-layer chords should stay one-shot on the ordinary-key
+  side.
+- Follow-up trace showed that disabling the ordinary reassert was not enough by
+  itself: after the first successful `?GETFO` read, the no-key CLA path could
+  still keep re-exposing the held `PROGRA` bit. The current slice therefore
+  suppresses only that later no-key CLA function exposure until release, while
+  still letting `?GETFO` see the held function bit for `PROGRA+z` at `pc=0x0524`.
 
 ### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 

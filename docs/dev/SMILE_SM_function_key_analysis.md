@@ -248,6 +248,26 @@ well. In the scripted `PROGRA+z` hostdir repro, that change removes the visible
 the final PROGRA action is fully hardware-faithful, but it does show that the
 active SMILE path was still missing one real function-read window.
 
+One more repeat-shaped bug then remained on `PROGRA+END`. Tracing that path
+showed two separate sources of repeat pressure:
+
+- the first chord delivery still armed the ordinary `END` CLA reassert path
+    (`code=04`, `reassert=1`, normal scan-delay countdown)
+- even after disabling that ordinary reassert, the later no-key CLA path could
+    still keep re-exposing the held `PROGRA` bit after the first successful
+    `?GETFO` read, which matches the confirmation-line flicker report more closely
+
+The current branch now uses a narrower one-shot rule for that second part:
+
+- `?GETFO` still returns the current held function state, so `PROGRA+z` keeps
+    seeing `08` on the later `pc=0x0524` read
+- once that function read has happened, the later no-key CLA path stops
+    re-exposing the same held function bit until release
+
+In the traced hostdir repros, that leaves the working `PROGRA+z` path intact
+while changing the `PROGRA+END` follow-up CLA reads from repeated `0x88`-style
+function/no-key exposures to plain `0x80` idle/no-key reads.
+
 The next remaining compatibility layer is the `?GETFO` override itself. The
 current branch now uses a narrower staged-byte-first policy: inside the audited
 `GETFO` routine window (`0x0516..0x0519`), it returns the staged `0x457E` byte
