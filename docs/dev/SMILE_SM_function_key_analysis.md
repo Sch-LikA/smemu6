@@ -235,6 +235,19 @@ input on the source line instead of invoking the expected PROGRA behavior.
 So the new injector is useful as a stable repro harness, but it does not alter
 the remaining simultaneous-key mismatch.
 
+The next traced refinement narrowed one more compatibility boundary. In the
+repeated-`z` scripted repro, the later function-read path was not using the
+already-audited `0x0516..0x0519` `0x457E` window. The active read in that SMILE
+path appears at `pc=0x0524`, and the previous code treated that access as a raw
+ordinary-byte read.
+
+The current branch now widens the compatibility hook to include `pc=0x0524` as
+well. In the scripted `PROGRA+z` hostdir repro, that change removes the visible
+`z` flood from the source line: the post-chord screen stays on the loaded
+`HELLO.SR` text instead of repeatedly writing `z`. This does not yet prove that
+the final PROGRA action is fully hardware-faithful, but it does show that the
+active SMILE path was still missing one real function-read window.
+
 The next remaining compatibility layer is the `?GETFO` override itself. The
 current branch now uses a narrower staged-byte-first policy: inside the audited
 `GETFO` routine window (`0x0516..0x0519`), it returns the staged `0x457E` byte

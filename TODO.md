@@ -18,6 +18,10 @@ against disassembly or hardware documentation.
 - Add a small scripted chord injector for interactive programs so headless runs
   can type a CLI command, wait a configurable number of frames, then assert a
   simultaneous function-key + ordinary-key combination such as `PROGRA+z`.
+- Latest traced repro shows the repeated-`z` SMILE path reaching `0x457E` at
+  `pc=0x0524`, outside the current `0x0516..0x0519` compatibility hook.
+  Test the smallest possible widening there before changing broader keyboard
+  timing behavior.
 
 ### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 

@@ -37,6 +37,23 @@ Read at the start of every session. Never contradict a logged decision without f
 - relying on the stock `Sys2-2.dsk` for this repro: it does not contain `HELLO.SR`
 - adding a broader generic automation layer first: unnecessary when one chord injector is enough to replay the current failure
 
+### Decision: widen the 0x457E function-read hook to include pc=0x0524
+
+**Decided:** Treat the observed `0x457E` read at `pc=0x0524` as part of the same function-key compatibility path as the existing `0x0516..0x0519` window.
+
+**Why:**
+- the traced `PROGRA+z` SMILE repro showed the plain-`z` failure path reaching `0x457E` at `pc=0x0524`, outside the old hook window
+- in that state, Stage 1 had already promoted the ordinary `z` byte, but the later SMILE-side function read still needed the held function-key interpretation instead of a raw `0x457E` value
+- widening the hook is a smaller and more falsifiable change than reopening broader Stage 1 / Stage 2 timing logic immediately
+
+**Validated:**
+- `make -C build smemu6 -j4` still succeeds
+- standard DX0 headless boot still reaches `* -`
+- in the scripted `SMILE HELLO.SR` hostdir repro, widening the hook removes the repeated visible `z` flood from the editor line; the post-chord screen remains on the loaded source text instead
+
+**Open point:**
+- this narrows the active SMILE compatibility path, but it does not yet prove that the remaining PROGRA action is fully identical to real hardware
+
 
 ## Session: May 20, 2026
 

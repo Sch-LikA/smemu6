@@ -45,7 +45,9 @@ int     keyboard_found(struct Smaky6 *m);
 /* Port 0x01 (STATUS) read: bit 2 mirrors FOUND and bit 3 stays high. */
 uint8_t keyboard_read_status(struct Smaky6 *m);
 
-/* Compatibility helper for the SYS.SY / ?GETFO accessor routine at 0x0516..0x0519.
+/* Compatibility helper for the observed SYS.SY / SMILE function-key accessor reads.
+ * The current audited windows are 0x0516..0x0519 and the later 0x0524 read seen
+ * in the scripted simultaneous-key repro.
  * Keep this keyboard-owned so the function-key policy stays in one subsystem
  * while the hardware-first refactor is in progress. */
 uint8_t keyboard_read_stage1_code(struct Smaky6 *m);
