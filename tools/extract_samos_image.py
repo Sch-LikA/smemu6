@@ -35,6 +35,9 @@ def parse_entries(image: bytes, dir_sector: int, container_start_sector: int):
         entry = image[base + index * ENTRY_SIZE: base + (index + 1) * ENTRY_SIZE]
         if entry == b"\x00" * ENTRY_SIZE:
             continue
+        # Skip free entries (marked with 0xe5, like FAT filesystems)
+        if entry[0] == 0xe5:
+            continue
         name = decode_name(entry[0:8])
         file_type = decode_type(entry[8:10])
         if not name or not file_type.strip():
