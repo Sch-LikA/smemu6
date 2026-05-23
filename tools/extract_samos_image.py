@@ -17,11 +17,11 @@ def usage() -> int:
 
 
 def decode_name(raw: bytes) -> str:
-    return raw.decode("ascii", errors="strict").rstrip(" \x00")
+    return raw.decode("ascii", errors="strict").replace("\x00", "").rstrip(" ")
 
 
 def decode_type(raw: bytes) -> str:
-    return raw.decode("ascii", errors="strict").rstrip(" \x00")
+    return raw.decode("ascii", errors="strict").replace("\x00", "").rstrip(" ")
 
 
 def bcd_to_int(value: int) -> int:
