@@ -433,6 +433,7 @@ static void show_help(SDL_Window *parent)
         "\n"
         "Keyboard mapping\n"
         "  F1..F7       = function keys\n"
+        "  Arrow keys   = CURSOR+r/d/f/c aliases\n"
         "  F9           = DEFINE     End        = code 04h\n"
         "  Escape       = ESC/UNDO   Backspace = BS\n"
         "  Tab          = TAB        Return    = CR\n"

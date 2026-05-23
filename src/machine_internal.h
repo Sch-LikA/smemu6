@@ -78,6 +78,7 @@ struct Smaky6 {
         uint8_t  fonct_bits;        /* current effective state of the 7 bottom-row function keys */
         uint8_t  fonct_consumed_bits; /* function bits already delivered; re-expose only after release */
         uint8_t  fonct_keyboard_bits; /* host F1..F7 state */
+        uint8_t  cursor_alias_sources; /* held host arrow-key aliases synthesizing CURSOR+r/d/f/c */
         uint8_t  fonct_mouse_bits;  /* status-bar button hold state */
     } kbd;
 

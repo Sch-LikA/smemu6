@@ -274,6 +274,7 @@ audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 - `F5`: **SHOW** function key.
 - `F6`: **SEARCH** function key.
 - `F7`: **CHANGE** function key.
+- `Arrow keys`: host aliases for the documented `CURSOR+r/d/f/c` combinations (`Up/Left/Right/Down`).
 - `F9`: **DEFINE** (`0x1F`) via the current strict matrix map.
 - `End`: current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted).
 - `F11` or `Pause`: **BREAK** (top-right key), triggers NMI and drops into SYSMON monitor.

@@ -543,6 +543,7 @@ static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fon
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.fonct_keyboard_bits = fonct_bits & 0x7Fu;
+    m->kbd.cursor_alias_sources = 0;
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = m->kbd.fonct_keyboard_bits;
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;

@@ -646,6 +646,15 @@ SDL mapping (current):
 |SEARCH|`SDL_SCANCODE_F6`|F6|
 |CHANGE|`SDL_SCANCODE_F7`|F7|
 
+Host arrow-key aliases (current):
+
+|Smaky chord|SDL scancode|Host key|
+|---|---|---|
+|`CURSOR+r`|`SDL_SCANCODE_UP`|Up Arrow|
+|`CURSOR+d`|`SDL_SCANCODE_LEFT`|Left Arrow|
+|`CURSOR+f`|`SDL_SCANCODE_RIGHT`|Right Arrow|
+|`CURSOR+c`|`SDL_SCANCODE_DOWN`|Down Arrow|
+
 Decision for this branch:
 - keep the seven bottom-row function keys on `F1`..`F7` only
 - use the canonical `FLO.ST` bit values for those seven keys

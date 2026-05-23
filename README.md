@@ -561,6 +561,7 @@ host text-input passthrough.
 - `Tab`: Smaky TAB (`0x09`).
 - `Enter / Return`: Smaky CR (`0x0D`).
 - `F1`..`F7`: Smaky function-key bits CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE.
+- `Arrow keys`: host aliases for the documented `CURSOR+r/d/f/c` combinations (`Up/Left/Right/Down`).
 - `F9`: DEFINE (`0x1F`) via the current strict matrix map.
 - `F11` / `Pause`: BREAK, top-right key; fires NMI and drops into SAMOS monitor.
 - `Shift+F11` / `Shift+Pause`: SHIFT+BREAK, hard reset and reboot from DX0:.

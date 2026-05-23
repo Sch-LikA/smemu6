@@ -180,21 +180,25 @@ static const AccentEntry ACCENT_TABLE[] = {
 static void refresh_function_bits(struct Smaky6 *m)
 {
     uint8_t old_bits = m->kbd.fonct_bits;
-    m->kbd.fonct_bits = (uint8_t)((m->kbd.fonct_keyboard_bits |
+    uint8_t keyboard_bits = (uint8_t)(m->kbd.fonct_keyboard_bits |
+                                      (m->kbd.cursor_alias_sources ? 0x40u : 0x00u));
+    m->kbd.fonct_bits = (uint8_t)((keyboard_bits |
                                    m->kbd.fonct_mouse_bits) & 0x7Fu);
     m->kbd.fonct_consumed_bits &= m->kbd.fonct_bits;
     if (m->dbg.trace_kbd && old_bits != m->kbd.fonct_bits) {
-        fprintf(stderr, "[kbd] fonct_bits changed: 0x%02X -> 0x%02X (kbd=0x%02X mouse=0x%02X)\n",
+        fprintf(stderr, "[kbd] fonct_bits changed: 0x%02X -> 0x%02X (kbd=0x%02X alias=0x%02X mouse=0x%02X)\n",
                 (unsigned)old_bits,
                 (unsigned)m->kbd.fonct_bits,
                 (unsigned)m->kbd.fonct_keyboard_bits,
+                (unsigned)(m->kbd.cursor_alias_sources ? 0x40u : 0x00u),
                 (unsigned)m->kbd.fonct_mouse_bits);
     }
 }
 
 static uint8_t visible_function_bits(const struct Smaky6 *m)
 {
-    uint8_t keyboard_visible = (uint8_t)(m->kbd.fonct_keyboard_bits &
+    uint8_t keyboard_visible = (uint8_t)((m->kbd.fonct_keyboard_bits |
+                                          (m->kbd.cursor_alias_sources ? 0x40u : 0x00u)) &
                                          (uint8_t)~m->kbd.fonct_consumed_bits);
     return (uint8_t)((keyboard_visible | m->kbd.fonct_mouse_bits) & 0x7Fu);
 }
@@ -203,6 +207,7 @@ void keyboard_clear_all_function_bits(struct Smaky6 *m)
 {
     m->kbd.fonct_consumed_bits = 0;
     m->kbd.fonct_keyboard_bits = 0;
+    m->kbd.cursor_alias_sources = 0;
     m->kbd.fonct_mouse_bits = 0;
     refresh_function_bits(m);
 }
@@ -460,6 +465,36 @@ static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPo
     return 1;
 }
 
+static int queue_ordinary_key_code(struct Smaky6 *m, SDL_Scancode scan,
+                                   SmakyMatrixPosition position, uint8_t key_code)
+{
+    for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
+        uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
+        if (m->kbd.pending_ordinary[idx].scancode == scan)
+            return 0;
+    }
+
+    if (m->kbd.pending_ordinary_len >= PENDING_ORDINARY_CAP)
+        return 0;
+
+    uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + m->kbd.pending_ordinary_len) % PENDING_ORDINARY_CAP);
+    m->kbd.pending_ordinary[idx].scancode = scan;
+    m->kbd.pending_ordinary[idx].matrix_position = position;
+    m->kbd.pending_ordinary[idx].key_code = key_code & 0x7Fu;
+    m->kbd.pending_ordinary[idx].released = 0;
+    m->kbd.pending_ordinary_len++;
+
+    if (m->dbg.trace_kbd) {
+        fprintf(stderr, "[kbd] queued scancode=%d pos=%u code=%02X depth=%u\n",
+                (int)scan,
+                (unsigned)position,
+                (unsigned)(key_code & 0x7Fu),
+                (unsigned)m->kbd.pending_ordinary_len);
+    }
+
+    return 1;
+}
+
 static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
     if (scan != SDL_SCANCODE_UNKNOWN) {
@@ -539,6 +574,39 @@ static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition p
     return S471_TABLE[current_layer(m)][position] & 0x7Fu;
 }
 
+static int lookup_cursor_alias(SDL_Scancode scan, SmakyMatrixPosition *position_out,
+                               uint8_t *key_code_out, uint8_t *source_out)
+{
+    SmakyMatrixPosition position;
+    uint8_t source;
+
+    switch (scan) {
+    case SDL_SCANCODE_UP:
+        position = 20;  /* r */
+        source = 0x01u;
+        break;
+    case SDL_SCANCODE_LEFT:
+        position = 35;  /* d */
+        source = 0x02u;
+        break;
+    case SDL_SCANCODE_RIGHT:
+        position = 36;  /* f */
+        source = 0x04u;
+        break;
+    case SDL_SCANCODE_DOWN:
+        position = 51;  /* c */
+        source = 0x08u;
+        break;
+    default:
+        return 0;
+    }
+
+    *position_out = position;
+    *key_code_out = S471_TABLE[S471_LAYER_NORMAL][position] & 0x7Fu;
+    *source_out = source;
+    return 1;
+}
+
 /* Latch one ordinary matrix key into the CLA-visible key state. */
 static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
 {
@@ -616,6 +684,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
     m->kbd.fonct_keyboard_bits = 0;
+    m->kbd.cursor_alias_sources = 0;
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = 0;
     m->kbd.fonct_consumed_bits = 0;
@@ -660,7 +729,12 @@ void keyboard_frame_tick(struct Smaky6 *m)
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
 {
     SDL_Scancode scan = ev->keysym.scancode;
-    SmakyMatrixPosition position;
+    SmakyMatrixPosition position = MATRIX_POS_NONE;
+    uint8_t cursor_alias_key_code = 0;
+    uint8_t cursor_alias_source = 0;
+    int has_cursor_alias = lookup_cursor_alias(scan, &position,
+                                               &cursor_alias_key_code,
+                                               &cursor_alias_source);
 
     if (m->dbg.trace_kbd) {
         fprintf(stderr,
@@ -689,6 +763,27 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     if (scan == SDL_SCANCODE_CAPSLOCK) {
         if (ev->type == SDL_KEYDOWN && !ev->repeat)
             m->kbd.caps_lock_active = !m->kbd.caps_lock_active;
+        return;
+    }
+
+    if (has_cursor_alias) {
+        if (ev->type == SDL_KEYDOWN && !ev->repeat) {
+            m->kbd.cursor_alias_sources |= cursor_alias_source;
+            refresh_function_bits(m);
+            if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
+                queue_ordinary_key_code(m, scan, position, cursor_alias_key_code);
+            else
+                latch_matrix_key_code(m, scan, position, cursor_alias_key_code);
+        } else if (ev->type == SDL_KEYUP) {
+            m->kbd.cursor_alias_sources &= (uint8_t)~cursor_alias_source;
+            refresh_function_bits(m);
+            if (m->kbd.active_scancode == scan) {
+                release_ordinary_key(m);
+                promote_pending_ordinary_key(m);
+            } else {
+                mark_queued_key_released(m, scan);
+            }
+        }
         return;
     }
 
@@ -834,7 +929,9 @@ uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
      * Ordinary-key delivery stays on the CLA / circular-buffer path instead of
      * being consumed here. */
     uint8_t value = m->kbd.fonct_bits;
-    m->kbd.fonct_consumed_bits |= (uint8_t)(value & m->kbd.fonct_keyboard_bits);
+    m->kbd.fonct_consumed_bits |= (uint8_t)(value &
+                                            (m->kbd.fonct_keyboard_bits |
+                                             (m->kbd.cursor_alias_sources ? 0x40u : 0x00u)));
     return value;
 }
 

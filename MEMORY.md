@@ -688,6 +688,9 @@ When an emulator shortcut works but bypasses OS logic, reconsider whether it mai
 
 **Validation:**
 - `make -C build smemu6 -j4` completed successfully after the bit-order change
+
+**Follow-up convenience mapping:**
+- host arrow keys now synthesize the documented `CURSOR+r/d/f/c` chords (`Up/Left/Right/Down`) without stealing or clearing the real `F1/CURSOR` hold state
 - DX0 boot with `floppies/Sys2-2.dsk` still reaches the CLI prompt (`* -`)
 - interactive SMILE and FLIPPER revalidation is still required after the semantic change
 
