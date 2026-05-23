@@ -5,6 +5,22 @@ Read at the start of every session. Never contradict a logged decision without f
 
 ---
 
+## Session: May 23, 2026
+
+### Decision: instrument the Stage 1 keyboard handoff before deeper behavior changes
+
+**Decided:** Add a trace-only snapshot around the simultaneous ordinary/function-key handoff instead of changing keyboard behavior again immediately.
+
+**Why:**
+- the remaining mismatch is concentrated in Stage 1 / Stage 2 timing, not in the broad function-bit mapping or the `?GETFO` hook
+- recent policy-level fixes were already falsified, so the next slice needs better visibility rather than another behavioral guess
+- one unified snapshot of CLA, status, `0x457E`, `0x4580`, `0x4581`, `0x4582`, and `0x457C/0x457D` should make the surviving first payload vs. second-read re-entry ordering visible in one trace stream
+
+**Rejected:**
+- another immediate behavior tweak around `?GETFO` or prefix handling: too likely to reintroduce earlier regressions without resolving the timing question
+- broad new keyboard rewrite without fresh trace evidence: too much risk for the current uncertainty
+
+
 ## Session: May 20, 2026
 
 ### Decision: Create CLAUDE.md project guidelines

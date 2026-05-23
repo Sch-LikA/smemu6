@@ -50,6 +50,12 @@ uint8_t keyboard_read_status(struct Smaky6 *m);
  * while the hardware-first refactor is in progress. */
 uint8_t keyboard_read_stage1_code(struct Smaky6 *m);
 
+/* Focused trace helper for the Stage 1 keyboard handoff. Logs one snapshot of
+ * the CLA-visible state and the key SAMOS workspace slots when -tracekbd is on. */
+void keyboard_trace_snapshot(struct Smaky6 *m, const char *site,
+							 uint16_t pc, uint16_t addr,
+							 uint8_t before, uint8_t after);
+
 /* Function-key state ownership lives in the keyboard subsystem.
  * These helpers recompute the effective bitmask and update any compatibility mirrors. */
 void keyboard_clear_all_function_bits(struct Smaky6 *m);

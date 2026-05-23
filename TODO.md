@@ -9,6 +9,13 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
+## Keyboard
+
+- Current focused instrumentation slice: keep behavior unchanged and trace the
+  exact simultaneous ordinary/function-key handoff by snapshotting CLA/status
+  reads together with `0x457E`, `0x4580`, `0x4581`, `0x4582`, and `0x457C/0x457D`
+  around the Stage 1 / Stage 2 path.
+
 ### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 
 Before the emulator window opens, show a small SDL launcher that lets users

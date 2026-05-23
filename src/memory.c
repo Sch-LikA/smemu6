@@ -27,6 +27,10 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
                     (unsigned)ret);
         }
 
+        keyboard_trace_snapshot(m,
+                                is_syscall_0e_read ? "mem-457e-getfo" : "mem-457e-raw",
+                                pc, addr, value, value);
+
         return value;
     }
     return m->bus[addr];
@@ -35,6 +39,8 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
+
+    uint8_t snapshot_old = m->bus[addr];
 
     if (addr == 0x457Cu) {
         uint8_t old = m->bus[addr];
@@ -110,6 +116,12 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
         }
     }
     m->bus[addr] = data;
+
+    if (addr == 0x457Cu || addr == 0x457Du || addr == 0x457Eu ||
+        addr == 0x4580u || addr == 0x4581u || addr == 0x4582u) {
+        keyboard_trace_snapshot(m, "mem-write", (uint16_t)Z80_PC(m->cpu),
+                                addr, snapshot_old, data);
+    }
 }
 
 /* ---- init / fini --------------------------------------------------------- */

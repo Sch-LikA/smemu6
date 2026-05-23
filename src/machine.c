@@ -52,6 +52,7 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd] CLA read pc=%04X -> %02X (found=%d)\n",
                     (unsigned)Z80_PC(m->cpu), cla, m->kbd.found);
+        keyboard_trace_snapshot(m, "io-cla", (uint16_t)Z80_PC(m->cpu), 0x0000u, cla, cla);
         return cla;
     }
     case 0x01: {
@@ -59,6 +60,7 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
         if (m->dbg.trace_kbd)
             fprintf(stderr, "[kbd] ST  read pc=%04X -> %02X\n",
                     (unsigned)Z80_PC(m->cpu), st);
+        keyboard_trace_snapshot(m, "io-st", (uint16_t)Z80_PC(m->cpu), 0x0001u, st, st);
         return st;
     }
     case 0x02: return parallel_read_data(m);

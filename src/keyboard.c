@@ -823,6 +823,38 @@ uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
     return m->kbd.fonct_bits;
 }
 
+void keyboard_trace_snapshot(struct Smaky6 *m, const char *site,
+                             uint16_t pc, uint16_t addr,
+                             uint8_t before, uint8_t after)
+{
+    if (!m->dbg.trace_kbd)
+        return;
+
+    fprintf(stderr,
+            "[kbd-snap] site=%s pc=%04X addr=%04X %02X->%02X found=%d held=%d seen=%d "
+            "reassert=%d cycles=%u prefix=%d code=%02X fonct=%02X "
+            "457E=%02X 4580=%02X 4581=%02X 4582=%02X 457C=%02X 457D=%02X\n",
+            site,
+            (unsigned)pc,
+            (unsigned)addr,
+            (unsigned)before,
+            (unsigned)after,
+            m->kbd.found,
+            m->kbd.physically_held,
+            m->kbd.cla_seen_current,
+            m->kbd.reassert_pending,
+            (unsigned)m->kbd.reassert_cycles,
+            m->kbd.regular_prefix_pending,
+            (unsigned)m->kbd.key_code,
+            (unsigned)m->kbd.fonct_bits,
+            (unsigned)m->bus[0x457Eu],
+            (unsigned)m->bus[0x4580u],
+            (unsigned)m->bus[0x4581u],
+            (unsigned)m->bus[0x4582u],
+            (unsigned)m->bus[0x457Cu],
+            (unsigned)m->bus[0x457Du]);
+}
+
 /* Report the raw FOUND latch state without applying any CLA side effects. */
 int keyboard_found(struct Smaky6 *m)
 {
