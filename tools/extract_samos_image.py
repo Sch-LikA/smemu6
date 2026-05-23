@@ -38,8 +38,12 @@ def parse_entries(image: bytes, dir_sector: int, container_start_sector: int):
         # Skip free entries (marked with 0xe5, like FAT filesystems)
         if entry[0] == 0xe5:
             continue
-        name = decode_name(entry[0:8])
-        file_type = decode_type(entry[8:10])
+        try:
+            name = decode_name(entry[0:8])
+            file_type = decode_type(entry[8:10])
+        except UnicodeDecodeError:
+            # Skip entries with non-ASCII bytes (malformed or garbage data)
+            continue
         if not name or not file_type.strip():
             continue
         start_sector = int.from_bytes(entry[10:12], "little")
