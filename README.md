@@ -259,6 +259,11 @@ python3 tools/extract_samos_image.py floppies/Sys2-2.dsk tmp/Sys2-2-hostdir
 ./smemu6 -floppy-hostdir tmp/Sys2-2-hostdir
 ```
 
+Note: `tools/extract_samos_image.py` is a wrapper around the unified `smaky6_samos.py` tool
+(from the [smaky6-tools](https://github.com/Sch-LikA/smaky6-tools) repository).
+It preserves the original interface while delegating to `smaky6_samos.py extract-all` with
+metadata and directory-clearing flags.
+
 #### `-floppy2 <path>`
 
 Mount a floppy disk image on **DX1:** (the secondary floppy drive).
