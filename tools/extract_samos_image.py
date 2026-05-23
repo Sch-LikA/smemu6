@@ -24,6 +24,16 @@ def decode_type(raw: bytes) -> str:
     return raw.decode("ascii", errors="strict").replace("\x00", "").rstrip(" ")
 
 
+def is_valid_filename(name: str, file_type: str) -> bool:
+    """Check if a filename is safe to extract (no control chars, path separators, etc.)"""
+    full_name = f"{name}.{file_type}"
+    # Reject if contains path separators or control characters
+    for char in full_name:
+        if char in "/\\" or ord(char) < 32:  # Control characters or path separators
+            return False
+    return True
+
+
 def bcd_to_int(value: int) -> int:
     return ((value >> 4) * 10) + (value & 0x0F)
 
@@ -45,6 +55,9 @@ def parse_entries(image: bytes, dir_sector: int, container_start_sector: int):
             # Skip entries with non-ASCII bytes (malformed or garbage data)
             continue
         if not name or not file_type.strip():
+            continue
+        # Skip entries with control characters or path separators in filename
+        if not is_valid_filename(name, file_type.strip()):
             continue
         start_sector = int.from_bytes(entry[10:12], "little")
         end_sector = int.from_bytes(entry[12:14], "little")
