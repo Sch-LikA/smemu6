@@ -9,6 +9,14 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
+## PSG sound-card add-on
+
+- Fetch `emu2149` through CMake `FetchContent`, pinned to a known upstream
+  commit, instead of keeping a hand-copied third-party snapshot in-tree.
+- Keep the Smaky-specific PSG layer thin and local: one wrapper around four
+  AY-compatible chips, with SIGMA-derived odd-port register-select and
+  even-port data semantics hidden behind the local API.
+
 ## Keyboard
 
 - Current focused instrumentation slice: keep behavior unchanged and trace the

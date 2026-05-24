@@ -58,6 +58,28 @@ set(Z80_WITH_FULL_IM0    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS    OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(Z80)
 
+# ── digital-sound-antiques/emu2149 (PSG core; fetched sources only) ─────────
+FetchContent_Declare(
+    emu2149
+    GIT_REPOSITORY https://github.com/digital-sound-antiques/emu2149.git
+    GIT_TAG        21d27da90550d47bc42d500be2d729fefa26cf58 # v1.41
+)
+FetchContent_GetProperties(emu2149)
+if(NOT emu2149_POPULATED)
+    FetchContent_Populate(emu2149)
+endif()
+
+add_library(emu2149 STATIC
+    ${emu2149_SOURCE_DIR}/emu2149.c
+)
+target_include_directories(emu2149 PUBLIC ${emu2149_SOURCE_DIR})
+
+add_library(smaky6_psg STATIC
+    src/psg.c
+)
+target_include_directories(smaky6_psg PUBLIC src)
+target_link_libraries(smaky6_psg PUBLIC emu2149)
+
 # ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
 # Not used for Emscripten builds (no native dialog API in the browser).
 if(NOT EMSCRIPTEN)
@@ -94,6 +116,7 @@ add_executable(smemu6
     src/floppy.c
     src/virtual_floppy.c
     src/sound.c
+    src/psg.h
     src/debug.c
     src/rtc.c
     src/winchester.c
@@ -271,6 +294,7 @@ else()
     endif()
     target_link_libraries(smemu6 PRIVATE
         SDL2::SDL2
+        smaky6_psg
         Z80
         m
     )

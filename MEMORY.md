@@ -113,12 +113,19 @@ from scratch.  Current preferred candidate is `emu2149`; `ayumi` is also
 license-compatible, but `emu2149` is closer to the register-driven integration
 shape needed here.
 
+Build integration choice: fetch `emu2149` through CMake `FetchContent`, pinned
+to a specific upstream commit, and keep the Smaky-specific four-chip wrapper
+local to this repo.
+
 Why:
 
 - both `emu2149` and `ayumi` are MIT-licensed, which is compatible with this
   GPL-3.0-or-later project when their copyright and license text are retained
 - the user explicitly does not want to reinvent the wheel for the first PSG
   bring-up
+- this repo already accepts pinned CMake-fetched third-party dependencies such
+  as `Zeta` and `Z80`, so `emu2149` fits the existing build model better than a
+  manual source copy
 - current SIGMA software evidence points to four consecutive PSG port pairs:
   `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, and `0x26/0x27`
 - the observed SIGMA scripts suggest the odd port is register-select and the
