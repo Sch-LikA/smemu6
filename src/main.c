@@ -1132,7 +1132,7 @@ int main(int argc, char *argv[])
      * unresponsive (e.g. while a file dialog thread is running). */
     SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_PING, "0");
 
-    if (SDL_Init(SDL_INIT_VIDEO | ((enable_beeper || enable_drive_sound) ? SDL_INIT_AUDIO : 0) | SDL_INIT_TIMER) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | ((enable_beeper || enable_drive_sound || enable_psg) ? SDL_INIT_AUDIO : 0) | SDL_INIT_TIMER) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }

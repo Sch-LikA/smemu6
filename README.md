@@ -318,6 +318,7 @@ Current scope:
 
 - claims ports `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, `0x26/0x27`
 - odd port = register select, even port = data, matching the current SIGMA-derived probe map
+- clocked from the host machine clock for now; current implementation uses the Smaky CPU-derived `2.41152 MHz` hardware clock as the first board-backed approximation
 - conflicts with `-harddisk` and `-harddisk2`, because the Winchester controller already uses the same decoded port range
 
 ---

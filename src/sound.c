@@ -86,6 +86,7 @@
 #define TSTATES_PER_FRAME   SMAKY6_TSTATES_PER_FRAME
 #define SAMPLES_PER_FRAME   SMAKY6_SAMPLES_PER_FRAME
 #define AUDIO_AMPLITUDE     10000   /* +-10000 out of +-32767 -- comfortable volume */
+#define PSG_MIX_DIVISOR     2       /* four AY chips sum quickly; attenuate before mixing */
 
 /* Maximum queued audio bytes before we start skipping frames to avoid
  * unbounded latency build-up (e.g. when the emulator runs faster than
@@ -139,6 +140,20 @@ static inline float lcg_noise(void)
 {
     g_lcg = g_lcg * 1664525u + 1013904223u;
     return (float)(int32_t)g_lcg * (1.0f / 2147483648.0f);  /* -1..+1 */
+}
+
+static void psg_mix_frame(struct Smaky6 *m)
+{
+    for (int i = 0; i < (int)SAMPLES_PER_FRAME; i++) {
+        int32_t sample = smaky6_psg_mix_sample(&m->psg.card) / PSG_MIX_DIVISOR;
+        int32_t mixed = (int32_t)g_frame_buf[i] + sample;
+        if (mixed > 32767) {
+            mixed = 32767;
+        } else if (mixed < -32768) {
+            mixed = -32768;
+        }
+        g_frame_buf[i] = (int16_t)mixed;
+    }
 }
 
 /* Mix synthesized floppy sounds into the already-filled g_frame_buf[].
@@ -253,8 +268,9 @@ void sound_set_drive_sound_enabled(int enabled)
 
 void sound_init(struct Smaky6 *m)
 {
-    (void)m;
-    if (!g_beeper_enabled && !g_drive_sound_enabled) return;  /* all sound disabled */
+    if (g_audio_dev) return;
+    if (!g_beeper_enabled && !g_drive_sound_enabled && !(m && m->psg.enabled))
+        return;  /* all sound sources disabled */
 
     SDL_AudioSpec want, got;
     SDL_memset(&want, 0, sizeof(want));
@@ -361,7 +377,6 @@ void sound_set_bit(struct Smaky6 *m, int level)
  * Fills the remainder of the frame buffer and submits it to the audio device. */
 void sound_end_frame(struct Smaky6 *m)
 {
-    (void)m;
     if (!g_audio_dev) return;
 
     /* Fill remainder with current buzzer level */
@@ -374,6 +389,9 @@ void sound_end_frame(struct Smaky6 *m)
     /* Mix floppy drive sounds on top of the buzzer signal */
     if (g_drive_sound_enabled)
         floppy_mix_frame();
+
+    if (m->psg.enabled)
+        psg_mix_frame(m);
 
     /* Skip frame if queue is already backed up (emulator running too fast) */
     if (SDL_GetQueuedAudioSize(g_audio_dev) < MAX_QUEUE_BYTES)

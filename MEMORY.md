@@ -145,6 +145,21 @@ Why:
 - allowing both silently would make the guest talk to two incompatible devices
   on the same I/O addresses and hide the real hardware conflict
 
+### PSG first clock assumption and audio path
+
+Current PSG slice uses the host Smaky machine clock as the AY input clock and
+mixes PSG output through the existing SDL audio frame buffer.
+
+Why:
+
+- the PSG schematic text shows all four AY `CLOCK` pins tied to one shared net
+  and does not expose a separate board-local oscillator in the recovered text
+- the AY clock net appears to leave the chip cluster toward the host-side bus
+  region, so the safest first approximation is the documented Smaky hardware
+  CPU-derived clock: `12.0576 MHz / 5 = 2.41152 MHz`
+- using a placeholder clock or skipping PSG-only audio init would make `-psg`
+  runs silently wrong even before finer hardware validation
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI

@@ -20,8 +20,9 @@ against disassembly or hardware documentation.
   ports `0x20..0x27`, so `-harddisk` / `-harddisk2` must stay mutually
   exclusive until hardware evidence proves a different decode or multiplexing
   scheme.
-- Next audio slice: determine the actual PSG chip clock from the card
-  schematic before claiming audibly correct playback.
+- Next audio slice after first host-clock bring-up: confirm whether the PSG
+  card really receives the host CPU-derived `2.41152 MHz` clock or a different
+  bus/master-clock derivative on the real hardware.
 
 ## Keyboard
 

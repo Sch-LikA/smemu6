@@ -21,7 +21,11 @@
 
 #define SMAKY6_PSG_PORT_BASE 0x20u
 #define SMAKY6_PSG_PORT_LAST 0x27u
-#define SMAKY6_PSG_CHIP_CLOCK_PLACEHOLDER_HZ 1u
+/* First hardware-backed PSG clock assumption: the card schematic text shows
+ * the four AY CLOCK pins tied together on one net with no explicit local
+ * oscillator block visible in the recovered text, so use the documented host
+ * CPU-derived Smaky clock (12.0576 MHz / 5). */
+#define SMAKY6_PSG_CHIP_CLOCK_HZ 2411520u
 
 static int psg_handles_port(const struct Smaky6 *m, uint8_t lo)
 {
@@ -588,11 +592,12 @@ int machine_set_psg_enabled(struct Smaky6 *m, int on)
     }
 
     if (smaky6_psg_init(&m->psg.card,
-                        SMAKY6_PSG_CHIP_CLOCK_PLACEHOLDER_HZ,
+                        SMAKY6_PSG_CHIP_CLOCK_HZ,
                         SMAKY6_AUDIO_HZ) != 0) {
         return -1;
     }
     m->psg.enabled = 1;
+    sound_init(m);
     return 0;
 }
 
