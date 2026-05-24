@@ -23,6 +23,9 @@ against disassembly or hardware documentation.
 - Next audio slice after first host-clock bring-up: confirm whether the PSG
   card uses the local `U9` + `R1` + `C1` timing section seen in the PDF, then
   trace any divider chain before claiming a real AY clock value.
+- New PDF trace direction: follow the AY `CLOCK` backbone through the `SW1`
+  branch and the `119.38/49.53/95.25` top-of-sheet net first; the visible `U9`
+  RC oscillator block is not yet proven to feed the AYs directly.
 
 ## Keyboard
 

@@ -157,6 +157,10 @@ Why:
   reliable
 - the visible bus connector pins in the PDF do not show an incoming clock pin,
   which further argues against the current host-clock assumption
+- KiCad net tracing plus the PDF show the shared AY `CLOCK` backbone running
+  upward through the top-of-sheet path toward the `SW1` region, not directly
+  into the visible `U9` RC oscillator block; `U9` therefore cannot currently be
+  treated as the confirmed immediate AY clock source
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
