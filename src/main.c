@@ -141,6 +141,7 @@ static void usage(const char *argv0)
         "  -dump-vfd-manifest <file>  Dump the selected host-directory virtual floppy layout as JSON ('-' = stdout)\n"
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
+        "  -psg           Enable the experimental PSG card on ports 0x20..0x27 (conflicts with Winchester)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n or \\r for Enter/CR, \\f to wait for next prompt)\n"
@@ -814,6 +815,7 @@ int main(int argc, char *argv[])
     const char *disk2_path = NULL;
     const char *harddisk_path  = NULL;
     const char *harddisk2_path = NULL;
+    int enable_psg = 0;
     int trace    = 0;
     int break_to_monitor = 0;  /* SHIFT+BREAK for monitor entry */
     uint8_t inject_codes[128];  /* key sequence to inject at OS prompt */
@@ -887,6 +889,8 @@ int main(int argc, char *argv[])
             harddisk_path = argv[++i];
         } else if (strcmp(argv[i], "-harddisk2") == 0 && i + 1 < argc) {
             harddisk2_path = argv[++i];
+        } else if (strcmp(argv[i], "-psg") == 0) {
+            enable_psg = 1;
         } else if (strcmp(argv[i], "-trace") == 0) {
             trace = 1;
         } else if (strcmp(argv[i], "-break-to-monitor") == 0) {
@@ -1211,6 +1215,15 @@ int main(int argc, char *argv[])
     }
 #endif /* __EMSCRIPTEN__ */
 
+    if (enable_psg && (harddisk_path || harddisk2_path)) {
+        fprintf(stderr,
+                "-psg conflicts with -harddisk/-harddisk2: both devices decode ports 0x20..0x27\n"
+                "Current Winchester map: 0x20 data, 0x21 error, 0x23 sector, 0x24 cyl lo, 0x25 cyl hi, 0x26 SDH, 0x27 status/cmd\n"
+                "Current SIGMA-derived PSG map: 0x20/0x21, 0x22/0x23, 0x24/0x25, 0x26/0x27 (even=data, odd=register select)\n");
+        SDL_Quit();
+        return 1;
+    }
+
     SDL_Window *win = SDL_CreateWindow(
         "Smemu6 - Smaky6 Emulator",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -1252,6 +1265,15 @@ int main(int argc, char *argv[])
     struct Smaky6 *m = machine_create();
     if (!m) {
         fprintf(stderr, "machine_create: out of memory\n");
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 1;
+    }
+
+    if (enable_psg && machine_set_psg_enabled(m, 1) != 0) {
+        fprintf(stderr, "machine_set_psg_enabled: initialization failed\n");
+        machine_destroy(m);
         SDL_DestroyRenderer(ren);
         SDL_DestroyWindow(win);
         SDL_Quit();

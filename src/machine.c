@@ -12,11 +12,31 @@
 #include "floppy.h"
 #include "sound.h"
 #include "debug.h"
+#include "psg.h"
 #include "winchester.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define SMAKY6_PSG_PORT_BASE 0x20u
+#define SMAKY6_PSG_PORT_LAST 0x27u
+#define SMAKY6_PSG_CHIP_CLOCK_PLACEHOLDER_HZ 1u
+
+static int psg_handles_port(const struct Smaky6 *m, uint8_t lo)
+{
+    return m->psg.enabled && lo >= SMAKY6_PSG_PORT_BASE && lo <= SMAKY6_PSG_PORT_LAST;
+}
+
+static unsigned psg_chip_from_port(uint8_t lo)
+{
+    return (unsigned)((lo - SMAKY6_PSG_PORT_BASE) >> 1);
+}
+
+static int psg_port_is_data(uint8_t lo)
+{
+    return (lo & 1u) == 0u;
+}
 
 /* ── Z80 library callbacks ──────────────────────────────────────────────────*/
 
@@ -45,6 +65,13 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
     uint8_t lo = port & 0x3Fu;   /* 6-bit decode */
+
+    if (psg_handles_port(m, lo)) {
+        if (psg_port_is_data(lo)) {
+            return smaky6_psg_read_data(&m->psg.card, psg_chip_from_port(lo));
+        }
+        return 0xFFu;
+    }
 
     switch (lo) {
     case 0x00: {
@@ -108,6 +135,15 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
     uint8_t lo = port & 0x3Fu;
+
+    if (psg_handles_port(m, lo)) {
+        if (psg_port_is_data(lo)) {
+            smaky6_psg_write_data(&m->psg.card, psg_chip_from_port(lo), data);
+        } else {
+            smaky6_psg_write_select(&m->psg.card, psg_chip_from_port(lo), data);
+        }
+        return;
+    }
 
     switch (lo) {
     /* Port 0x00: Smaky 6 video mode control register.
@@ -337,6 +373,7 @@ void machine_destroy(struct Smaky6 *m)
     debug_fini(m);
     sound_fini(m);
     floppy_fini(m);
+    smaky6_psg_fini(&m->psg.card);
     winchester_fini(&m->win);
     parallel_fini(m);
     usart_fini(m);
@@ -508,6 +545,8 @@ void machine_reset(struct Smaky6 *m)
     z80_instant_reset(&m->cpu);
     m->irq_pending      = 0;
     m->fdc.nmi_armed    = 0;
+    if (m->psg.enabled)
+        smaky6_psg_reset(&m->psg.card);
     /* Re-arm power-on state: physically_held=1 so the scanner reasserts FOUND
      * after each CLA read, passing through all boot-phase kbd_wait loops until
      * EI is executed (keyboard_frame_tick releases it on iff1→1). */
@@ -528,6 +567,38 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.pending_ordinary_len = 0;
     m->kbd.reassert_pending = 0;
     m->kbd.reassert_cycles = 0;
+}
+
+int machine_set_psg_enabled(struct Smaky6 *m, int on)
+{
+    int enable = on ? 1 : 0;
+
+    if (!m) {
+        return -1;
+    }
+
+    if (enable == m->psg.enabled) {
+        return 0;
+    }
+
+    if (!enable) {
+        smaky6_psg_fini(&m->psg.card);
+        m->psg.enabled = 0;
+        return 0;
+    }
+
+    if (smaky6_psg_init(&m->psg.card,
+                        SMAKY6_PSG_CHIP_CLOCK_PLACEHOLDER_HZ,
+                        SMAKY6_AUDIO_HZ) != 0) {
+        return -1;
+    }
+    m->psg.enabled = 1;
+    return 0;
+}
+
+int machine_psg_enabled(const struct Smaky6 *m)
+{
+    return m && m->psg.enabled;
 }
 
 static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits)

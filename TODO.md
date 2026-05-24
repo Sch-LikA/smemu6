@@ -16,6 +16,12 @@ against disassembly or hardware documentation.
 - Keep the Smaky-specific PSG layer thin and local: one wrapper around four
   AY-compatible chips, with SIGMA-derived odd-port register-select and
   even-port data semantics hidden behind the local API.
+- Make the port ownership conflict explicit: `-psg` currently takes decoded
+  ports `0x20..0x27`, so `-harddisk` / `-harddisk2` must stay mutually
+  exclusive until hardware evidence proves a different decode or multiplexing
+  scheme.
+- Next audio slice: determine the actual PSG chip clock from the card
+  schematic before claiming audibly correct playback.
 
 ## Keyboard
 

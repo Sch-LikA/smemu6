@@ -131,6 +131,20 @@ Why:
 - the observed SIGMA scripts suggest the odd port is register-select and the
   even port is data for each AY chip
 
+### PSG and Winchester cannot currently coexist
+
+When `-psg` is enabled, the emulator must give ports `0x20..0x27` to the PSG
+card and reject `-harddisk` / `-harddisk2` at startup.
+
+Why:
+
+- existing Winchester emulation already owns decoded ports `0x20`, `0x21`,
+  `0x23`, `0x24`, `0x25`, `0x26`, and `0x27`
+- current SIGMA software evidence probes four PSG pairs across exactly the
+  same decoded range: `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, `0x26/0x27`
+- allowing both silently would make the guest talk to two incompatible devices
+  on the same I/O addresses and hide the real hardware conflict
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI

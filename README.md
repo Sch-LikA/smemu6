@@ -58,7 +58,7 @@ Hardware reference: [docs/dev/HARDWARE.md](docs/dev/HARDWARE.md)
 ## 1. Building
 
 **Dependencies:** CMake ≥ 3.16, SDL2 development libraries, git (used by
-CMake FetchContent to pull the Z80/Zeta CPU library).
+CMake FetchContent to pull the Z80/Zeta CPU library and the PSG core).
 
 ```bash
 # Ubuntu / Debian
@@ -227,6 +227,9 @@ python3 ../tools/extract_samos_image.py ../floppies/Sys2-2.dsk ../tmp/Sys2-2-hos
 ./smemu6 -harddisk ../harddisks/SM6WIN0.DSK \
             -floppy2 "../floppies/Sys1-H.dsk"
 
+# Enable the experimental PSG expansion card (currently claims ports 0x20..0x27)
+./smemu6 -floppy "../floppies/SIGMA.dsk" -psg
+
 # Headless run with SDL dummy drivers (e.g. in CI)
 SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
     ./smemu6 -floppy "../floppies/Sys1-H.dsk" \
@@ -289,6 +292,7 @@ Geometry: 6 heads, 32 sectors/track, 256 bytes/sector, up to 255 cylinders.
 
 > **Note:** On a Winchester-equipped Smaky 6 the hard disk is DX0 and the
 > floppy (if fitted) is DX1.  Use `-harddisk` with `-floppy2`, not `-floppy`.
+> This currently conflicts with `-psg`: both devices decode ports `0x20..0x27`.
 
 #### `-harddisk2 <path>`
 
@@ -305,6 +309,16 @@ Mount a flat binary hard-disk image as **Winchester drive 1** (SM6WIN1).
 ```bash
 ./smemu6 -floppy ../floppies/Sys1-H.dsk -harddisk ../harddisks/SM6WIN0.DSK -harddisk2 ../harddisks/SM6WIN1.DSK
 ```
+
+#### `-psg`
+
+Enable the experimental 4-chip PSG expansion card for SIGMA bring-up.
+
+Current scope:
+
+- claims ports `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, `0x26/0x27`
+- odd port = register select, even port = data, matching the current SIGMA-derived probe map
+- conflicts with `-harddisk` and `-harddisk2`, because the Winchester controller already uses the same decoded port range
 
 ---
 

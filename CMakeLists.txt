@@ -294,11 +294,12 @@ else()
     endif()
     target_link_libraries(smemu6 PRIVATE
         SDL2::SDL2
-        smaky6_psg
         Z80
         m
     )
 endif()
+
+target_link_libraries(smemu6 PRIVATE smaky6_psg)
 
 # ── Version compile definition ───────────────────────────────────────────────
 target_compile_definitions(smemu6 PRIVATE SMEMU6_VERSION="${SMEMU6_VERSION}")

@@ -58,6 +58,10 @@ void machine_int(struct Smaky6 *m);
 /* Reset the machine */
 void machine_reset(struct Smaky6 *m);
 
+/* Optional PSG expansion card. Returns 0 on success. */
+int machine_set_psg_enabled(struct Smaky6 *m, int on);
+int machine_psg_enabled(const struct Smaky6 *m);
+
 /* Enable/disable PC-milestone tracing to stderr (set by -trace flag) */
 void machine_set_trace(struct Smaky6 *m, int on);
 

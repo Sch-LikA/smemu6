@@ -11,6 +11,7 @@
 #define MACHINE_INTERNAL_H
 
 #include "memory.h"
+#include "psg.h"
 #include "video.h"
 #include "rtc.h"
 #include "usart.h"
@@ -210,6 +211,12 @@ struct Smaky6 {
 
     /* Ports 0x20–0x27: Winchester hard-disk controller */
     WinState win;
+
+    /* Optional PSG add-on currently mapped to ports 0x20–0x27 when enabled. */
+    struct {
+        int enabled;
+        struct Smaky6Psg card;
+    } psg;
 
     /* 50 Hz interrupt pending */
     int irq_pending;
