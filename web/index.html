@@ -482,29 +482,22 @@
     }
 
     #btns {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: stretch;
+      display: block;
       padding-top: 2px;
-      flex: 1 1 auto;
-      min-width: 0;
     }
 
     #fn-buttons {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: flex-start;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 4px;
       width: 100%;
     }
 
     .fn-btn {
       min-height: 30px;
-      padding: 4px 8px;
-      font-size: 0.68rem;
-      letter-spacing: 0.03em;
-      flex: 1 1 calc((100% - 18px) / 4);
+      padding: 4px 6px;
+      font-size: 0.62rem;
+      letter-spacing: 0.02em;
       min-width: 0;
     }
 
@@ -513,18 +506,6 @@
       color: #201808;
       border-color: #5c4910;
       box-shadow: 0 2px 0 #5c4910, 0 3px 5px #00000033;
-    }
-
-    #panel-actions {
-      display: flex;
-      gap: 8px;
-      width: 100%;
-      align-items: center;
-    }
-
-    #panel-actions .panel-btn {
-      flex: 1 1 0;
-      width: auto;
     }
 
     /* panel buttons — dark keycap style */
@@ -555,6 +536,16 @@
       display: none;
     }
 
+    .mobile-kbd-hint {
+      display: none;
+      width: 100%;
+      margin-top: 6px;
+      font-size: 0.68rem;
+      color: #8a8070;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
     .vk-anchor {
       position: absolute;
       left: -9999px;
@@ -563,17 +554,6 @@
       height: 1px;
       opacity: 0;
       pointer-events: none;
-    }
-
-    /* RESET — red accent key, like the real machine's red keys */
-    button#btn-reset {
-      background: linear-gradient(180deg, #bb2a1a 0%, #8a1a0e 100%);
-      color: #f0d8d0;
-      border-color: #5a0e08;
-      box-shadow: 0 2px 0 #5a0e08, 0 3px 5px #00000033;
-    }
-    button#btn-reset:hover:not(:disabled) {
-      background: linear-gradient(180deg, #cc3322 0%, #aa2010 100%);
     }
 
     /* log */
@@ -627,19 +607,7 @@
       }
 
       #fn-buttons {
-        justify-content: stretch;
-      }
-
-      #fn-buttons .panel-btn {
-        flex: 1 1 calc(50% - 6px);
-      }
-
-      #panel-actions {
-        flex-direction: column;
-      }
-
-      #panel-actions .panel-btn {
-        width: 100%;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
       }
     }
 
@@ -693,6 +661,10 @@
 
       .mobile-kbd-only {
         display: inline-flex;
+      }
+
+      .mobile-kbd-hint {
+        display: block;
       }
 
       .lnch-opt {
@@ -837,18 +809,16 @@
     </div>
     <div id="btns">
       <div id="fn-buttons">
-        <button class="panel-btn fn-btn" id="btn-fn-cursor" type="button" disabled>CURSOR</button>
-        <button class="panel-btn fn-btn" id="btn-fn-copy" type="button" disabled>COPY</button>
-        <button class="panel-btn fn-btn" id="btn-fn-kill" type="button" disabled>KILL</button>
-        <button class="panel-btn fn-btn" id="btn-fn-progra" type="button" disabled>PROGRA</button>
-        <button class="panel-btn fn-btn" id="btn-fn-show" type="button" disabled>SHOW</button>
-        <button class="panel-btn fn-btn" id="btn-fn-search" type="button" disabled>SEARCH</button>
-        <button class="panel-btn fn-btn" id="btn-fn-change" type="button" disabled>CHANGE</button>
+        <button class="panel-btn fn-btn" id="btn-fn-cursor" type="button" tabindex="-1" disabled>CURSOR</button>
+        <button class="panel-btn fn-btn" id="btn-fn-copy" type="button" tabindex="-1" disabled>COPY</button>
+        <button class="panel-btn fn-btn" id="btn-fn-kill" type="button" tabindex="-1" disabled>KILL</button>
+        <button class="panel-btn fn-btn" id="btn-fn-progra" type="button" tabindex="-1" disabled>PROGRA</button>
+        <button class="panel-btn fn-btn" id="btn-fn-show" type="button" tabindex="-1" disabled>SHOW</button>
+        <button class="panel-btn fn-btn" id="btn-fn-search" type="button" tabindex="-1" disabled>SEARCH</button>
+        <button class="panel-btn fn-btn" id="btn-fn-change" type="button" tabindex="-1" disabled>CHANGE</button>
+        <button class="panel-btn fn-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
       </div>
-      <div id="panel-actions">
-        <button class="panel-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
-        <button class="panel-btn" id="btn-reset" disabled>RESET</button>
-      </div>
+      <div class="mobile-kbd-hint">Tap KEYBOARD to open the device keyboard.</div>
     </div>
   </div>
 
@@ -1129,7 +1099,6 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   emulatorStarted = true;
   Module.callMain(args);
   document.getElementById('status-overlay').classList.add('hidden');
-  document.getElementById('btn-reset').disabled = false;
   document.getElementById('btn-keyboard').disabled = false;
   webFunctionButtons.forEach(function(entry) {
     document.getElementById(entry.id).disabled = false;
@@ -1225,14 +1194,6 @@ document.getElementById('dx1-file').addEventListener('change', function(e) {
   loadDiskFile(e.target.files[0], 'dx1', 'led-dx1');
 });
 
-document.getElementById('btn-reset').addEventListener('click', function(e) {
-  e.preventDefault();
-  clearWebFunctionState();
-  Module.ccall('smemu6_reset', null, [], []);
-  appendOutput('[web] reset\n');
-  focusEmulatorInput(prefersTouchInput);
-});
-
 document.getElementById('btn-keyboard').addEventListener('click', function() {
   focusEmulatorInput(true);
 });
@@ -1258,14 +1219,25 @@ document.getElementById('vk-anchor').addEventListener('blur', syncCanvasFocusSta
 webFunctionButtons.forEach(function(entry) {
   var button = document.getElementById(entry.id);
 
+  button.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+  });
+
+  button.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
   button.addEventListener('pointerdown', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     button.setPointerCapture(e.pointerId);
     pressWebFunctionBit(entry.bit);
   });
 
   button.addEventListener('pointerup', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (button.hasPointerCapture(e.pointerId))
       button.releasePointerCapture(e.pointerId);
     releaseWebFunctionBit(entry.bit);
@@ -1274,6 +1246,7 @@ webFunctionButtons.forEach(function(entry) {
 
   button.addEventListener('pointercancel', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     if (button.hasPointerCapture(e.pointerId))
       button.releasePointerCapture(e.pointerId);
     releaseWebFunctionBit(entry.bit);
@@ -1281,6 +1254,7 @@ webFunctionButtons.forEach(function(entry) {
 
   button.addEventListener('contextmenu', function(e) {
     e.preventDefault();
+    e.stopPropagation();
     toggleLatchedWebFunctionBit(entry.bit);
     focusEmulatorCanvasSoon();
   });

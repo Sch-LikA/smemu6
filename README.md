@@ -98,6 +98,7 @@ tools/serve_web.sh
 # In the browser, prefer the front-panel CURSOR/COPY/KILL/PROGRA/SHOW/SEARCH/CHANGE buttons
 # over host F1..F7, because browsers may reserve those function keys.
 # Web button semantics match the native status bar: left-press holds, right-click toggles a latch.
+# On touch devices, use the KEYBOARD button in the control strip to open the device keyboard.
 ```
 
 ### Experimental SDCC scaffold

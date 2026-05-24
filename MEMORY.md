@@ -33,6 +33,11 @@ mouse-function path.
   succeeds
 - cache-busted browser smoke test shows the new function-key row, the custom
   canvas focus highlight, and a toggleable active CURSOR button
+- later follow-up changed function-bit consumption so mouse-held function bits
+  are consumed one-shot just like keyboard-held bits; this stopped the repeated
+  raw `@` symptom on held web CURSOR clicks
+- Chromium mobile/touch emulation confirms `pointer: coarse`, shows the
+  dedicated `KEYBOARD` button, and shows the mobile keyboard hint text
 
 ### Decision: clear host-owned ordinary key state on SDL focus loss
 

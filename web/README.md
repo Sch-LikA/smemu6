@@ -123,7 +123,8 @@ At build time, `--preload-file` bundles:
   targets are enlarged for phones and tablets.
 - On touch devices, the running machine view now exposes a dedicated
   **Keyboard** button that focuses a hidden text field so mobile browsers can
-  show the system on-screen keyboard.
+  show the system on-screen keyboard. The touch layout now also shows a short
+  hint below the control strip so this button is easier to discover.
 - The launcher preloads the bundled floppy library from `/floppies/` and lets
   you choose DX0 / DX1 boot disks before starting the emulator.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
