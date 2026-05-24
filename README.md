@@ -318,7 +318,7 @@ Current scope:
 
 - claims ports `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, `0x26/0x27`
 - odd port = register select, even port = data, matching the current SIGMA-derived probe map
-- current implementation still uses a temporary fallback `2.41152 MHz` AY clock; recent PDF/KiCad tracing shows the AY `CLOCK` path runs through the `SW1` / `U8` / `U7` logic region, so the real board clock source is not confirmed yet
+- current implementation still uses a temporary fallback `2.41152 MHz` AY clock; the KiCad netlist now shows the real AY `CLOCK` net is driven locally from `U16` pin 4 through a Schmitt-trigger RC network (`1nF1`, `R6`, `RV1`), but the actual fitted oscillator value is still not confirmed
 - conflicts with `-harddisk` and `-harddisk2`, because the Winchester controller already uses the same decoded port range
 
 ---

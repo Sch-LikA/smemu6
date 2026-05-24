@@ -152,15 +152,17 @@ through the existing SDL audio frame buffer.
 
 Why:
 
-- the PDF confirms the card has a local RC timing section around `U9`
-  (`74LS00`) plus `R1` and `C1`, so the earlier “host clock” rationale is not
-  reliable
+- the visible bus connector pins in the PDF do not show an incoming clock pin,
+  which already argued against the old host-clock assumption
+- the KiCad netlist now resolves the direct AY clock driver: all four AY
+  `CLOCK_22` pins share `Net-(U1-CLOCK)`, and that net is driven by `U16`
+  pin `4`
+- the same netlist shows `U16` is wired as a local Schmitt-trigger RC
+  oscillator stage using `1nF1` to ground plus the `R6` / `RV1` resistor path;
+  this replaces the earlier `U9`-centered guess as the best current hardware
+  model for the AY clock source
 - the visible bus connector pins in the PDF do not show an incoming clock pin,
   which further argues against the current host-clock assumption
-- KiCad net tracing plus the PDF show the shared AY `CLOCK` backbone running
-  upward through the top-of-sheet path toward the `SW1` region, not directly
-  into the visible `U9` RC oscillator block; `U9` therefore cannot currently be
-  treated as the confirmed immediate AY clock source
 - the wider top-left schematic crop shows `SW1` embedded in the `U8` (`74LS02`)
   and `U7` (`74LS32`) logic path that feeds the AY `CLOCK` backbone, so `SW1`
   is not currently supported as a simple selector between two standalone clock
@@ -170,6 +172,9 @@ Why:
   same `U8`-side control trunk; this is now strong evidence that `SW1` is a
   logic/configuration input to the clock-shaping network rather than a direct
   raw-clock source selector
+- the exact oscillator frequency is still unresolved from the netlist alone,
+  because the fitted `RV1` value is not encoded there and the resulting
+  effective clock/division still needs confirmation
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 

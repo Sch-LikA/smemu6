@@ -23,11 +23,12 @@
 #define SMAKY6_PSG_PORT_LAST 0x27u
 /* Temporary fallback PSG clock.
  *
- * The schematic PDF confirms a local RC timing section on the card around U9
- * (74LS00) with R1/C1, and the visible bus connector pins do not show a clock
- * input. That means this value is no longer a schematic-backed conclusion; it
- * is only a provisional stand-in until the local oscillator/divider path is
- * traced precisely. */
+ * The KiCad netlist shows the AY CLOCK net is driven by U16 pin 4, with a
+ * local U16 Schmitt-trigger RC network using 1nF1 plus the R6/RV1 resistor
+ * path. That confirms the clock is locally generated on the card rather than
+ * taken directly from the host bus, but this numeric value is still only a
+ * provisional stand-in until the fitted RV1 value or resulting oscillator
+ * frequency is established. */
 #define SMAKY6_PSG_CHIP_CLOCK_HZ 2411520u
 
 static int psg_handles_port(const struct Smaky6 *m, uint8_t lo)

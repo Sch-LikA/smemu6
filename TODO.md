@@ -20,16 +20,13 @@ against disassembly or hardware documentation.
   ports `0x20..0x27`, so `-harddisk` / `-harddisk2` must stay mutually
   exclusive until hardware evidence proves a different decode or multiplexing
   scheme.
-- Next audio slice after first host-clock bring-up: trace the real board clock
-  source feeding the `SW1` / `U8` / `U7` logic path into the AY `CLOCK`
-  backbone, then identify any divider chain before claiming a real AY clock
-  value.
-- New PDF trace direction: follow the AY `CLOCK` backbone through the `SW1`
-  branch and the `119.38/49.53/95.25` top-of-sheet net first; the visible `U9`
-  RC oscillator block is not yet proven to feed the AYs directly.
-- Current local anchor for the next schematic pass: start from `U8A` and the
-  shared `SW1` control trunk, then follow the resulting `U8`/`U7` logic output
-  rightward until it reaches the actual upstream source or divider stage.
+- Netlist result: the direct AY `CLOCK` net is `Net-(U1-CLOCK)` and is driven
+  by `U16` pin `4`, not directly by the `SW1` / `U8` / `U7` control path.
+- Next clock-correction slice: determine the fitted `RV1` value and the actual
+  `U16` Schmitt-trigger RC oscillator frequency from the `1nF1` + `R6` + `RV1`
+  network before replacing the current fallback `2.41152 MHz` in the emulator.
+- Keep `SW1` / `U8` / `U7` in the notes as nearby control logic, but no longer
+  treat that cluster as the direct unresolved AY clock source.
 
 ## Keyboard
 
