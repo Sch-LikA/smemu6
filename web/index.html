@@ -358,6 +358,12 @@
       margin: 0 auto;
       aspect-ratio: var(--machine-screen-width) / var(--machine-screen-height);
     }
+    #canvas-wrap.focused {
+      box-shadow:
+        0 0 20px #00cc0022,
+        inset 0 0 6px #000,
+        0 0 0 2px #4e7f4e;
+    }
 
     canvas {
       display: block;
@@ -366,6 +372,7 @@
       max-width: 100%;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      outline: none;
     }
 
     /* subtle screen glare reflection */
@@ -476,10 +483,33 @@
 
     #btns {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
       padding-top: 2px;
       flex: 0 0 auto;
+    }
+
+    #fn-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+      flex: 1 1 auto;
+    }
+
+    .fn-btn {
+      min-height: 32px;
+      padding: 5px 9px;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+    }
+
+    .fn-btn.active {
+      background: linear-gradient(180deg, #c9b548 0%, #9a7f1c 100%);
+      color: #201808;
+      border-color: #5c4910;
+      box-shadow: 0 2px 0 #5c4910, 0 3px 5px #00000033;
     }
 
     /* panel buttons — dark keycap style */
@@ -581,8 +611,16 @@
         width: 100%;
       }
 
+      #fn-buttons {
+        justify-content: stretch;
+      }
+
       #btns .panel-btn {
         width: 100%;
+      }
+
+      #fn-buttons .panel-btn {
+        flex: 1 1 calc(50% - 6px);
       }
     }
 
@@ -779,6 +817,15 @@
       </div>
     </div>
     <div id="btns">
+      <div id="fn-buttons">
+        <button class="panel-btn fn-btn" id="btn-fn-cursor" type="button" disabled>CURSOR</button>
+        <button class="panel-btn fn-btn" id="btn-fn-copy" type="button" disabled>COPY</button>
+        <button class="panel-btn fn-btn" id="btn-fn-kill" type="button" disabled>KILL</button>
+        <button class="panel-btn fn-btn" id="btn-fn-progra" type="button" disabled>PROGRA</button>
+        <button class="panel-btn fn-btn" id="btn-fn-show" type="button" disabled>SHOW</button>
+        <button class="panel-btn fn-btn" id="btn-fn-search" type="button" disabled>SEARCH</button>
+        <button class="panel-btn fn-btn" id="btn-fn-change" type="button" disabled>CHANGE</button>
+      </div>
       <button class="panel-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
       <button class="panel-btn" id="btn-reset" disabled>RESET</button>
     </div>
@@ -814,6 +861,16 @@ var launchDx1File = null;
 var runtimeReady = false;
 var emulatorStarted = false;
 var prefersTouchInput = window.matchMedia('(pointer: coarse)').matches;
+var webFunctionMask = 0;
+var webFunctionButtons = [
+  { id: 'btn-fn-cursor', bit: 0x40 },
+  { id: 'btn-fn-copy',   bit: 0x20 },
+  { id: 'btn-fn-kill',   bit: 0x10 },
+  { id: 'btn-fn-progra', bit: 0x08 },
+  { id: 'btn-fn-show',   bit: 0x04 },
+  { id: 'btn-fn-search', bit: 0x02 },
+  { id: 'btn-fn-change', bit: 0x01 }
+];
 
 function focusEmulatorInput(preferVirtualKeyboard) {
   var canvas = document.getElementById('canvas');
@@ -826,6 +883,41 @@ function focusEmulatorInput(preferVirtualKeyboard) {
   }
 
   canvas.focus();
+}
+
+function syncCanvasFocusState() {
+  document.getElementById('canvas-wrap').classList.toggle('focused', document.activeElement === document.getElementById('canvas'));
+}
+
+function applyWebFunctionMask() {
+  webFunctionButtons.forEach(function(entry) {
+    document.getElementById(entry.id).classList.toggle('active', !!(webFunctionMask & entry.bit));
+  });
+
+  if (emulatorStarted)
+    Module.ccall('smemu6_set_function_bits', null, ['number'], [webFunctionMask]);
+}
+
+function setWebFunctionMask(mask) {
+  webFunctionMask = mask & 0x7F;
+  applyWebFunctionMask();
+}
+
+function toggleWebFunctionBit(bit) {
+  setWebFunctionMask(webFunctionMask ^ bit);
+  focusEmulatorInput(prefersTouchInput);
+}
+
+function shouldClaimBrowserFunctionKey(e) {
+  if (!emulatorStarted)
+    return false;
+
+  if (e.key !== 'F1' && e.key !== 'F2' && e.key !== 'F3' && e.key !== 'F4' &&
+      e.key !== 'F5' && e.key !== 'F6' && e.key !== 'F7')
+    return false;
+
+  var active = document.activeElement;
+  return active === document.getElementById('canvas') || active === document.getElementById('vk-anchor');
 }
 
 function syncMachineDisplayScale() {
@@ -990,6 +1082,10 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   document.getElementById('status-overlay').classList.add('hidden');
   document.getElementById('btn-reset').disabled = false;
   document.getElementById('btn-keyboard').disabled = false;
+  webFunctionButtons.forEach(function(entry) {
+    document.getElementById(entry.id).disabled = false;
+  });
+  setWebFunctionMask(0);
   focusEmulatorInput(false);
 });
 
@@ -1082,6 +1178,7 @@ document.getElementById('dx1-file').addEventListener('change', function(e) {
 
 document.getElementById('btn-reset').addEventListener('click', function(e) {
   e.preventDefault();
+  setWebFunctionMask(0);
   Module.ccall('smemu6_reset', null, [], []);
   appendOutput('[web] reset\n');
   focusEmulatorInput(prefersTouchInput);
@@ -1102,6 +1199,37 @@ document.getElementById('log-toggle').addEventListener('click', function() {
 
 document.getElementById('canvas').addEventListener('click', function() {
   focusEmulatorInput(prefersTouchInput);
+});
+
+document.getElementById('canvas').addEventListener('focus', syncCanvasFocusState);
+document.getElementById('canvas').addEventListener('blur', syncCanvasFocusState);
+document.getElementById('vk-anchor').addEventListener('focus', syncCanvasFocusState);
+document.getElementById('vk-anchor').addEventListener('blur', syncCanvasFocusState);
+
+webFunctionButtons.forEach(function(entry) {
+  document.getElementById(entry.id).addEventListener('click', function(e) {
+    e.preventDefault();
+    toggleWebFunctionBit(entry.bit);
+  });
+});
+
+window.addEventListener('keydown', function(e) {
+  if (!shouldClaimBrowserFunctionKey(e))
+    return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+window.addEventListener('keyup', function(e) {
+  if (!shouldClaimBrowserFunctionKey(e))
+    return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+window.addEventListener('blur', function() {
+  setWebFunctionMask(0);
+  syncCanvasFocusState();
 });
 
 (function loadRuntimeScript() {

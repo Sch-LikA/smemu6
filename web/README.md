@@ -99,6 +99,11 @@ Same as the native build — see [docs/EMULATOR_GUIDE_EN.md](../docs/EMULATOR_GU
 | Shift+Pause / Shift+F11  | SHIFT+BREAK (hard reset) |
 | Ctrl+Q                   | Quit (reloads page)      |
 
+For Smaky function keys CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE,
+prefer the dedicated front-panel web buttons after startup. Browsers often
+reserve `F1`..`F7`, and some integrated browser surfaces do not deliver those
+keys consistently to the canvas.
+
 ## Preloaded files
 
 At build time, `--preload-file` bundles:
@@ -119,6 +124,9 @@ At build time, `--preload-file` bundles:
   you choose DX0 / DX1 boot disks before starting the emulator.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
   is passed via `Module.arguments`).  Use the HTML controls instead.
+- The running front panel now exposes dedicated web buttons for the seven Smaky
+  function keys, and the canvas uses a custom focus highlight instead of the
+  browser's default orange focus ring.
 - Sound uses SDL2's push-mode (`SDL_QueueAudio`) — no `SharedArrayBuffer`
   required for audio alone.
 - The file picker in the launcher code is replaced by a JS `<input type="file">`

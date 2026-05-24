@@ -274,6 +274,9 @@ audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 - `F5`: **SHOW** function key.
 - `F6`: **SEARCH** function key.
 - `F7`: **CHANGE** function key.
+- Web build note: browsers may reserve host `F1`..`F7`; use the dedicated
+  front-panel CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE buttons in
+  the web UI when those host function keys are intercepted.
 - `Arrow keys`: host aliases for the documented `CURSOR+r/d/f/c` combinations (`Up/Left/Right/Down`).
 - `F9`: **DEFINE** (`0x1F`) via the current strict matrix map.
 - `End`: current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted).

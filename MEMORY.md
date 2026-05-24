@@ -9,6 +9,28 @@ Read at the start of every session. Never contradict a logged decision without f
 
 ## Session: May 24, 2026
 
+### Decision: give the web build dedicated function-key controls instead of relying on browser F-keys alone
+
+**Decided:** Keep the native `F1`..`F7` mapping unchanged, but add dedicated web
+front-panel buttons for CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE,
+plus a small Emscripten export that applies those bits through the existing
+mouse-function path.
+
+**Why:**
+- browsers and embedded webviews often reserve `F1`..`F7`, so those keys are not
+  delivered reliably to the emulator canvas
+- intercepted browser function keys can also leave confusing stuck-key behavior
+  on the web side even though the native build is fine
+- the existing mouse-function bit path already matches the intended semantic:
+  persistent modifier-style function-key state controlled by the UI
+
+**Validated:**
+- `cmake --build build --target smemu6` succeeds
+- `EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web --target smemu6`
+  succeeds
+- cache-busted browser smoke test shows the new function-key row, the custom
+  canvas focus highlight, and a toggleable active CURSOR button
+
 ### Decision: clear host-owned ordinary key state on SDL focus loss
 
 **Decided:** Add a keyboard-owned focus-loss helper and call it from the main

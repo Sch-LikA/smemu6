@@ -296,6 +296,7 @@ le chemin strict CLA / `SYS.SY`.
 | `F5` | Touche de fonction **SHOW** |
 | `F6` | Touche de fonction **SEARCH** |
 | `F7` | Touche de fonction **CHANGE** |
+| Build web | Les navigateurs peuvent réserver `F1`..`F7` ; dans l'interface web, préférez les boutons dédiés **CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE** du panneau frontal |
 | `Flèches` | Alias hôte pour les combinaisons documentées `CURSOR+r/d/f/c` (`Haut/Gauche/Droite/Bas`) |
 | `F9` | **DEFINE** (`0x1F`) via le mapping strict actuel de la matrice |
 | `Fin` (End) | Position de touche ordinaire 30 auditée (`0x04` normal, `0x05` avec Shift) |

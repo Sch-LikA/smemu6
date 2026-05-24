@@ -1111,7 +1111,8 @@ See [web/README.md](web/README.md) for build and serving instructions.
   from the Emscripten target graph so `build-web` does not try to execute wasm
   helper binaries during header generation.
 - **HTML shell** — `web/index.html` custom Emscripten shell with green-phosphor
-  styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
+  styling, DX0/DX1 file-load buttons, reset button, dedicated Smaky function-key
+  buttons, fullscreen, and stderr log.
 
 ### Web remaining work
 

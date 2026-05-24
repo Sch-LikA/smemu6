@@ -95,6 +95,8 @@ EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 tools/serve_web.sh
 # Open http://127.0.0.1:8080/
 # Wait for the bundled floppy library, choose DX0/DX1 images, then click Start
+# In the browser, prefer the front-panel CURSOR/COPY/KILL/PROGRA/SHOW/SEARCH/CHANGE buttons
+# over host F1..F7, because browsers may reserve those function keys.
 ```
 
 ### Experimental SDCC scaffold

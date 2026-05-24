@@ -796,6 +796,13 @@ void smemu6_mount_dx1(const char *path)
         floppy_mount(s_loop->m, 1, path);
 }
 
+EMSCRIPTEN_KEEPALIVE
+void smemu6_set_function_bits(unsigned int bits)
+{
+    if (s_loop && s_loop->m)
+        keyboard_set_mouse_function_bits(s_loop->m, (uint8_t)(bits & 0x7Fu));
+}
+
 #endif /* __EMSCRIPTEN__ */
 
 #ifdef __EMSCRIPTEN__
