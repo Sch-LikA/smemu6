@@ -1078,6 +1078,104 @@ This gives sample-accurate buzzer reproduction: a software loop toggling port
 
 ---
 
+## PSG sound-card add-on  🚧 Planned
+
+Rare side-bus expansion card for the Smaky 6.  The provided schematic shows:
+
+- four `AY-3-8910` PSG chips
+- direct connection to the side `MUBUS` connector
+- shared `DA0..DA7` data lines plus `AD0..AD5` address lines
+- bus/control signals including `WRITELOW` and `RESETLOW`
+- discrete decode / glue logic built from `74LS138` and `74LS00` / `74LS32`
+
+### Hardware reverse-engineering / documentation
+
+- Derive the exact MUBUS-visible register map from the schematic: which
+  address combinations select which AY chip, and how the decode logic drives
+  each chip's `BC1`, `BC2`, and `BDIR` pins.
+- Confirm whether the card is write-only from the host point of view or
+  whether any AY register reads are possible / used by software.
+- Identify the effective PSG clock source and divisor from the card so tone /
+  noise / envelope timing matches the real hardware.
+- Treat the AY parallel I/O ports as disconnected for the first
+  implementation unless SIGMA proves otherwise.
+- Document whether the card uses any additional MUBUS handshake behavior
+  (`NOTREADYLOW`, interrupts, bus wait states) or is just a normal write-only
+  peripheral.
+
+### Emulator architecture
+
+- Add a dedicated PSG add-on device model instead of folding the card into the
+  existing beeper helpers.  The card is optional hardware hanging off MUBUS,
+  not part of the base machine speaker path.
+- Keep the existing SDL push-audio pipeline in `src/sound.c`, but add a second
+  synthesized source path for the PSG card and mix it with the beeper / drive
+  sounds at frame end.
+- Add explicit card enable / disable configuration so the machine can still run
+  as a stock Smaky 6 without the expansion installed.
+- First target: register-correct and audibly correct output.  Exact cycle- or
+  analog-level matching can follow later if needed.
+- Decide whether to vendor a small existing AY/YM2149 core or implement a local
+  core.  Prefer a small, readable, permissively compatible implementation over a
+  large framework dependency.
+
+### PSG device implementation
+
+- Add card state for four AY chips: register file, selected register latch,
+  tone/noise counters, envelope state, mixer bits, and per-chip output levels.
+- Implement host-visible bus writes according to the decoded `BC1` / `BC2` /
+  `BDIR` behavior: register-address latch, data write, and any valid read path
+  if the hardware actually supports it.
+- Reset all PSG state from the card reset path driven by `RESETLOW`.
+- Generate the three tone channels, noise generator, and envelope generator for
+  each AY, then mix all four chips into one mono output path first.
+- Start with a faithful mono mix that matches the physical card; only add
+  synthetic stereo placement later if there is hardware evidence for it.
+
+### Bus integration
+
+- Hook the card into the machine's MUBUS-visible I/O path at the exact port /
+  address decode point derived from the schematic.
+- Keep the owning abstraction local: bus decode in the machine / I/O layer,
+  AY behavior inside the PSG card implementation, final PCM mix in `sound.c`.
+- Add targeted tracing for PSG register writes and chip-select decisions so the
+  first software bring-up can be debugged without broad audio logging.
+
+### UI / configuration / docs
+
+- Add CLI options to enable the PSG card and, if useful, to select a stricter
+  hardware mode versus a developer-forced mode for testing.
+- Extend the launcher sound section once the backend exists so users can see
+  whether the PSG card is installed, without cluttering the base-machine path.
+- Document the hardware, configuration flags, software expectations, and any
+  known limitations in `README.md`, the emulator guide, and a dedicated dev note
+  under `docs/dev/`.
+
+### Validation
+
+- Build a minimal host-side PSG test plan: write-register smoke tests, known
+  tone-period checks, envelope checks, and noise-generator checks.
+- Add a deterministic non-interactive test that writes a short PSG register
+  sequence and verifies chip state or rendered sample hashes / bounds.
+- Use `floppies/SIGMA.dsk` / the SIGMA software as the first real-software
+  validation target for the card.
+- If possible, capture reference audio or register traces from real hardware to
+  validate the chosen clock, mixer scaling, and write semantics.
+
+### Current implementation assumptions
+
+- Use `SIGMA.dsk` as the first real-software bring-up target.
+- Keep the card optional behind an explicit enable flag; the default machine
+  remains a stock Smaky 6.
+- First version target is register-correct plus audibly correct output.
+- Ignore the AY parallel I/O ports initially unless the software proves they
+  are needed.
+- Only the schematic and SIGMA software are currently available as hardware /
+  software references.
+- Open design choice: in-tree AY core versus vendored small open-source core.
+
+---
+
 ## MAME / FPGA
 
 - **Phase 2**: MAME driver integration (not started)

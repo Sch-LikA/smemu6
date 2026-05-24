@@ -90,6 +90,22 @@ Why:
 - plain extracted files are not enough for SAMOS boot media
 - load address, entry point, flags, dates, and sector ordering matter
 
+### PSG sound card stays optional and SIGMA is the first validation target
+
+For the PSG branch, treat the add-on sound card as optional hardware behind an
+explicit enable flag.  First implementation target is register-correct and
+audibly correct output, not full cycle-accurate analog matching.
+
+Why:
+
+- the base machine should still run as a stock Smaky 6 when the add-on is not
+  installed
+- only the schematic and `SIGMA.dsk` are currently available as references, so
+  software bring-up should focus on correct register behavior and plausible
+  audio output first
+- the AY parallel I/O ports can be ignored initially unless SIGMA proves they
+  matter
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI
