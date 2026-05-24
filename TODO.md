@@ -20,9 +20,10 @@ against disassembly or hardware documentation.
   ports `0x20..0x27`, so `-harddisk` / `-harddisk2` must stay mutually
   exclusive until hardware evidence proves a different decode or multiplexing
   scheme.
-- Next audio slice after first host-clock bring-up: confirm whether the PSG
-  card uses the local `U9` + `R1` + `C1` timing section seen in the PDF, then
-  trace any divider chain before claiming a real AY clock value.
+- Next audio slice after first host-clock bring-up: trace the real board clock
+  source feeding the `SW1` / `U8` / `U7` logic path into the AY `CLOCK`
+  backbone, then identify any divider chain before claiming a real AY clock
+  value.
 - New PDF trace direction: follow the AY `CLOCK` backbone through the `SW1`
   branch and the `119.38/49.53/95.25` top-of-sheet net first; the visible `U9`
   RC oscillator block is not yet proven to feed the AYs directly.

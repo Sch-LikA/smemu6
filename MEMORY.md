@@ -161,6 +161,10 @@ Why:
   upward through the top-of-sheet path toward the `SW1` region, not directly
   into the visible `U9` RC oscillator block; `U9` therefore cannot currently be
   treated as the confirmed immediate AY clock source
+- the wider top-left schematic crop shows `SW1` embedded in the `U8` (`74LS02`)
+  and `U7` (`74LS32`) logic path that feeds the AY `CLOCK` backbone, so `SW1`
+  is not currently supported as a simple selector between two standalone clock
+  sources
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
