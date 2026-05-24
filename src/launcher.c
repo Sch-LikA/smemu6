@@ -35,11 +35,11 @@
 #define COL_SECTION     0xFFC0B898   /* slightly darker beige for section headers */
 #define COL_ACCENT      0xFF2A6020   /* dark forest green — readable on beige */
 #define COL_TEXT        0xFF2A2520   /* dark charcoal text */
-#define COL_TEXT_DIM    0xFF7A7060   /* dimmed warm brown */
+#define COL_TEXT_DIM    0xFF5C5144   /* dimmed warm brown, kept readable */
 #define COL_BTN_BG      0xFFD8D0B0   /* beige button background */
 #define COL_BTN_HOVER   0xFFEAE0C0   /* lighter beige on hover */
-#define COL_BTN_START   0xFF2A2018   /* dark charcoal Start key */
-#define COL_BTN_START_H 0xFF3A3028   /* slightly lighter on hover */
+#define COL_BTN_START   0xFF8B2A20   /* warm red Start key */
+#define COL_BTN_START_H 0xFFA4372C   /* brighter red on hover */
 #define COL_BORDER      0xFFA8A080   /* warm beige border */
 #define COL_DROPDOWN_BG 0xFFD8D0B0
 #define COL_WHITE       0xFFFFFFFF
@@ -114,14 +114,15 @@ static int text_width(const char *s)
 
 /* Draw a button-style box.  Returns 1 if the mouse is hovering. */
 static int draw_button(SDL_Renderer *ren, int x, int y, int w, int h,
-                        const char *label, int mx, int my, uint32_t bg_col, uint32_t hover_col)
+                        const char *label, int mx, int my,
+                        uint32_t bg_col, uint32_t hover_col, uint32_t text_col)
 {
     int hover = (mx >= x && mx < x + w && my >= y && my < y + h);
     draw_rect_filled(ren, x, y, w, h, hover ? hover_col : bg_col);
     draw_rect_outline(ren, x, y, w, h, COL_BORDER);
     int tx = x + (w - text_width(label)) / 2;
     int ty = y + (h - FONT_H * FONT_SCALE) / 2;
-    draw_text(ren, tx, ty, label, COL_WHITE);
+    draw_text(ren, tx, ty, label, text_col);
     return hover;
 }
 
@@ -135,7 +136,7 @@ static void draw_dropdown(SDL_Renderer *ren, int x, int y, int w, int h,
     draw_rect_outline(ren, x, y, w, h, COL_BORDER);
     int tx = x + 6;
     int ty = y + (h - FONT_H * FONT_SCALE) / 2;
-    draw_text(ren, tx, ty, label, COL_WHITE);
+    draw_text(ren, tx, ty, label, COL_TEXT);
     /* down-arrow indicator on right edge */
     draw_text(ren, x + w - 14, ty, "v", COL_TEXT_DIM);
 }
@@ -494,9 +495,9 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
                       storage_mode_label(s->dx0_mode), mx, my);
         ha->dx0_type = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
     }
-    draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER);
+    draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER, COL_TEXT);
     ha->dx0_browse = make_rect(BROWSE_X, y, BROWSE_W, CTRL_H);
-    draw_button(ren, CLEAR_X, y, CLEAR_W, CTRL_H, "x", mx, my, COL_BTN_BG, COL_BTN_HOVER);
+    draw_button(ren, CLEAR_X, y, CLEAR_W, CTRL_H, "x", mx, my, COL_BTN_BG, COL_BTN_HOVER, COL_TEXT);
     ha->dx0_clear = make_rect(CLEAR_X, y, CLEAR_W, CTRL_H);
     {
         char trunc[52];
@@ -510,9 +511,9 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H,
                   storage_mode_label(s->dx1_mode), mx, my);
     ha->dx1_type = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
-    draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER);
+    draw_button(ren, BROWSE_X, y, BROWSE_W, CTRL_H, "Browse", mx, my, COL_BTN_BG, COL_BTN_HOVER, COL_TEXT);
     ha->dx1_browse = make_rect(BROWSE_X, y, BROWSE_W, CTRL_H);
-    draw_button(ren, CLEAR_X, y, CLEAR_W, CTRL_H, "x", mx, my, COL_BTN_BG, COL_BTN_HOVER);
+    draw_button(ren, CLEAR_X, y, CLEAR_W, CTRL_H, "x", mx, my, COL_BTN_BG, COL_BTN_HOVER, COL_TEXT);
     ha->dx1_clear = make_rect(CLEAR_X, y, CLEAR_W, CTRL_H);
     {
         char trunc[52];
@@ -583,9 +584,9 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     y += 8;
     int btn_w = 90, btn_h = 26;
     int btn_y = y;
-    draw_button(ren, 70,  btn_y, btn_w, btn_h, "Help",  mx, my, COL_BTN_BG, COL_BTN_HOVER);
+    draw_button(ren, 70,  btn_y, btn_w, btn_h, "Help",  mx, my, COL_BTN_BG, COL_BTN_HOVER, COL_TEXT);
     ha->btn_help  = make_rect(70,  btn_y, btn_w, btn_h);
-    draw_button(ren, 300, btn_y, btn_w, btn_h, "Start", mx, my, COL_BTN_START, COL_BTN_START_H);
+    draw_button(ren, 300, btn_y, btn_w, btn_h, "Start", mx, my, COL_BTN_START, COL_BTN_START_H, COL_WHITE);
     ha->btn_start = make_rect(300, btn_y, btn_w, btn_h);
 }
 
