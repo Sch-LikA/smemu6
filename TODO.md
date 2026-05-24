@@ -21,8 +21,8 @@ against disassembly or hardware documentation.
   exclusive until hardware evidence proves a different decode or multiplexing
   scheme.
 - Next audio slice after first host-clock bring-up: confirm whether the PSG
-  card really receives the host CPU-derived `2.41152 MHz` clock or a different
-  bus/master-clock derivative on the real hardware.
+  card uses the local `U9` + `R1` + `C1` timing section seen in the PDF, then
+  trace any divider chain before claiming a real AY clock value.
 
 ## Keyboard
 

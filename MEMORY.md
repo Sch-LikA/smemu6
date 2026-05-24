@@ -147,18 +147,18 @@ Why:
 
 ### PSG first clock assumption and audio path
 
-Current PSG slice uses the host Smaky machine clock as the AY input clock and
-mixes PSG output through the existing SDL audio frame buffer.
+Current PSG slice still uses a temporary fallback AY clock and mixes PSG output
+through the existing SDL audio frame buffer.
 
 Why:
 
-- the PSG schematic text shows all four AY `CLOCK` pins tied to one shared net
-  and does not expose a separate board-local oscillator in the recovered text
-- the AY clock net appears to leave the chip cluster toward the host-side bus
-  region, so the safest first approximation is the documented Smaky hardware
-  CPU-derived clock: `12.0576 MHz / 5 = 2.41152 MHz`
-- using a placeholder clock or skipping PSG-only audio init would make `-psg`
-  runs silently wrong even before finer hardware validation
+- the PDF confirms the card has a local RC timing section around `U9`
+  (`74LS00`) plus `R1` and `C1`, so the earlier “host clock” rationale is not
+  reliable
+- the visible bus connector pins in the PDF do not show an incoming clock pin,
+  which further argues against the current host-clock assumption
+- until the exact oscillator/divider path is traced, the emulator keeps a
+  temporary fallback clock so `-psg` remains testable instead of silent
 
 ## Known Limitations
 

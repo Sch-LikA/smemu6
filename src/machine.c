@@ -21,10 +21,13 @@
 
 #define SMAKY6_PSG_PORT_BASE 0x20u
 #define SMAKY6_PSG_PORT_LAST 0x27u
-/* First hardware-backed PSG clock assumption: the card schematic text shows
- * the four AY CLOCK pins tied together on one net with no explicit local
- * oscillator block visible in the recovered text, so use the documented host
- * CPU-derived Smaky clock (12.0576 MHz / 5). */
+/* Temporary fallback PSG clock.
+ *
+ * The schematic PDF confirms a local RC timing section on the card around U9
+ * (74LS00) with R1/C1, and the visible bus connector pins do not show a clock
+ * input. That means this value is no longer a schematic-backed conclusion; it
+ * is only a provisional stand-in until the local oscillator/divider path is
+ * traced precisely. */
 #define SMAKY6_PSG_CHIP_CLOCK_HZ 2411520u
 
 static int psg_handles_port(const struct Smaky6 *m, uint8_t lo)
