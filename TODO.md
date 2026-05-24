@@ -25,6 +25,9 @@ against disassembly or hardware documentation.
 - Next clock-correction slice: determine the fitted `RV1` value and the actual
   `U16` Schmitt-trigger RC oscillator frequency from the `1nF1` + `R6` + `RV1`
   network before replacing the current fallback `2.41152 MHz` in the emulator.
+- `1nF1` is now confirmed as `1 nF`, so follow-up hardware work can focus on
+  `RV1` and any downstream effective division rather than re-checking the
+  capacitor value.
 - Use the resolved topology as the local starting point: `U16` pins `1`/`2`
   are the oscillator stage and `U16` pins `3`/`4` buffer that result onto the
   AY `CLOCK` net.

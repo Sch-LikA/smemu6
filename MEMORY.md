@@ -166,6 +166,9 @@ Why:
   tied back to `U16 pin 3` plus `R6 pin 1`, `R6 pin 2` tied to `RV1 pin 2`,
   and `U16 pin 4` buffering that local oscillator onto the shared AY
   `CLOCK_22` net; `RV1 pin 3` is unconnected in the exported netlist
+- `1nF1` is confirmed to be a fitted `1 nF` capacitor, so the remaining
+  frequency uncertainty is centered on the actual `RV1` value/setting and any
+  later effective division, not on the capacitor identity
 - the visible bus connector pins in the PDF do not show an incoming clock pin,
   which further argues against the current host-clock assumption
 - the wider top-left schematic crop shows `SW1` embedded in the `U8` (`74LS02`)
@@ -178,9 +181,8 @@ Why:
   logic/configuration input to the clock-shaping network rather than a direct
   raw-clock source selector
 - the exact oscillator frequency is still unresolved from the netlist alone,
-  because the fitted `RV1` value is not encoded there, the capacitor value is
-  not exported cleanly beyond the `1nF1` reference designator, and the
-  resulting effective clock/division still needs confirmation
+  because the fitted `RV1` value is not encoded there and the resulting
+  effective clock/division still needs confirmation
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
