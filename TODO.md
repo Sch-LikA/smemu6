@@ -27,6 +27,9 @@ against disassembly or hardware documentation.
 - New PDF trace direction: follow the AY `CLOCK` backbone through the `SW1`
   branch and the `119.38/49.53/95.25` top-of-sheet net first; the visible `U9`
   RC oscillator block is not yet proven to feed the AYs directly.
+- Current local anchor for the next schematic pass: start from `U8A` and the
+  shared `SW1` control trunk, then follow the resulting `U8`/`U7` logic output
+  rightward until it reaches the actual upstream source or divider stage.
 
 ## Keyboard
 

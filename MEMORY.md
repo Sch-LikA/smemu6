@@ -165,6 +165,11 @@ Why:
   and `U7` (`74LS32`) logic path that feeds the AY `CLOCK` backbone, so `SW1`
   is not currently supported as a simple selector between two standalone clock
   sources
+- more specifically, the traced lower `SW1` branch runs directly into the
+  `U8A` NOR-gate input path, while the other `SW1` branch continues down the
+  same `U8`-side control trunk; this is now strong evidence that `SW1` is a
+  logic/configuration input to the clock-shaping network rather than a direct
+  raw-clock source selector
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
