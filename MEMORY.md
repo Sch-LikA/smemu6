@@ -212,3 +212,50 @@ Implication:
 - Web-build usage and browser-specific behavior belong in `web/README.md`.
 - Repeated failed approaches and recovery notes belong in `ERRORS.md`, not
   here.
+
+## Session Summaries
+
+### 2026-05-25
+
+Worked on:
+
+- traced the PSG board clock path from PDF crops, KiCad schematic coordinates,
+  and finally the KiCad netlist
+- corrected the earlier assumption that the AY clock might come from the host
+  clock or directly from the `U9` / `R1` / `C1` block
+- answered the narrower hardware question about `SW1`
+
+Completed:
+
+- documented the PSG clock trace direction in `84637fd` (`docs: record PSG
+  clock trace direction`)
+- synchronized the README clock wording with the revised hardware evidence in
+  `2693df4` (`docs: refine PSG clock trace notes`)
+- replaced the old direct-clock-source uncertainty with the netlist-backed
+  `U16` driver result in `4b13f60` (`docs: trace PSG clock from netlist`)
+- recorded the resolved `U16` oscillator topology in `b25d4c7`
+  (`docs: record U16 oscillator topology`)
+- recorded that `1nF1` is confirmed as `1 nF` in `e8b1c34`
+  (`docs: note PSG cap value`)
+
+In progress:
+
+- the exact AY clock frequency is still unresolved
+- the remaining hardware unknown is the fitted `RV1` value/setting and whether
+  any later effective division changes the final AY clock seen at `U16 pin 4`
+
+Decisions made:
+
+- keep the emulator clock value as a fallback until the oscillator frequency is
+  hardware-backed; see `PSG first clock assumption and audio path` above
+- treat `SW1` as decode/configuration logic input, not as the direct AY clock
+  source selector; see `PSG first clock assumption and audio path` above
+
+Next session priorities:
+
+- determine the fitted `RV1` value or range from BOM, board markings, or user
+  confirmation
+- infer or measure the resulting `U16` oscillator frequency and decide whether
+  `SMAKY6_PSG_CHIP_CLOCK_HZ` should change from the current fallback
+- only after that, revisit SIGMA runtime validation against the corrected PSG
+  clock model
