@@ -536,16 +536,6 @@
       display: none;
     }
 
-    .mobile-kbd-hint {
-      display: none;
-      width: 100%;
-      margin-top: 6px;
-      font-size: 0.68rem;
-      color: #8a8070;
-      text-align: center;
-      letter-spacing: 0.02em;
-    }
-
     .vk-anchor {
       position: absolute;
       left: -9999px;
@@ -661,10 +651,6 @@
 
       .mobile-kbd-only {
         display: inline-flex;
-      }
-
-      .mobile-kbd-hint {
-        display: block;
       }
 
       .lnch-opt {
@@ -816,9 +802,8 @@
         <button class="panel-btn fn-btn" id="btn-fn-show" type="button" tabindex="-1" disabled>SHOW</button>
         <button class="panel-btn fn-btn" id="btn-fn-search" type="button" tabindex="-1" disabled>SEARCH</button>
         <button class="panel-btn fn-btn" id="btn-fn-change" type="button" tabindex="-1" disabled>CHANGE</button>
-        <button class="panel-btn fn-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
+        <button class="panel-btn fn-btn mobile-kbd-only" id="btn-keyboard" type="button" aria-label="Keyboard" title="Keyboard" disabled>KBD</button>
       </div>
-      <div class="mobile-kbd-hint">Tap KEYBOARD to open the device keyboard.</div>
     </div>
   </div>
 
