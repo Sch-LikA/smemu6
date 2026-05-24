@@ -23,6 +23,9 @@ mouse-function path.
   on the web side even though the native build is fine
 - the existing mouse-function bit path already matches the intended semantic:
   persistent modifier-style function-key state controlled by the UI
+- the web controls should keep the same left-hold / right-click-latch behavior
+  as the native status-bar function buttons instead of using click-to-toggle
+  semantics
 
 **Validated:**
 - `cmake --build build --target smemu6` succeeds

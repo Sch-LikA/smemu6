@@ -97,6 +97,7 @@ tools/serve_web.sh
 # Wait for the bundled floppy library, choose DX0/DX1 images, then click Start
 # In the browser, prefer the front-panel CURSOR/COPY/KILL/PROGRA/SHOW/SEARCH/CHANGE buttons
 # over host F1..F7, because browsers may reserve those function keys.
+# Web button semantics match the native status bar: left-press holds, right-click toggles a latch.
 ```
 
 ### Experimental SDCC scaffold

@@ -483,26 +483,29 @@
 
     #btns {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 8px;
-      align-items: center;
+      align-items: stretch;
       padding-top: 2px;
-      flex: 0 0 auto;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     #fn-buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
-      justify-content: flex-end;
-      flex: 1 1 auto;
+      justify-content: flex-start;
+      width: 100%;
     }
 
     .fn-btn {
-      min-height: 32px;
-      padding: 5px 9px;
-      font-size: 0.72rem;
-      letter-spacing: 0.04em;
+      min-height: 30px;
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      letter-spacing: 0.03em;
+      flex: 1 1 calc((100% - 18px) / 4);
+      min-width: 0;
     }
 
     .fn-btn.active {
@@ -510,6 +513,18 @@
       color: #201808;
       border-color: #5c4910;
       box-shadow: 0 2px 0 #5c4910, 0 3px 5px #00000033;
+    }
+
+    #panel-actions {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      align-items: center;
+    }
+
+    #panel-actions .panel-btn {
+      flex: 1 1 0;
+      width: auto;
     }
 
     /* panel buttons — dark keycap style */
@@ -615,12 +630,16 @@
         justify-content: stretch;
       }
 
-      #btns .panel-btn {
-        width: 100%;
-      }
-
       #fn-buttons .panel-btn {
         flex: 1 1 calc(50% - 6px);
+      }
+
+      #panel-actions {
+        flex-direction: column;
+      }
+
+      #panel-actions .panel-btn {
+        width: 100%;
       }
     }
 
@@ -826,8 +845,10 @@
         <button class="panel-btn fn-btn" id="btn-fn-search" type="button" disabled>SEARCH</button>
         <button class="panel-btn fn-btn" id="btn-fn-change" type="button" disabled>CHANGE</button>
       </div>
-      <button class="panel-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
-      <button class="panel-btn" id="btn-reset" disabled>RESET</button>
+      <div id="panel-actions">
+        <button class="panel-btn mobile-kbd-only" id="btn-keyboard" type="button" disabled>KEYBOARD</button>
+        <button class="panel-btn" id="btn-reset" disabled>RESET</button>
+      </div>
     </div>
   </div>
 
@@ -862,6 +883,8 @@ var runtimeReady = false;
 var emulatorStarted = false;
 var prefersTouchInput = window.matchMedia('(pointer: coarse)').matches;
 var webFunctionMask = 0;
+var webFunctionLatchedMask = 0;
+var webFunctionPressedBit = 0;
 var webFunctionButtons = [
   { id: 'btn-fn-cursor', bit: 0x40 },
   { id: 'btn-fn-copy',   bit: 0x20 },
@@ -903,9 +926,35 @@ function setWebFunctionMask(mask) {
   applyWebFunctionMask();
 }
 
-function toggleWebFunctionBit(bit) {
-  setWebFunctionMask(webFunctionMask ^ bit);
-  focusEmulatorInput(prefersTouchInput);
+function pressWebFunctionBit(bit) {
+  webFunctionPressedBit = bit & 0x7F;
+  setWebFunctionMask(webFunctionLatchedMask | webFunctionPressedBit);
+}
+
+function releaseWebFunctionBit(bit) {
+  if (webFunctionPressedBit === (bit & 0x7F))
+    webFunctionPressedBit = 0;
+  setWebFunctionMask(webFunctionLatchedMask);
+}
+
+function toggleLatchedWebFunctionBit(bit) {
+  bit &= 0x7F;
+  webFunctionLatchedMask = (webFunctionLatchedMask & bit)
+    ? (webFunctionLatchedMask & ~bit)
+    : (webFunctionLatchedMask | bit);
+  setWebFunctionMask(webFunctionLatchedMask | webFunctionPressedBit);
+}
+
+function clearWebFunctionState() {
+  webFunctionLatchedMask = 0;
+  webFunctionPressedBit = 0;
+  setWebFunctionMask(0);
+}
+
+function focusEmulatorCanvasSoon() {
+  window.requestAnimationFrame(function() {
+    focusEmulatorInput(prefersTouchInput);
+  });
 }
 
 function shouldClaimBrowserFunctionKey(e) {
@@ -1085,7 +1134,7 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   webFunctionButtons.forEach(function(entry) {
     document.getElementById(entry.id).disabled = false;
   });
-  setWebFunctionMask(0);
+  clearWebFunctionState();
   focusEmulatorInput(false);
 });
 
@@ -1178,7 +1227,7 @@ document.getElementById('dx1-file').addEventListener('change', function(e) {
 
 document.getElementById('btn-reset').addEventListener('click', function(e) {
   e.preventDefault();
-  setWebFunctionMask(0);
+  clearWebFunctionState();
   Module.ccall('smemu6_reset', null, [], []);
   appendOutput('[web] reset\n');
   focusEmulatorInput(prefersTouchInput);
@@ -1207,9 +1256,33 @@ document.getElementById('vk-anchor').addEventListener('focus', syncCanvasFocusSt
 document.getElementById('vk-anchor').addEventListener('blur', syncCanvasFocusState);
 
 webFunctionButtons.forEach(function(entry) {
-  document.getElementById(entry.id).addEventListener('click', function(e) {
+  var button = document.getElementById(entry.id);
+
+  button.addEventListener('pointerdown', function(e) {
     e.preventDefault();
-    toggleWebFunctionBit(entry.bit);
+    button.setPointerCapture(e.pointerId);
+    pressWebFunctionBit(entry.bit);
+  });
+
+  button.addEventListener('pointerup', function(e) {
+    e.preventDefault();
+    if (button.hasPointerCapture(e.pointerId))
+      button.releasePointerCapture(e.pointerId);
+    releaseWebFunctionBit(entry.bit);
+    focusEmulatorCanvasSoon();
+  });
+
+  button.addEventListener('pointercancel', function(e) {
+    e.preventDefault();
+    if (button.hasPointerCapture(e.pointerId))
+      button.releasePointerCapture(e.pointerId);
+    releaseWebFunctionBit(entry.bit);
+  });
+
+  button.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    toggleLatchedWebFunctionBit(entry.bit);
+    focusEmulatorCanvasSoon();
   });
 });
 
@@ -1228,7 +1301,7 @@ window.addEventListener('keyup', function(e) {
 }, true);
 
 window.addEventListener('blur', function() {
-  setWebFunctionMask(0);
+  clearWebFunctionState();
   syncCanvasFocusState();
 });
 

@@ -104,6 +104,10 @@ prefer the dedicated front-panel web buttons after startup. Browsers often
 reserve `F1`..`F7`, and some integrated browser surfaces do not deliver those
 keys consistently to the canvas.
 
+Those web buttons follow the same semantics as the native function-key strip:
+left-press holds the bit while the pointer is down, release clears it again,
+and right-click toggles a persistent latch.
+
 ## Preloaded files
 
 At build time, `--preload-file` bundles:
