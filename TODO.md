@@ -36,6 +36,10 @@ against disassembly or hardware documentation.
   left-click acts as a hold while pressed, and right-click toggles a persistent
   latch. The function one-shot logic should apply only to keyboard-held bits,
   not to mouse-latched bits.
+- Host focus-loss handling must flush the active ordinary key, queued pending
+  ordinary keys, and host text-input bookkeeping. Missing a key-up during a
+  browser/native focus change otherwise leaves ghost repeat characters latched
+  in the CLA path; this is especially visible in the web build.
 
 ### ~~Startup launcher window (SDL configuration dialog)~~ ✅ Done
 
@@ -1102,6 +1106,10 @@ See [web/README.md](web/README.md) for build and serving instructions.
   embedded into `smemu6.data` at build time.
 - **CMake integration** — `cmake/Emscripten.cmake` toolchain + `CMakePresets.json`
   "web" preset.  Build with `cmake --preset web && cmake --build build-web`.
+- **Host-only ST export helpers skipped on web** — the archived `.ST` symbol
+  exporter utilities remain native-only build-time tools and are now excluded
+  from the Emscripten target graph so `build-web` does not try to execute wasm
+  helper binaries during header generation.
 - **HTML shell** — `web/index.html` custom Emscripten shell with green-phosphor
   styling, DX0/DX1 file-load buttons, reset button, fullscreen, and stderr log.
 

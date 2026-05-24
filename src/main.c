@@ -433,9 +433,7 @@ static void main_loop_iter(void)
             if (ev.window.event == SDL_WINDOWEVENT_CLOSE)
                 L->running = 0;
             else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-                keyboard_clear_all_function_bits(L->m);
-                L->m->kbd.host_text_down_count = 0;
-                memset(L->m->kbd.host_text_down, 0, sizeof(L->m->kbd.host_text_down));
+                keyboard_cancel_host_input(L->m);
             }
             break;
 

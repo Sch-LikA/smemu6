@@ -177,6 +177,8 @@ static const AccentEntry ACCENT_TABLE[] = {
     { 0x00BBu, 0x1Fu }, /* right guillemet */
 };
 
+static void clear_ordinary_key(struct Smaky6 *m);
+
 static void refresh_function_bits(struct Smaky6 *m)
 {
     uint8_t old_bits = m->kbd.fonct_bits;
@@ -201,6 +203,21 @@ static uint8_t visible_function_bits(const struct Smaky6 *m)
                                           (m->kbd.cursor_alias_sources ? 0x40u : 0x00u)) &
                                          (uint8_t)~m->kbd.fonct_consumed_bits);
     return (uint8_t)((keyboard_visible | m->kbd.fonct_mouse_bits) & 0x7Fu);
+}
+
+void keyboard_cancel_host_input(struct Smaky6 *m)
+{
+    keyboard_clear_all_function_bits(m);
+    m->kbd.shift_pressed = 0;
+    m->kbd.host_text_down_count = 0;
+    memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
+    m->kbd.pending_ordinary_head = 0;
+    m->kbd.pending_ordinary_len = 0;
+    m->bus[0x4558u] = 0;
+    m->bus[0x4577u] = 0;
+
+    if (!m->kbd.boot_key_held)
+        clear_ordinary_key(m);
 }
 
 void keyboard_clear_all_function_bits(struct Smaky6 *m)

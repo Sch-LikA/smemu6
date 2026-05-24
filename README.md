@@ -94,6 +94,7 @@ EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 # Serve locally with the required COOP/COEP headers
 tools/serve_web.sh
 # Open http://127.0.0.1:8080/
+# Wait for the bundled floppy library, choose DX0/DX1 images, then click Start
 ```
 
 ### Experimental SDCC scaffold

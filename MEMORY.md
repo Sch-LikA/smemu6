@@ -7,6 +7,48 @@ Read at the start of every session. Never contradict a logged decision without f
 
 ## Session: May 23, 2026
 
+## Session: May 24, 2026
+
+### Decision: clear host-owned ordinary key state on SDL focus loss
+
+**Decided:** Add a keyboard-owned focus-loss helper and call it from the main
+SDL event loop when the emulator window loses focus.
+
+**Why:**
+- the existing focus-loss path only cleared function bits and `SDL_TEXTINPUT`
+  bookkeeping, but it left any active ordinary key latch, queued ordinary keys,
+  and pending reassert state untouched
+- if the host/browser drops the matching key-up during a focus change, the
+  emulator can keep reasserting that ordinary key indefinitely, which matches
+  the observed ghost `.` repeat symptom
+- the web build hits this more often because browser focus transitions are more
+  frequent than in the native SDL window
+
+**Validated:**
+- `cmake --build build --target smemu6` succeeds
+- `EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web --target smemu6`
+  succeeds
+
+### Decision: keep archived ST symbol export helpers out of the Emscripten build graph
+
+**Decided:** Wrap the archived `SM6.ST` / `FLO.ST` export utilities and their
+generated-header targets in `if(NOT EMSCRIPTEN)` so the web build only compiles
+browser artifacts.
+
+**Why:**
+- the web build was incorrectly compiling `export_smaky6_st_symbols` as a wasm
+  Node target and then trying to execute it during the build, which failed when
+  the generated JS launcher attempted to fetch a filesystem path as a URL
+- those exporters are developer-side native tools for archived symbol recovery,
+  not runtime dependencies of the browser emulator
+- excluding them is the smallest correct fix because the web target does not use
+  the generated ST export outputs at runtime
+
+**Validated:**
+- `EM_CONFIG="$PWD/.emscripten-local" cmake --preset web` succeeds
+- `EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web` succeeds and
+  produces the browser bundle
+
 ### Decision: instrument the Stage 1 keyboard handoff before deeper behavior changes
 
 **Decided:** Add a trace-only snapshot around the simultaneous ordinary/function-key handoff instead of changing keyboard behavior again immediately.
@@ -1053,6 +1095,35 @@ Created simple CALM assembly tool intended to probe function-key behavior:
 - cache locations are still kept current by the emulator where currently modeled
 - user revalidation says SMILE has still never seen function keys so far
 - `FKTEST.SM` exists as a draft probe only and is not yet verification evidence
+
+## Session Summary - 2026-05-23 (later)
+
+**Worked on:**
+- finished the remaining keyboard refactor slices around SMILE function-key behavior and host convenience mappings
+- refreshed extraction-tool documentation after consolidating behavior into the `smaky6_samos.py` workflow
+- merged the keyboard branch back into local `master`
+
+**Completed:**
+- committed `3dabb97` (`fix: treat all function keys like PROGRA in host input path`) so every held function key now uses the same host-side path as `PROGRA`
+- manually revalidated that SMILE and the function-key host path now behave correctly for that slice
+- committed `ae633a7` (`docs: refresh extraction tool references`) to update docs for the `extract_samos_image.py` wrapper and flattened `smaky6_samos.py` CLI
+- committed `941dda0` (`feat: add batch floppy extraction script`) for `tools/extract_all_floppies.sh`
+- fast-forward merged `refactor/keyboard-hardware-model` into local `master`
+- committed `5823237` (`feat: map host arrow keys to cursor chords`) so host arrow keys synthesize the documented `CURSOR+r/d/f/c` combinations
+- manually revalidated that the new host arrow-key aliases work as expected
+
+**In progress:**
+- no active code changes left in progress; local `master` is clean after the merge and follow-up arrow-key work
+
+**Decisions made:**
+- keep the generalized host-side function-layer behavior for all seven function keys, not just `PROGRA`
+- keep `extract_samos_image.py` as a backward-compatible wrapper instead of removing it outright
+- expose host arrow keys as convenience aliases for the documented `CURSOR+r/d/f/c` chords while keeping real `F1/CURSOR` state separate
+
+**Next session priorities:**
+- push local `master` when ready
+- if more convenience mappings are desired, add them through the same narrow keyboard path instead of broadening the text-input compatibility layer
+- otherwise pick up the next emulator/runtime issue from a clean `master` baseline
 
 
 

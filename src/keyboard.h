@@ -60,6 +60,7 @@ void keyboard_trace_snapshot(struct Smaky6 *m, const char *site,
 
 /* Function-key state ownership lives in the keyboard subsystem.
  * These helpers recompute the effective bitmask and update any compatibility mirrors. */
+void keyboard_cancel_host_input(struct Smaky6 *m);
 void keyboard_clear_all_function_bits(struct Smaky6 *m);
 void keyboard_set_mouse_function_bits(struct Smaky6 *m, uint8_t bits);
 void keyboard_acknowledge_function_bits(struct Smaky6 *m, uint8_t mask);

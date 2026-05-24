@@ -44,6 +44,8 @@ EM_CONFIG="$PWD/.emscripten-local" cmake --build build-web
 # Output files include build-web/index.html, smemu6.js, smemu6.wasm,
 # and smemu6.data (preloaded ROMs and floppies).
 # The web target stages the shell assets into build-web/ automatically.
+# Host-only ST export helper tools are skipped under Emscripten; the web build
+# only produces the browser runtime artifacts.
 ```
 
 Alternatively, without presets:
