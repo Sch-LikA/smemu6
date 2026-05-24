@@ -161,6 +161,11 @@ Why:
   oscillator stage using `1nF1` to ground plus the `R6` / `RV1` resistor path;
   this replaces the earlier `U9`-centered guess as the best current hardware
   model for the AY clock source
+- the resolved local topology is: `U16` pins `1`/`2` form the oscillator,
+  with `U16 pin 1` tied to `1nF1` to ground and `RV1 pin 1`, `U16 pin 2`
+  tied back to `U16 pin 3` plus `R6 pin 1`, `R6 pin 2` tied to `RV1 pin 2`,
+  and `U16 pin 4` buffering that local oscillator onto the shared AY
+  `CLOCK_22` net; `RV1 pin 3` is unconnected in the exported netlist
 - the visible bus connector pins in the PDF do not show an incoming clock pin,
   which further argues against the current host-clock assumption
 - the wider top-left schematic crop shows `SW1` embedded in the `U8` (`74LS02`)
@@ -173,8 +178,9 @@ Why:
   logic/configuration input to the clock-shaping network rather than a direct
   raw-clock source selector
 - the exact oscillator frequency is still unresolved from the netlist alone,
-  because the fitted `RV1` value is not encoded there and the resulting
-  effective clock/division still needs confirmation
+  because the fitted `RV1` value is not encoded there, the capacitor value is
+  not exported cleanly beyond the `1nF1` reference designator, and the
+  resulting effective clock/division still needs confirmation
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
