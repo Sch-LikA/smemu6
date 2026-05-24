@@ -1115,9 +1115,8 @@ Rare side-bus expansion card for the Smaky 6.  The provided schematic shows:
   as a stock Smaky 6 without the expansion installed.
 - First target: register-correct and audibly correct output.  Exact cycle- or
   analog-level matching can follow later if needed.
-- Decide whether to vendor a small existing AY/YM2149 core or implement a local
-  core.  Prefer a small, readable, permissively compatible implementation over a
-  large framework dependency.
+- Use a vendored small MIT-licensed core instead of writing a fresh AY engine
+  from scratch.  Current preferred candidate: `emu2149`.
 
 ### PSG device implementation
 
@@ -1136,6 +1135,9 @@ Rare side-bus expansion card for the Smaky 6.  The provided schematic shows:
 
 - Hook the card into the machine's MUBUS-visible I/O path at the exact port /
   address decode point derived from the schematic.
+- Current SIGMA software evidence strongly suggests four PSG port pairs:
+  `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, and `0x26/0x27`, with the odd port
+  acting as register select and the even port acting as data.
 - Keep the owning abstraction local: bus decode in the machine / I/O layer,
   AY behavior inside the PSG card implementation, final PCM mix in `sound.c`.
 - Add targeted tracing for PSG register writes and chip-select decisions so the
@@ -1172,7 +1174,8 @@ Rare side-bus expansion card for the Smaky 6.  The provided schematic shows:
   are needed.
 - Only the schematic and SIGMA software are currently available as hardware /
   software references.
-- Open design choice: in-tree AY core versus vendored small open-source core.
+- Use a vendored small MIT-licensed AY/YM2149 core.  Current preferred
+  candidate: `emu2149`.
 
 ---
 
