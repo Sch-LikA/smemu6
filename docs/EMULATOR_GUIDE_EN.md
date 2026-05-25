@@ -342,16 +342,21 @@ drive activity LEDs.  At the right end:
 Z80 registers, flags, a compact disassembly view centered on the current PC, a
 256-byte hex/ASCII memory editor, and execution controls. `Space` pauses or
 resumes execution, `S` or `F6` executes one instruction, and `F7` executes one
-full 50 Hz frame while keeping the debugger open. In the memory pane, use the
+full 50 Hz frame while keeping the debugger open, so it typically advances
+through many instructions up to the next video / IRQ boundary. In the memory pane, use the
 arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
 `G` to jump to a 4-digit address, `P` to sync the cursor to the current
 PC, and `O` to switch the byte display between hex and octal. Octal mode is
 currently a display mode only; in-place byte edits remain hex-based. In the
 disassembly pane, `Shift+Up` / `Shift+Down` moves the selection, `F8` runs
 until the selected instruction address, and `F9` toggles a
-breakpoint at that address. `Ctrl+A` and `Ctrl+V` jump the memory pane to the
-alpha and graphic planes. The debugger is currently native-only; the web build
-does not expose an HTML debugger panel yet.
+breakpoint at that address. If `F8` starts while execution is already paused on
+the current breakpoint address, the debugger temporarily resumes past that one
+breakpoint so the run-to-cursor request can continue toward the selected line
+instead of stopping immediately again on the same `PC`. `Ctrl+A` and `Ctrl+V`
+jump the memory pane to the alpha and graphic planes. The debugger is
+currently native-only; the web build does not expose an HTML debugger panel
+yet.
 
 The left side of the debugger is split into two small summaries:
 
@@ -366,11 +371,16 @@ The left side of the debugger is split into two small summaries:
   which interrupt mode (`0`, `1`, or `2`) is active. `EXEC` shows whether the
   debugger is currently paused or running. `T-STATES` is the size of the most
   recent execution slice, not a lifetime total. `FRAMES` is the debugger's
-  emulated-frame counter.
+  emulated-frame counter. The `STACK` line shows the first four 16-bit words at
+  the current `SP`, which is a quick way to inspect the top of the return stack
+  without leaving the execution summary.
 - **FLAGS** and **FLAGS'** decode the live `F` byte from `AF` and the shadow
   `F` byte from `AF'`. The order is `SZ5H3PNC`: Sign, Zero, undocumented bit 5,
   Half-carry, undocumented bit 3, Parity/Overflow, Add/Subtract, Carry. A `-`
   means the corresponding flag bit is currently clear.
+- The **SHORTCUTS** footer now ends with a small watch row for three live SAMOS
+  workspace bytes: `0x457E` (staged ordinary key byte), `0x4580`
+  (function-key workspace), and `0x45C0` (first visible CLI input byte).
 - In the disassembly list, the left markers are compact status hints: `>` marks
   the instruction that currently contains the live `PC`, `*` marks the
   debugger's selected cursor line, and `B` marks a breakpoint at that address.

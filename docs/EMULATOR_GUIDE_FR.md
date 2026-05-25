@@ -370,7 +370,8 @@ Z80 en direct, les drapeaux, une vue de désassemblage compacte centrée sur le
 PC courant, un éditeur mémoire hexadécimal/ASCII sur 256 octets et des
 commandes d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou
 `F6` exécute une instruction, et `F7` exécute une trame 50 Hz complète tout en
-laissant le débogueur ouvert. Dans le panneau mémoire, les flèches déplacent
+laissant le débogueur ouvert ; cela fait donc avancer en général plusieurs
+instructions jusqu'à la prochaine limite vidéo / IRQ. Dans le panneau mémoire, les flèches déplacent
 le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
 éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex,
 `P` recale le curseur sur le PC courant, et `O` bascule l'affichage des octets
@@ -378,9 +379,13 @@ entre l'hexadécimal et l'octal. Le mode octal reste pour l'instant un mode
 d'affichage ; l'édition en place demeure hexadécimale. Dans la vue de
 désassemblage, `Shift+Haut` / `Shift+Bas` déplacent la sélection, `F8` lance l'exécution
 jusqu'à l'adresse sélectionnée, et `F9` active ou retire un point d'arrêt à
-cette adresse. `Ctrl+A` et `Ctrl+V` placent directement la vue mémoire sur les
-plans alpha et graphique. Ce débogueur reste pour l'instant réservé aux
-versions natives ; le build web n'expose pas encore de panneau HTML dédié.
+cette adresse. Si `F8` démarre alors que l'exécution est déjà arrêtée sur le
+point d'arrêt courant, le débogueur réarme temporairement ce cas précis pour
+laisser l'ordre "aller au curseur" progresser vers la ligne sélectionnée au
+lieu de se réarrêter immédiatement sur le même `PC`. `Ctrl+A` et `Ctrl+V`
+placent directement la vue mémoire sur les plans alpha et graphique. Ce
+débogueur reste pour l'instant réservé aux versions natives ; le build web
+n'expose pas encore de panneau HTML dédié.
 
 La partie gauche du débogueur est divisée en deux résumés compacts :
 
@@ -396,12 +401,18 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   ou `2`) est sélectionné. `EXEC` indique si le débogueur est en pause ou en
   cours d'exécution. `T-STATES` correspond à la taille de la tranche
   d'exécution la plus récente, et non à un total cumulé. `FRAMES` est le
-  compteur de trames émulées du débogueur.
+  compteur de trames émulées du débogueur. La ligne `STACK` montre les quatre
+  premiers mots 16 bits à partir du `SP` courant, ce qui permet de voir le haut
+  de la pile de retour sans quitter le résumé d'exécution.
 - **FLAGS** et **FLAGS'** décodent l'octet `F` courant dans `AF` et l'octet
   `F` alternatif dans `AF'`. L'ordre est `SZ5H3PNC` : Signe, Zéro, bit 5 non
   documenté, Half-carry, bit 3 non documenté, Parité/Débordement,
   Addition/Soustraction, Carry. Un `-` signifie que le bit correspondant est
   actuellement à zéro.
+- Le pied de **SHORTCUTS** se termine maintenant par une petite ligne de
+  surveillance pour trois octets SAMOS en direct : `0x457E` (octet ordinaire
+  en attente), `0x4580` (espace de travail des touches de fonction) et
+  `0x45C0` (premier octet visible de la ligne CLI).
 - Dans la liste de désassemblage, les marqueurs à gauche servent de légende
   compacte : `>` marque l'instruction qui contient actuellement le `PC` réel,
   `*` marque la ligne sélectionnée par le curseur du débogueur, et `B` marque

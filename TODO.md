@@ -1435,7 +1435,9 @@ Current implemented floor:
   decoded summary for the selected memory byte. The visible disassembly slice
   stays centered on the live PC unless the moved cursor is still close enough to
   fit in the same 12-line view. The STATE area now also includes a compact
-  stack-top preview showing the first four 16-bit words at `SP`.
+  stack-top preview showing the first four 16-bit words at `SP`. The shortcuts
+  footer also exposes a tiny fixed watch row for the live `0x457E`, `0x4580`,
+  and `0x45C0` workspace bytes.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

@@ -319,6 +319,16 @@ static void dbg_format_stack_preview(struct Smaky6 *m, char *out, size_t out_siz
              w3);
 }
 
+static void dbg_format_watch_row(struct Smaky6 *m, char *out, size_t out_size)
+{
+    snprintf(out,
+             out_size,
+             "W 457E:%02X 4580:%02X 45C0:%02X",
+             (unsigned)dbg_mem8(m, 0x457Eu),
+             (unsigned)dbg_mem8(m, 0x4580u),
+             (unsigned)dbg_mem8(m, 0x45C0u));
+}
+
 static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out_size)
 {
     uint16_t pc = m->dbg.last_stop_valid
@@ -1204,6 +1214,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     char stop[96];
     char mem_summary[96];
     char stack_preview[96];
+    char watch_row[96];
     const char *mode_label;
     const struct DebugCpuSnapshot *prev = m->dbg.prev_stop_valid ? &m->dbg.prev_stop_snapshot : NULL;
     const int reg_x = 28;
@@ -1228,6 +1239,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_format_stop_reason(m, stop, sizeof(stop));
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
     dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
+    dbg_format_watch_row(m, watch_row, sizeof(watch_row));
     dbg_draw_text(m, 24, 20, mode, DBG_COL_ACCENT);
     dbg_draw_text(m, 430, 20, m->dbg.run_to_cursor_active ? "TARGET ACTIVE" : stop, DBG_COL_WARN);
 
@@ -1314,11 +1326,12 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_text(m, state_x, state_panel_y + 152, "STACK", DBG_COL_DIM);
     dbg_draw_text(m, state_x + 56, state_panel_y + 152, stack_preview, DBG_COL_WARN);
 
-    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
     dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SH-UP/DN", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H * 2, watch_row, DBG_COL_DIM);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
