@@ -31,6 +31,7 @@
 #define DBG_COL_WARN    0xFFFF9C5Cu
 #define DBG_COL_ACTIVE  0xFF24462Eu
 #define DBG_COL_ROM     0xFF9E7C48u
+#define DBG_COL_INVERT  0xFF08100Cu
 
 static const char *const DBG_CC[8] = {
     "nz", "z", "nc", "c", "po", "pe", "p", "m"
@@ -944,7 +945,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         if (is_current) {
             dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H,
                           is_selected ? DBG_COL_WARN : DBG_COL_ACTIVE);
-            line_col = DBG_COL_WARN;
+            line_col = is_selected ? DBG_COL_INVERT : DBG_COL_WARN;
         }
         snprintf(line,
                  sizeof(line),
