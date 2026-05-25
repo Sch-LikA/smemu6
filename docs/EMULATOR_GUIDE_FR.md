@@ -402,6 +402,12 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   documenté, Half-carry, bit 3 non documenté, Parité/Débordement,
   Addition/Soustraction, Carry. Un `-` signifie que le bit correspondant est
   actuellement à zéro.
+- Dans la liste de désassemblage, les marqueurs à gauche servent de légende
+  compacte : `>` marque l'instruction qui contient actuellement le `PC` réel,
+  `*` marque la ligne sélectionnée par le curseur du débogueur, et `B` marque
+  un point d'arrêt à cette adresse. Une même ligne peut afficher plusieurs
+  marqueurs en même temps, par exemple si l'instruction courante est aussi la
+  ligne sélectionnée avec point d'arrêt.
 
 ### Touches standard
 

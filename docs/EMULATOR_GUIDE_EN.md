@@ -371,6 +371,11 @@ The left side of the debugger is split into two small summaries:
   `F` byte from `AF'`. The order is `SZ5H3PNC`: Sign, Zero, undocumented bit 5,
   Half-carry, undocumented bit 3, Parity/Overflow, Add/Subtract, Carry. A `-`
   means the corresponding flag bit is currently clear.
+- In the disassembly list, the left markers are compact status hints: `>` marks
+  the instruction that currently contains the live `PC`, `*` marks the
+  debugger's selected cursor line, and `B` marks a breakpoint at that address.
+  A line may show more than one marker at once, for example when the current
+  instruction is also the selected breakpoint line.
 
 ---
 
