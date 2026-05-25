@@ -188,18 +188,112 @@ programs, not just in one isolated source file.
 Smaky 6 CALM code relies heavily on `?NAME` service symbols referenced through
 `.REF` files such as `SM6`, `FLO`, and `CPM`.
 
-Commonly observed services include:
+The source evidence is uneven.
 
-| Service | Observed usage |
-| --- | --- |
-| `?TEXT`, `?TEXTIM` | Display text |
-| `?RETURN`, `?RTN` | Return to next line or CLI/runtime |
-| `?CALPHA`, `?IALPHA` | Clear/init alpha screen |
-| `?IGRA`, `?CGRA` | Graphics mode control |
-| `?GETCAR`, `?GETLINE`, `?DICAR`, `?DITEX` | Console input/output |
-| `?OPEN`, `?CREATE`, `?DELETE`, `?CLOSE`, `?RDBYTE`, `?WRBYTE` | File I/O |
-| `?ERROR`, `?RESET`, `?BUZZ` | Runtime utility / error handling |
-| `?PLAY`, `?DELAY`, `?MUL`, `?BINBCD`, `?SETCURS` | Miscellaneous helpers |
+- `private/docs/disasm/SYS.SR` contains a named `RST 20H` dispatch table for
+  `SM6`, so those services can be tied to concrete call codes.
+- The extracted `.SR` corpus shows many `FLO` and `CPM` calls in real programs,
+  but the matching export tables were not yet found in this repository.
+- The shipped SMILE symbol tables do show a clear hierarchy: all 251 exported
+  `SM6` names also exist in `FLO`, while `FLO` exports 92 additional names.
+  `SM6` is therefore a name subset of `FLO`, but not a byte-for-byte alias
+  table because at least one shared symbol differs in value: `MINI` is `0001`
+  in `SM6` and `0000` in `FLO`.
+
+### SM6 versus FLO
+
+Direct comparison of `sdcc/SM6.symbols` and `sdcc/FLO.symbols` gives:
+
+- `SM6`: 251 exported names
+- `FLO`: 343 exported names
+- shared names: 251
+- names present only in `SM6`: 0
+- names present only in `FLO`: 92
+
+The extra `FLO` surface is exactly what the extracted corpus suggests: more
+file, block, and directory helpers plus many more disk-oriented error/status
+symbols. Representative `FLO`-only names include `?RDBLK`, `?WRBLK`, `?OPEBL`,
+`?CREBL`, `?LIST`, `?FORMA`, `?GDIR`, `?GHEAD`, `?GNBLK`, `?MODAY`, `?UPDAT`,
+`WRPROT`, `RDPROT`, `ONAME`, `ONBLK`, `OATTR`, `ODATE`, and the extended `ER*`
+error-code family.
+
+So the practical reading is:
+
+- use `SM6` when a source only needs the smaller common runtime view
+- use `FLO` when the source needs the broader storage, directory, or file
+  metadata interface
+- do not assume the two tables are interchangeable at the value level, because
+  the `MINI` mismatch already proves there is at least some table-specific
+  curation
+
+### SM6 services with code mapping from `SYS.SR`
+
+These names come from the dispatch table in `private/docs/disasm/SYS.SR`.
+The table covers codes `00H..67H`; the list below calls out the services that
+already show up repeatedly in extracted programs.
+
+| Code | Service | Observed role |
+| --- | --- | --- |
+| `00H` | `?DICAR` | display one character |
+| `01H` | `?GETCAR` | read one character |
+| `05H` | `?GETLINE` | line input |
+| `06H` | `?DITEX` | display text from a pointer |
+| `0DH` | `?IFCAR` | non-blocking character test/read |
+| `0EH` | `?GETFO` | function-key state read |
+| `11H` | `?IALPH` | initialize alpha mode |
+| `12H` | `?IGRA` | initialize graphics mode/state |
+| `18H` | `?CALPH` | clear alpha screen/state |
+| `19H` | `?CGRA` | clear graphics screen/state |
+| `1AH` | `?BUZZ` | buzzer/beeper helper |
+| `20H` | `?SETCU` | set cursor |
+| `21H` | `?GETCU` | get cursor |
+| `22H` | `?SPACE` | emit a space or spacing action |
+| `23H` | `?RETUR` | newline / return helper |
+| `2FH` | `?MUL` | multiply helper |
+| `31H` | `?JUMPC` | jump through command table |
+| `3DH` | `?PLAY` | play note or tune sequence |
+| `3EH` | `?BEEP` | short beep helper |
+| `47H` | `?PRSTA` | printer status helper |
+| `4FH` | `?GETAR` | get argument helper |
+| `51H` | `?TAB` | tabulation helper |
+| `52H` | `?CLEAR` | clear current line or region |
+| `53H` | `?TEXT` | display inline text block |
+| `54H` | `?BINBC` | binary to BCD conversion |
+| `55H` | `?BCDBI` | BCD to binary conversion |
+| `57H` | `?DELAY` | delay helper |
+| `59H` | `?AFXHL` | formatted numeric output from `HL` |
+| `5EH` | `?TEXTIM` | immediate inline text output |
+
+The table also exposes many less-understood names such as `?JUMPI`, `?COMPH`,
+`?LOADB`, `?AMORC`, `?EXECU`, `?MON`, `?TRAPP`, and the `?RDCLK` / `?WRCLK`
+family. Those should stay descriptive-only until a call site makes their ABI
+clear.
+
+### Source-derived usage patterns by symbol set
+
+The extracted corpus is already enough to group common services by how programs
+actually use them.
+
+| Symbol set | Common services | Representative observed use |
+| --- | --- | --- |
+| `SM6` | `?TEXT`, `?TEXTIM`, `?GETCAR`, `?DICAR`, `?RETURN`, `?RTN` | console UI and CLI-style interaction |
+| `SM6` | `?IALPHA`, `?CALPHA`, `?IGRA`, `?CGRA`, `?SETCURS` | alpha/graphics setup and cursor control |
+| `SM6` | `?BEEP`, `?BUZZ`, `?PLAY`, `?MUL`, `?BINBCD`, `?AFXHL`, `?TAB` | utility, sound, formatting, arithmetic |
+| `FLO` | `?OPEN`, `?CREATE`, `?DELETE`, `?CLOSE`, `?RDBYTE`, `?WRBYTE`, `?RDBLK`, `?OPEBLK`, `?RENAME`, `?LGO` | file, block, loader, and driver-management calls |
+| `CPM` | `?DIR`, `?LGO` | CP/M launcher and directory-related helpers observed in CP/M bridge code |
+
+Concrete usage seen in the corpus:
+
+- `ECHO.SR` uses `?GETCAR`, `?DICAR`, `?WMOD`, `?RMOD`, `?BEEP`, and `?SPACE`
+  as a tight echo-and-modem test loop.
+- `DUMPGRA.SR` uses `?CREATE`, `?WRBYTE`, and `?CLOSE` to write a tiny control
+  file after prompting through `?TEXTIM` and `?GETCAR`.
+- `FPRINT.SR` uses `?RENAME`, `?OPEBLK`, `?RDBLK`, and `?CLOSE` in a
+  foreground printer driver workflow.
+- `SELINTER.SR` and `SELVAL.SR` use `?OPEN`, `?RDBYTE`, `?CREATE`, `?WRBYTE`,
+  `?DELETE`, and `?CLOSE` for day-data persistence.
+- `BASDEMO.SR` and `EXCPM.SR` use `?LGO` to hand off control to another `.SM`
+  program.
 
 Call style is usually one of these:
 
@@ -212,6 +306,22 @@ Call style is usually one of these:
 
 This strongly suggests that `.W` emits runtime call vectors plus inline
 arguments in the format expected by the Smaky 6 environment.
+
+## Observed mismatches versus later manual-derived assumptions
+
+The later CALM manual itself is not currently checked into this repository.
+The comparison below therefore uses the later-manual assumptions that had
+already leaked into repo notes and examples, and contrasts them with the Smaky
+6 source corpus.
+
+| Later/manual-derived assumption | What the Smaky 6 corpus shows |
+| --- | --- |
+| CALM examples are mostly straightforward Z80 plus a few directives. | Real Smaky 6 sources use a distinct CALM layer heavily: `LOAD`, `COMP`, `JUMP,cond`, `DECJ`, `TEST A:4`, `.BW`, `.BBB`, `.INS`, and threaded `.W ?NAME` forms are normal, not exceptional. |
+| `.REF SM6` is the central runtime binding pattern. | Real programs use multiple symbol spaces. `SM6` is common for console/runtime work, printer and storage code use `.REF FLO`, and CP/M bridge code uses `.REF CPM`. The shipped symbol tables confirm that `SM6` is a name subset of `FLO`, but the tables are not identical. |
+| `.LOC` and a tiny `.W ?TEXTIM ... .W ?RTN` skeleton are enough to describe the language. | That skeleton is valid for a toy sample, but it hides the more typical structure of the corpus: command tables, inline threaded service calls, conditional assembly, and multi-file builds via `.INS`. |
+| Later guidance can be imported as syntax unless it looks obviously incompatible. | For Smaky 6 work the rule must be stricter: if a form is not observed in the local `.SR` corpus, it is unconfirmed even if a later manual documents it. |
+| Odd forms such as `JUMP.,EQ`, `CALL.`, `TEST X:n`, or `.BBB` are probably transcription noise. | These forms recur across independent sources and should be preserved verbatim until their exact assembler semantics are recovered. |
+| Runtime services can be documented generically without distinguishing symbol origins. | The corpus still needs per-symbol-set evidence tracking. `SM6` services now have a code-mapped dispatch table from `SYS.SR`; `FLO` and `CPM` currently have usage evidence only, even if some of those symbol sets later prove to be layered rather than independent. |
 
 ## Include and multi-file layout
 
@@ -237,7 +347,9 @@ The reviewed sample does not yet fully explain:
 - the precise binary layout emitted by `.BW` and `.BBB` in every case
 - how many non-Z80 CPU backends existed for the same CALM source style in the
   Smaky toolchain era
-- the full catalog of `?NAME` services exported by `SM6`, `FLO`, and `CPM`
+- the full export tables for `FLO` and `CPM` symbol sets
+- why at least one shared symbol (`MINI`) differs between the `SM6` and `FLO`
+  tables even though every `SM6` name exists in `FLO`
 
 Until those are confirmed from older manuals or more source files, keep the doc
 strictly observational.

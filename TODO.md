@@ -17,13 +17,13 @@ against disassembly or hardware documentation.
 - Extend [docs/dev/CALM_SYNTAX.md](docs/dev/CALM_SYNTAX.md) as more source files
   are decoded, especially for directives and operators that do not appear in
   the current sample set.
-- Cross-check the older `.SR` dialect against later CALM documentation before
-  importing any syntax into examples or tooling. If a form is not observed in
-  Smaky 6 sources, mark it as unconfirmed instead of documenting it as fact.
-- Build a small extracted-source inventory for SMILE runtime entry points such
-  as `?TEXT`, `?TEXTIM`, `?GETCAR`, `?RTN`, `?RETURN`, `?PLAY`, and file I/O
-  services so future CALM examples can prefer documented calls over hard-coded
-  addresses.
+- Keep the mismatch section in [docs/dev/CALM_SYNTAX.md](docs/dev/CALM_SYNTAX.md)
+  aligned with any later CALM manual pages we recover. If a form is not
+  observed in Smaky 6 sources, mark it as unconfirmed instead of documenting it
+  as fact.
+- Extend the runtime-service inventory beyond the current `SYS.SR` dispatch
+  table by locating matching export tables for `FLO` and `CPM`, not just usage
+  examples from extracted programs.
 
 ## PSG sound-card add-on
 

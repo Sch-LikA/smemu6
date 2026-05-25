@@ -218,6 +218,24 @@ Why:
 - the same local backend can later feed either the native SDL window or a web
   HTML debugger panel
 
+### CALM service catalog uses disassembly tables before later manuals
+
+For Smaky 6 CALM documentation, treat `private/docs/disasm/SYS.SR` as the
+authoritative source for the `SM6` runtime service map. The shipped symbol
+tables also confirm that `SM6` is a strict name subset of `FLO`.
+
+Why:
+
+- `SYS.SR` already exposes a named `RST 20H` dispatch table with concrete
+  `SM6` service codes, which is stronger evidence than later-manual guidance
+- direct comparison of `sdcc/SM6.symbols` and `sdcc/FLO.symbols` shows all 251
+  `SM6` names inside `FLO`, with 92 additional `FLO` exports
+- `SM6` is still not a byte-for-byte alias of `FLO`: at least `MINI` differs
+  (`SM6=0001`, `FLO=0000`), so docs should track hierarchy and mismatches
+  separately
+- later CALM manuals are still useful hints, but for Smaky 6-era syntax and
+  ABI details they must not override the local source corpus
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI
