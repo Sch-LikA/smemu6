@@ -1068,20 +1068,20 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         scan = (uint16_t)(scan + insn[count - 1].len);
     }
 
-    max_start = count > 12 ? count - 12 : 0;
+    max_start = count > 11 ? count - 11 : 0;
     start = current > 5 ? current - 5 : 0;
     if (start > max_start) {
         start = max_start;
     }
     if (selected < start && current - selected <= 5) {
         start = selected;
-    } else if (selected >= start + 12 && selected - current <= 6) {
-        start = selected - 11;
+    } else if (selected >= start + 11 && selected - current <= 6) {
+        start = selected - 10;
         if (start > max_start) {
             start = max_start;
         }
     }
-    for (int row = 0; row < 12 && start + row < count; row++) {
+    for (int row = 0; row < 11 && start + row < count; row++) {
         char bytes[24] = "";
         char line[160];
         int line_y = y + 40 + row * DBG_LINE_H;
