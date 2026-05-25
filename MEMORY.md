@@ -277,6 +277,9 @@ Implementation note:
 - keep the control-flow target decoding and step-over candidate rules in a tiny
   standalone helper with a dedicated regression test so navigation and stepping
   stay consistent
+- keep the history stack push/pop policy in its own tiny helper with a
+  dedicated regression test so cursor-history behavior can be validated
+  independently of the full debugger UI
 - show a compact selected-target summary in the top status strip so the user can see
   the follow destination before committing to `Enter`
 

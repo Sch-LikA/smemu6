@@ -1446,6 +1446,9 @@ Current implemented floor:
   without opening the SDL debugger window. The control-flow target decoding and
   step-over candidate rules now also live in a second tiny helper with its own
   regression test target, so follow-target and step-over semantics stay aligned.
+  The follow-history push/pop policy now also lives in a tiny helper with its
+  own regression test target, so cursor-history behavior can be checked without
+  the full debugger window.
   A compact selected-target summary now shows the current follow destination in
   the top status strip before `Enter` is pressed.
   The STATE area now also includes a compact

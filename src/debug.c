@@ -4,6 +4,7 @@
 #include "machine_internal.h"
 #include "debug.h"
 #include "debug_flow.h"
+#include "debug_history.h"
 #include "debug_viewport.h"
 #include "memory.h"
 
@@ -962,27 +963,20 @@ static void dbg_move_disasm_cursor(struct Smaky6 *m, int direction)
 
 static void dbg_push_disasm_history(struct Smaky6 *m, uint16_t addr)
 {
-    if (m->dbg.disasm_history_count > 0 &&
-        m->dbg.disasm_history[m->dbg.disasm_history_count - 1] == addr) {
-        return;
-    }
-    if (m->dbg.disasm_history_count >= (int)(sizeof(m->dbg.disasm_history) / sizeof(m->dbg.disasm_history[0]))) {
-        memmove(&m->dbg.disasm_history[0],
-                &m->dbg.disasm_history[1],
-                (sizeof(m->dbg.disasm_history) - sizeof(m->dbg.disasm_history[0])));
-        m->dbg.disasm_history_count--;
-    }
-    m->dbg.disasm_history[m->dbg.disasm_history_count++] = addr;
+    m->dbg.disasm_history_count = (uint8_t)debug_history_push(
+        m->dbg.disasm_history,
+        m->dbg.disasm_history_count,
+        sizeof(m->dbg.disasm_history) / sizeof(m->dbg.disasm_history[0]),
+        addr);
 }
 
 static int dbg_pop_disasm_history(struct Smaky6 *m, uint16_t *addr_out)
 {
-    if (m->dbg.disasm_history_count == 0) {
-        return 0;
-    }
+    size_t count = m->dbg.disasm_history_count;
+    int found = debug_history_pop(m->dbg.disasm_history, &count, addr_out);
 
-    *addr_out = m->dbg.disasm_history[--m->dbg.disasm_history_count];
-    return 1;
+    m->dbg.disasm_history_count = (uint8_t)count;
+    return found;
 }
 
 static void dbg_set_memory_view(struct Smaky6 *m, uint16_t base)
