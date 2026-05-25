@@ -323,6 +323,9 @@ Implementation note:
 - reuse the existing FLO symbol lookup to annotate top stack words in the STATE
   preview path, but place the compact symbol hint where it does not collide with
   box separators or footer lines
+- when making stack hints actionable, reuse the existing disassembly
+  follow-history path instead of adding a separate stack-navigation model;
+  direct `0`..`3` jumps are enough for the top four stack words
 
 ### CALM service catalog uses disassembly tables before later manuals
 

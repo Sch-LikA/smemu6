@@ -1125,6 +1125,41 @@ static void dbg_pop_disasm_cursor(struct Smaky6 *m)
     m->dbg.disasm_cursor = target;
 }
 
+static void dbg_follow_stack_slot(struct Smaky6 *m, int slot)
+{
+    uint16_t sp;
+    uint16_t target;
+    const char *symbol;
+
+    if (slot < 0 || slot > 3) {
+        return;
+    }
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        fprintf(stderr, "debug: pause execution before following stack targets\n");
+        return;
+    }
+
+    sp = (uint16_t)Z80_SP(m->cpu);
+    target = dbg_mem16(m, (uint16_t)(sp + (uint16_t)(slot * 2)));
+    symbol = dbg_lookup_flo_symbol(target, 1);
+    if (target < 0x0100u && !symbol) {
+        fprintf(stderr,
+                "debug: stack slot S%d=%04X is not a code-like target\n",
+                slot,
+                (unsigned)target);
+        return;
+    }
+
+    fprintf(stderr,
+            symbol ? "debug: follow stack slot S%d %04X -> %s\n"
+                   : "debug: follow stack slot S%d -> %04X\n",
+            slot,
+            (unsigned)target,
+            symbol ? symbol : "");
+    dbg_push_disasm_history(m, m->dbg.disasm_cursor);
+    m->dbg.disasm_cursor = target;
+}
+
 static void dbg_sync_memory_to_cursor(struct Smaky6 *m)
 {
     if (m->dbg.mem_cursor < m->dbg.mem_base ||
@@ -1654,7 +1689,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  SF7 OVR", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR F9 BP ENT FLW BS BK", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR F9 BP ENT/BS 0-3 STK", DBG_COL_WARN);
 
     dbg_render_disassembly(m, 284, top_y, 604, 214);
     dbg_render_memory(m, 284, 266, 604, 242);
@@ -1917,6 +1952,22 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             return 1;
         case SDL_SCANCODE_BACKSPACE:
             dbg_pop_disasm_cursor(m);
+            return 1;
+        case SDL_SCANCODE_0:
+        case SDL_SCANCODE_KP_0:
+            dbg_follow_stack_slot(m, 0);
+            return 1;
+        case SDL_SCANCODE_1:
+        case SDL_SCANCODE_KP_1:
+            dbg_follow_stack_slot(m, 1);
+            return 1;
+        case SDL_SCANCODE_2:
+        case SDL_SCANCODE_KP_2:
+            dbg_follow_stack_slot(m, 2);
+            return 1;
+        case SDL_SCANCODE_3:
+        case SDL_SCANCODE_KP_3:
+            dbg_follow_stack_slot(m, 3);
             return 1;
         case SDL_SCANCODE_LEFT:
             dbg_move_memory_cursor(m, -1);

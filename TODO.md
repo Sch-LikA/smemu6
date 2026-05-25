@@ -1454,7 +1454,9 @@ Current implemented floor:
   The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. A compact
   symbol hint for top stack entries that resolve to known FLO labels now sits
-  in the disassembly header area. The memory
+  in the disassembly header area, and number keys `0`..`3` jump the
+  disassembly cursor to those four stack words through the same history stack.
+  The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
   watch to a new 4-digit hex address. The footer separator now sits above that

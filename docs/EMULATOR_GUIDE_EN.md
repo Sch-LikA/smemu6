@@ -374,8 +374,10 @@ yet.
 
 The STATE panel still shows the raw top stack words, and the disassembly header
 now carries a compact symbol hint for top stack entries that resolve to known
-FLO labels, which makes return-address browsing easier without opening another
-pane.
+FLO labels. Number keys `0`..`3` jump the disassembly cursor directly to those
+four stack words and push the previous cursor onto the same follow-history
+stack used by `Enter` / `Backspace`, which makes return-address browsing easier
+without opening another pane.
 
 If a single `F6` step lands on the same `djnz` row again, that usually means
 the instruction executed and looped back to the same address while only

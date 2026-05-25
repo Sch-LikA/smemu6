@@ -404,8 +404,11 @@ n'expose pas encore de panneau HTML dédié.
 
 Le panneau STATE montre toujours les mots bruts en haut de pile, et l'en-tête
 du désassemblage porte maintenant un indice compact de symboles pour les
-premiers mots de pile quand ils correspondent à des labels FLO connus ; cela
-facilite la lecture des adresses de retour sans ajouter un nouveau panneau.
+premiers mots de pile quand ils correspondent à des labels FLO connus. Les
+touches `0` à `3` déplacent directement le curseur de désassemblage vers ces
+quatre mots de pile et empilent l'ancienne position dans le même petit
+historique que `Entrée` / `Retour arrière`, ce qui facilite la lecture des
+adresses de retour sans ajouter un nouveau panneau.
 
 Si un pas `F6` revient sur la même ligne `djnz`, cela signifie en général que
 l'instruction a bien été exécutée mais qu'elle a rebouclé sur la même adresse
