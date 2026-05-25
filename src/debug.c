@@ -5,6 +5,7 @@
 #include "debug.h"
 #include "debug_flow.h"
 #include "debug_history.h"
+#include "debug_navigation.h"
 #include "debug_viewport.h"
 #include "memory.h"
 
@@ -1090,7 +1091,7 @@ static void dbg_follow_disasm_target(struct Smaky6 *m)
 {
     uint16_t target;
 
-    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+    if (!debug_navigation_can_follow(m->dbg.paused, m->dbg.run_to_cursor_active)) {
         fprintf(stderr, "debug: pause execution before following disassembly targets\n");
         return;
     }
@@ -1110,7 +1111,7 @@ static void dbg_pop_disasm_cursor(struct Smaky6 *m)
 {
     uint16_t target;
 
-    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+    if (!debug_navigation_can_follow(m->dbg.paused, m->dbg.run_to_cursor_active)) {
         fprintf(stderr, "debug: pause execution before rewinding disassembly history\n");
         return;
     }
@@ -1134,7 +1135,7 @@ static void dbg_follow_stack_slot(struct Smaky6 *m, int slot)
     if (slot < 0 || slot > 3) {
         return;
     }
-    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+    if (!debug_navigation_can_follow(m->dbg.paused, m->dbg.run_to_cursor_active)) {
         fprintf(stderr, "debug: pause execution before following stack targets\n");
         return;
     }
@@ -1142,7 +1143,7 @@ static void dbg_follow_stack_slot(struct Smaky6 *m, int slot)
     sp = (uint16_t)Z80_SP(m->cpu);
     target = dbg_mem16(m, (uint16_t)(sp + (uint16_t)(slot * 2)));
     symbol = dbg_lookup_flo_symbol(target, 1);
-    if (target < 0x0100u && !symbol) {
+    if (!debug_navigation_stack_target_is_code_like(target, symbol != NULL)) {
         fprintf(stderr,
                 "debug: stack slot S%d=%04X is not a code-like target\n",
                 slot,

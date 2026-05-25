@@ -95,6 +95,11 @@ add_library(smemu6_debug_history STATIC
 )
 target_include_directories(smemu6_debug_history PUBLIC src)
 
+add_library(smemu6_debug_navigation STATIC
+    src/debug_navigation.c
+)
+target_include_directories(smemu6_debug_navigation PUBLIC src)
+
 # ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
 # Not used for Emscripten builds (no native dialog API in the browser).
 if(NOT EMSCRIPTEN)
@@ -323,6 +328,7 @@ target_link_libraries(smemu6 PRIVATE smaky6_psg)
 target_link_libraries(smemu6 PRIVATE smemu6_debug_viewport)
 target_link_libraries(smemu6 PRIVATE smemu6_debug_flow)
 target_link_libraries(smemu6 PRIVATE smemu6_debug_history)
+target_link_libraries(smemu6 PRIVATE smemu6_debug_navigation)
 
 # ── Version compile definition ───────────────────────────────────────────────
 target_compile_definitions(smemu6 PRIVATE SMEMU6_VERSION="${SMEMU6_VERSION}")
@@ -388,6 +394,19 @@ if(NOT EMSCRIPTEN)
     endif()
     add_test(NAME smemu6_debug_history
              COMMAND smemu6_debug_history_test)
+
+    add_executable(smemu6_debug_navigation_test
+        src/debug_navigation_test.c
+    )
+    target_link_libraries(smemu6_debug_navigation_test PRIVATE smemu6_debug_navigation)
+    target_include_directories(smemu6_debug_navigation_test PRIVATE src)
+    if(MSVC)
+        target_compile_options(smemu6_debug_navigation_test PRIVATE /W3)
+    else()
+        target_compile_options(smemu6_debug_navigation_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME smemu6_debug_navigation
+             COMMAND smemu6_debug_navigation_test)
 
     if(UNIX)
         add_test(

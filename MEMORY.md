@@ -326,6 +326,9 @@ Implementation note:
 - when making stack hints actionable, reuse the existing disassembly
   follow-history path instead of adding a separate stack-navigation model;
   direct `0`..`3` jumps are enough for the top four stack words
+- keep the shared debugger navigation gate and stack-target validity checks in
+  a tiny standalone helper so follow-target, history-back, and stack-jump rules
+  cannot drift apart silently
 
 ### CALM service catalog uses disassembly tables before later manuals
 
