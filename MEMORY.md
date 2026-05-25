@@ -201,6 +201,20 @@ Why:
 - keeping the debugger opt-in avoids changing normal emulator startup or
   cluttering the default runtime path
 
+### Integrated debugger keeps its own small local disassembler
+
+The current native debugger disassembly pane uses a small local decoder inside
+`src/debug.c` instead of integrating `z80dasm` or another external tool.
+
+Why:
+
+- the debugger only needs display-oriented single-instruction decoding around
+  the current PC, not a full standalone disassembly workflow
+- keeping the decoder local avoids adding a new dependency, import path, and
+  portability surface for both native and web builds
+- the same local backend can later feed either the native SDL window or a web
+  HTML debugger panel
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI

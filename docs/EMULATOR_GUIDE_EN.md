@@ -339,10 +339,14 @@ drive activity LEDs.  At the right end:
   anywhere else cancels.
 
 **Native debugger window:** Press `F12` to open a second SDL window with live
-Z80 registers, flags, PC-near byte view, and execution controls. `Space`
-pauses or resumes execution, `S` or `F6` executes one instruction, and `F7`
-executes one full 50 Hz frame while keeping the debugger open. The debugger is
-currently native-only; the web build does not expose an HTML debugger panel yet.
+Z80 registers, flags, a compact disassembly view centered on the current PC, a
+256-byte hex/ASCII memory editor, and execution controls. `Space` pauses or
+resumes execution, `S` or `F6` executes one instruction, and `F7` executes one
+full 50 Hz frame while keeping the debugger open. In the memory pane, use the
+arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
+`G` to jump to a 4-digit address, and `P` to sync the cursor to the current
+PC. The debugger is currently native-only; the web build does not expose an
+HTML debugger panel yet.
 
 ---
 

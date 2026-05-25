@@ -7,15 +7,19 @@
 
 #include <Z80.h>
 #include <SDL2/SDL.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
-#define DBG_WIN_W 960
-#define DBG_WIN_H 540
+#define DBG_WIN_W 900
+#define DBG_WIN_H 500
 #define DBG_FONT_W 8
 #define DBG_FONT_H 8
 #define DBG_FONT_SCALE 1
 #define DBG_LINE_H ((DBG_FONT_H * DBG_FONT_SCALE) + 8)
+#define DBG_MEM_COLS 16
+#define DBG_MEM_ROWS 16
+#define DBG_MEM_PAGE_SIZE (DBG_MEM_COLS * DBG_MEM_ROWS)
 
 #define DBG_COL_BG      0xFF08100Cu
 #define DBG_COL_PANEL   0xFF102018u
@@ -24,6 +28,43 @@
 #define DBG_COL_DIM     0xFF6AA47Eu
 #define DBG_COL_ACCENT  0xFFFFD36Au
 #define DBG_COL_WARN    0xFFFF9C5Cu
+#define DBG_COL_ACTIVE  0xFF24462Eu
+#define DBG_COL_ROM     0xFF9E7C48u
+
+static const char *const DBG_CC[8] = {
+    "nz", "z", "nc", "c", "po", "pe", "p", "m"
+};
+
+static const char *const DBG_R8[8] = {
+    "b", "c", "d", "e", "h", "l", "(hl)", "a"
+};
+
+static const char *const DBG_R16[4] = {
+    "bc", "de", "hl", "sp"
+};
+
+static const char *const DBG_R16_AF[4] = {
+    "bc", "de", "hl", "af"
+};
+
+static const char *const DBG_ALU[8] = {
+    "add a,", "adc a,", "sub ", "sbc a,", "and ", "xor ", "or ", "cp "
+};
+
+static const char *const DBG_ROT[8] = {
+    "rlc", "rrc", "rl", "rr", "sla", "sra", "sll", "srl"
+};
+
+static const char *const DBG_MISC[8] = {
+    "rlca", "rrca", "rla", "rra", "daa", "cpl", "scf", "ccf"
+};
+
+static const char *const DBG_BLOCK[4][4] = {
+    { "ldi", "cpi", "ini", "outi" },
+    { "ldd", "cpd", "ind", "outd" },
+    { "ldir", "cpir", "inir", "otir" },
+    { "lddr", "cpdr", "indr", "otdr" }
+};
 
 /* Key PC milestones in samos_sys17.rom used by debug_trace_pc() */
 static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
@@ -50,6 +91,12 @@ static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
     { 0x0000, "SYSMON in RAM (booted!)"        },
 };
 #define N_MILESTONES (int)(sizeof(MILESTONES)/sizeof(MILESTONES[0]))
+
+struct DebugInsn {
+    uint16_t addr;
+    uint8_t len;
+    char text[96];
+};
 
 static void dbg_set_color(SDL_Renderer *ren, uint32_t col)
 {
@@ -124,6 +171,40 @@ static void dbg_draw_kv(struct Smaky6 *m, int x, int y, int value_x, const char 
     dbg_draw_text(m, value_x, y, value, DBG_COL_TEXT);
 }
 
+static uint8_t dbg_mem8(struct Smaky6 *m, uint16_t addr)
+{
+    return memory_read(m, addr);
+}
+
+static uint16_t dbg_mem16(struct Smaky6 *m, uint16_t addr)
+{
+    return (uint16_t)dbg_mem8(m, addr) | ((uint16_t)dbg_mem8(m, (uint16_t)(addr + 1u)) << 8);
+}
+
+static void dbg_format_hex8(char *out, size_t out_size, uint8_t value)
+{
+    snprintf(out, out_size, "%02Xh", (unsigned)value);
+}
+
+static void dbg_format_hex16(char *out, size_t out_size, uint16_t value)
+{
+    snprintf(out, out_size, "%04Xh", (unsigned)value);
+}
+
+static void dbg_format_disp(char *out, size_t out_size, const char *idx, uint8_t disp)
+{
+    if (disp < 0x80u) {
+        snprintf(out, out_size, "(%s+%02Xh)", idx, (unsigned)disp);
+    } else {
+        snprintf(out, out_size, "(%s-%02Xh)", idx, (unsigned)(0x100u - disp));
+    }
+}
+
+static void dbg_format_rel(char *out, size_t out_size, uint16_t pc, uint8_t disp)
+{
+    dbg_format_hex16(out, out_size, (uint16_t)(pc + 2u + (int8_t)disp));
+}
+
 static void dbg_format_flags(zuint8 flags, char *out, size_t out_size)
 {
     snprintf(out,
@@ -137,6 +218,448 @@ static void dbg_format_flags(zuint8 flags, char *out, size_t out_size)
              (flags & 0x04u) ? 'P' : '-',
              (flags & 0x02u) ? 'N' : '-',
              (flags & 0x01u) ? 'C' : '-');
+}
+
+static const char *dbg_r16_name(int p, const char *idx)
+{
+    if (idx && p == 2) {
+        return idx;
+    }
+    return DBG_R16[p & 3];
+}
+
+static const char *dbg_r16_af_name(int p, const char *idx)
+{
+    if (idx && p == 2) {
+        return idx;
+    }
+    return DBG_R16_AF[p & 3];
+}
+
+static int dbg_r8_operand(struct Smaky6 *m, uint16_t arg_pc, int r, const char *idx, char *out, size_t out_size)
+{
+    if (!idx) {
+        snprintf(out, out_size, "%s", DBG_R8[r & 7]);
+        return 0;
+    }
+
+    switch (r & 7) {
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 7:
+        snprintf(out, out_size, "%s", DBG_R8[r & 7]);
+        return 0;
+    case 4:
+        snprintf(out, out_size, "%sh", idx);
+        return 0;
+    case 5:
+        snprintf(out, out_size, "%sl", idx);
+        return 0;
+    case 6:
+        dbg_format_disp(out, out_size, idx, dbg_mem8(m, arg_pc));
+        return 1;
+    default:
+        snprintf(out, out_size, "?");
+        return 0;
+    }
+}
+
+static int dbg_decode_cb_prefixed(struct Smaky6 *m, uint16_t pc, char *out, size_t out_size)
+{
+    uint8_t op = dbg_mem8(m, (uint16_t)(pc + 1u));
+    int x = op >> 6;
+    int y = (op >> 3) & 7;
+    int z = op & 7;
+
+    switch (x) {
+    case 0:
+        snprintf(out, out_size, "%s %s", DBG_ROT[y], DBG_R8[z]);
+        break;
+    case 1:
+        snprintf(out, out_size, "bit %d,%s", y, DBG_R8[z]);
+        break;
+    case 2:
+        snprintf(out, out_size, "res %d,%s", y, DBG_R8[z]);
+        break;
+    default:
+        snprintf(out, out_size, "set %d,%s", y, DBG_R8[z]);
+        break;
+    }
+
+    return 2;
+}
+
+static int dbg_decode_ed_prefixed(struct Smaky6 *m, uint16_t pc, char *out, size_t out_size)
+{
+    uint8_t op = dbg_mem8(m, (uint16_t)(pc + 1u));
+    int x = op >> 6;
+    int y = (op >> 3) & 7;
+    int z = op & 7;
+    int p = y >> 1;
+    int q = y & 1;
+    char imm[32];
+
+    if (x == 1) {
+        switch (z) {
+        case 0:
+            if (y == 6) {
+                snprintf(out, out_size, "in (c)");
+            } else {
+                snprintf(out, out_size, "in %s,(c)", DBG_R8[y]);
+            }
+            return 2;
+        case 1:
+            if (y == 6) {
+                snprintf(out, out_size, "out (c),0");
+            } else {
+                snprintf(out, out_size, "out (c),%s", DBG_R8[y]);
+            }
+            return 2;
+        case 2:
+            snprintf(out, out_size, "%s hl,%s", q ? "adc" : "sbc", DBG_R16[p]);
+            return 2;
+        case 3:
+            dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(pc + 2u)));
+            if (q) {
+                snprintf(out, out_size, "ld %s,(%s)", DBG_R16[p], imm);
+            } else {
+                snprintf(out, out_size, "ld (%s),%s", imm, DBG_R16[p]);
+            }
+            return 4;
+        case 4:
+            snprintf(out, out_size, "neg");
+            return 2;
+        case 5:
+            snprintf(out, out_size, "%s", y == 1 ? "reti" : "retn");
+            return 2;
+        case 6: {
+            static const int im_map[8] = {0, 0, 1, 2, 0, 0, 1, 2};
+
+            snprintf(out, out_size, "im %d", im_map[y]);
+            return 2;
+        }
+        case 7:
+            switch (y) {
+            case 0: snprintf(out, out_size, "ld i,a"); break;
+            case 1: snprintf(out, out_size, "ld r,a"); break;
+            case 2: snprintf(out, out_size, "ld a,i"); break;
+            case 3: snprintf(out, out_size, "ld a,r"); break;
+            case 4: snprintf(out, out_size, "rrd"); break;
+            case 5: snprintf(out, out_size, "rld"); break;
+            default: snprintf(out, out_size, "db EDh,%02Xh", (unsigned)op); break;
+            }
+            return 2;
+        }
+    }
+
+    if (x == 2 && z <= 3 && y >= 4) {
+        snprintf(out, out_size, "%s", DBG_BLOCK[y - 4][z]);
+        return 2;
+    }
+
+    snprintf(out, out_size, "db EDh,%02Xh", (unsigned)op);
+    return 2;
+}
+
+static int dbg_decode_ddcb_prefixed(struct Smaky6 *m, uint16_t pc, const char *idx, char *out, size_t out_size)
+{
+    uint8_t disp = dbg_mem8(m, (uint16_t)(pc + 2u));
+    uint8_t op = dbg_mem8(m, (uint16_t)(pc + 3u));
+    int x = op >> 6;
+    int y = (op >> 3) & 7;
+    int z = op & 7;
+    char mem[32];
+
+    dbg_format_disp(mem, sizeof(mem), idx, disp);
+    switch (x) {
+    case 0:
+        if (z == 6) {
+            snprintf(out, out_size, "%s %s", DBG_ROT[y], mem);
+        } else {
+            snprintf(out, out_size, "%s %s,%s", DBG_ROT[y], mem, DBG_R8[z]);
+        }
+        break;
+    case 1:
+        snprintf(out, out_size, "bit %d,%s", y, mem);
+        break;
+    case 2:
+        if (z == 6) {
+            snprintf(out, out_size, "res %d,%s", y, mem);
+        } else {
+            snprintf(out, out_size, "res %d,%s,%s", y, mem, DBG_R8[z]);
+        }
+        break;
+    default:
+        if (z == 6) {
+            snprintf(out, out_size, "set %d,%s", y, mem);
+        } else {
+            snprintf(out, out_size, "set %d,%s,%s", y, mem, DBG_R8[z]);
+        }
+        break;
+    }
+
+    return 4;
+}
+
+static int dbg_decode_core(struct Smaky6 *m, uint16_t opcode_pc, const char *idx, int prefix_len, char *out, size_t out_size)
+{
+    uint8_t op = dbg_mem8(m, opcode_pc);
+    int x = op >> 6;
+    int y = (op >> 3) & 7;
+    int z = op & 7;
+    int p = y >> 1;
+    int q = y & 1;
+    int extra_y = 0;
+    int extra_z = 0;
+    int base_len = prefix_len + 1;
+    char lhs[32];
+    char rhs[32];
+    char imm[32];
+
+    switch (x) {
+    case 0:
+        switch (z) {
+        case 0:
+            switch (y) {
+            case 0: snprintf(out, out_size, "nop"); return base_len;
+            case 1: snprintf(out, out_size, "ex af,af'"); return base_len;
+            case 2:
+                dbg_format_rel(imm, sizeof(imm), opcode_pc, dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "djnz %s", imm);
+                return base_len + 1;
+            case 3:
+                dbg_format_rel(imm, sizeof(imm), opcode_pc, dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "jr %s", imm);
+                return base_len + 1;
+            default:
+                dbg_format_rel(imm, sizeof(imm), opcode_pc, dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "jr %s,%s", DBG_CC[y - 4], imm);
+                return base_len + 1;
+            }
+        case 1:
+            if (!q) {
+                dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "ld %s,%s", dbg_r16_name(p, idx), imm);
+                return base_len + 2;
+            }
+            snprintf(out, out_size, "add %s,%s", dbg_r16_name(2, idx), dbg_r16_name(p, idx));
+            return base_len;
+        case 2:
+            switch (p) {
+            case 0:
+                snprintf(out, out_size, "%s", q ? "ld a,(bc)" : "ld (bc),a");
+                return base_len;
+            case 1:
+                snprintf(out, out_size, "%s", q ? "ld a,(de)" : "ld (de),a");
+                return base_len;
+            case 2:
+                dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+                if (q) {
+                    snprintf(out, out_size, "ld %s,(%s)", dbg_r16_name(2, idx), imm);
+                } else {
+                    snprintf(out, out_size, "ld (%s),%s", imm, dbg_r16_name(2, idx));
+                }
+                return base_len + 2;
+            default:
+                dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+                if (q) {
+                    snprintf(out, out_size, "ld a,(%s)", imm);
+                } else {
+                    snprintf(out, out_size, "ld (%s),a", imm);
+                }
+                return base_len + 2;
+            }
+        case 3:
+            snprintf(out, out_size, "%s %s", q ? "dec" : "inc", dbg_r16_name(p, idx));
+            return base_len;
+        case 4:
+            extra_y = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), y, idx, lhs, sizeof(lhs));
+            snprintf(out, out_size, "inc %s", lhs);
+            return base_len + extra_y;
+        case 5:
+            extra_y = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), y, idx, lhs, sizeof(lhs));
+            snprintf(out, out_size, "dec %s", lhs);
+            return base_len + extra_y;
+        case 6:
+            extra_y = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), y, idx, lhs, sizeof(lhs));
+            dbg_format_hex8(imm, sizeof(imm), dbg_mem8(m, (uint16_t)(opcode_pc + 1u + extra_y)));
+            snprintf(out, out_size, "ld %s,%s", lhs, imm);
+            return base_len + extra_y + 1;
+        default:
+            snprintf(out, out_size, "%s", DBG_MISC[y]);
+            return base_len;
+        }
+    case 1:
+        if (y == 6 && z == 6) {
+            snprintf(out, out_size, "halt");
+            return base_len;
+        }
+        extra_y = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), y, idx, lhs, sizeof(lhs));
+        extra_z = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), z, idx, rhs, sizeof(rhs));
+        snprintf(out, out_size, "ld %s,%s", lhs, rhs);
+        return base_len + (extra_y > extra_z ? extra_y : extra_z);
+    case 2:
+        extra_z = dbg_r8_operand(m, (uint16_t)(opcode_pc + 1u), z, idx, rhs, sizeof(rhs));
+        snprintf(out, out_size, "%s%s", DBG_ALU[y], rhs);
+        return base_len + extra_z;
+    default:
+        switch (z) {
+        case 0:
+            snprintf(out, out_size, "ret %s", DBG_CC[y]);
+            return base_len;
+        case 1:
+            if (!q) {
+                snprintf(out, out_size, "pop %s", dbg_r16_af_name(p, idx));
+                return base_len;
+            }
+            switch (p) {
+            case 0: snprintf(out, out_size, "ret"); break;
+            case 1: snprintf(out, out_size, "exx"); break;
+            case 2: snprintf(out, out_size, "jp (%s)", dbg_r16_name(2, idx)); break;
+            default: snprintf(out, out_size, "ld sp,%s", dbg_r16_name(2, idx)); break;
+            }
+            return base_len;
+        case 2:
+            dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+            snprintf(out, out_size, "jp %s,%s", DBG_CC[y], imm);
+            return base_len + 2;
+        case 3:
+            switch (y) {
+            case 0:
+                dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "jp %s", imm);
+                return base_len + 2;
+            case 2:
+                dbg_format_hex8(imm, sizeof(imm), dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "out (%s),a", imm);
+                return base_len + 1;
+            case 3:
+                dbg_format_hex8(imm, sizeof(imm), dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "in a,(%s)", imm);
+                return base_len + 1;
+            case 4: snprintf(out, out_size, "ex (sp),%s", dbg_r16_name(2, idx)); return base_len;
+            case 5: snprintf(out, out_size, "ex de,hl"); return base_len;
+            case 6: snprintf(out, out_size, "di"); return base_len;
+            case 7: snprintf(out, out_size, "ei"); return base_len;
+            default: break;
+            }
+            break;
+        case 4:
+            dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+            snprintf(out, out_size, "call %s,%s", DBG_CC[y], imm);
+            return base_len + 2;
+        case 5:
+            if (!q) {
+                snprintf(out, out_size, "push %s", dbg_r16_af_name(p, idx));
+                return base_len;
+            }
+            if (p == 0) {
+                dbg_format_hex16(imm, sizeof(imm), dbg_mem16(m, (uint16_t)(opcode_pc + 1u)));
+                snprintf(out, out_size, "call %s", imm);
+                return base_len + 2;
+            }
+            break;
+        case 6:
+            dbg_format_hex8(imm, sizeof(imm), dbg_mem8(m, (uint16_t)(opcode_pc + 1u)));
+            snprintf(out, out_size, "%s%s", DBG_ALU[y], imm);
+            return base_len + 1;
+        case 7:
+            snprintf(out, out_size, "rst %02Xh", (unsigned)(y * 8));
+            return base_len;
+        default:
+            break;
+        }
+    }
+
+    snprintf(out, out_size, "db %02Xh", (unsigned)op);
+    return base_len;
+}
+
+static int dbg_disassemble_at(struct Smaky6 *m, uint16_t pc, char *out, size_t out_size)
+{
+    uint8_t op = dbg_mem8(m, pc);
+
+    switch (op) {
+    case 0xCB:
+        return dbg_decode_cb_prefixed(m, pc, out, out_size);
+    case 0xED:
+        return dbg_decode_ed_prefixed(m, pc, out, out_size);
+    case 0xDD:
+        if (dbg_mem8(m, (uint16_t)(pc + 1u)) == 0xCB) {
+            return dbg_decode_ddcb_prefixed(m, pc, "ix", out, out_size);
+        }
+        return dbg_decode_core(m, (uint16_t)(pc + 1u), "ix", 1, out, out_size);
+    case 0xFD:
+        if (dbg_mem8(m, (uint16_t)(pc + 1u)) == 0xCB) {
+            return dbg_decode_ddcb_prefixed(m, pc, "iy", out, out_size);
+        }
+        return dbg_decode_core(m, (uint16_t)(pc + 1u), "iy", 1, out, out_size);
+    default:
+        return dbg_decode_core(m, pc, NULL, 0, out, out_size);
+    }
+}
+
+static void dbg_sync_memory_to_cursor(struct Smaky6 *m)
+{
+    if (m->dbg.mem_cursor < m->dbg.mem_base ||
+        m->dbg.mem_cursor >= (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE)) {
+        m->dbg.mem_base = (uint16_t)(m->dbg.mem_cursor & 0xFF00u);
+    }
+}
+
+static void dbg_move_memory_cursor(struct Smaky6 *m, int delta)
+{
+    m->dbg.mem_cursor = (uint16_t)(m->dbg.mem_cursor + delta);
+    dbg_sync_memory_to_cursor(m);
+}
+
+static void dbg_apply_memory_jump(struct Smaky6 *m)
+{
+    unsigned value = 0;
+
+    if (m->dbg.mem_jump_len == 0) {
+        return;
+    }
+
+    sscanf(m->dbg.mem_jump_buf, "%x", &value);
+    m->dbg.mem_cursor = (uint16_t)value;
+    m->dbg.mem_base = (uint16_t)(m->dbg.mem_cursor & 0xFF00u);
+    m->dbg.mem_jump_active = 0;
+    m->dbg.mem_jump_len = 0;
+    m->dbg.mem_jump_buf[0] = '\0';
+    m->dbg.mem_edit_high_nibble = 1;
+}
+
+static int dbg_hex_value(SDL_Keycode sym)
+{
+    if (sym >= SDLK_0 && sym <= SDLK_9) {
+        return (int)(sym - SDLK_0);
+    }
+    if (sym >= SDLK_a && sym <= SDLK_f) {
+        return 10 + (int)(sym - SDLK_a);
+    }
+    return -1;
+}
+
+static void dbg_edit_memory_nibble(struct Smaky6 *m, int nibble)
+{
+    uint16_t addr = m->dbg.mem_cursor;
+    uint8_t value = m->bus[addr];
+
+    if (m->dbg.mem_edit_high_nibble) {
+        value = (uint8_t)((value & 0x0Fu) | ((uint8_t)nibble << 4));
+        m->dbg.mem_edit_high_nibble = 0;
+    } else {
+        value = (uint8_t)((value & 0xF0u) | (uint8_t)nibble);
+        m->dbg.mem_edit_high_nibble = 1;
+    }
+
+    memory_write(m, addr, value);
+    if (m->dbg.mem_edit_high_nibble) {
+        dbg_move_memory_cursor(m, 1);
+    }
 }
 
 static void dbg_close_window(struct Smaky6 *m)
@@ -155,6 +678,9 @@ static void dbg_close_window(struct Smaky6 *m)
     m->dbg.stepping = 0;
     m->dbg.step_instruction_pending = 0;
     m->dbg.step_frame_pending = 0;
+    m->dbg.mem_jump_active = 0;
+    m->dbg.mem_jump_len = 0;
+    m->dbg.mem_jump_buf[0] = '\0';
     m->dbg.window_id = 0;
 }
 
@@ -222,26 +748,108 @@ static int dbg_event_targets_window(const struct Smaky6 *m, const SDL_Event *ev)
     }
 }
 
-static void dbg_render_pc_bytes(struct Smaky6 *m, int x, int y)
+static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 {
+    struct DebugInsn insn[40];
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
-    uint16_t base = (pc >= 16u) ? (uint16_t)(pc - 16u) : 0u;
+    uint16_t scan = (pc > 48u) ? (uint16_t)(pc - 48u) : 0u;
+    int count = 0;
+    int current = 0;
+    int start;
 
-    dbg_draw_text(m, x, y, "PC BYTES", DBG_COL_ACCENT);
-    for (int row = 0; row < 8; row++) {
-        char line[96];
-        uint16_t addr = (uint16_t)(base + row * 4u);
+    dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
+    dbg_draw_text(m, x + 16, y + 16, "DISASSEMBLY", DBG_COL_ACCENT);
 
+    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(pc + 96u)) {
+        insn[count].addr = scan;
+        insn[count].len = (uint8_t)dbg_disassemble_at(m, scan, insn[count].text, sizeof(insn[count].text));
+        if (insn[count].len == 0) {
+            insn[count].len = 1;
+        }
+        if (scan <= pc && (uint16_t)(scan + insn[count].len) > pc) {
+            current = count;
+        }
+        count++;
+        if ((uint16_t)(scan + insn[count - 1].len) <= scan) {
+            break;
+        }
+        scan = (uint16_t)(scan + insn[count - 1].len);
+    }
+
+    start = current > 5 ? current - 5 : 0;
+    for (int row = 0; row < 12 && start + row < count; row++) {
+        char bytes[24] = "";
+        char line[160];
+        int line_y = y + 40 + row * DBG_LINE_H;
+        uint32_t line_col = DBG_COL_TEXT;
+
+        for (int i = 0; i < insn[start + row].len && i < 4; i++) {
+            char byte[8];
+
+            snprintf(byte, sizeof(byte), "%s%02X", i ? " " : "", (unsigned)dbg_mem8(m, (uint16_t)(insn[start + row].addr + i)));
+            strncat(bytes, byte, sizeof(bytes) - strlen(bytes) - 1);
+        }
+        if (start + row == current) {
+            dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H, DBG_COL_ACTIVE);
+            line_col = DBG_COL_WARN;
+        }
         snprintf(line,
                  sizeof(line),
-                 "%c %04X: %02X %02X %02X %02X",
-                 (pc >= addr && pc < (uint16_t)(addr + 4u)) ? '>' : ' ',
-                 addr,
-                 memory_read(m, addr),
-                 memory_read(m, (uint16_t)(addr + 1u)),
-                 memory_read(m, (uint16_t)(addr + 2u)),
-                 memory_read(m, (uint16_t)(addr + 3u)));
-        dbg_draw_text(m, x, y + 18 + row * DBG_LINE_H, line, DBG_COL_TEXT);
+                 "%c %04X  %-11s %s",
+                 (start + row == current) ? '>' : ' ',
+                 insn[start + row].addr,
+                 bytes,
+                 insn[start + row].text);
+        dbg_draw_text(m, x + 16, line_y, line, line_col);
+    }
+}
+
+static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
+{
+    char line[160];
+
+    dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
+    snprintf(line,
+             sizeof(line),
+             "MEMORY %04Xh-%04Xh  CURSOR=%04Xh  %s",
+             m->dbg.mem_base,
+             (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE - 1u),
+             m->dbg.mem_cursor,
+             m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC");
+    dbg_draw_text(m, x + 16, y + 16, line, DBG_COL_ACCENT);
+    if (m->dbg.mem_jump_active) {
+        snprintf(line, sizeof(line), "JUMP>%s", m->dbg.mem_jump_buf);
+        dbg_draw_text(m, x + w - 100, y + 16, line, DBG_COL_WARN);
+    }
+
+    for (int row = 0; row < DBG_MEM_ROWS; row++) {
+        int row_y = y + 40 + row * 12;
+
+        snprintf(line, sizeof(line), "%04X:", (unsigned)(m->dbg.mem_base + row * DBG_MEM_COLS));
+        dbg_draw_text(m, x + 16, row_y, line, DBG_COL_DIM);
+        for (int col = 0; col < DBG_MEM_COLS; col++) {
+            uint16_t addr = (uint16_t)(m->dbg.mem_base + row * DBG_MEM_COLS + col);
+            uint8_t value = dbg_mem8(m, addr);
+            char byte[8];
+            int byte_x = x + 72 + col * 28;
+            int ascii_x = x + 548 + col * 9;
+            uint32_t byte_col = m->rom_mask[addr] ? DBG_COL_ROM : DBG_COL_TEXT;
+            uint32_t ascii_col = byte_col;
+
+            snprintf(byte, sizeof(byte), "%02X", (unsigned)value);
+            if (addr == m->dbg.mem_cursor) {
+                dbg_fill_rect(m->dbg.renderer, byte_x - 2, row_y - 2, 20, 11, DBG_COL_ACTIVE);
+                dbg_fill_rect(m->dbg.renderer, ascii_x - 1, row_y - 2, 9, 11, DBG_COL_ACTIVE);
+                byte_col = DBG_COL_WARN;
+                ascii_col = DBG_COL_WARN;
+            }
+            dbg_draw_text(m, byte_x, row_y, byte, byte_col);
+            byte[0] = (value >= 32 && value < 127) ? (char)value : '.';
+            byte[1] = '\0';
+            dbg_draw_text(m, ascii_x, row_y, byte, ascii_col);
+        }
     }
 }
 
@@ -250,64 +858,65 @@ static void dbg_render_registers(struct Smaky6 *m)
     char buf[64];
     char flags[16];
     char flags_shadow[16];
-    const int left_x = 28;
-    const int right_x = 474;
-    const int left_value_x = 112;
-    const int right_value_x = 620;
+    const int reg_x = 28;
+    const int reg_value_x = 112;
+    const int state_x = 126;
+    const int state_value_x = 188;
 
-    dbg_fill_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_BORDER);
-    dbg_draw_text(m, left_x, 28, "CPU REGISTERS", DBG_COL_ACCENT);
+    dbg_fill_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_BORDER);
+    dbg_draw_text(m, reg_x, 28, "CPU REGISTERS", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_AF(m->cpu));
-    dbg_draw_kv(m, left_x, 64, left_value_x, "AF", buf);
+    dbg_draw_kv(m, reg_x, 64, reg_value_x, "AF", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.af_.uint16_value);
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H, left_value_x, "AF'", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H, reg_value_x, "AF'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_BC(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 2, left_value_x, "BC", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 2, reg_value_x, "BC", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.bc_.uint16_value);
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 3, left_value_x, "BC'", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 3, reg_value_x, "BC'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_DE(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 4, left_value_x, "DE", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 4, reg_value_x, "DE", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.de_.uint16_value);
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 5, left_value_x, "DE'", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 5, reg_value_x, "DE'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_HL(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 6, left_value_x, "HL", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 6, reg_value_x, "HL", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.hl_.uint16_value);
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 7, left_value_x, "HL'", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 7, reg_value_x, "HL'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IX(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 8, left_value_x, "IX", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 8, reg_value_x, "IX", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IY(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 9, left_value_x, "IY", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 9, reg_value_x, "IY", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_SP(m->cpu));
-    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 10, left_value_x, "SP", buf);
+    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 10, reg_value_x, "SP", buf);
 
-    dbg_fill_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_BORDER);
-    dbg_draw_text(m, right_x, 28, "STATE", DBG_COL_ACCENT);
+    dbg_fill_rect(m->dbg.renderer, 12, 224, 260, 120, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 224, 260, 120, DBG_COL_BORDER);
+    dbg_draw_text(m, state_x, 240, "STATE", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
-    dbg_draw_kv(m, right_x, 64, right_value_x, "PC", buf);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H, state_value_x, "PC", buf);
     snprintf(buf, sizeof(buf), "%02X / %02X", (unsigned)m->cpu.i, (unsigned)m->cpu.r);
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H, right_value_x, "I / R", buf);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 2, state_value_x, "I / R", buf);
     snprintf(buf, sizeof(buf), "%u / %u / IM%u",
              (unsigned)m->cpu.iff1,
              (unsigned)m->cpu.iff2,
              (unsigned)m->cpu.im);
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 2, right_value_x, "IFF1 / IFF2 / IM", buf);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 3, state_value_x, "IFF1/IFF2/IM", buf);
     snprintf(buf, sizeof(buf), "%s", m->dbg.paused ? "PAUSED" : "RUNNING");
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 3, right_value_x, "EXECUTION", buf);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 4, state_value_x, "EXEC", buf);
     snprintf(buf, sizeof(buf), "%u", (unsigned)m->dbg.last_run_tstates);
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 4, right_value_x, "LAST T-STATES", buf);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 5, state_value_x, "T-STATES", buf);
     snprintf(buf, sizeof(buf), "%llu", (unsigned long long)m->dbg.frame_counter);
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 5, right_value_x, "FRAME COUNT", buf);
-
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 6, state_value_x, "FRAMES", buf);
     dbg_format_flags((zuint8)(Z80_AF(m->cpu) & 0x00FFu), flags, sizeof(flags));
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 7, right_value_x, "FLAGS", flags);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 7, state_value_x, "FLAGS", flags);
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
-    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 8, right_value_x, "FLAGS'", flags_shadow);
+    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 8, state_value_x, "FLAGS'", flags_shadow);
 
-    dbg_render_pc_bytes(m, right_x, 64 + DBG_LINE_H * 10);
+    dbg_render_disassembly(m, 284, 12, 604, 210);
+    dbg_render_memory(m, 284, 224, 604, 236);
+    dbg_draw_text(m, 18, 474, "F12 CLOSE  SPACE RUN/PAUSE  S/F6 STEP  F7 FRAME  ARROWS/HEX/G IN MEMORY", DBG_COL_WARN);
 }
 
 void debug_init(struct Smaky6 *m)
@@ -328,6 +937,12 @@ void debug_init(struct Smaky6 *m)
     m->dbg.io19_repeat_count = 0;
     m->dbg.last_run_tstates = 0;
     m->dbg.frame_counter = 0;
+    m->dbg.mem_base = 0;
+    m->dbg.mem_cursor = 0;
+    m->dbg.mem_edit_high_nibble = 1;
+    m->dbg.mem_jump_active = 0;
+    m->dbg.mem_jump_len = 0;
+    m->dbg.mem_jump_buf[0] = '\0';
     m->dbg.window = NULL;
     m->dbg.renderer = NULL;
     m->dbg.window_id = 0;
@@ -392,8 +1007,36 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             dbg_close_window(m);
         }
         return 1;
-
     case SDL_KEYDOWN:
+        if (m->dbg.mem_jump_active) {
+            int hex = dbg_hex_value(ev->key.keysym.sym);
+
+            if (ev->key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+                m->dbg.mem_jump_active = 0;
+                m->dbg.mem_jump_len = 0;
+                m->dbg.mem_jump_buf[0] = '\0';
+                return 1;
+            }
+            if (ev->key.keysym.scancode == SDL_SCANCODE_RETURN ||
+                ev->key.keysym.scancode == SDL_SCANCODE_KP_ENTER) {
+                dbg_apply_memory_jump(m);
+                return 1;
+            }
+            if (ev->key.keysym.scancode == SDL_SCANCODE_BACKSPACE && m->dbg.mem_jump_len > 0) {
+                m->dbg.mem_jump_len--;
+                m->dbg.mem_jump_buf[m->dbg.mem_jump_len] = '\0';
+                return 1;
+            }
+            if (hex >= 0 && m->dbg.mem_jump_len < 4) {
+                m->dbg.mem_jump_buf[m->dbg.mem_jump_len++] = (char)toupper((unsigned char)ev->key.keysym.sym);
+                m->dbg.mem_jump_buf[m->dbg.mem_jump_len] = '\0';
+                if (m->dbg.mem_jump_len == 4) {
+                    dbg_apply_memory_jump(m);
+                }
+            }
+            return 1;
+        }
+
         switch (ev->key.keysym.scancode) {
         case SDL_SCANCODE_F12:
             dbg_close_window(m);
@@ -413,14 +1056,64 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
         case SDL_SCANCODE_F7:
             debug_request_step_frame(m);
             return 1;
-        default:
+        case SDL_SCANCODE_LEFT:
+            dbg_move_memory_cursor(m, -1);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_RIGHT:
+            dbg_move_memory_cursor(m, 1);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_UP:
+            dbg_move_memory_cursor(m, -DBG_MEM_COLS);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_DOWN:
+            dbg_move_memory_cursor(m, DBG_MEM_COLS);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_PAGEUP:
+            m->dbg.mem_base = (uint16_t)(m->dbg.mem_base - DBG_MEM_PAGE_SIZE);
+            m->dbg.mem_cursor = (uint16_t)(m->dbg.mem_base + (m->dbg.mem_cursor & 0x00FFu));
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_PAGEDOWN:
+            m->dbg.mem_base = (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE);
+            m->dbg.mem_cursor = (uint16_t)(m->dbg.mem_base + (m->dbg.mem_cursor & 0x00FFu));
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_HOME:
+            m->dbg.mem_cursor = (uint16_t)(m->dbg.mem_cursor & 0xFFF0u);
+            dbg_sync_memory_to_cursor(m);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_END:
+            m->dbg.mem_cursor = (uint16_t)((m->dbg.mem_cursor & 0xFFF0u) | 0x000Fu);
+            dbg_sync_memory_to_cursor(m);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        case SDL_SCANCODE_G:
+            m->dbg.mem_jump_active = 1;
+            m->dbg.mem_jump_len = 0;
+            m->dbg.mem_jump_buf[0] = '\0';
+            return 1;
+        case SDL_SCANCODE_P:
+            m->dbg.mem_cursor = (uint16_t)Z80_PC(m->cpu);
+            dbg_sync_memory_to_cursor(m);
+            m->dbg.mem_edit_high_nibble = 1;
+            return 1;
+        default: {
+            int hex = dbg_hex_value(ev->key.keysym.sym);
+
+            if (hex >= 0) {
+                dbg_edit_memory_nibble(m, hex);
+            }
             return 1;
         }
-
+        }
     case SDL_KEYUP:
     case SDL_TEXTINPUT:
         return 1;
-
     default:
         return 0;
     }
@@ -428,17 +1121,12 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
 
 void debug_render(struct Smaky6 *m)
 {
-    const int footer_y = 380;
-
     if (!m->dbg.visible || !m->dbg.renderer) {
         return;
     }
 
     dbg_fill_rect(m->dbg.renderer, 0, 0, DBG_WIN_W, DBG_WIN_H, DBG_COL_BG);
     dbg_render_registers(m);
-    dbg_draw_text(m, 28, footer_y, "F12 CLOSE   SPACE PAUSE/RUN   S OR F6 STEP INSTR   F7 STEP FRAME", DBG_COL_WARN);
-    dbg_draw_text(m, 28, footer_y + DBG_LINE_H + 4, "Native-only debugger window. Web UI can reuse the same backend later.", DBG_COL_DIM);
-    dbg_draw_text(m, 28, footer_y + (DBG_LINE_H + 4) * 2, "Disassembly and memory editor are still pending in this first integrated slice.", DBG_COL_DIM);
     SDL_RenderPresent(m->dbg.renderer);
 }
 

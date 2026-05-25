@@ -1401,9 +1401,13 @@ Current implemented floor:
 
 - Native build only, disabled by default.
 - `F12` toggles a second SDL debugger window on demand.
-- The first integrated slice already shows live Z80 registers, flags, current
-  PC-near bytes, and supports `Space` pause/resume, `S` / `F6` single-step,
-  and `F7` single-frame stepping.
+- The current native slice shows live Z80 registers, flags, a compact
+  disassembly pane around PC, a 256-byte memory editor, and supports `Space`
+  pause/resume, `S` / `F6` single-step, and `F7` single-frame stepping.
+- The memory pane currently supports arrows for navigation, `PageUp` /
+  `PageDown` for paging, hex-key nibble edits, `G` for a 4-digit hex jump, and
+  `P` to sync the cursor to the current PC. ROM-backed bytes are highlighted
+  differently from writable RAM.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.
 
@@ -1421,12 +1425,8 @@ all Z80 registers updated every frame:
 |I / R|IFF1 / IFF2 / IM|
 |T-states this frame|Frame count|
 
-Should also show the current disassembly around PC (5 lines back, 10 ahead)
-using a simple Z80 disassembler (the `z80` / `zeta` dep may already expose one;
-otherwise a minimal standalone table is ~200 lines of C).
-
-Status: live registers and a PC-near byte view exist; mnemonic disassembly is
-still pending.
+Current status: implemented with a small local debugger-side decoder instead of
+pulling in an external disassembler dependency.
 
 ### Memory editor
 
@@ -1438,6 +1438,9 @@ view of any address range, with the ability to:
 - Edit individual bytes in place (single keypress replaces nibble)
 - Highlight ROM-protected ranges differently from writable RAM
 - Show the alpha-plane or graphic-plane at a known offset for quick inspection
+
+Current status: first 16x16 hex/ASCII page is implemented in the native
+debugger window; alpha/graphic-plane presets are still pending.
 
 ### Pause and single-step execution
 

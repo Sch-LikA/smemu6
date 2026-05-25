@@ -206,6 +206,12 @@ struct Smaky6 {
         int stall_frames; /* consecutive frames with no PC progress */
         uint32_t last_run_tstates;
         uint64_t frame_counter;
+        uint16_t mem_base;
+        uint16_t mem_cursor;
+        uint8_t mem_edit_high_nibble;
+        uint8_t mem_jump_active;
+        uint8_t mem_jump_len;
+        char mem_jump_buf[5];
         SDL_Window *window;
         SDL_Renderer *renderer;
         Uint32 window_id;
