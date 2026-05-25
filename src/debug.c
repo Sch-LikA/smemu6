@@ -1619,7 +1619,6 @@ static void dbg_render_registers(struct Smaky6 *m)
 
     dbg_render_disassembly(m, 284, top_y, 604, 214);
     dbg_render_memory(m, 284, 266, 604, 242);
-    dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 }
 
 void debug_init(struct Smaky6 *m)
