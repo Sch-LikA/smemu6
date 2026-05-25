@@ -1432,7 +1432,9 @@ Current implemented floor:
 - The native debugger UI now also shows a compact execution-status strip,
   highlights register values that changed since the previous stop, draws the
   current PC more distinctly from the selected disassembly cursor, and shows a
-  decoded summary for the selected memory byte.
+  decoded summary for the selected memory byte. The visible disassembly slice
+  stays centered on the live PC unless the moved cursor is still close enough to
+  fit in the same 12-line view.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

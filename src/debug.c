@@ -995,6 +995,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
     int current = 0;
     int selected = 0;
     int start;
+    int max_start;
     char header[96];
 
     if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
@@ -1040,7 +1041,19 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         scan = (uint16_t)(scan + insn[count - 1].len);
     }
 
-    start = selected > 5 ? selected - 5 : 0;
+    max_start = count > 12 ? count - 12 : 0;
+    start = current > 5 ? current - 5 : 0;
+    if (start > max_start) {
+        start = max_start;
+    }
+    if (selected < start && current - selected <= 5) {
+        start = selected;
+    } else if (selected >= start + 12 && selected - current <= 6) {
+        start = selected - 11;
+        if (start > max_start) {
+            start = max_start;
+        }
+    }
     for (int row = 0; row < 12 && start + row < count; row++) {
         char bytes[24] = "";
         char line[160];
