@@ -396,7 +396,9 @@ la vue se recentre autour de la ligne sélectionnée pour qu'elle reste visible
 pendant le parcours avant ou arrière. `Entrée` sur une instruction suivable
 déplace le curseur de désassemblage vers sa destination décodée pour les
 transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`, et
-`Retour arrière` remonte cette petite pile d'historique de suivi. Ce
+`Retour arrière` remonte cette petite pile d'historique de suivi. Un résumé
+compact de cible dans la zone d'état montre la destination suivable
+actuellement sélectionnée avant d'appuyer sur `Entrée`. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 

@@ -1446,6 +1446,8 @@ Current implemented floor:
   without opening the SDL debugger window. The control-flow target decoding and
   step-over candidate rules now also live in a second tiny helper with its own
   regression test target, so follow-target and step-over semantics stay aligned.
+  A compact selected-target summary now shows the current follow destination in
+  the status area before `Enter` is pressed.
   The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /

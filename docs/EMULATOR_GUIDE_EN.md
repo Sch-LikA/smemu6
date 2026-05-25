@@ -367,7 +367,8 @@ around the selected line so it stays visible while you walk backward or
 forward. Press `Enter` on a selected followable instruction to move the
 disassembly cursor to its decoded destination for direct `call` / `jp` /
 `jr` / `djnz` / `rst` control-flow edges, and `Backspace` jumps back through
-that follow-history stack. The debugger is
+that follow-history stack. A compact target summary in the status area shows
+the currently selected follow destination before you press `Enter`. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 

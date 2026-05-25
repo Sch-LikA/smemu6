@@ -277,6 +277,8 @@ Implementation note:
 - keep the control-flow target decoding and step-over candidate rules in a tiny
   standalone helper with a dedicated regression test so navigation and stepping
   stay consistent
+- show a compact selected-target summary in the status area so the user can see
+  the follow destination before committing to `Enter`
 
 ### Integrated debugger disassembly centers the active focus
 
