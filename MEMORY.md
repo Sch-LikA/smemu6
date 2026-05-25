@@ -248,6 +248,9 @@ Why:
   symbol availability
 - exact-address and direct-target hints are usually useful, while dumping every
   matching low-memory constant into the pane would add noise
+- CALM-threaded `RST 20h` service calls must be decoded together with the
+  following inline service word; otherwise the disassembly lands on the low
+  byte `E7` of each vector and shows bogus repeated `RST 20h` rows
 
 ### Debugger UI polish stays execution-first
 

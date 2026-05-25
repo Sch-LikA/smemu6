@@ -888,6 +888,15 @@ static int dbg_decode_core(struct Smaky6 *m, uint16_t opcode_pc, const char *idx
             snprintf(out, out_size, "%s%s", DBG_ALU[y], imm);
             return base_len + 1;
         case 7:
+            if ((unsigned)(y * 8) == 0x20u) {
+                uint16_t vector = dbg_mem16(m, (uint16_t)(opcode_pc + 1u));
+                const char *service = dbg_lookup_flo_symbol(vector, 0);
+
+                if (service) {
+                    snprintf(out, out_size, "rst 20h ; %s", service);
+                    return base_len + 2;
+                }
+            }
             snprintf(out, out_size, "rst %02Xh", (unsigned)(y * 8));
             return base_len;
         default:

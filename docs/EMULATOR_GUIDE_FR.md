@@ -398,7 +398,10 @@ désassemblage affiche aussi un petit marqueur `FLO` et chaque ligne peut
 montrer deux indices supplémentaires : une courte colonne de symbole quand
 l'adresse de l'instruction correspond exactement à un export FLO, et un suffixe
 final `;NOM` pour les cibles directes de `call`, `jp` ou `rst` qui
-correspondent à un symbole FLO connu.
+correspondent à un symbole FLO connu. Dans le code threadé de style CALM,
+`RST 20h` absorbe aussi le mot de service inline suivant dans la même ligne,
+ce qui évite d'afficher une suite trompeuse de faux `RST 20h` pour des appels
+comme `?TEXTIM` ou `?OPEN`.
 
 La partie gauche du débogueur est divisée en deux résumés compacts :
 

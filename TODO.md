@@ -1443,7 +1443,8 @@ Current implemented floor:
   watch to a new 4-digit hex address. When the repo-relative `sdcc/FLO.symbols`
   dump is available, the disassembly pane also adds a compact FLO symbol column
   for exact address matches and appends symbol hints for direct `call` / `jp`
-  / `rst` targets.
+  / `rst` targets. Threaded `RST 20h` service vectors are also decoded as one
+  logical row when the following inline word matches a known FLO symbol.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.
