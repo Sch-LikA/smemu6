@@ -1435,8 +1435,10 @@ Current implemented floor:
   highlights register values that changed since the previous stop, draws the
   current PC more distinctly from the selected disassembly cursor, and shows a
   decoded summary for the selected memory byte. The visible disassembly slice
-  stays centered on the live PC unless the moved cursor is still close enough to
-  fit in the same 12-line view. The STATE area now also includes a compact
+  keeps the live PC near the middle when the cursor is synced, and retargets
+  the viewport around the moved disassembly cursor so repeated `Shift+F6`
+  browsing does not scroll that selection out of view after only a few steps.
+  The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
@@ -1445,9 +1447,7 @@ Current implemented floor:
   for exact address matches and appends symbol hints for direct `call` / `jp`
   / `rst` targets. Threaded service vectors such as `E7 07` or `D7 14` are
   also decoded as one logical row when the current restart opcode byte plus the
-  following service-code byte matches a known symbol. The visible disassembly
-  slice now keeps a slightly deeper backward context so `Shift+F6` can walk
-  farther up before the cursor reaches the top of the pane.
+  following service-code byte matches a known symbol.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

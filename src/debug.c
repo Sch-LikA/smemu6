@@ -27,7 +27,8 @@
 #define DBG_MEM_PAGE_SIZE (DBG_MEM_COLS * DBG_MEM_ROWS)
 #define DBG_MAX_BREAKPOINTS 16
 #define DBG_DISASM_VISIBLE_ROWS 11
-#define DBG_DISASM_BACK_ROWS 8
+#define DBG_DISASM_FOCUS_ROW (DBG_DISASM_VISIBLE_ROWS / 2)
+#define DBG_DISASM_SCAN_MARGIN_ROWS 8
 
 #define DBG_COL_BG      0xFF08100Cu
 #define DBG_COL_PANEL   0xFF102018u
@@ -1165,10 +1166,13 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
     struct DebugInsn insn[40];
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
     uint16_t view = m->dbg.disasm_cursor;
+    uint16_t low_anchor;
+    uint16_t high_anchor;
     uint16_t scan;
     int count = 0;
     int current = 0;
     int selected = 0;
+    int focus;
     int start;
     int max_start;
     char header[96];
@@ -1177,8 +1181,10 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         dbg_sync_disasm_cursor(m);
         view = m->dbg.disasm_cursor;
     }
-    scan = view;
-    for (int i = 0; i < DBG_DISASM_BACK_ROWS; i++) {
+    low_anchor = view < pc ? view : pc;
+    high_anchor = view > pc ? view : pc;
+    scan = low_anchor;
+    for (int i = 0; i < DBG_DISASM_SCAN_MARGIN_ROWS; i++) {
         uint16_t prev = dbg_prev_disasm_addr(m, scan);
 
         if (prev == scan) {
@@ -1198,7 +1204,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
              dbg_flo_symbols_loaded() ? " FLO" : "");
     dbg_draw_text(m, x + 16, y + 16, header, DBG_COL_ACCENT);
 
-    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(view + 96u)) {
+    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(high_anchor + 96u)) {
         insn[count].addr = scan;
         insn[count].len = (uint8_t)dbg_disassemble_at(m, scan, insn[count].text, sizeof(insn[count].text));
         if (insn[count].len == 0) {
@@ -1217,15 +1223,15 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         scan = (uint16_t)(scan + insn[count - 1].len);
     }
 
+    focus = (m->dbg.disasm_cursor != pc) ? selected : current;
     max_start = count > DBG_DISASM_VISIBLE_ROWS ? count - DBG_DISASM_VISIBLE_ROWS : 0;
-    start = current > DBG_DISASM_BACK_ROWS ? current - DBG_DISASM_BACK_ROWS : 0;
+    start = focus > DBG_DISASM_FOCUS_ROW ? focus - DBG_DISASM_FOCUS_ROW : 0;
     if (start > max_start) {
         start = max_start;
     }
-    if (selected < start && current - selected <= DBG_DISASM_BACK_ROWS) {
+    if (selected < start) {
         start = selected;
-    } else if (selected >= start + DBG_DISASM_VISIBLE_ROWS &&
-               selected - current <= (DBG_DISASM_VISIBLE_ROWS - DBG_DISASM_BACK_ROWS)) {
+    } else if (selected >= start + DBG_DISASM_VISIBLE_ROWS) {
         start = selected - (DBG_DISASM_VISIBLE_ROWS - 1);
         if (start > max_start) {
             start = max_start;

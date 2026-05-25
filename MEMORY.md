@@ -253,16 +253,20 @@ Why:
   code; decoding them as standalone 1-byte `RST` instructions produces bogus
   repeated rows and hides the symbol names
 
-### Integrated debugger disassembly keeps extra backward context
+### Integrated debugger disassembly centers the active focus
 
-Bias the native disassembly viewport to keep more instructions above the live
-cursor than before.
+Keep the live `PC` row near the middle when the disassembly cursor is synced to
+execution, but recenter the viewport around the selected disassembly cursor
+while the user is browsing away from the live machine state.
 
 Why:
 
-- `Shift+F6` is mainly used to walk backward through recently executed code
-- a centered 11-line slice made the cursor hit the top of the visible pane too
-  quickly during reverse browsing
+- the previous slice only decoded a short window before the live `PC`, so
+  repeated `Shift+F6` presses could move the selected line outside the visible
+  pane after only a few steps
+- centering the live row makes the default paused view easier to read, while
+  centering the moved cursor keeps reverse and forward browsing usable without
+  constantly losing the selection
 
 ### Debugger UI polish stays execution-first
 

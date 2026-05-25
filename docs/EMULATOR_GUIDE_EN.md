@@ -360,7 +360,11 @@ breakpoint so the run-to-cursor request can continue toward the selected line
 instead of stopping immediately again on the same `PC`. `Ctrl+A` and `Ctrl+V`
 jump the memory pane to the alpha and graphic planes. `Tab` and `Shift+Tab`
 cycle the active watch slot in the memory footer, and `W` retargets that selected
-watch by typing a new 4-digit hex address. The debugger is
+watch by typing a new 4-digit hex address. When the disassembly cursor stays
+synced to the machine, the live `PC` line stays near the middle of the pane;
+when you browse with `Shift+F6` or `Shift+Up` / `Shift+Down`, the pane recenters
+around the selected line so it stays visible while you walk backward or
+forward. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 

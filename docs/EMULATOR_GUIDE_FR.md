@@ -389,7 +389,11 @@ lieu de se réarrêter immédiatement sur le même `PC`. `Ctrl+A` et `Ctrl+V`
 placent directement la vue mémoire sur les plans alpha et graphique. `Tab` et
 `Shift+Tab` font tourner l'emplacement de surveillance actif dans le pied du
 panneau mémoire, et `W` redirige cette surveillance sélectionnée vers une nouvelle
-adresse hexadécimale sur 4 chiffres. Ce
+adresse hexadécimale sur 4 chiffres. Quand le curseur de désassemblage reste
+recalé sur la machine, la ligne du `PC` actif reste proche du milieu du
+panneau ; quand vous parcourez avec `Shift+F6` ou `Shift+Haut` / `Shift+Bas`,
+la vue se recentre autour de la ligne sélectionnée pour qu'elle reste visible
+pendant le parcours avant ou arrière. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
