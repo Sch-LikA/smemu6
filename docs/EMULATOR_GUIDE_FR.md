@@ -382,6 +382,27 @@ cette adresse. `Ctrl+A` et `Ctrl+V` placent directement la vue mémoire sur les
 plans alpha et graphique. Ce débogueur reste pour l'instant réservé aux
 versions natives ; le build web n'expose pas encore de panneau HTML dédié.
 
+La partie gauche du débogueur est divisée en deux résumés compacts :
+
+- **CPU REGISTERS** montre l'ensemble principal des registres Z80 `AF`, `BC`,
+  `DE`, `HL`, plus l'ensemble alternatif `AF'`, `BC'`, `DE'`, `HL'`, ainsi que
+  les registres d'index / pile `IX`, `IY` et `SP`. `AF` signifie accumulateur +
+  drapeaux ; les registres avec apostrophe sont la banque alternative du Z80,
+  utilisée par `EX AF,AF'` et `EXX`.
+- **STATE** montre le contexte d'exécution autour de ces registres. `PC` est
+  l'adresse de la prochaine instruction. `I / R` sont les registres de vecteur
+  d'interruption et de rafraîchissement. `IFF1/IFF2/IM` indique si les
+  interruptions masquables sont actives et quel mode d'interruption (`0`, `1`
+  ou `2`) est sélectionné. `EXEC` indique si le débogueur est en pause ou en
+  cours d'exécution. `T-STATES` correspond à la taille de la tranche
+  d'exécution la plus récente, et non à un total cumulé. `FRAMES` est le
+  compteur de trames émulées du débogueur.
+- **FLAGS** et **FLAGS'** décodent l'octet `F` courant dans `AF` et l'octet
+  `F` alternatif dans `AF'`. L'ordre est `SZ5H3PNC` : Signe, Zéro, bit 5 non
+  documenté, Half-carry, bit 3 non documenté, Parité/Débordement,
+  Addition/Soustraction, Carry. Un `-` signifie que le bit correspondant est
+  actuellement à zéro.
+
 ### Touches standard
 
 Le clavier Smaky 6 utilise une disposition **QWERTZ** (allemand suisse) — si

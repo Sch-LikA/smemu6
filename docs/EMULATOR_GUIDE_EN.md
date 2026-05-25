@@ -353,6 +353,25 @@ breakpoint at that address. `Ctrl+A` and `Ctrl+V` jump the memory pane to the
 alpha and graphic planes. The debugger is currently native-only; the web build
 does not expose an HTML debugger panel yet.
 
+The left side of the debugger is split into two small summaries:
+
+- **CPU REGISTERS** shows the main Z80 register set `AF`, `BC`, `DE`, `HL`,
+  plus the alternate shadow set `AF'`, `BC'`, `DE'`, `HL'`, and the index /
+  stack registers `IX`, `IY`, and `SP`. `AF` means accumulator + flags; the
+  apostrophe registers are the Z80 alternate bank used by `EX AF,AF'` and
+  `EXX`.
+- **STATE** shows the execution context around those registers. `PC` is the
+  next instruction address. `I / R` are the interrupt-vector and refresh
+  registers. `IFF1/IFF2/IM` shows whether maskable interrupts are enabled and
+  which interrupt mode (`0`, `1`, or `2`) is active. `EXEC` shows whether the
+  debugger is currently paused or running. `T-STATES` is the size of the most
+  recent execution slice, not a lifetime total. `FRAMES` is the debugger's
+  emulated-frame counter.
+- **FLAGS** and **FLAGS'** decode the live `F` byte from `AF` and the shadow
+  `F` byte from `AF'`. The order is `SZ5H3PNC`: Sign, Zero, undocumented bit 5,
+  Half-carry, undocumented bit 3, Parity/Overflow, Add/Subtract, Carry. A `-`
+  means the corresponding flag bit is currently clear.
+
 ---
 
 ## 7. Display Options
