@@ -1438,6 +1438,9 @@ Current implemented floor:
   keeps the live PC near the middle when the cursor is synced, and retargets
   the viewport around the moved disassembly cursor so repeated `Shift+F6`
   browsing does not scroll that selection out of view after only a few steps.
+  The row-window math now also lives in a tiny standalone helper with a native
+  regression test target so the centering / visibility rules can be verified
+  without opening the SDL debugger window.
   The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /

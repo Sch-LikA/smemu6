@@ -3,6 +3,7 @@
 /* debug.c – Built-in machine monitor / debugger */
 #include "machine_internal.h"
 #include "debug.h"
+#include "debug_viewport.h"
 #include "memory.h"
 
 #include <Z80.h>
@@ -1225,17 +1226,13 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 
     focus = (m->dbg.disasm_cursor != pc) ? selected : current;
     max_start = count > DBG_DISASM_VISIBLE_ROWS ? count - DBG_DISASM_VISIBLE_ROWS : 0;
-    start = focus > DBG_DISASM_FOCUS_ROW ? focus - DBG_DISASM_FOCUS_ROW : 0;
+    start = debug_disasm_view_start(count,
+                                    focus,
+                                    selected,
+                                    DBG_DISASM_VISIBLE_ROWS,
+                                    DBG_DISASM_FOCUS_ROW);
     if (start > max_start) {
         start = max_start;
-    }
-    if (selected < start) {
-        start = selected;
-    } else if (selected >= start + DBG_DISASM_VISIBLE_ROWS) {
-        start = selected - (DBG_DISASM_VISIBLE_ROWS - 1);
-        if (start > max_start) {
-            start = max_start;
-        }
     }
     for (int row = 0; row < DBG_DISASM_VISIBLE_ROWS && start + row < count; row++) {
         char bytes[24] = "";

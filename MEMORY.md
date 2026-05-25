@@ -268,6 +268,12 @@ Why:
   centering the moved cursor keeps reverse and forward browsing usable without
   constantly losing the selection
 
+Implementation note:
+
+- keep the row-window math in a tiny standalone helper with a dedicated native
+  regression test so future debugger UI work can verify the centering rules
+  without spinning up SDL rendering or full emulator state
+
 ### Debugger UI polish stays execution-first
 
 Prefer small debugger UI improvements that make stop state and execution flow

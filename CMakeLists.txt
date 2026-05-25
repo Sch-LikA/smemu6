@@ -80,6 +80,11 @@ add_library(smaky6_psg STATIC
 target_include_directories(smaky6_psg PUBLIC src)
 target_link_libraries(smaky6_psg PUBLIC emu2149)
 
+add_library(smemu6_debug_viewport STATIC
+    src/debug_viewport.c
+)
+target_include_directories(smemu6_debug_viewport PUBLIC src)
+
 # ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
 # Not used for Emscripten builds (no native dialog API in the browser).
 if(NOT EMSCRIPTEN)
@@ -118,6 +123,7 @@ add_executable(smemu6
     src/sound.c
     src/psg.h
     src/debug.c
+    src/debug_viewport.h
     src/rtc.c
     src/winchester.c
 )
@@ -304,6 +310,7 @@ else()
 endif()
 
 target_link_libraries(smemu6 PRIVATE smaky6_psg)
+target_link_libraries(smemu6 PRIVATE smemu6_debug_viewport)
 
 # ── Version compile definition ───────────────────────────────────────────────
 target_compile_definitions(smemu6 PRIVATE SMEMU6_VERSION="${SMEMU6_VERSION}")
@@ -330,6 +337,19 @@ if(NOT EMSCRIPTEN)
     endif()
     add_test(NAME smemu6_virtual_floppy_builder
              COMMAND smemu6_virtual_floppy_test)
+
+    add_executable(smemu6_debug_viewport_test
+        src/debug_viewport_test.c
+    )
+    target_link_libraries(smemu6_debug_viewport_test PRIVATE smemu6_debug_viewport)
+    target_include_directories(smemu6_debug_viewport_test PRIVATE src)
+    if(MSVC)
+        target_compile_options(smemu6_debug_viewport_test PRIVATE /W3)
+    else()
+        target_compile_options(smemu6_debug_viewport_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME smemu6_debug_viewport
+             COMMAND smemu6_debug_viewport_test)
 
     if(UNIX)
         add_test(
