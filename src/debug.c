@@ -956,48 +956,56 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 
 static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
 {
+    const int addr_x = x + 16;
+    const int hex_x = x + 72;
+    const int hex_col_w = 21;
+    const int ascii_x = hex_x + DBG_MEM_COLS * hex_col_w + 12;
     char line[160];
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
     snprintf(line,
              sizeof(line),
-             "MEMORY %04Xh-%04Xh  CURSOR=%04Xh  %s",
+             "MEMORY %04Xh-%04Xh  CURSOR=%04Xh",
              m->dbg.mem_base,
              (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE - 1u),
-             m->dbg.mem_cursor,
-             m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC  CTRL+A/V PRESETS");
+             m->dbg.mem_cursor);
     dbg_draw_text(m, x + 16, y + 16, line, DBG_COL_ACCENT);
+    dbg_draw_text(m,
+                  x + 16,
+                  y + 28,
+                  m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC  CTRL+A/V PRESETS",
+                  DBG_COL_DIM);
     if (m->dbg.mem_jump_active) {
         snprintf(line, sizeof(line), "JUMP>%s", m->dbg.mem_jump_buf);
-        dbg_draw_text(m, x + w - 100, y + 16, line, DBG_COL_WARN);
+        dbg_draw_text(m, x + w - 96, y + 28, line, DBG_COL_WARN);
     }
 
     for (int row = 0; row < DBG_MEM_ROWS; row++) {
-        int row_y = y + 40 + row * 12;
+        int row_y = y + 52 + row * 11;
 
         snprintf(line, sizeof(line), "%04X:", (unsigned)(m->dbg.mem_base + row * DBG_MEM_COLS));
-        dbg_draw_text(m, x + 16, row_y, line, DBG_COL_DIM);
+        dbg_draw_text(m, addr_x, row_y, line, DBG_COL_DIM);
         for (int col = 0; col < DBG_MEM_COLS; col++) {
             uint16_t addr = (uint16_t)(m->dbg.mem_base + row * DBG_MEM_COLS + col);
             uint8_t value = dbg_mem8(m, addr);
             char byte[8];
-            int byte_x = x + 72 + col * 28;
-            int ascii_x = x + 548 + col * 9;
+            int byte_x = hex_x + col * hex_col_w;
+            int byte_ascii_x = ascii_x + col * 9;
             uint32_t byte_col = m->rom_mask[addr] ? DBG_COL_ROM : DBG_COL_TEXT;
             uint32_t ascii_col = byte_col;
 
             snprintf(byte, sizeof(byte), "%02X", (unsigned)value);
             if (addr == m->dbg.mem_cursor) {
                 dbg_fill_rect(m->dbg.renderer, byte_x - 2, row_y - 2, 20, 11, DBG_COL_ACTIVE);
-                dbg_fill_rect(m->dbg.renderer, ascii_x - 1, row_y - 2, 9, 11, DBG_COL_ACTIVE);
+                dbg_fill_rect(m->dbg.renderer, byte_ascii_x - 1, row_y - 2, 9, 11, DBG_COL_ACTIVE);
                 byte_col = DBG_COL_WARN;
                 ascii_col = DBG_COL_WARN;
             }
             dbg_draw_text(m, byte_x, row_y, byte, byte_col);
             byte[0] = (value >= 32 && value < 127) ? (char)value : '.';
             byte[1] = '\0';
-            dbg_draw_text(m, ascii_x, row_y, byte, ascii_col);
+            dbg_draw_text(m, byte_ascii_x, row_y, byte, ascii_col);
         }
     }
 }
@@ -1009,8 +1017,8 @@ static void dbg_render_registers(struct Smaky6 *m)
     char flags_shadow[16];
     const int reg_x = 28;
     const int reg_value_x = 112;
-    const int state_x = 126;
-    const int state_value_x = 188;
+    const int state_x = 28;
+    const int state_value_x = 160;
 
     dbg_fill_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_BORDER);
@@ -1039,8 +1047,8 @@ static void dbg_render_registers(struct Smaky6 *m)
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_SP(m->cpu));
     dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 10, reg_value_x, "SP", buf);
 
-    dbg_fill_rect(m->dbg.renderer, 12, 224, 260, 120, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 224, 260, 120, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, 224, 260, 160, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 224, 260, 160, DBG_COL_BORDER);
     dbg_draw_text(m, state_x, 240, "STATE", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
