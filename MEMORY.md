@@ -313,6 +313,11 @@ Why:
 - these changes stay local to `src/debug.c` and the existing debugger state
 - they avoid committing to a larger pane/layout model too early
 
+Implementation note:
+
+- keep footer separators out of the bitmap-font glyph area; even a 1-pixel line
+  through the watch row is visibly noisy in the native debugger
+
 ### CALM service catalog uses disassembly tables before later manuals
 
 For Smaky 6 CALM documentation, treat `private/docs/disasm/SYS.SR` as the

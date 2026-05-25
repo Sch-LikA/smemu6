@@ -1452,7 +1452,8 @@ Current implemented floor:
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
-  watch to a new 4-digit hex address. When native builds generate the FLO ST
+  watch to a new 4-digit hex address. The footer separator now sits above that
+  watch row instead of overlapping the glyphs. When native builds generate the FLO ST
   export header, the disassembly pane also adds a compact FLO symbol column
   for exact address matches and appends symbol hints for followable control-flow
   targets such as direct `call` / `jp` / `jr` / `djnz` / `rst` instructions.

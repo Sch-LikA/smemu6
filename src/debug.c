@@ -1381,6 +1381,8 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
     const int group_gap = octal ? 8 : 5;
     const int show_ascii = octal ? 0 : 1;
     const int ascii_x = x + w - 16 - DBG_MEM_COLS * 9;
+    const int footer_text_y = y + h - 18;
+    const int footer_line_y = y + h - 24;
     int watch_x = x + 16;
     char line[160];
     char summary[96];
@@ -1467,14 +1469,14 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
                  (unsigned)dbg_mem8(m, m->dbg.watch_addrs[i]));
         dbg_draw_text(m,
                       watch_x,
-                      y + h - 18,
+                      footer_text_y,
                       watch_slot,
                       i == (int)m->dbg.watch_selected ? DBG_COL_ACCENT : DBG_COL_DIM);
         watch_x += (int)strlen(watch_slot) * (DBG_FONT_W * DBG_FONT_SCALE + 1) + 8;
     }
-    dbg_fill_rect(m->dbg.renderer, x + 12, y + h - 16, w - 24, 1, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, x + 12, footer_line_y, w - 24, 1, DBG_COL_BORDER);
     dbg_describe_mem_cursor(m, summary, sizeof(summary));
-    dbg_draw_text(m, x + 320, y + h - 18, summary, DBG_COL_WARN);
+    dbg_draw_text(m, x + 320, footer_text_y, summary, DBG_COL_WARN);
 }
 
 static void dbg_render_registers(struct Smaky6 *m)
