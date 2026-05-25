@@ -12,7 +12,7 @@
 #include <string.h>
 
 #define DBG_WIN_W 900
-#define DBG_WIN_H 500
+#define DBG_WIN_H 480
 #define DBG_FONT_W 8
 #define DBG_FONT_H 8
 #define DBG_FONT_SCALE 1
@@ -1099,13 +1099,12 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
     dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 8, state_value_x, "FLAGS'", flags_shadow);
 
-    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 84, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 84, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_BORDER);
     dbg_draw_text(m, 28, 404, "SHORTCUTS", DBG_COL_ACCENT);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H, "SPACE RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 2, "F8 CURSOR  F9 BP  O BASE  G JUMP", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 3, "ARROWS MOVE  P PC", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 4, "CTRL+A/V PRESETS", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 2, "F8 CURSOR  F9 BP  O BASE", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 3, "G JUMP  ARROWS  P=PC  ^A/^V", DBG_COL_WARN);
 
     dbg_render_disassembly(m, 284, 12, 604, 214);
     dbg_render_memory(m, 284, 230, 604, 230);
