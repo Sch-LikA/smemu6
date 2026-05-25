@@ -1429,6 +1429,10 @@ Current implemented floor:
   base between hex and octal; octal mode keeps the same 16-column window but
   currently remains display-only while in-place edits stay hex-based.
   ROM-backed bytes are highlighted differently from writable RAM.
+- The native debugger UI now also shows a compact execution-status strip,
+  highlights register values that changed since the previous stop, draws the
+  current PC more distinctly from the selected disassembly cursor, and shows a
+  decoded summary for the selected memory byte.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

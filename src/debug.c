@@ -12,7 +12,7 @@
 #include <string.h>
 
 #define DBG_WIN_W 900
-#define DBG_WIN_H 480
+#define DBG_WIN_H 520
 #define DBG_FONT_W 8
 #define DBG_FONT_H 8
 #define DBG_FONT_SCALE 1
@@ -32,6 +32,16 @@
 #define DBG_COL_ACTIVE  0xFF24462Eu
 #define DBG_COL_ROM     0xFF9E7C48u
 #define DBG_COL_INVERT  0xFF08100Cu
+
+enum DebugStopReason {
+    DBG_STOP_NONE = 0,
+    DBG_STOP_MANUAL_PAUSE,
+    DBG_STOP_STEP_INSTRUCTION,
+    DBG_STOP_STEP_FRAME,
+    DBG_STOP_BREAKPOINT,
+    DBG_STOP_RUN_TO_CURSOR,
+    DBG_STOP_BREAKPOINT_AND_CURSOR,
+};
 
 static const char *const DBG_CC[8] = {
     "nz", "z", "nc", "c", "po", "pe", "p", "m"
@@ -67,6 +77,8 @@ static const char *const DBG_BLOCK[4][4] = {
     { "ldir", "cpir", "inir", "otir" },
     { "lddr", "cpdr", "indr", "otdr" }
 };
+
+static uint8_t dbg_mem8(struct Smaky6 *m, uint16_t addr);
 
 /* Key PC milestones in samos_sys17.rom used by debug_trace_pc() */
 static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
@@ -219,6 +231,104 @@ static void dbg_draw_kv(struct Smaky6 *m, int x, int y, int value_x, const char 
 {
     dbg_draw_text(m, x, y, label, DBG_COL_DIM);
     dbg_draw_text(m, value_x, y, value, DBG_COL_TEXT);
+}
+
+static void dbg_draw_kv_col(struct Smaky6 *m,
+                            int x,
+                            int y,
+                            int value_x,
+                            const char *label,
+                            const char *value,
+                            uint32_t value_col)
+{
+    dbg_draw_text(m, x, y, label, DBG_COL_DIM);
+    dbg_draw_text(m, value_x, y, value, value_col);
+}
+
+static void dbg_capture_snapshot(const struct Smaky6 *m, struct DebugCpuSnapshot *snap)
+{
+    snap->af = (uint16_t)Z80_AF(m->cpu);
+    snap->af_shadow = m->cpu.af_.uint16_value;
+    snap->bc = (uint16_t)Z80_BC(m->cpu);
+    snap->bc_shadow = m->cpu.bc_.uint16_value;
+    snap->de = (uint16_t)Z80_DE(m->cpu);
+    snap->de_shadow = m->cpu.de_.uint16_value;
+    snap->hl = (uint16_t)Z80_HL(m->cpu);
+    snap->hl_shadow = m->cpu.hl_.uint16_value;
+    snap->ix = (uint16_t)Z80_IX(m->cpu);
+    snap->iy = (uint16_t)Z80_IY(m->cpu);
+    snap->sp = (uint16_t)Z80_SP(m->cpu);
+    snap->pc = (uint16_t)Z80_PC(m->cpu);
+    snap->i = m->cpu.i;
+    snap->r = m->cpu.r;
+    snap->iff1 = (uint8_t)m->cpu.iff1;
+    snap->iff2 = (uint8_t)m->cpu.iff2;
+    snap->im = (uint8_t)m->cpu.im;
+}
+
+static void dbg_record_stop(struct Smaky6 *m, uint8_t reason)
+{
+    if (m->dbg.last_stop_valid) {
+        m->dbg.prev_stop_snapshot = m->dbg.last_stop_snapshot;
+        m->dbg.prev_stop_valid = 1;
+    }
+    dbg_capture_snapshot(m, &m->dbg.last_stop_snapshot);
+    m->dbg.last_stop_valid = 1;
+    m->dbg.stop_reason = reason;
+}
+
+static uint32_t dbg_value_color(int changed)
+{
+    return changed ? DBG_COL_ACCENT : DBG_COL_TEXT;
+}
+
+static void dbg_describe_mem_cursor(struct Smaky6 *m, char *out, size_t out_size)
+{
+    uint16_t addr = m->dbg.mem_cursor;
+    uint8_t value = dbg_mem8(m, addr);
+    char display = (value >= 32 && value < 127 && value != '\'' && value != '\\')
+        ? (char)value
+        : '.';
+
+    snprintf(out,
+             out_size,
+             "MEM %04Xh=%02Xh/%03o/'%c' %s",
+             addr,
+             (unsigned)value,
+             (unsigned)value,
+             display,
+             m->rom_mask[addr] ? "ROM" : "RAM");
+}
+
+static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out_size)
+{
+    uint16_t pc = m->dbg.last_stop_valid
+        ? m->dbg.last_stop_snapshot.pc
+        : (uint16_t)Z80_PC(m->cpu);
+
+    switch (m->dbg.stop_reason) {
+    case DBG_STOP_MANUAL_PAUSE:
+        snprintf(out, out_size, "STOP manual pause @ %04Xh", pc);
+        break;
+    case DBG_STOP_STEP_INSTRUCTION:
+        snprintf(out, out_size, "STOP step instruction @ %04Xh", pc);
+        break;
+    case DBG_STOP_STEP_FRAME:
+        snprintf(out, out_size, "STOP step frame @ %04Xh", pc);
+        break;
+    case DBG_STOP_BREAKPOINT:
+        snprintf(out, out_size, "STOP breakpoint @ %04Xh", pc);
+        break;
+    case DBG_STOP_RUN_TO_CURSOR:
+        snprintf(out, out_size, "STOP run to cursor @ %04Xh", pc);
+        break;
+    case DBG_STOP_BREAKPOINT_AND_CURSOR:
+        snprintf(out, out_size, "STOP cursor + breakpoint @ %04Xh", pc);
+        break;
+    default:
+        snprintf(out, out_size, "LIVE execution");
+        break;
+    }
 }
 
 static uint8_t dbg_mem8(struct Smaky6 *m, uint16_t addr)
@@ -721,6 +831,7 @@ static void dbg_begin_run_to_cursor(struct Smaky6 *m)
     m->dbg.stepping = 0;
     m->dbg.step_instruction_pending = 0;
     m->dbg.step_frame_pending = 0;
+    m->dbg.stop_reason = DBG_STOP_NONE;
     fprintf(stderr, "debug: run to cursor %04X\n", (unsigned)m->dbg.run_to_cursor_addr);
 }
 
@@ -946,14 +1057,15 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
             snprintf(byte, sizeof(byte), "%s%02X", i ? " " : "", (unsigned)dbg_mem8(m, (uint16_t)(insn[insn_idx].addr + i)));
             strncat(bytes, byte, sizeof(bytes) - strlen(bytes) - 1);
         }
-        if (is_selected) {
-            dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H, DBG_COL_ACTIVE);
-            line_col = DBG_COL_ACCENT;
-        }
         if (is_current) {
-            dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H,
-                          is_selected ? DBG_COL_WARN : DBG_COL_ACTIVE);
-            line_col = is_selected ? DBG_COL_INVERT : DBG_COL_WARN;
+            dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H, DBG_COL_WARN);
+            line_col = DBG_COL_INVERT;
+        }
+        if (is_selected) {
+            dbg_draw_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H, DBG_COL_ACCENT);
+            if (!is_current) {
+                line_col = DBG_COL_ACCENT;
+            }
         }
         snprintf(line,
                  sizeof(line),
@@ -978,6 +1090,7 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
     const int show_ascii = octal ? 0 : 1;
     const int ascii_x = x + w - 16 - DBG_MEM_COLS * 9;
     char line[160];
+    char summary[96];
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
@@ -1003,10 +1116,10 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
     for (int group = 1; group < 4; group++) {
         int sep_x = value_x + group * 4 * value_col_w + (group - 1) * group_gap + group_gap / 2;
 
-        dbg_fill_rect(m->dbg.renderer, sep_x, y + 56, 1, h - 68, DBG_COL_BORDER);
+        dbg_fill_rect(m->dbg.renderer, sep_x, y + 56, 1, h - 88, DBG_COL_BORDER);
     }
     if (show_ascii) {
-        dbg_fill_rect(m->dbg.renderer, ascii_x - 8, y + 56, 1, h - 68, DBG_COL_BORDER);
+        dbg_fill_rect(m->dbg.renderer, ascii_x - 8, y + 56, 1, h - 88, DBG_COL_BORDER);
     }
 
     for (int row = 0; row < DBG_MEM_ROWS; row++) {
@@ -1044,6 +1157,10 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
             }
         }
     }
+
+    dbg_fill_rect(m->dbg.renderer, x + 12, y + h - 28, w - 24, 1, DBG_COL_BORDER);
+    dbg_describe_mem_cursor(m, summary, sizeof(summary));
+    dbg_draw_text(m, x + 16, y + h - 18, summary, DBG_COL_WARN);
 }
 
 static void dbg_render_registers(struct Smaky6 *m)
@@ -1051,70 +1168,122 @@ static void dbg_render_registers(struct Smaky6 *m)
     char buf[64];
     char flags[16];
     char flags_shadow[16];
+    char mode[80];
+    char stop[96];
+    char mem_summary[96];
+    const struct DebugCpuSnapshot *prev = m->dbg.prev_stop_valid ? &m->dbg.prev_stop_snapshot : NULL;
     const int reg_x = 28;
     const int reg_value_x = 112;
     const int state_x = 28;
     const int state_value_x = 160;
+    const int top_y = 48;
+    const int state_panel_y = 260;
+    const int shortcuts_y = 428;
 
-    dbg_fill_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 12, 260, 210, DBG_COL_BORDER);
-    dbg_draw_text(m, reg_x, 28, "CPU REGISTERS", DBG_COL_ACCENT);
+    dbg_fill_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_BORDER);
+    snprintf(mode,
+             sizeof(mode),
+             "MODE %s  PC %04Xh  CUR %04Xh  FRAMES %llu",
+             m->dbg.run_to_cursor_active ? "RUN TO CURSOR" : (m->dbg.paused ? "PAUSED" : "RUN"),
+             (unsigned)Z80_PC(m->cpu),
+             (unsigned)m->dbg.disasm_cursor,
+             (unsigned long long)m->dbg.frame_counter);
+    dbg_format_stop_reason(m, stop, sizeof(stop));
+    dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
+    dbg_draw_text(m, 24, 20, mode, DBG_COL_ACCENT);
+    dbg_draw_text(m, 430, 20, m->dbg.run_to_cursor_active ? "TARGET ACTIVE" : stop, DBG_COL_WARN);
+
+    dbg_fill_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_BORDER);
+    dbg_draw_text(m, reg_x, top_y + 16, "CPU REGISTERS", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_AF(m->cpu));
-    dbg_draw_kv(m, reg_x, 64, reg_value_x, "AF", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52, reg_value_x, "AF", buf,
+                    dbg_value_color(prev && prev->af != (uint16_t)Z80_AF(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.af_.uint16_value);
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H, reg_value_x, "AF'", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H, reg_value_x, "AF'", buf,
+                    dbg_value_color(prev && prev->af_shadow != m->cpu.af_.uint16_value));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_BC(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 2, reg_value_x, "BC", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 2, reg_value_x, "BC", buf,
+                    dbg_value_color(prev && prev->bc != (uint16_t)Z80_BC(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.bc_.uint16_value);
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 3, reg_value_x, "BC'", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 3, reg_value_x, "BC'", buf,
+                    dbg_value_color(prev && prev->bc_shadow != m->cpu.bc_.uint16_value));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_DE(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 4, reg_value_x, "DE", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 4, reg_value_x, "DE", buf,
+                    dbg_value_color(prev && prev->de != (uint16_t)Z80_DE(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.de_.uint16_value);
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 5, reg_value_x, "DE'", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 5, reg_value_x, "DE'", buf,
+                    dbg_value_color(prev && prev->de_shadow != m->cpu.de_.uint16_value));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_HL(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 6, reg_value_x, "HL", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 6, reg_value_x, "HL", buf,
+                    dbg_value_color(prev && prev->hl != (uint16_t)Z80_HL(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.hl_.uint16_value);
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 7, reg_value_x, "HL'", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 7, reg_value_x, "HL'", buf,
+                    dbg_value_color(prev && prev->hl_shadow != m->cpu.hl_.uint16_value));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IX(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 8, reg_value_x, "IX", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 8, reg_value_x, "IX", buf,
+                    dbg_value_color(prev && prev->ix != (uint16_t)Z80_IX(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IY(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 9, reg_value_x, "IY", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 9, reg_value_x, "IY", buf,
+                    dbg_value_color(prev && prev->iy != (uint16_t)Z80_IY(m->cpu)));
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_SP(m->cpu));
-    dbg_draw_kv(m, reg_x, 64 + DBG_LINE_H * 10, reg_value_x, "SP", buf);
+    dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 10, reg_value_x, "SP", buf,
+                    dbg_value_color(prev && prev->sp != (uint16_t)Z80_SP(m->cpu)));
 
-    dbg_fill_rect(m->dbg.renderer, 12, 224, 260, 160, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 224, 260, 160, DBG_COL_BORDER);
-    dbg_draw_text(m, state_x, 240, "STATE", DBG_COL_ACCENT);
+    dbg_fill_rect(m->dbg.renderer, 12, state_panel_y, 260, 160, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, state_panel_y, 260, 160, DBG_COL_BORDER);
+    dbg_draw_text(m, state_x, state_panel_y + 16, "STATE", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H, state_value_x, "PC", buf);
+    dbg_draw_kv_col(m, state_x, state_panel_y + 32, state_value_x, "PC", buf,
+                    dbg_value_color(prev && prev->pc != (uint16_t)Z80_PC(m->cpu)));
     snprintf(buf, sizeof(buf), "%02X / %02X", (unsigned)m->cpu.i, (unsigned)m->cpu.r);
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 2, state_value_x, "I / R", buf);
+    dbg_draw_kv_col(m, state_x, state_panel_y + 32 + DBG_LINE_H, state_value_x, "I / R", buf,
+                    dbg_value_color(prev && (prev->i != m->cpu.i || prev->r != m->cpu.r)));
     snprintf(buf, sizeof(buf), "%u / %u / IM%u",
              (unsigned)m->cpu.iff1,
              (unsigned)m->cpu.iff2,
              (unsigned)m->cpu.im);
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 3, state_value_x, "IFF1/IFF2/IM", buf);
+    dbg_draw_kv_col(m,
+                    state_x,
+                    state_panel_y + 32 + DBG_LINE_H * 2,
+                    state_value_x,
+                    "IFF1/IFF2/IM",
+                    buf,
+                    dbg_value_color(prev && (prev->iff1 != (uint8_t)m->cpu.iff1 ||
+                                             prev->iff2 != (uint8_t)m->cpu.iff2 ||
+                                             prev->im != (uint8_t)m->cpu.im)));
     snprintf(buf, sizeof(buf), "%s", m->dbg.paused ? "PAUSED" : "RUNNING");
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 4, state_value_x, "EXEC", buf);
+    dbg_draw_kv(m, state_x, state_panel_y + 32 + DBG_LINE_H * 3, state_value_x, "EXEC", buf);
     snprintf(buf, sizeof(buf), "%u", (unsigned)m->dbg.last_run_tstates);
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 5, state_value_x, "T-STATES", buf);
+    dbg_draw_kv(m, state_x, state_panel_y + 32 + DBG_LINE_H * 4, state_value_x, "T-STATES", buf);
     snprintf(buf, sizeof(buf), "%llu", (unsigned long long)m->dbg.frame_counter);
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 6, state_value_x, "FRAMES", buf);
+    dbg_draw_kv(m, state_x, state_panel_y + 32 + DBG_LINE_H * 5, state_value_x, "FRAMES", buf);
     dbg_format_flags((zuint8)(Z80_AF(m->cpu) & 0x00FFu), flags, sizeof(flags));
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 7, state_value_x, "FLAGS", flags);
+    dbg_draw_kv_col(m, state_x, state_panel_y + 32 + DBG_LINE_H * 6, state_value_x, "FLAGS", flags,
+                    dbg_value_color(prev && ((prev->af & 0x00FFu) != ((uint16_t)Z80_AF(m->cpu) & 0x00FFu))));
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
-    dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 8, state_value_x, "FLAGS'", flags_shadow);
+    dbg_draw_kv_col(m,
+                    state_x,
+                    state_panel_y + 32 + DBG_LINE_H * 7,
+                    state_value_x,
+                    "FLAGS'",
+                    flags_shadow,
+                    dbg_value_color(prev && ((prev->af_shadow & 0x00FFu) != (m->cpu.af_.uint16_value & 0x00FFu))));
 
-    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 60, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 60, DBG_COL_BORDER);
-    dbg_draw_text(m, 28, 404, "SHORTCUTS", DBG_COL_ACCENT);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H, "SPC RUN  S/F6 STEP  F7 FRM", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 2, "F8 CURSOR  F9 BP", DBG_COL_WARN);
+    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 80, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 80, DBG_COL_BORDER);
+    dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
+    dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SHIFT UP/DN", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H * 2, "MEM ARROWS  PGUP/DN  G P O", DBG_COL_WARN);
 
-    dbg_render_disassembly(m, 284, 12, 604, 214);
-    dbg_render_memory(m, 284, 230, 604, 230);
+    dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
+
+    dbg_render_disassembly(m, 284, top_y, 604, 214);
+    dbg_render_memory(m, 284, 266, 604, 242);
 }
 
 void debug_init(struct Smaky6 *m)
@@ -1147,6 +1316,9 @@ void debug_init(struct Smaky6 *m)
     m->dbg.mem_edit_high_nibble = 1;
     m->dbg.mem_jump_active = 0;
     m->dbg.mem_jump_len = 0;
+    m->dbg.stop_reason = DBG_STOP_NONE;
+    m->dbg.last_stop_valid = 0;
+    m->dbg.prev_stop_valid = 0;
     m->dbg.mem_jump_buf[0] = '\0';
     m->dbg.window = NULL;
     m->dbg.renderer = NULL;
@@ -1210,6 +1382,9 @@ int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc)
     m->dbg.step_frame_pending = 0;
     m->dbg.run_to_cursor_active = 0;
     m->dbg.disasm_cursor = pc;
+    dbg_record_stop(m, hit_cursor && hit_breakpoint
+        ? DBG_STOP_BREAKPOINT_AND_CURSOR
+        : (hit_cursor ? DBG_STOP_RUN_TO_CURSOR : DBG_STOP_BREAKPOINT));
     if (hit_cursor && hit_breakpoint) {
         fprintf(stderr, "debug: run-to-cursor hit breakpoint at %04X\n", (unsigned)pc);
     } else if (hit_cursor) {
@@ -1240,6 +1415,9 @@ void debug_note_instruction_run(struct Smaky6 *m, uint32_t tstates)
     if ((!m->dbg.paused || m->dbg.stepping) && !m->dbg.run_to_cursor_active) {
         dbg_sync_disasm_cursor(m);
     }
+    if (m->dbg.stepping && m->dbg.paused) {
+        dbg_record_stop(m, DBG_STOP_STEP_INSTRUCTION);
+    }
 }
 
 void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates)
@@ -1248,6 +1426,9 @@ void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates)
     m->dbg.frame_counter++;
     if ((!m->dbg.paused || m->dbg.stepping) && !m->dbg.run_to_cursor_active) {
         dbg_sync_disasm_cursor(m);
+    }
+    if (m->dbg.stepping && m->dbg.paused) {
+        dbg_record_stop(m, DBG_STOP_STEP_FRAME);
     }
 }
 
@@ -1307,6 +1488,9 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             if (!m->dbg.paused) {
                 m->dbg.step_instruction_pending = 0;
                 m->dbg.step_frame_pending = 0;
+                m->dbg.stop_reason = DBG_STOP_NONE;
+            } else {
+                dbg_record_stop(m, DBG_STOP_MANUAL_PAUSE);
             }
             return 1;
         case SDL_SCANCODE_F8:

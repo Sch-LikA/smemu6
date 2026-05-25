@@ -218,6 +218,18 @@ Why:
 - the same local backend can later feed either the native SDL window or a web
   HTML debugger panel
 
+### Debugger UI polish stays execution-first
+
+Prefer small debugger UI improvements that make stop state and execution flow
+clearer before adding new panes or symbolic features.
+
+Why:
+
+- a status strip, stop reason, register-delta highlighting, and clearer PC vs
+  cursor rendering improve day-to-day debugging immediately
+- these changes stay local to `src/debug.c` and the existing debugger state
+- they avoid committing to a larger pane/layout model too early
+
 ### CALM service catalog uses disassembly tables before later manuals
 
 For Smaky 6 CALM documentation, treat `private/docs/disasm/SYS.SR` as the

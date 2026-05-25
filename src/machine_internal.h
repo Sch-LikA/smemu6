@@ -38,6 +38,26 @@ struct FloppyMedia {
     char     description[256];
 };
 
+struct DebugCpuSnapshot {
+    uint16_t af;
+    uint16_t af_shadow;
+    uint16_t bc;
+    uint16_t bc_shadow;
+    uint16_t de;
+    uint16_t de_shadow;
+    uint16_t hl;
+    uint16_t hl_shadow;
+    uint16_t ix;
+    uint16_t iy;
+    uint16_t sp;
+    uint16_t pc;
+    uint8_t i;
+    uint8_t r;
+    uint8_t iff1;
+    uint8_t iff2;
+    uint8_t im;
+};
+
 struct Smaky6 {
     /* Memory bus (64 K flat) and ROM mask */
     uint8_t bus[MEM_TOTAL];
@@ -219,7 +239,12 @@ struct Smaky6 {
         uint8_t mem_edit_high_nibble;
         uint8_t mem_jump_active;
         uint8_t mem_jump_len;
+        uint8_t stop_reason;
+        uint8_t last_stop_valid;
+        uint8_t prev_stop_valid;
         char mem_jump_buf[5];
+        struct DebugCpuSnapshot last_stop_snapshot;
+        struct DebugCpuSnapshot prev_stop_snapshot;
         SDL_Window *window;
         SDL_Renderer *renderer;
         Uint32 window_id;
