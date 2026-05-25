@@ -311,8 +311,7 @@ static void dbg_format_stack_preview(struct Smaky6 *m, char *out, size_t out_siz
 
     snprintf(out,
              out_size,
-             "%04X: %04X %04X %04X %04X",
-             sp,
+             "%04X %04X %04X %04X",
              w0,
              w1,
              w2,
@@ -1322,9 +1321,9 @@ static void dbg_render_registers(struct Smaky6 *m)
                     flags_shadow,
                     dbg_value_color(prev && ((prev->af_shadow & 0x00FFu) != (m->cpu.af_.uint16_value & 0x00FFu))));
 
-    dbg_fill_rect(m->dbg.renderer, 24, state_panel_y + 144, 236, 1, DBG_COL_BORDER);
-    dbg_draw_text(m, state_x, state_panel_y + 152, "STACK", DBG_COL_DIM);
-    dbg_draw_text(m, state_x + 56, state_panel_y + 152, stack_preview, DBG_COL_WARN);
+    dbg_fill_rect(m->dbg.renderer, 24, state_panel_y + 152, 236, 1, DBG_COL_BORDER);
+    dbg_draw_text(m, state_x, state_panel_y + 160, "STACK", DBG_COL_DIM);
+    dbg_draw_text(m, state_x + 56, state_panel_y + 160, stack_preview, DBG_COL_WARN);
 
     dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_BORDER);
