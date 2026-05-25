@@ -180,17 +180,36 @@ static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
     return best;
 }
 
-static const char *dbg_lookup_flo_target_symbol(struct Smaky6 *m, uint16_t addr)
+static int dbg_get_disasm_target(struct Smaky6 *m, uint16_t addr, uint16_t *target_out)
 {
     uint8_t op = dbg_mem8(m, addr);
     uint16_t target;
 
     if ((op & 0xC7u) == 0xC2u || op == 0xC3u || (op & 0xC7u) == 0xC4u || op == 0xCDu) {
         target = dbg_mem16(m, (uint16_t)(addr + 1u));
-        return dbg_lookup_flo_symbol(target, 1);
+        *target_out = target;
+        return 1;
+    }
+    if (op == 0x10u || op == 0x18u || op == 0x20u || op == 0x28u || op == 0x30u || op == 0x38u) {
+        int8_t rel = (int8_t)dbg_mem8(m, (uint16_t)(addr + 1u));
+
+        *target_out = (uint16_t)(addr + 2u + rel);
+        return 1;
     }
     if ((op & 0xC7u) == 0xC7u) {
         target = (uint16_t)(op & 0x38u);
+        *target_out = target;
+        return 1;
+    }
+
+    return 0;
+}
+
+static const char *dbg_lookup_flo_target_symbol(struct Smaky6 *m, uint16_t addr)
+{
+    uint16_t target;
+
+    if (dbg_get_disasm_target(m, addr, &target)) {
         return dbg_lookup_flo_symbol(target, 1);
     }
 
@@ -1004,6 +1023,25 @@ static int dbg_begin_step_over(struct Smaky6 *m)
     return 1;
 }
 
+static void dbg_follow_disasm_target(struct Smaky6 *m)
+{
+    uint16_t target;
+
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        fprintf(stderr, "debug: pause execution before following disassembly targets\n");
+        return;
+    }
+    if (!dbg_get_disasm_target(m, m->dbg.disasm_cursor, &target)) {
+        fprintf(stderr, "debug: no followable target at %04X\n", (unsigned)m->dbg.disasm_cursor);
+        return;
+    }
+
+    fprintf(stderr, "debug: follow target %04X -> %04X\n",
+            (unsigned)m->dbg.disasm_cursor,
+            (unsigned)target);
+    m->dbg.disasm_cursor = target;
+}
+
 static void dbg_sync_memory_to_cursor(struct Smaky6 *m)
 {
     if (m->dbg.mem_cursor < m->dbg.mem_base ||
@@ -1521,7 +1559,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  SF7 OVR", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F7 FRM  F8 CUR  F9 BP SF6<", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F7 FRM F8 CUR F9 BP ENT FLW", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
@@ -1779,6 +1817,10 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             return 1;
         case SDL_SCANCODE_F9:
             dbg_toggle_breakpoint(m, m->dbg.disasm_cursor);
+            return 1;
+        case SDL_SCANCODE_RETURN:
+        case SDL_SCANCODE_KP_ENTER:
+            dbg_follow_disasm_target(m);
             return 1;
         case SDL_SCANCODE_LEFT:
             dbg_move_memory_cursor(m, -1);

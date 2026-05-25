@@ -237,7 +237,7 @@ Why:
 
 The native debugger now consumes the generated FLO ST export header through the
 build graph and uses the compiled-in table only for compact disassembly hints:
-exact-address labels and direct `call` / `jp` / `rst` target suffixes.
+exact-address labels and followable control-flow target suffixes.
 
 Why:
 
@@ -252,6 +252,19 @@ Why:
   the restart opcode (`D7`, `E7`, or `EF`) and whose second byte is the service
   code; decoding them as standalone 1-byte `RST` instructions produces bogus
   repeated rows and hides the symbol names
+
+### Integrated debugger can follow selected control-flow targets
+
+Allow the disassembly cursor to jump to the decoded destination of the selected
+instruction when the user presses `Enter` on a direct `call` / `jp` / `jr` /
+`djnz` / `rst` row.
+
+Why:
+
+- browsing is much faster when the user can follow the currently highlighted
+  control-flow edge without manually retyping or scrolling to the target
+- reusing one target-decoder helper keeps the navigation behavior aligned with
+  the disassembly suffix hints instead of growing a second inconsistent decoder
 
 ### Integrated debugger disassembly centers the active focus
 

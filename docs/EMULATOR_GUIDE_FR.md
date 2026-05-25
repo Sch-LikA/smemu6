@@ -393,7 +393,9 @@ adresse hexadécimale sur 4 chiffres. Quand le curseur de désassemblage reste
 recalé sur la machine, la ligne du `PC` actif reste proche du milieu du
 panneau ; quand vous parcourez avec `Shift+F6` ou `Shift+Haut` / `Shift+Bas`,
 la vue se recentre autour de la ligne sélectionnée pour qu'elle reste visible
-pendant le parcours avant ou arrière. Ce
+pendant le parcours avant ou arrière. `Entrée` sur une instruction suivable
+déplace le curseur de désassemblage vers sa destination décodée pour les
+transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
@@ -403,7 +405,7 @@ fichier de symboles externe au moment de l'exécution. L'en-tête du
 désassemblage affiche aussi un petit marqueur `FLO` et chaque ligne peut
 montrer deux indices supplémentaires : une courte colonne de symbole quand
 l'adresse de l'instruction correspond exactement à un export FLO, et un suffixe
-final `;NOM` pour les cibles directes de `call`, `jp` ou `rst` qui
+final `;NOM` pour les cibles suivables de contrôle direct qui
 correspondent à un symbole FLO connu. Dans le code threadé de style CALM,
 les vecteurs de service sur 2 octets absorbent aussi l'octet de service suivant
 dans la même ligne, par exemple `E7 5E` pour `?TEXTIM` ou `D7 14` pour

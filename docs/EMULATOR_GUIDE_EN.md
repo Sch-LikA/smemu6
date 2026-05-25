@@ -364,7 +364,9 @@ watch by typing a new 4-digit hex address. When the disassembly cursor stays
 synced to the machine, the live `PC` line stays near the middle of the pane;
 when you browse with `Shift+F6` or `Shift+Up` / `Shift+Down`, the pane recenters
 around the selected line so it stays visible while you walk backward or
-forward. The debugger is
+forward. Press `Enter` on a selected followable instruction to move the
+disassembly cursor to its decoded destination for direct `call` / `jp` /
+`jr` / `djnz` / `rst` control-flow edges. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
@@ -372,8 +374,8 @@ In native builds, the debugger now uses the generated FLO ST export header
 compiled into the emulator itself, so it no longer depends on an external
 runtime symbol file. The disassembly header adds a small `FLO` marker and each
 row may show two extra hints: a compact symbol column when the instruction
-address matches a FLO export, and a trailing `;NAME` suffix for direct `call`,
-`jp`, or `rst` targets that match a known FLO symbol. In CALM-style threaded
+address matches a FLO export, and a trailing `;NAME` suffix for followable
+control-flow targets that match a known FLO symbol. In CALM-style threaded
 code, `RST 20h` also consumes the following service byte as part of the same
 row, so 2-byte threaded vectors such as `E7 5E` (`?TEXTIM`) or `D7 14`
 (`?OPEN`) no longer appear as a misleading run of repeated raw `RST` bytes.

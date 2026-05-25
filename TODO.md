@@ -1423,8 +1423,9 @@ Current implemented floor:
   `Shift+F7` step-over for `CALL` / `RST` instructions (falling back to a
   single step on other opcodes), and `F7` single-frame stepping.
 - The disassembly pane now has a movable cursor (`Shift+Up` / `Shift+Down`),
-  `F8` run-to-cursor, and `F9` breakpoint toggle with a small fixed breakpoint
-  table in the debugger state.
+  `F8` run-to-cursor, `F9` breakpoint toggle, and `Enter` follow-target for
+  direct `call` / `jp` / `jr` / `djnz` / `rst` destinations, with a small
+  fixed breakpoint table in the debugger state.
 - The memory pane currently supports arrows for navigation, `PageUp` /
   `PageDown` for paging, hex-key nibble edits, `G` for a 4-digit hex jump, and
   `P` to sync the cursor to the current PC. `O` now toggles the displayed byte
@@ -1447,8 +1448,9 @@ Current implemented floor:
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
   watch to a new 4-digit hex address. When native builds generate the FLO ST
   export header, the disassembly pane also adds a compact FLO symbol column
-  for exact address matches and appends symbol hints for direct `call` / `jp`
-  / `rst` targets. Threaded service vectors such as `E7 07` or `D7 14` are
+  for exact address matches and appends symbol hints for followable control-flow
+  targets such as direct `call` / `jp` / `jr` / `djnz` / `rst` instructions.
+  Threaded service vectors such as `E7 07` or `D7 14` are
   also decoded as one logical row when the current restart opcode byte plus the
   following service-code byte matches a known symbol.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
