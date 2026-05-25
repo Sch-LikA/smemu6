@@ -1184,6 +1184,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     char mode[80];
     char stop[96];
     char mem_summary[96];
+    const char *mode_label;
     const struct DebugCpuSnapshot *prev = m->dbg.prev_stop_valid ? &m->dbg.prev_stop_snapshot : NULL;
     const int reg_x = 28;
     const int reg_value_x = 112;
@@ -1195,10 +1196,11 @@ static void dbg_render_registers(struct Smaky6 *m)
 
     dbg_fill_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_BORDER);
+    mode_label = m->dbg.run_to_cursor_active ? "CURSOR" : (m->dbg.paused ? "PAUSE" : "RUN");
     snprintf(mode,
              sizeof(mode),
-             "MODE %s  PC %04Xh  CUR %04Xh  FRAMES %llu",
-             m->dbg.run_to_cursor_active ? "RUN TO CURSOR" : (m->dbg.paused ? "PAUSED" : "RUN"),
+             "MODE %-6s PC %04Xh  CUR %04Xh  FRAMES %llu",
+             mode_label,
              (unsigned)Z80_PC(m->cpu),
              (unsigned)m->dbg.disasm_cursor,
              (unsigned long long)m->dbg.frame_counter);
@@ -1291,7 +1293,6 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
     dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SHIFT UP/DN", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H * 2, "MEM ARROWS  PGUP/DN  G P O", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
