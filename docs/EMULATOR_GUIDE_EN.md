@@ -348,14 +348,16 @@ arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
 `G` to jump to a 4-digit address, `P` to sync the cursor to the current
 PC, and `O` to switch the byte display between hex and octal. Octal mode is
 currently a display mode only; in-place byte edits remain hex-based. In the
-disassembly pane, `Shift+Up` / `Shift+Down` moves the selection, `F8` runs
+disassembly pane, `Shift+Up` / `Shift+Down` moves the selection, `Shift+F6`
+moves the selection backward by one decoded instruction without executing the
+machine, `F8` runs
 until the selected instruction address, and `F9` toggles a
 breakpoint at that address. If `F8` starts while execution is already paused on
 the current breakpoint address, the debugger temporarily resumes past that one
 breakpoint so the run-to-cursor request can continue toward the selected line
 instead of stopping immediately again on the same `PC`. `Ctrl+A` and `Ctrl+V`
 jump the memory pane to the alpha and graphic planes. `Tab` and `Shift+Tab`
-cycle the active watch slot in the footer, and `W` retargets that selected
+cycle the active watch slot in the memory footer, and `W` retargets that selected
 watch by typing a new 4-digit hex address. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
@@ -380,11 +382,6 @@ The left side of the debugger is split into two small summaries:
   `F` byte from `AF'`. The order is `SZ5H3PNC`: Sign, Zero, undocumented bit 5,
   Half-carry, undocumented bit 3, Parity/Overflow, Add/Subtract, Carry. A `-`
   means the corresponding flag bit is currently clear.
-- The **SHORTCUTS** footer now ends with a small watch row for three live
-  bytes. The selected slot is marked with `>`. By default the three slots start
-  on `0x457E` (staged ordinary key byte), `0x4580` (function-key workspace),
-  and `0x45C0` (first visible CLI input byte), but any of the three can be
-  retargeted from the debugger.
 - In the disassembly list, the left markers are compact status hints: `>` marks
   the instruction that currently contains the live `PC`, `*` marks the
   debugger's selected cursor line, and `B` marks a breakpoint at that address.
@@ -394,6 +391,11 @@ The left side of the debugger is split into two small summaries:
   The left margin is the base address of each row. Byte columns are grouped in
   blocks of four for easier scanning. The highlighted cell is the current
   memory cursor; `CURSOR=` in the pane header shows its exact address.
+- Just above the final `MEM ...` summary, the memory footer also shows three
+  small watch slots. The selected slot is marked with `>`. By default the
+  three slots start on `0x457E` (staged ordinary key byte), `0x4580`
+  (function-key workspace), and `0x45C0` (first visible CLI input byte), but
+  any of the three can be retargeted from the debugger.
 - In hex view, each byte is followed by an ASCII mirror on the right: printable
   bytes are shown as characters, non-printable bytes as `.`. In octal view,
   the same bytes are shown in three-digit octal and the ASCII mirror is hidden

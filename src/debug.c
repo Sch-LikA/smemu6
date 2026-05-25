@@ -1348,7 +1348,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  F7 FRM", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR  F9 BP  TAB/W WAT", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR  F9 BP  SHF6 CUR-", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
@@ -1570,8 +1570,14 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             dbg_begin_run_to_cursor(m);
             return 1;
         case SDL_SCANCODE_S:
-        case SDL_SCANCODE_F6:
             debug_request_step_instruction(m);
+            return 1;
+        case SDL_SCANCODE_F6:
+            if (ev->key.keysym.mod & KMOD_SHIFT) {
+                dbg_move_disasm_cursor(m, -1);
+            } else {
+                debug_request_step_instruction(m);
+            }
             return 1;
         case SDL_SCANCODE_F7:
             debug_request_step_frame(m);

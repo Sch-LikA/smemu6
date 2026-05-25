@@ -1419,7 +1419,8 @@ Current implemented floor:
 - `F12` toggles a second SDL debugger window on demand.
 - The current native slice shows live Z80 registers, flags, a compact
   disassembly pane around PC, a 256-byte memory editor, and supports `Space`
-  pause/resume, `S` / `F6` single-step, and `F7` single-frame stepping.
+  pause/resume, `S` / `F6` single-step, `Shift+F6` disassembly-cursor-back,
+  and `F7` single-frame stepping.
 - The disassembly pane now has a movable cursor (`Shift+Up` / `Shift+Down`),
   `F8` run-to-cursor, and `F9` breakpoint toggle with a small fixed breakpoint
   table in the debugger state.
@@ -1435,10 +1436,10 @@ Current implemented floor:
   decoded summary for the selected memory byte. The visible disassembly slice
   stays centered on the live PC unless the moved cursor is still close enough to
   fit in the same 12-line view. The STATE area now also includes a compact
-  stack-top preview showing the first four 16-bit words at `SP`. The shortcuts
-  footer also exposes a tiny fixed watch row for the live `0x457E`, `0x4580`,
-  and `0x45C0` workspace bytes. `Tab` / `Shift+Tab` now select the active watch
-  slot, and `W` retargets that selected watch to a new 4-digit hex address.
+  stack-top preview showing the first four 16-bit words at `SP`. The memory
+  footer also exposes a tiny watch row for three live bytes. `Tab` /
+  `Shift+Tab` now select the active watch slot, and `W` retargets that selected
+  watch to a new 4-digit hex address.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

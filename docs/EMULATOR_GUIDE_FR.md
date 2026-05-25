@@ -377,15 +377,16 @@ le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
 `P` recale le curseur sur le PC courant, et `O` bascule l'affichage des octets
 entre l'hexadécimal et l'octal. Le mode octal reste pour l'instant un mode
 d'affichage ; l'édition en place demeure hexadécimale. Dans la vue de
-désassemblage, `Shift+Haut` / `Shift+Bas` déplacent la sélection, `F8` lance l'exécution
+désassemblage, `Shift+Haut` / `Shift+Bas` déplacent la sélection, `Shift+F6`
+recule la sélection d'une instruction décodée sans exécuter la machine, `F8` lance l'exécution
 jusqu'à l'adresse sélectionnée, et `F9` active ou retire un point d'arrêt à
 cette adresse. Si `F8` démarre alors que l'exécution est déjà arrêtée sur le
 point d'arrêt courant, le débogueur réarme temporairement ce cas précis pour
 laisser l'ordre "aller au curseur" progresser vers la ligne sélectionnée au
 lieu de se réarrêter immédiatement sur le même `PC`. `Ctrl+A` et `Ctrl+V`
 placent directement la vue mémoire sur les plans alpha et graphique. `Tab` et
-`Shift+Tab` font tourner l'emplacement de surveillance actif dans le pied de
-fenêtre, et `W` redirige cette surveillance sélectionnée vers une nouvelle
+`Shift+Tab` font tourner l'emplacement de surveillance actif dans le pied du
+panneau mémoire, et `W` redirige cette surveillance sélectionnée vers une nouvelle
 adresse hexadécimale sur 4 chiffres. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
@@ -412,12 +413,6 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   documenté, Half-carry, bit 3 non documenté, Parité/Débordement,
   Addition/Soustraction, Carry. Un `-` signifie que le bit correspondant est
   actuellement à zéro.
-- Le pied de **SHORTCUTS** se termine maintenant par une petite ligne de
-  surveillance pour trois octets en direct. L'emplacement sélectionné est
-  marqué par `>`. Par défaut, les trois emplacements commencent sur `0x457E`
-  (octet ordinaire en attente), `0x4580` (espace de travail des touches de
-  fonction) et `0x45C0` (premier octet visible de la ligne CLI), mais chacun
-  peut être redirigé depuis le débogueur.
 - Dans la liste de désassemblage, les marqueurs à gauche servent de légende
   compacte : `>` marque l'instruction qui contient actuellement le `PC` réel,
   `*` marque la ligne sélectionnée par le curseur du débogueur, et `B` marque
@@ -429,6 +424,12 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   ligne. Les colonnes d'octets sont regroupées par blocs de quatre pour
   faciliter la lecture. La case surlignée correspond au curseur mémoire
   courant ; `CURSOR=` dans l'en-tête du panneau donne son adresse exacte.
+- Juste au-dessus du dernier résumé `MEM ...`, le pied du panneau mémoire
+  affiche aussi trois petits emplacements de surveillance. L'emplacement
+  sélectionné est marqué par `>`. Par défaut, les trois emplacements
+  commencent sur `0x457E` (octet ordinaire en attente), `0x4580` (espace de
+  travail des touches de fonction) et `0x45C0` (premier octet visible de la
+  ligne CLI), mais chacun peut être redirigé depuis le débogueur.
 - En vue hexadécimale, chaque octet est suivi à droite par un miroir ASCII :
   les octets imprimables sont montrés comme caractères, les octets non
   imprimables comme `.`. En vue octale, les mêmes octets sont affichés en
