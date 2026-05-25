@@ -218,6 +218,21 @@ Why:
 - the same local backend can later feed either the native SDL window or a web
   HTML debugger panel
 
+### Integrated debugger step over uses Shift+F7 and the existing target-run path
+
+Bind debugger step over to `Shift+F7` and implement it only for `CALL`,
+conditional `CALL`, and `RST` opcodes by running until the next sequential PC.
+For other opcodes, fall back to a normal single-instruction step.
+
+Why:
+
+- it keeps the execution shortcuts clustered without widening the debugger UI
+- reusing the existing run-to-cursor stop path avoids adding a second
+  long-running execution mode
+- limiting the first slice to call-like instructions matches the common
+  debugger expectation without inventing ambiguous semantics for jumps or block
+  repeat instructions
+
 ### Debugger UI polish stays execution-first
 
 Prefer small debugger UI improvements that make stop state and execution flow

@@ -369,9 +369,11 @@ Appuyez sur `F12` pour ouvrir une seconde fenêtre SDL affichant les registres
 Z80 en direct, les drapeaux, une vue de désassemblage compacte centrée sur le
 PC courant, un éditeur mémoire hexadécimal/ASCII sur 256 octets et des
 commandes d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou
-`F6` exécute une instruction, et `F7` exécute une trame 50 Hz complète tout en
-laissant le débogueur ouvert ; cela fait donc avancer en général plusieurs
-instructions jusqu'à la prochaine limite vidéo / IRQ. Dans le panneau mémoire, les flèches déplacent
+`F6` exécute une instruction, `Shift+F7` exécute un « step over » sur les
+instructions `CALL` / `RST` en courant jusqu'au `PC` séquentiel suivant (et
+retombe sinon sur un simple pas d'instruction), et `F7` exécute une trame 50
+Hz complète tout en laissant le débogueur ouvert ; cela fait donc avancer en
+général plusieurs instructions jusqu'à la prochaine limite vidéo / IRQ. Dans le panneau mémoire, les flèches déplacent
 le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
 éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex,
 `P` recale le curseur sur le PC courant, et `O` bascule l'affichage des octets

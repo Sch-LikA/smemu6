@@ -232,6 +232,7 @@ struct Smaky6 {
         uint16_t breakpoints[16];
         uint8_t breakpoint_count;
         uint8_t run_to_cursor_active;
+        uint8_t step_over_active;
         uint8_t breakpoint_resume_armed;
         uint16_t mem_base;
         uint16_t mem_cursor;

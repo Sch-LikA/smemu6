@@ -39,8 +39,10 @@ enum DebugStopReason {
     DBG_STOP_MANUAL_PAUSE,
     DBG_STOP_STEP_INSTRUCTION,
     DBG_STOP_STEP_FRAME,
+    DBG_STOP_STEP_OVER,
     DBG_STOP_BREAKPOINT,
     DBG_STOP_RUN_TO_CURSOR,
+    DBG_STOP_BREAKPOINT_AND_STEP_OVER,
     DBG_STOP_BREAKPOINT_AND_CURSOR,
 };
 
@@ -335,11 +337,17 @@ static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out
     case DBG_STOP_STEP_FRAME:
         snprintf(out, out_size, "STOP step frame @ %04Xh", pc);
         break;
+    case DBG_STOP_STEP_OVER:
+        snprintf(out, out_size, "STOP step over @ %04Xh", pc);
+        break;
     case DBG_STOP_BREAKPOINT:
         snprintf(out, out_size, "STOP breakpoint @ %04Xh", pc);
         break;
     case DBG_STOP_RUN_TO_CURSOR:
         snprintf(out, out_size, "STOP run to cursor @ %04Xh", pc);
+        break;
+    case DBG_STOP_BREAKPOINT_AND_STEP_OVER:
+        snprintf(out, out_size, "STOP step over + breakpoint @ %04Xh", pc);
         break;
     case DBG_STOP_BREAKPOINT_AND_CURSOR:
         snprintf(out, out_size, "STOP cursor + breakpoint @ %04Xh", pc);
@@ -825,6 +833,13 @@ static void dbg_move_disasm_cursor(struct Smaky6 *m, int direction)
     }
 }
 
+static int dbg_is_step_over_candidate(uint8_t opcode)
+{
+    return opcode == 0xCDu ||
+           (opcode & 0xC7u) == 0xC4u ||
+           (opcode & 0xC7u) == 0xC7u;
+}
+
 static void dbg_set_memory_view(struct Smaky6 *m, uint16_t base)
 {
     m->dbg.mem_base = base;
@@ -846,12 +861,50 @@ static void dbg_begin_run_to_cursor(struct Smaky6 *m)
     }
     m->dbg.run_to_cursor_addr = m->dbg.disasm_cursor;
     m->dbg.run_to_cursor_active = 1;
+    m->dbg.step_over_active = 0;
     m->dbg.paused = 0;
     m->dbg.stepping = 0;
     m->dbg.step_instruction_pending = 0;
     m->dbg.step_frame_pending = 0;
     m->dbg.stop_reason = DBG_STOP_NONE;
     fprintf(stderr, "debug: run to cursor %04X\n", (unsigned)m->dbg.run_to_cursor_addr);
+}
+
+static int dbg_begin_step_over(struct Smaky6 *m)
+{
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+    uint8_t opcode = dbg_mem8(m, pc);
+    uint16_t target;
+    char text[96];
+    int len;
+
+    if (!dbg_is_step_over_candidate(opcode)) {
+        return 0;
+    }
+
+    len = dbg_disassemble_at(m, pc, text, sizeof(text));
+    if (len <= 0) {
+        len = 1;
+    }
+    target = (uint16_t)(pc + len);
+    if (target == pc) {
+        return 0;
+    }
+
+    if (dbg_has_breakpoint(m, pc)) {
+        dbg_arm_breakpoint_resume(m, pc);
+    }
+    m->dbg.disasm_cursor = target;
+    m->dbg.run_to_cursor_addr = target;
+    m->dbg.run_to_cursor_active = 1;
+    m->dbg.step_over_active = 1;
+    m->dbg.paused = 0;
+    m->dbg.stepping = 0;
+    m->dbg.step_instruction_pending = 0;
+    m->dbg.step_frame_pending = 0;
+    m->dbg.stop_reason = DBG_STOP_NONE;
+    fprintf(stderr, "debug: step over %04X -> %04X\n", (unsigned)pc, (unsigned)target);
+    return 1;
 }
 
 static void dbg_sync_memory_to_cursor(struct Smaky6 *m)
@@ -1247,7 +1300,9 @@ static void dbg_render_registers(struct Smaky6 *m)
 
     dbg_fill_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_BORDER);
-    mode_label = m->dbg.run_to_cursor_active ? "CURSOR" : (m->dbg.paused ? "PAUSE" : "RUN");
+    mode_label = m->dbg.run_to_cursor_active
+        ? (m->dbg.step_over_active ? "STEP" : "CURSOR")
+        : (m->dbg.paused ? "PAUSE" : "RUN");
     snprintf(mode,
              sizeof(mode),
              "MODE %-6s PC %04Xh  CUR %04Xh  FRAMES %llu",
@@ -1259,7 +1314,13 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
     dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
     dbg_draw_text(m, 24, 20, mode, DBG_COL_ACCENT);
-    dbg_draw_text(m, 430, 20, m->dbg.run_to_cursor_active ? "TARGET ACTIVE" : stop, DBG_COL_WARN);
+    dbg_draw_text(m,
+                  430,
+                  20,
+                  m->dbg.run_to_cursor_active
+                      ? (m->dbg.step_over_active ? "STEP OVER ACTIVE" : "TARGET ACTIVE")
+                      : stop,
+                  DBG_COL_WARN);
 
     dbg_fill_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_BORDER);
@@ -1347,8 +1408,8 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
-    dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  F7 FRM", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR  F9 BP  SHF6 CUR-", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  SF7 OVR", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F7 FRM  F8 CUR  F9 BP SF6<", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
@@ -1379,6 +1440,7 @@ void debug_init(struct Smaky6 *m)
     m->dbg.breakpoint_resume_pc = 0;
     m->dbg.breakpoint_count = 0;
     m->dbg.run_to_cursor_active = 0;
+    m->dbg.step_over_active = 0;
     m->dbg.breakpoint_resume_armed = 0;
     m->dbg.mem_base = 0;
     m->dbg.mem_cursor = 0;
@@ -1414,6 +1476,7 @@ void debug_request_step_instruction(struct Smaky6 *m)
         dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
     }
     m->dbg.run_to_cursor_active = 0;
+    m->dbg.step_over_active = 0;
     m->dbg.paused = 1;
     m->dbg.stepping = 1;
     m->dbg.step_instruction_pending = 1;
@@ -1425,6 +1488,7 @@ void debug_request_step_frame(struct Smaky6 *m)
         dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
     }
     m->dbg.run_to_cursor_active = 0;
+    m->dbg.step_over_active = 0;
     m->dbg.paused = 1;
     m->dbg.stepping = 1;
     m->dbg.step_frame_pending = 1;
@@ -1439,6 +1503,7 @@ int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc)
 {
     int hit_breakpoint;
     int hit_cursor;
+    int hit_step_over;
 
     if (m->dbg.breakpoint_resume_armed && pc == m->dbg.breakpoint_resume_pc) {
         m->dbg.breakpoint_resume_armed = 0;
@@ -1447,6 +1512,7 @@ int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc)
 
     hit_breakpoint = dbg_has_breakpoint(m, pc);
     hit_cursor = m->dbg.run_to_cursor_active && pc == m->dbg.run_to_cursor_addr;
+    hit_step_over = hit_cursor && m->dbg.step_over_active;
     if (!hit_breakpoint && !hit_cursor) {
         return 0;
     }
@@ -1456,14 +1522,24 @@ int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc)
     m->dbg.step_instruction_pending = 0;
     m->dbg.step_frame_pending = 0;
     m->dbg.run_to_cursor_active = 0;
+    m->dbg.step_over_active = 0;
     m->dbg.disasm_cursor = pc;
-    dbg_record_stop(m, hit_cursor && hit_breakpoint
-        ? DBG_STOP_BREAKPOINT_AND_CURSOR
-        : (hit_cursor ? DBG_STOP_RUN_TO_CURSOR : DBG_STOP_BREAKPOINT));
+    dbg_record_stop(m,
+                    hit_cursor && hit_breakpoint
+                        ? (hit_step_over ? DBG_STOP_BREAKPOINT_AND_STEP_OVER
+                                         : DBG_STOP_BREAKPOINT_AND_CURSOR)
+                        : (hit_cursor ? (hit_step_over ? DBG_STOP_STEP_OVER : DBG_STOP_RUN_TO_CURSOR)
+                                      : DBG_STOP_BREAKPOINT));
     if (hit_cursor && hit_breakpoint) {
-        fprintf(stderr, "debug: run-to-cursor hit breakpoint at %04X\n", (unsigned)pc);
+        fprintf(stderr,
+                hit_step_over ? "debug: step over hit breakpoint at %04X\n"
+                              : "debug: run-to-cursor hit breakpoint at %04X\n",
+                (unsigned)pc);
     } else if (hit_cursor) {
-        fprintf(stderr, "debug: run-to-cursor stopped at %04X\n", (unsigned)pc);
+        fprintf(stderr,
+                hit_step_over ? "debug: step over stopped at %04X\n"
+                              : "debug: run-to-cursor stopped at %04X\n",
+                (unsigned)pc);
     } else {
         fprintf(stderr, "debug: breakpoint hit at %04X\n", (unsigned)pc);
     }
@@ -1556,6 +1632,7 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
                 dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
             }
             m->dbg.run_to_cursor_active = 0;
+            m->dbg.step_over_active = 0;
             m->dbg.paused = !m->dbg.paused;
             m->dbg.stepping = m->dbg.paused;
             if (!m->dbg.paused) {
@@ -1580,7 +1657,13 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             }
             return 1;
         case SDL_SCANCODE_F7:
-            debug_request_step_frame(m);
+            if (ev->key.keysym.mod & KMOD_SHIFT) {
+                if (!dbg_begin_step_over(m)) {
+                    debug_request_step_instruction(m);
+                }
+            } else {
+                debug_request_step_frame(m);
+            }
             return 1;
         case SDL_SCANCODE_F9:
             dbg_toggle_breakpoint(m, m->dbg.disasm_cursor);

@@ -341,9 +341,11 @@ drive activity LEDs.  At the right end:
 **Native debugger window:** Press `F12` to open a second SDL window with live
 Z80 registers, flags, a compact disassembly view centered on the current PC, a
 256-byte hex/ASCII memory editor, and execution controls. `Space` pauses or
-resumes execution, `S` or `F6` executes one instruction, and `F7` executes one
-full 50 Hz frame while keeping the debugger open, so it typically advances
-through many instructions up to the next video / IRQ boundary. In the memory pane, use the
+resumes execution, `S` or `F6` executes one instruction, `Shift+F7` steps over
+`CALL` / `RST` instructions by running to the next sequential `PC` (and falls
+back to a normal single-step on other opcodes), and `F7` executes one full 50
+Hz frame while keeping the debugger open, so it typically advances through
+many instructions up to the next video / IRQ boundary. In the memory pane, use the
 arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
 `G` to jump to a 4-digit address, `P` to sync the cursor to the current
 PC, and `O` to switch the byte display between hex and octal. Octal mode is
