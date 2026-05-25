@@ -1215,14 +1215,14 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
                  (unsigned)dbg_mem8(m, m->dbg.watch_addrs[i]));
         dbg_draw_text(m,
                       watch_x,
-                      y + h - 30,
+                      y + h - 18,
                       watch_slot,
                       i == (int)m->dbg.watch_selected ? DBG_COL_ACCENT : DBG_COL_DIM);
         watch_x += (int)strlen(watch_slot) * (DBG_FONT_W * DBG_FONT_SCALE + 1) + 8;
     }
     dbg_fill_rect(m->dbg.renderer, x + 12, y + h - 16, w - 24, 1, DBG_COL_BORDER);
     dbg_describe_mem_cursor(m, summary, sizeof(summary));
-    dbg_draw_text(m, x + 16, y + h - 18, summary, DBG_COL_WARN);
+    dbg_draw_text(m, x + 320, y + h - 18, summary, DBG_COL_WARN);
 }
 
 static void dbg_render_registers(struct Smaky6 *m)
