@@ -198,7 +198,10 @@ The source evidence is uneven.
   `SM6` names also exist in `FLO`, while `FLO` exports 92 additional names.
   `SM6` is therefore a name subset of `FLO`, but not a byte-for-byte alias
   table because at least one shared symbol differs in value: `MINI` is `0001`
-  in `SM6` and `0000` in `FLO`.
+  in `SM6` and `0000` in `FLO`. That difference currently looks like symbol-set
+  configuration rather than a runtime-service mismatch, because `MINI` is a
+  plain constant in the `MON` / `MODI` / `NORM` family and was not found in the
+  extracted `.SR` call corpus.
 
 ### SM6 versus FLO
 
@@ -222,9 +225,8 @@ So the practical reading is:
 - use `SM6` when a source only needs the smaller common runtime view
 - use `FLO` when the source needs the broader storage, directory, or file
   metadata interface
-- do not assume the two tables are interchangeable at the value level, because
-  the `MINI` mismatch already proves there is at least some table-specific
-  curation
+- do not assume the two tables are mechanically identical at the constant
+  level, even though the callable runtime surface appears to nest cleanly
 
 ### SM6 services with code mapping from `SYS.SR`
 
@@ -317,7 +319,7 @@ already leaked into repo notes and examples, and contrasts them with the Smaky
 | Later/manual-derived assumption | What the Smaky 6 corpus shows |
 | --- | --- |
 | CALM examples are mostly straightforward Z80 plus a few directives. | Real Smaky 6 sources use a distinct CALM layer heavily: `LOAD`, `COMP`, `JUMP,cond`, `DECJ`, `TEST A:4`, `.BW`, `.BBB`, `.INS`, and threaded `.W ?NAME` forms are normal, not exceptional. |
-| `.REF SM6` is the central runtime binding pattern. | Real programs use multiple symbol spaces. `SM6` is common for console/runtime work, printer and storage code use `.REF FLO`, and CP/M bridge code uses `.REF CPM`. The shipped symbol tables confirm that `SM6` is a name subset of `FLO`, but the tables are not identical. |
+| `.REF SM6` is the central runtime binding pattern. | Real programs use multiple symbol spaces. `SM6` is common for console/runtime work, printer and storage code use `.REF FLO`, and CP/M bridge code uses `.REF CPM`. The shipped symbol tables confirm that `SM6` is a name subset of `FLO`; the only mismatch found so far is a non-service constant (`MINI`). |
 | `.LOC` and a tiny `.W ?TEXTIM ... .W ?RTN` skeleton are enough to describe the language. | That skeleton is valid for a toy sample, but it hides the more typical structure of the corpus: command tables, inline threaded service calls, conditional assembly, and multi-file builds via `.INS`. |
 | Later guidance can be imported as syntax unless it looks obviously incompatible. | For Smaky 6 work the rule must be stricter: if a form is not observed in the local `.SR` corpus, it is unconfirmed even if a later manual documents it. |
 | Odd forms such as `JUMP.,EQ`, `CALL.`, `TEST X:n`, or `.BBB` are probably transcription noise. | These forms recur across independent sources and should be preserved verbatim until their exact assembler semantics are recovered. |
@@ -348,8 +350,8 @@ The reviewed sample does not yet fully explain:
 - how many non-Z80 CPU backends existed for the same CALM source style in the
   Smaky toolchain era
 - the full export tables for `FLO` and `CPM` symbol sets
-- why at least one shared symbol (`MINI`) differs between the `SM6` and `FLO`
-  tables even though every `SM6` name exists in `FLO`
+- whether any callable `?NAME` services differ between the `SM6` and `FLO`
+  tables, or whether the observed mismatch is limited to non-service constants
 
 Until those are confirmed from older manuals or more source files, keep the doc
 strictly observational.
