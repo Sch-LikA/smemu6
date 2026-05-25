@@ -14,7 +14,8 @@
 #define DBG_WIN_H 540
 #define DBG_FONT_W 8
 #define DBG_FONT_H 8
-#define DBG_FONT_SCALE 2
+#define DBG_FONT_SCALE 1
+#define DBG_LINE_H ((DBG_FONT_H * DBG_FONT_SCALE) + 8)
 
 #define DBG_COL_BG      0xFF08100Cu
 #define DBG_COL_PANEL   0xFF102018u
@@ -117,10 +118,10 @@ static void dbg_draw_text(struct Smaky6 *m, int x, int y, const char *s, uint32_
     }
 }
 
-static void dbg_draw_kv(struct Smaky6 *m, int x, int y, const char *label, const char *value)
+static void dbg_draw_kv(struct Smaky6 *m, int x, int y, int value_x, const char *label, const char *value)
 {
     dbg_draw_text(m, x, y, label, DBG_COL_DIM);
-    dbg_draw_text(m, x + 180, y, value, DBG_COL_TEXT);
+    dbg_draw_text(m, value_x, y, value, DBG_COL_TEXT);
 }
 
 static void dbg_format_flags(zuint8 flags, char *out, size_t out_size)
@@ -240,7 +241,7 @@ static void dbg_render_pc_bytes(struct Smaky6 *m, int x, int y)
                  memory_read(m, (uint16_t)(addr + 1u)),
                  memory_read(m, (uint16_t)(addr + 2u)),
                  memory_read(m, (uint16_t)(addr + 3u)));
-        dbg_draw_text(m, x, y + 30 + row * 24, line, DBG_COL_TEXT);
+        dbg_draw_text(m, x, y + 18 + row * DBG_LINE_H, line, DBG_COL_TEXT);
     }
 }
 
@@ -249,60 +250,64 @@ static void dbg_render_registers(struct Smaky6 *m)
     char buf[64];
     char flags[16];
     char flags_shadow[16];
+    const int left_x = 28;
+    const int right_x = 474;
+    const int left_value_x = 112;
+    const int right_value_x = 620;
 
     dbg_fill_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_BORDER);
-    dbg_draw_text(m, 28, 28, "CPU REGISTERS", DBG_COL_ACCENT);
+    dbg_draw_text(m, left_x, 28, "CPU REGISTERS", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_AF(m->cpu));
-    dbg_draw_kv(m, 28, 64, "AF", buf);
+    dbg_draw_kv(m, left_x, 64, left_value_x, "AF", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.af_.uint16_value);
-    dbg_draw_kv(m, 28, 88, "AF'", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H, left_value_x, "AF'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_BC(m->cpu));
-    dbg_draw_kv(m, 28, 112, "BC", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 2, left_value_x, "BC", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.bc_.uint16_value);
-    dbg_draw_kv(m, 28, 136, "BC'", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 3, left_value_x, "BC'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_DE(m->cpu));
-    dbg_draw_kv(m, 28, 160, "DE", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 4, left_value_x, "DE", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.de_.uint16_value);
-    dbg_draw_kv(m, 28, 184, "DE'", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 5, left_value_x, "DE'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_HL(m->cpu));
-    dbg_draw_kv(m, 28, 208, "HL", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 6, left_value_x, "HL", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.hl_.uint16_value);
-    dbg_draw_kv(m, 28, 232, "HL'", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 7, left_value_x, "HL'", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IX(m->cpu));
-    dbg_draw_kv(m, 28, 256, "IX", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 8, left_value_x, "IX", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IY(m->cpu));
-    dbg_draw_kv(m, 28, 280, "IY", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 9, left_value_x, "IY", buf);
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_SP(m->cpu));
-    dbg_draw_kv(m, 28, 304, "SP", buf);
+    dbg_draw_kv(m, left_x, 64 + DBG_LINE_H * 10, left_value_x, "SP", buf);
 
     dbg_fill_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_BORDER);
-    dbg_draw_text(m, 474, 28, "STATE", DBG_COL_ACCENT);
+    dbg_draw_text(m, right_x, 28, "STATE", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
-    dbg_draw_kv(m, 474, 64, "PC", buf);
+    dbg_draw_kv(m, right_x, 64, right_value_x, "PC", buf);
     snprintf(buf, sizeof(buf), "%02X / %02X", (unsigned)m->cpu.i, (unsigned)m->cpu.r);
-    dbg_draw_kv(m, 474, 88, "I / R", buf);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H, right_value_x, "I / R", buf);
     snprintf(buf, sizeof(buf), "%u / %u / IM%u",
              (unsigned)m->cpu.iff1,
              (unsigned)m->cpu.iff2,
              (unsigned)m->cpu.im);
-    dbg_draw_kv(m, 474, 112, "IFF1 / IFF2 / IM", buf);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 2, right_value_x, "IFF1 / IFF2 / IM", buf);
     snprintf(buf, sizeof(buf), "%s", m->dbg.paused ? "PAUSED" : "RUNNING");
-    dbg_draw_kv(m, 474, 136, "EXECUTION", buf);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 3, right_value_x, "EXECUTION", buf);
     snprintf(buf, sizeof(buf), "%u", (unsigned)m->dbg.last_run_tstates);
-    dbg_draw_kv(m, 474, 160, "LAST T-STATES", buf);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 4, right_value_x, "LAST T-STATES", buf);
     snprintf(buf, sizeof(buf), "%llu", (unsigned long long)m->dbg.frame_counter);
-    dbg_draw_kv(m, 474, 184, "FRAME COUNT", buf);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 5, right_value_x, "FRAME COUNT", buf);
 
     dbg_format_flags((zuint8)(Z80_AF(m->cpu) & 0x00FFu), flags, sizeof(flags));
-    dbg_draw_kv(m, 474, 220, "FLAGS", flags);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 7, right_value_x, "FLAGS", flags);
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
-    dbg_draw_kv(m, 474, 244, "FLAGS'", flags_shadow);
+    dbg_draw_kv(m, right_x, 64 + DBG_LINE_H * 8, right_value_x, "FLAGS'", flags_shadow);
 
-    dbg_render_pc_bytes(m, 474, 280);
+    dbg_render_pc_bytes(m, right_x, 64 + DBG_LINE_H * 10);
 }
 
 void debug_init(struct Smaky6 *m)
@@ -423,15 +428,17 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
 
 void debug_render(struct Smaky6 *m)
 {
+    const int footer_y = 380;
+
     if (!m->dbg.visible || !m->dbg.renderer) {
         return;
     }
 
     dbg_fill_rect(m->dbg.renderer, 0, 0, DBG_WIN_W, DBG_WIN_H, DBG_COL_BG);
     dbg_render_registers(m);
-    dbg_draw_text(m, 28, 380, "F12 CLOSE   SPACE PAUSE/RUN   S OR F6 STEP INSTR   F7 STEP FRAME", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 410, "Native-only debugger window. Web UI can reuse the same backend later.", DBG_COL_DIM);
-    dbg_draw_text(m, 28, 440, "Disassembly and memory editor are still pending in this first integrated slice.", DBG_COL_DIM);
+    dbg_draw_text(m, 28, footer_y, "F12 CLOSE   SPACE PAUSE/RUN   S OR F6 STEP INSTR   F7 STEP FRAME", DBG_COL_WARN);
+    dbg_draw_text(m, 28, footer_y + DBG_LINE_H + 4, "Native-only debugger window. Web UI can reuse the same backend later.", DBG_COL_DIM);
+    dbg_draw_text(m, 28, footer_y + (DBG_LINE_H + 4) * 2, "Disassembly and memory editor are still pending in this first integrated slice.", DBG_COL_DIM);
     SDL_RenderPresent(m->dbg.renderer);
 }
 
