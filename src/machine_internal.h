@@ -206,6 +206,13 @@ struct Smaky6 {
         int stall_frames; /* consecutive frames with no PC progress */
         uint32_t last_run_tstates;
         uint64_t frame_counter;
+        uint16_t disasm_cursor;
+        uint16_t run_to_cursor_addr;
+        uint16_t breakpoint_resume_pc;
+        uint16_t breakpoints[16];
+        uint8_t breakpoint_count;
+        uint8_t run_to_cursor_active;
+        uint8_t breakpoint_resume_armed;
         uint16_t mem_base;
         uint16_t mem_cursor;
         uint8_t mem_edit_high_nibble;

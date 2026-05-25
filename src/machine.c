@@ -46,6 +46,30 @@ static int psg_port_is_data(uint8_t lo)
     return (lo & 1u) == 0u;
 }
 
+static int machine_run_budget_instruction_granular(struct Smaky6 *m, zusize budget, zusize *cycles)
+{
+    while (*cycles < budget) {
+        zusize ran;
+
+        if (debug_maybe_pause_on_pc(m, (uint16_t)Z80_PC(m->cpu))) {
+            return 1;
+        }
+
+        ran = z80_execute(&m->cpu, 1);
+        if (ran == 0) {
+            fprintf(stderr, "[stall] CPU made no progress in debugger-controlled run at PC %04X; exiting\n",
+                    (unsigned)Z80_PC(m->cpu));
+            m->cpu_stalled = 1;
+            return -1;
+        }
+
+        *cycles += ran;
+        keyboard_tick_cycles(m, (uint32_t)ran);
+    }
+
+    return 0;
+}
+
 /* ── Z80 library callbacks ──────────────────────────────────────────────────*/
 
 /* Memory read (Z80 context → m via context pointer) */
@@ -443,42 +467,104 @@ void machine_run_frame(struct Smaky6 *m)
 
     {
         zusize cycles = 0;
+        int use_instruction_granular = debug_stop_conditions_active(m);
         m->snd.frame_base = 0;   /* reset sound frame-position tracker */
         if (do_int_pulse) {
             /* Run to mid-frame, pulse INT briefly, then finish frame. */
             zusize budget = INT_PULSE_AT - cycles;
             if (budget > 0) {
-                zusize ran = z80_execute(&m->cpu, budget);
-                if (ran == 0) {
-                    fprintf(stderr, "[stall] CPU made no progress in z80_execute at PC %04X; exiting\n",
-                            (unsigned)Z80_PC(m->cpu));
-                    m->cpu_stalled = 1;
-                    floppy_tick(m);
-                    return;
+                if (use_instruction_granular) {
+                    int rc = machine_run_budget_instruction_granular(m, budget, &cycles);
+
+                    if (rc < 0) {
+                        floppy_tick(m);
+                        return;
+                    }
+                    if (rc > 0) {
+                        goto frame_done;
+                    }
+                } else {
+                    zusize ran = z80_execute(&m->cpu, budget);
+                    if (ran == 0) {
+                        fprintf(stderr, "[stall] CPU made no progress in z80_execute at PC %04X; exiting\n",
+                                (unsigned)Z80_PC(m->cpu));
+                        m->cpu_stalled = 1;
+                        floppy_tick(m);
+                        return;
+                    }
+                    cycles += ran;
+                    keyboard_tick_cycles(m, (uint32_t)ran);
                 }
-                cycles += ran;
-                keyboard_tick_cycles(m, (uint32_t)ran);
             }
             m->snd.frame_base = cycles;  /* update before INT-window batch */
             z80_int(&m->cpu, Z_TRUE);
             budget = (INT_PULSE_AT + INT_PULSE_WIDTH) - cycles;
             if (budget > 0) {
-                zusize ran = z80_run(&m->cpu, budget);
-                if (ran == 0) {
-                    fprintf(stderr, "[stall] CPU made no progress in z80_run at PC %04X; exiting\n",
-                            (unsigned)Z80_PC(m->cpu));
-                    m->cpu_stalled = 1;
-                    floppy_tick(m);
-                    return;
+                if (use_instruction_granular) {
+                    int rc = machine_run_budget_instruction_granular(m, budget, &cycles);
+
+                    if (rc < 0) {
+                        z80_int(&m->cpu, Z_FALSE);
+                        floppy_tick(m);
+                        return;
+                    }
+                    if (rc > 0) {
+                        z80_int(&m->cpu, Z_FALSE);
+                        goto frame_done;
+                    }
+                } else {
+                    zusize ran = z80_run(&m->cpu, budget);
+                    if (ran == 0) {
+                        fprintf(stderr, "[stall] CPU made no progress in z80_run at PC %04X; exiting\n",
+                                (unsigned)Z80_PC(m->cpu));
+                        m->cpu_stalled = 1;
+                        floppy_tick(m);
+                        return;
+                    }
+                    cycles += ran;
+                    keyboard_tick_cycles(m, (uint32_t)ran);
                 }
-                cycles += ran;
-                keyboard_tick_cycles(m, (uint32_t)ran);
             }
             z80_int(&m->cpu, Z_FALSE);
             m->snd.frame_base = cycles;  /* update before final batch */
             budget = TSTATES_PER_FRAME - cycles;
             if (budget > 0) {
-                zusize ran = z80_execute(&m->cpu, budget);
+                if (use_instruction_granular) {
+                    int rc = machine_run_budget_instruction_granular(m, budget, &cycles);
+
+                    if (rc < 0) {
+                        floppy_tick(m);
+                        return;
+                    }
+                    if (rc > 0) {
+                        goto frame_done;
+                    }
+                } else {
+                    zusize ran = z80_execute(&m->cpu, budget);
+                    if (ran == 0) {
+                        fprintf(stderr, "[stall] CPU made no progress in z80_execute at PC %04X; exiting\n",
+                                (unsigned)Z80_PC(m->cpu));
+                        m->cpu_stalled = 1;
+                        floppy_tick(m);
+                        return;
+                    }
+                    cycles += ran;
+                    keyboard_tick_cycles(m, (uint32_t)ran);
+                }
+            }
+        } else {
+            if (use_instruction_granular) {
+                int rc = machine_run_budget_instruction_granular(m, TSTATES_PER_FRAME, &cycles);
+
+                if (rc < 0) {
+                    floppy_tick(m);
+                    return;
+                }
+                if (rc > 0) {
+                    goto frame_done;
+                }
+            } else {
+                zusize ran = z80_execute(&m->cpu, TSTATES_PER_FRAME);
                 if (ran == 0) {
                     fprintf(stderr, "[stall] CPU made no progress in z80_execute at PC %04X; exiting\n",
                             (unsigned)Z80_PC(m->cpu));
@@ -489,18 +575,8 @@ void machine_run_frame(struct Smaky6 *m)
                 cycles += ran;
                 keyboard_tick_cycles(m, (uint32_t)ran);
             }
-        } else {
-            zusize ran = z80_execute(&m->cpu, TSTATES_PER_FRAME);
-            if (ran == 0) {
-                fprintf(stderr, "[stall] CPU made no progress in z80_execute at PC %04X; exiting\n",
-                        (unsigned)Z80_PC(m->cpu));
-                m->cpu_stalled = 1;
-                floppy_tick(m);
-                return;
-            }
-            cycles += ran;
-            keyboard_tick_cycles(m, (uint32_t)ran);
         }
+frame_done:
         sound_end_frame(m);
         rtc_tick_frame(&m->rtc);
         floppy_tick(m);

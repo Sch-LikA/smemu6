@@ -27,6 +27,16 @@ void debug_request_step_instruction(struct Smaky6 *m);
 /* Queue a single-frame step while paused. */
 void debug_request_step_frame(struct Smaky6 *m);
 
+/* Returns 1 when breakpoints or a pending run-to-cursor target require
+ * instruction-boundary checks during normal frame execution. */
+int debug_stop_conditions_active(struct Smaky6 *m);
+
+/* Check whether execution should stop before starting the instruction at pc.
+ * When a breakpoint or run-to-cursor target matches, this pauses the debugger,
+ * clears one-shot state as needed, and returns 1 so the caller can stop the
+ * current execution slice cleanly. */
+int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc);
+
 /* Consume pending step requests. */
 int debug_consume_step_instruction(struct Smaky6 *m);
 int debug_consume_step_frame(struct Smaky6 *m);

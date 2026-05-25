@@ -373,9 +373,12 @@ commandes d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou
 laissant le débogueur ouvert. Dans le panneau mémoire, les flèches déplacent
 le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
 éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex, et
-`P` recale le curseur sur le PC courant. Ce débogueur reste pour l'instant
-réservé aux versions natives ; le build web n'expose pas encore de panneau
-HTML dédié.
+`P` recale le curseur sur le PC courant. Dans la vue de désassemblage,
+`Shift+Haut` / `Shift+Bas` déplacent la sélection, `F8` lance l'exécution
+jusqu'à l'adresse sélectionnée, et `F9` active ou retire un point d'arrêt à
+cette adresse. `Ctrl+A` et `Ctrl+V` placent directement la vue mémoire sur les
+plans alpha et graphique. Ce débogueur reste pour l'instant réservé aux
+versions natives ; le build web n'expose pas encore de panneau HTML dédié.
 
 ### Touches standard
 

@@ -1404,10 +1404,14 @@ Current implemented floor:
 - The current native slice shows live Z80 registers, flags, a compact
   disassembly pane around PC, a 256-byte memory editor, and supports `Space`
   pause/resume, `S` / `F6` single-step, and `F7` single-frame stepping.
+- The disassembly pane now has a movable cursor (`Shift+Up` / `Shift+Down`),
+  `F8` run-to-cursor, and `F9` breakpoint toggle with a small fixed breakpoint
+  table in the debugger state.
 - The memory pane currently supports arrows for navigation, `PageUp` /
   `PageDown` for paging, hex-key nibble edits, `G` for a 4-digit hex jump, and
   `P` to sync the cursor to the current PC. ROM-backed bytes are highlighted
   differently from writable RAM.
+- `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.
 
@@ -1440,7 +1444,7 @@ view of any address range, with the ability to:
 - Show the alpha-plane or graphic-plane at a known offset for quick inspection
 
 Current status: first 16x16 hex/ASCII page is implemented in the native
-debugger window; alpha/graphic-plane presets are still pending.
+debugger window, including quick alpha/graphic-plane presets.
 
 ### Pause and single-step execution
 
@@ -1455,6 +1459,9 @@ debugger window; alpha/graphic-plane presets are still pending.
 - **Breakpoints**: set/clear a breakpoint on any address; execution halts
   automatically when PC reaches it.  Store as a small fixed-size array
   (e.g. 16 breakpoints) in the debug struct.
+
+Current status: implemented with a 16-entry fixed breakpoint table and a
+disassembly cursor navigated by `Shift+Up` / `Shift+Down`.
 
 #### Debugger implementation notes
 

@@ -20,6 +20,7 @@
 #define DBG_MEM_COLS 16
 #define DBG_MEM_ROWS 16
 #define DBG_MEM_PAGE_SIZE (DBG_MEM_COLS * DBG_MEM_ROWS)
+#define DBG_MAX_BREAKPOINTS 16
 
 #define DBG_COL_BG      0xFF08100Cu
 #define DBG_COL_PANEL   0xFF102018u
@@ -97,6 +98,54 @@ struct DebugInsn {
     uint8_t len;
     char text[96];
 };
+
+static void dbg_sync_disasm_cursor(struct Smaky6 *m)
+{
+    m->dbg.disasm_cursor = (uint16_t)Z80_PC(m->cpu);
+}
+
+static int dbg_find_breakpoint_index(const struct Smaky6 *m, uint16_t addr)
+{
+    for (int i = 0; i < m->dbg.breakpoint_count; i++) {
+        if (m->dbg.breakpoints[i] == addr) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int dbg_has_breakpoint(const struct Smaky6 *m, uint16_t addr)
+{
+    return dbg_find_breakpoint_index(m, addr) >= 0;
+}
+
+static void dbg_arm_breakpoint_resume(struct Smaky6 *m, uint16_t pc)
+{
+    m->dbg.breakpoint_resume_pc = pc;
+    m->dbg.breakpoint_resume_armed = 1;
+}
+
+static void dbg_toggle_breakpoint(struct Smaky6 *m, uint16_t addr)
+{
+    int idx = dbg_find_breakpoint_index(m, addr);
+
+    if (idx >= 0) {
+        for (int i = idx; i + 1 < m->dbg.breakpoint_count; i++) {
+            m->dbg.breakpoints[i] = m->dbg.breakpoints[i + 1];
+        }
+        m->dbg.breakpoint_count--;
+        fprintf(stderr, "debug: cleared breakpoint at %04X\n", (unsigned)addr);
+        return;
+    }
+
+    if (m->dbg.breakpoint_count >= DBG_MAX_BREAKPOINTS) {
+        fprintf(stderr, "debug: breakpoint table full (%d entries)\n", DBG_MAX_BREAKPOINTS);
+        return;
+    }
+
+    m->dbg.breakpoints[m->dbg.breakpoint_count++] = addr;
+    fprintf(stderr, "debug: set breakpoint at %04X\n", (unsigned)addr);
+}
 
 static void dbg_set_color(SDL_Renderer *ren, uint32_t col)
 {
@@ -601,6 +650,74 @@ static int dbg_disassemble_at(struct Smaky6 *m, uint16_t pc, char *out, size_t o
     }
 }
 
+static uint16_t dbg_prev_disasm_addr(struct Smaky6 *m, uint16_t addr)
+{
+    uint16_t scan = (addr > 64u) ? (uint16_t)(addr - 64u) : 0u;
+    uint16_t prev = addr;
+    char text[96];
+
+    while (scan < addr) {
+        int len = dbg_disassemble_at(m, scan, text, sizeof(text));
+
+        if (len <= 0) {
+            len = 1;
+        }
+        if ((uint16_t)(scan + len) >= addr) {
+            break;
+        }
+        prev = scan;
+        scan = (uint16_t)(scan + len);
+    }
+
+    return prev;
+}
+
+static void dbg_move_disasm_cursor(struct Smaky6 *m, int direction)
+{
+    if (direction < 0) {
+        m->dbg.disasm_cursor = dbg_prev_disasm_addr(m, m->dbg.disasm_cursor);
+        return;
+    }
+
+    {
+        char text[96];
+        int len = dbg_disassemble_at(m, m->dbg.disasm_cursor, text, sizeof(text));
+
+        if (len <= 0) {
+            len = 1;
+        }
+        m->dbg.disasm_cursor = (uint16_t)(m->dbg.disasm_cursor + len);
+    }
+}
+
+static void dbg_set_memory_view(struct Smaky6 *m, uint16_t base)
+{
+    m->dbg.mem_base = base;
+    m->dbg.mem_cursor = base;
+    m->dbg.mem_edit_high_nibble = 1;
+}
+
+static void dbg_begin_run_to_cursor(struct Smaky6 *m)
+{
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+
+    if (m->dbg.disasm_cursor == pc) {
+        fprintf(stderr, "debug: disassembly cursor is already at PC %04X\n", (unsigned)pc);
+        return;
+    }
+
+    if (dbg_has_breakpoint(m, pc)) {
+        dbg_arm_breakpoint_resume(m, pc);
+    }
+    m->dbg.run_to_cursor_addr = m->dbg.disasm_cursor;
+    m->dbg.run_to_cursor_active = 1;
+    m->dbg.paused = 0;
+    m->dbg.stepping = 0;
+    m->dbg.step_instruction_pending = 0;
+    m->dbg.step_frame_pending = 0;
+    fprintf(stderr, "debug: run to cursor %04X\n", (unsigned)m->dbg.run_to_cursor_addr);
+}
+
 static void dbg_sync_memory_to_cursor(struct Smaky6 *m)
 {
     if (m->dbg.mem_cursor < m->dbg.mem_base ||
@@ -678,6 +795,7 @@ static void dbg_close_window(struct Smaky6 *m)
     m->dbg.stepping = 0;
     m->dbg.step_instruction_pending = 0;
     m->dbg.step_frame_pending = 0;
+    m->dbg.run_to_cursor_active = 0;
     m->dbg.mem_jump_active = 0;
     m->dbg.mem_jump_len = 0;
     m->dbg.mem_jump_buf[0] = '\0';
@@ -724,6 +842,8 @@ static int dbg_open_window(struct Smaky6 *m)
     m->dbg.renderer = ren;
     m->dbg.window_id = SDL_GetWindowID(m->dbg.window);
     SDL_RenderSetLogicalSize(m->dbg.renderer, DBG_WIN_W, DBG_WIN_H);
+    dbg_sync_disasm_cursor(m);
+    dbg_sync_memory_to_cursor(m);
     m->dbg.visible = 1;
     return 0;
 #endif
@@ -752,16 +872,31 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 {
     struct DebugInsn insn[40];
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
-    uint16_t scan = (pc > 48u) ? (uint16_t)(pc - 48u) : 0u;
+    uint16_t view = m->dbg.disasm_cursor;
+    uint16_t scan;
     int count = 0;
     int current = 0;
+    int selected = 0;
     int start;
+    char header[96];
+
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        dbg_sync_disasm_cursor(m);
+        view = m->dbg.disasm_cursor;
+    }
+    scan = (view > 48u) ? (uint16_t)(view - 48u) : 0u;
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
-    dbg_draw_text(m, x + 16, y + 16, "DISASSEMBLY", DBG_COL_ACCENT);
+    snprintf(header,
+             sizeof(header),
+             "DISASSEMBLY CUR=%04Xh BP=%u%s",
+             m->dbg.disasm_cursor,
+             (unsigned)m->dbg.breakpoint_count,
+             m->dbg.run_to_cursor_active ? " RUN" : "");
+    dbg_draw_text(m, x + 16, y + 16, header, DBG_COL_ACCENT);
 
-    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(pc + 96u)) {
+    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(view + 96u)) {
         insn[count].addr = scan;
         insn[count].len = (uint8_t)dbg_disassemble_at(m, scan, insn[count].text, sizeof(insn[count].text));
         if (insn[count].len == 0) {
@@ -770,6 +905,9 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         if (scan <= pc && (uint16_t)(scan + insn[count].len) > pc) {
             current = count;
         }
+        if (scan == m->dbg.disasm_cursor) {
+            selected = count;
+        }
         count++;
         if ((uint16_t)(scan + insn[count - 1].len) <= scan) {
             break;
@@ -777,30 +915,41 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         scan = (uint16_t)(scan + insn[count - 1].len);
     }
 
-    start = current > 5 ? current - 5 : 0;
+    start = selected > 5 ? selected - 5 : 0;
     for (int row = 0; row < 12 && start + row < count; row++) {
         char bytes[24] = "";
         char line[160];
         int line_y = y + 40 + row * DBG_LINE_H;
         uint32_t line_col = DBG_COL_TEXT;
+        int insn_idx = start + row;
+        int is_current = (insn_idx == current);
+        int is_selected = (insn_idx == selected);
+        int has_breakpoint = dbg_has_breakpoint(m, insn[insn_idx].addr);
 
-        for (int i = 0; i < insn[start + row].len && i < 4; i++) {
+        for (int i = 0; i < insn[insn_idx].len && i < 4; i++) {
             char byte[8];
 
-            snprintf(byte, sizeof(byte), "%s%02X", i ? " " : "", (unsigned)dbg_mem8(m, (uint16_t)(insn[start + row].addr + i)));
+            snprintf(byte, sizeof(byte), "%s%02X", i ? " " : "", (unsigned)dbg_mem8(m, (uint16_t)(insn[insn_idx].addr + i)));
             strncat(bytes, byte, sizeof(bytes) - strlen(bytes) - 1);
         }
-        if (start + row == current) {
+        if (is_selected) {
             dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H, DBG_COL_ACTIVE);
+            line_col = DBG_COL_ACCENT;
+        }
+        if (is_current) {
+            dbg_fill_rect(m->dbg.renderer, x + 8, line_y - 2, w - 16, DBG_LINE_H,
+                          is_selected ? DBG_COL_WARN : DBG_COL_ACTIVE);
             line_col = DBG_COL_WARN;
         }
         snprintf(line,
                  sizeof(line),
-                 "%c %04X  %-11s %s",
-                 (start + row == current) ? '>' : ' ',
-                 insn[start + row].addr,
+                 "%c%c%c %04X  %-11s %s",
+                 is_current ? '>' : ' ',
+                 is_selected ? '*' : ' ',
+                 has_breakpoint ? 'B' : ' ',
+                 insn[insn_idx].addr,
                  bytes,
-                 insn[start + row].text);
+                 insn[insn_idx].text);
         dbg_draw_text(m, x + 16, line_y, line, line_col);
     }
 }
@@ -817,7 +966,7 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
              m->dbg.mem_base,
              (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE - 1u),
              m->dbg.mem_cursor,
-             m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC");
+             m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC  CTRL+A/V PRESETS");
     dbg_draw_text(m, x + 16, y + 16, line, DBG_COL_ACCENT);
     if (m->dbg.mem_jump_active) {
         snprintf(line, sizeof(line), "JUMP>%s", m->dbg.mem_jump_buf);
@@ -916,7 +1065,7 @@ static void dbg_render_registers(struct Smaky6 *m)
 
     dbg_render_disassembly(m, 284, 12, 604, 210);
     dbg_render_memory(m, 284, 224, 604, 236);
-    dbg_draw_text(m, 18, 474, "F12 CLOSE  SPACE RUN/PAUSE  S/F6 STEP  F7 FRAME  ARROWS/HEX/G IN MEMORY", DBG_COL_WARN);
+    dbg_draw_text(m, 18, 474, "F12 CLOSE  SPACE RUN/PAUSE  F8 RUN CURSOR  F9 BREAKPOINT  SHIFT+UP/DOWN DISASM", DBG_COL_WARN);
 }
 
 void debug_init(struct Smaky6 *m)
@@ -937,6 +1086,12 @@ void debug_init(struct Smaky6 *m)
     m->dbg.io19_repeat_count = 0;
     m->dbg.last_run_tstates = 0;
     m->dbg.frame_counter = 0;
+    m->dbg.disasm_cursor = 0;
+    m->dbg.run_to_cursor_addr = 0;
+    m->dbg.breakpoint_resume_pc = 0;
+    m->dbg.breakpoint_count = 0;
+    m->dbg.run_to_cursor_active = 0;
+    m->dbg.breakpoint_resume_armed = 0;
     m->dbg.mem_base = 0;
     m->dbg.mem_cursor = 0;
     m->dbg.mem_edit_high_nibble = 1;
@@ -958,6 +1113,10 @@ int debug_is_paused(struct Smaky6 *m) { return m->dbg.paused; }
 
 void debug_request_step_instruction(struct Smaky6 *m)
 {
+    if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu))) {
+        dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
+    }
+    m->dbg.run_to_cursor_active = 0;
     m->dbg.paused = 1;
     m->dbg.stepping = 1;
     m->dbg.step_instruction_pending = 1;
@@ -965,9 +1124,50 @@ void debug_request_step_instruction(struct Smaky6 *m)
 
 void debug_request_step_frame(struct Smaky6 *m)
 {
+    if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu))) {
+        dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
+    }
+    m->dbg.run_to_cursor_active = 0;
     m->dbg.paused = 1;
     m->dbg.stepping = 1;
     m->dbg.step_frame_pending = 1;
+}
+
+int debug_stop_conditions_active(struct Smaky6 *m)
+{
+    return m->dbg.run_to_cursor_active || m->dbg.breakpoint_count > 0;
+}
+
+int debug_maybe_pause_on_pc(struct Smaky6 *m, uint16_t pc)
+{
+    int hit_breakpoint;
+    int hit_cursor;
+
+    if (m->dbg.breakpoint_resume_armed && pc == m->dbg.breakpoint_resume_pc) {
+        m->dbg.breakpoint_resume_armed = 0;
+        return 0;
+    }
+
+    hit_breakpoint = dbg_has_breakpoint(m, pc);
+    hit_cursor = m->dbg.run_to_cursor_active && pc == m->dbg.run_to_cursor_addr;
+    if (!hit_breakpoint && !hit_cursor) {
+        return 0;
+    }
+
+    m->dbg.paused = 1;
+    m->dbg.stepping = 0;
+    m->dbg.step_instruction_pending = 0;
+    m->dbg.step_frame_pending = 0;
+    m->dbg.run_to_cursor_active = 0;
+    m->dbg.disasm_cursor = pc;
+    if (hit_cursor && hit_breakpoint) {
+        fprintf(stderr, "debug: run-to-cursor hit breakpoint at %04X\n", (unsigned)pc);
+    } else if (hit_cursor) {
+        fprintf(stderr, "debug: run-to-cursor stopped at %04X\n", (unsigned)pc);
+    } else {
+        fprintf(stderr, "debug: breakpoint hit at %04X\n", (unsigned)pc);
+    }
+    return 1;
 }
 
 int debug_consume_step_instruction(struct Smaky6 *m)
@@ -987,12 +1187,18 @@ int debug_consume_step_frame(struct Smaky6 *m)
 void debug_note_instruction_run(struct Smaky6 *m, uint32_t tstates)
 {
     m->dbg.last_run_tstates = tstates;
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        dbg_sync_disasm_cursor(m);
+    }
 }
 
 void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates)
 {
     m->dbg.last_run_tstates = tstates;
     m->dbg.frame_counter++;
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        dbg_sync_disasm_cursor(m);
+    }
 }
 
 int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
@@ -1042,6 +1248,10 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             dbg_close_window(m);
             return 1;
         case SDL_SCANCODE_SPACE:
+            if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu)) && m->dbg.paused) {
+                dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
+            }
+            m->dbg.run_to_cursor_active = 0;
             m->dbg.paused = !m->dbg.paused;
             m->dbg.stepping = m->dbg.paused;
             if (!m->dbg.paused) {
@@ -1049,12 +1259,18 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
                 m->dbg.step_frame_pending = 0;
             }
             return 1;
+        case SDL_SCANCODE_F8:
+            dbg_begin_run_to_cursor(m);
+            return 1;
         case SDL_SCANCODE_S:
         case SDL_SCANCODE_F6:
             debug_request_step_instruction(m);
             return 1;
         case SDL_SCANCODE_F7:
             debug_request_step_frame(m);
+            return 1;
+        case SDL_SCANCODE_F9:
+            dbg_toggle_breakpoint(m, m->dbg.disasm_cursor);
             return 1;
         case SDL_SCANCODE_LEFT:
             dbg_move_memory_cursor(m, -1);
@@ -1065,10 +1281,18 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             m->dbg.mem_edit_high_nibble = 1;
             return 1;
         case SDL_SCANCODE_UP:
+            if (ev->key.keysym.mod & KMOD_SHIFT) {
+                dbg_move_disasm_cursor(m, -1);
+                return 1;
+            }
             dbg_move_memory_cursor(m, -DBG_MEM_COLS);
             m->dbg.mem_edit_high_nibble = 1;
             return 1;
         case SDL_SCANCODE_DOWN:
+            if (ev->key.keysym.mod & KMOD_SHIFT) {
+                dbg_move_disasm_cursor(m, 1);
+                return 1;
+            }
             dbg_move_memory_cursor(m, DBG_MEM_COLS);
             m->dbg.mem_edit_high_nibble = 1;
             return 1;
@@ -1103,6 +1327,14 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             m->dbg.mem_edit_high_nibble = 1;
             return 1;
         default: {
+            if ((ev->key.keysym.mod & KMOD_CTRL) && ev->key.keysym.scancode == SDL_SCANCODE_A) {
+                dbg_set_memory_view(m, MEM_ALPHA_BASE);
+                return 1;
+            }
+            if ((ev->key.keysym.mod & KMOD_CTRL) && ev->key.keysym.scancode == SDL_SCANCODE_V) {
+                dbg_set_memory_view(m, MEM_GFX_BASE);
+                return 1;
+            }
             int hex = dbg_hex_value(ev->key.keysym.sym);
 
             if (hex >= 0) {
@@ -1915,7 +2147,7 @@ void debug_toggle(struct Smaky6 *m)
     }
 
     if (dbg_open_window(m) == 0) {
-        fprintf(stderr, "debug: window shown (F12 toggle, Space pause, S/F6 step, F7 frame)\n");
+        fprintf(stderr, "debug: window shown (F12 toggle, Space pause, S/F6 step, F7 frame, F8 run, F9 breakpoint)\n");
         debug_render(m);
     }
 }

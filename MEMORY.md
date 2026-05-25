@@ -13,6 +13,9 @@ for hardware details, reverse-engineering traces, and one-off investigations.
   re-extracting the same `.dsk` again.
 - Releases are automated from pushed tags. Do not propose manual GitHub release
   creation for this repo.
+- Function-level documentation should explain behavior, side effects,
+  assumptions, and hardware context when useful. Avoid comments that only
+  paraphrase the function name.
 
 ## Build And Runtime Baselines
 
