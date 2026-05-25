@@ -408,6 +408,21 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   un point d'arrêt à cette adresse. Une même ligne peut afficher plusieurs
   marqueurs en même temps, par exemple si l'instruction courante est aussi la
   ligne sélectionnée avec point d'arrêt.
+- Le panneau **MEMORY** affiche une page de 256 octets à la fois sous forme de
+  grille `16 x 16`. La marge de gauche indique l'adresse de base de chaque
+  ligne. Les colonnes d'octets sont regroupées par blocs de quatre pour
+  faciliter la lecture. La case surlignée correspond au curseur mémoire
+  courant ; `CURSOR=` dans l'en-tête du panneau donne son adresse exacte.
+- En vue hexadécimale, chaque octet est suivi à droite par un miroir ASCII :
+  les octets imprimables sont montrés comme caractères, les octets non
+  imprimables comme `.`. En vue octale, les mêmes octets sont affichés en
+  octal sur trois chiffres et le miroir ASCII est masqué pour garder une mise
+  en page lisible.
+- Les couleurs mémoire portent aussi une information : les octets venant de la
+  ROM sont dessinés différemment de la RAM inscriptible, et la case active du
+  curseur reçoit une surbrillance distincte. Les touches hexadécimales éditent
+  l'octet sélectionné nibble par nibble ; même lorsque le panneau affiche
+  l'octal, l'édition reste hexadécimale.
 
 ### Touches standard
 

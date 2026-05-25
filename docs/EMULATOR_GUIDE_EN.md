@@ -376,6 +376,18 @@ The left side of the debugger is split into two small summaries:
   debugger's selected cursor line, and `B` marks a breakpoint at that address.
   A line may show more than one marker at once, for example when the current
   instruction is also the selected breakpoint line.
+- The **MEMORY** pane shows one 256-byte page at a time as a `16 x 16` grid.
+  The left margin is the base address of each row. Byte columns are grouped in
+  blocks of four for easier scanning. The highlighted cell is the current
+  memory cursor; `CURSOR=` in the pane header shows its exact address.
+- In hex view, each byte is followed by an ASCII mirror on the right: printable
+  bytes are shown as characters, non-printable bytes as `.`. In octal view,
+  the same bytes are shown in three-digit octal and the ASCII mirror is hidden
+  to keep the layout readable.
+- Memory colours also carry meaning: ROM-backed bytes are drawn differently
+  from writable RAM, and the active cursor cell is highlighted separately. Use
+  hex keys to edit the selected byte nibble by nibble; even when the pane is
+  displaying octal, editing still writes hexadecimal nibbles.
 
 ---
 
