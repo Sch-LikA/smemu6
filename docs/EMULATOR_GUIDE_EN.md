@@ -354,7 +354,9 @@ breakpoint at that address. If `F8` starts while execution is already paused on
 the current breakpoint address, the debugger temporarily resumes past that one
 breakpoint so the run-to-cursor request can continue toward the selected line
 instead of stopping immediately again on the same `PC`. `Ctrl+A` and `Ctrl+V`
-jump the memory pane to the alpha and graphic planes. The debugger is
+jump the memory pane to the alpha and graphic planes. `Tab` and `Shift+Tab`
+cycle the active watch slot in the footer, and `W` retargets that selected
+watch by typing a new 4-digit hex address. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
@@ -378,9 +380,11 @@ The left side of the debugger is split into two small summaries:
   `F` byte from `AF'`. The order is `SZ5H3PNC`: Sign, Zero, undocumented bit 5,
   Half-carry, undocumented bit 3, Parity/Overflow, Add/Subtract, Carry. A `-`
   means the corresponding flag bit is currently clear.
-- The **SHORTCUTS** footer now ends with a small watch row for three live SAMOS
-  workspace bytes: `0x457E` (staged ordinary key byte), `0x4580`
-  (function-key workspace), and `0x45C0` (first visible CLI input byte).
+- The **SHORTCUTS** footer now ends with a small watch row for three live
+  bytes. The selected slot is marked with `>`. By default the three slots start
+  on `0x457E` (staged ordinary key byte), `0x4580` (function-key workspace),
+  and `0x45C0` (first visible CLI input byte), but any of the three can be
+  retargeted from the debugger.
 - In the disassembly list, the left markers are compact status hints: `>` marks
   the instruction that currently contains the live `PC`, `*` marks the
   debugger's selected cursor line, and `B` marks a breakpoint at that address.

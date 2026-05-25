@@ -1437,7 +1437,8 @@ Current implemented floor:
   fit in the same 12-line view. The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. The shortcuts
   footer also exposes a tiny fixed watch row for the live `0x457E`, `0x4580`,
-  and `0x45C0` workspace bytes.
+  and `0x45C0` workspace bytes. `Tab` / `Shift+Tab` now select the active watch
+  slot, and `W` retargets that selected watch to a new 4-digit hex address.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

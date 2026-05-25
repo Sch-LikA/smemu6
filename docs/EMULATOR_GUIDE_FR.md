@@ -383,7 +383,10 @@ cette adresse. Si `F8` démarre alors que l'exécution est déjà arrêtée sur 
 point d'arrêt courant, le débogueur réarme temporairement ce cas précis pour
 laisser l'ordre "aller au curseur" progresser vers la ligne sélectionnée au
 lieu de se réarrêter immédiatement sur le même `PC`. `Ctrl+A` et `Ctrl+V`
-placent directement la vue mémoire sur les plans alpha et graphique. Ce
+placent directement la vue mémoire sur les plans alpha et graphique. `Tab` et
+`Shift+Tab` font tourner l'emplacement de surveillance actif dans le pied de
+fenêtre, et `W` redirige cette surveillance sélectionnée vers une nouvelle
+adresse hexadécimale sur 4 chiffres. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
@@ -410,9 +413,11 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   Addition/Soustraction, Carry. Un `-` signifie que le bit correspondant est
   actuellement à zéro.
 - Le pied de **SHORTCUTS** se termine maintenant par une petite ligne de
-  surveillance pour trois octets SAMOS en direct : `0x457E` (octet ordinaire
-  en attente), `0x4580` (espace de travail des touches de fonction) et
-  `0x45C0` (premier octet visible de la ligne CLI).
+  surveillance pour trois octets en direct. L'emplacement sélectionné est
+  marqué par `>`. Par défaut, les trois emplacements commencent sur `0x457E`
+  (octet ordinaire en attente), `0x4580` (espace de travail des touches de
+  fonction) et `0x45C0` (premier octet visible de la ligne CLI), mais chacun
+  peut être redirigé depuis le débogueur.
 - Dans la liste de désassemblage, les marqueurs à gauche servent de légende
   compacte : `>` marque l'instruction qui contient actuellement le `PC` réel,
   `*` marque la ligne sélectionnée par le curseur du débogueur, et `B` marque
