@@ -12,6 +12,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef SMEMU6_HAS_GENERATED_FLO_SYMBOLS
+#include "generated_flo_st_symbols.h"
+#endif
+
 #define DBG_WIN_W 900
 #define DBG_WIN_H 520
 #define DBG_FONT_W 8
@@ -22,7 +26,8 @@
 #define DBG_MEM_ROWS 16
 #define DBG_MEM_PAGE_SIZE (DBG_MEM_COLS * DBG_MEM_ROWS)
 #define DBG_MAX_BREAKPOINTS 16
-#define DBG_MAX_FLO_SYMBOLS 384
+#define DBG_DISASM_VISIBLE_ROWS 11
+#define DBG_DISASM_BACK_ROWS 8
 
 #define DBG_COL_BG      0xFF08100Cu
 #define DBG_COL_PANEL   0xFF102018u
@@ -117,82 +122,18 @@ struct DebugInsn {
     char text[96];
 };
 
-struct DebugFloSymbol {
-    uint16_t value;
-    char name[8];
-};
-
-static struct {
-    struct DebugFloSymbol entries[DBG_MAX_FLO_SYMBOLS];
-    size_t count;
-    int attempted;
-    int loaded;
-} dbg_flo_symbols;
-
 static void dbg_sync_disasm_cursor(struct Smaky6 *m)
 {
     m->dbg.disasm_cursor = (uint16_t)Z80_PC(m->cpu);
 }
 
-static int dbg_try_load_flo_symbols_path(const char *path)
+static int dbg_flo_symbols_loaded(void)
 {
-    FILE *fp = fopen(path, "r");
-    char line[256];
-    size_t count = 0;
-
-    if (!fp) {
-        return -1;
-    }
-
-    while (fgets(line, sizeof(line), fp) != NULL) {
-        unsigned value;
-        char name[8];
-
-        if (sscanf(line, "%*u value=%x flags=%*s name=%7s", &value, name) != 2) {
-            continue;
-        }
-        if (count >= DBG_MAX_FLO_SYMBOLS) {
-            break;
-        }
-        dbg_flo_symbols.entries[count].value = (uint16_t)value;
-        snprintf(dbg_flo_symbols.entries[count].name,
-                 sizeof(dbg_flo_symbols.entries[count].name),
-                 "%s",
-                 name);
-        count++;
-    }
-
-    fclose(fp);
-    if (count == 0) {
-        return -1;
-    }
-
-    dbg_flo_symbols.count = count;
-    dbg_flo_symbols.loaded = 1;
+#ifdef SMEMU6_HAS_GENERATED_FLO_SYMBOLS
+    return smaky6_flo_symbol_count > 0;
+#else
     return 0;
-}
-
-static void dbg_load_flo_symbols_once(void)
-{
-    static const char *const candidates[] = {
-        "sdcc/FLO.symbols",
-        "../sdcc/FLO.symbols",
-        "../../sdcc/FLO.symbols",
-    };
-
-    if (dbg_flo_symbols.attempted) {
-        return;
-    }
-
-    dbg_flo_symbols.attempted = 1;
-    dbg_flo_symbols.count = 0;
-    dbg_flo_symbols.loaded = 0;
-
-    for (size_t i = 0; i < sizeof(candidates) / sizeof(candidates[0]); i++) {
-        if (dbg_try_load_flo_symbols_path(candidates[i]) == 0) {
-            return;
-        }
-    }
+#endif
 }
 
 static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
@@ -200,24 +141,26 @@ static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
     const char *best = NULL;
     int best_score = -1;
 
-    if (!dbg_flo_symbols.loaded) {
+    if (!dbg_flo_symbols_loaded()) {
         return NULL;
     }
 
-    for (size_t i = 0; i < dbg_flo_symbols.count; i++) {
-        const struct DebugFloSymbol *entry = &dbg_flo_symbols.entries[i];
+#ifdef SMEMU6_HAS_GENERATED_FLO_SYMBOLS
+    for (size_t i = 0; i < smaky6_flo_symbol_count; i++) {
+        const struct GeneratedSmaky6StEntry *entry = &smaky6_flo_symbols[i];
         size_t len;
         int score;
+        const char *name = entry->best_name ? entry->best_name : entry->name;
 
         if (entry->value != value) {
             continue;
         }
-        if (require_code_like && value < 0x0100u && entry->name[0] != '?') {
+        if (require_code_like && value < 0x0100u && name[0] != '?') {
             continue;
         }
 
-        len = strlen(entry->name);
-        score = (entry->name[0] == '?') ? 100 : 0;
+        len = strlen(name);
+        score = (name[0] == '?') ? 100 : 0;
         if (value >= 0x0100u) {
             score += 20;
         }
@@ -226,10 +169,11 @@ static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
         }
         score += (int)len;
         if (!best || score > best_score) {
-            best = entry->name;
+            best = name;
             best_score = score;
         }
     }
+#endif
 
     return best;
 }
@@ -1234,7 +1178,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         view = m->dbg.disasm_cursor;
     }
     scan = view;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < DBG_DISASM_BACK_ROWS; i++) {
         uint16_t prev = dbg_prev_disasm_addr(m, scan);
 
         if (prev == scan) {
@@ -1251,7 +1195,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
              m->dbg.disasm_cursor,
              (unsigned)m->dbg.breakpoint_count,
              m->dbg.run_to_cursor_active ? " RUN" : "",
-             dbg_flo_symbols.loaded ? " FLO" : "");
+             dbg_flo_symbols_loaded() ? " FLO" : "");
     dbg_draw_text(m, x + 16, y + 16, header, DBG_COL_ACCENT);
 
     while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(view + 96u)) {
@@ -1273,20 +1217,21 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         scan = (uint16_t)(scan + insn[count - 1].len);
     }
 
-    max_start = count > 11 ? count - 11 : 0;
-    start = current > 5 ? current - 5 : 0;
+    max_start = count > DBG_DISASM_VISIBLE_ROWS ? count - DBG_DISASM_VISIBLE_ROWS : 0;
+    start = current > DBG_DISASM_BACK_ROWS ? current - DBG_DISASM_BACK_ROWS : 0;
     if (start > max_start) {
         start = max_start;
     }
-    if (selected < start && current - selected <= 5) {
+    if (selected < start && current - selected <= DBG_DISASM_BACK_ROWS) {
         start = selected;
-    } else if (selected >= start + 11 && selected - current <= 6) {
-        start = selected - 10;
+    } else if (selected >= start + DBG_DISASM_VISIBLE_ROWS &&
+               selected - current <= (DBG_DISASM_VISIBLE_ROWS - DBG_DISASM_BACK_ROWS)) {
+        start = selected - (DBG_DISASM_VISIBLE_ROWS - 1);
         if (start > max_start) {
             start = max_start;
         }
     }
-    for (int row = 0; row < 11 && start + row < count; row++) {
+    for (int row = 0; row < DBG_DISASM_VISIBLE_ROWS && start + row < count; row++) {
         char bytes[24] = "";
         char line[192];
         char symbol_col[8] = "";
@@ -1583,8 +1528,6 @@ static void dbg_render_registers(struct Smaky6 *m)
 
 void debug_init(struct Smaky6 *m)
 {
-    dbg_load_flo_symbols_once();
-
     m->dbg.visible = 0;
     m->dbg.paused = 0;
     m->dbg.stepping = 0;

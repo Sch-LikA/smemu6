@@ -364,14 +364,15 @@ watch by typing a new 4-digit hex address. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
-When the repo-relative `sdcc/FLO.symbols` file is available, the disassembly
-header adds a small `FLO` marker and each row may show two extra hints: a
-compact symbol column when the instruction address matches a FLO export, and a
-trailing `;NAME` suffix for direct `call`, `jp`, or `rst` targets that match a
-known FLO symbol. In CALM-style threaded code, `RST 20h` also consumes the
-following service byte as part of the same row, so 2-byte threaded vectors
-such as `E7 5E` (`?TEXTIM`) or `D7 14` (`?OPEN`) no longer appear as a
-misleading run of repeated raw `RST` bytes.
+In native builds, the debugger now uses the generated FLO ST export header
+compiled into the emulator itself, so it no longer depends on an external
+runtime symbol file. The disassembly header adds a small `FLO` marker and each
+row may show two extra hints: a compact symbol column when the instruction
+address matches a FLO export, and a trailing `;NAME` suffix for direct `call`,
+`jp`, or `rst` targets that match a known FLO symbol. In CALM-style threaded
+code, `RST 20h` also consumes the following service byte as part of the same
+row, so 2-byte threaded vectors such as `E7 5E` (`?TEXTIM`) or `D7 14`
+(`?OPEN`) no longer appear as a misleading run of repeated raw `RST` bytes.
 
 The left side of the debugger is split into two small summaries:
 

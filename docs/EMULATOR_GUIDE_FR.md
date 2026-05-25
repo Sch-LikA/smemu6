@@ -393,7 +393,9 @@ adresse hexadécimale sur 4 chiffres. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
-Quand le fichier repo-relatif `sdcc/FLO.symbols` est disponible, l'en-tête du
+Dans les builds natifs, le débogueur utilise maintenant l'en-tête généré des
+exports FLO directement compilé dans l'émulateur ; il ne dépend donc plus d'un
+fichier de symboles externe au moment de l'exécution. L'en-tête du
 désassemblage affiche aussi un petit marqueur `FLO` et chaque ligne peut
 montrer deux indices supplémentaires : une courte colonne de symbole quand
 l'adresse de l'instruction correspond exactement à un export FLO, et un suffixe

@@ -235,15 +235,15 @@ Why:
 
 ### Integrated debugger FLO annotations come from the checked-in symbol dump
 
-The native debugger reads the repo-relative `sdcc/FLO.symbols` text dump on a
-best-effort basis and uses it only for compact disassembly hints: exact-address
-labels and direct `call` / `jp` / `rst` target suffixes.
+The native debugger now consumes the generated FLO ST export header through the
+build graph and uses the compiled-in table only for compact disassembly hints:
+exact-address labels and direct `call` / `jp` / `rst` target suffixes.
 
 Why:
 
-- the checked-in text dump is already present in normal source checkouts, so
-  the debugger does not need a generated-header dependency or a private binary
-  `FLO.ST` runtime path
+- the build already knows how to generate a FLO export header from `FLO.ST`, so
+  reusing that path removes the debugger's runtime dependency on a separate
+  symbol text file
 - keeping the first slice display-only avoids coupling emulator execution to
   symbol availability
 - exact-address and direct-target hints are usually useful, while dumping every
@@ -252,6 +252,17 @@ Why:
   the restart opcode (`D7`, `E7`, or `EF`) and whose second byte is the service
   code; decoding them as standalone 1-byte `RST` instructions produces bogus
   repeated rows and hides the symbol names
+
+### Integrated debugger disassembly keeps extra backward context
+
+Bias the native disassembly viewport to keep more instructions above the live
+cursor than before.
+
+Why:
+
+- `Shift+F6` is mainly used to walk backward through recently executed code
+- a centered 11-line slice made the cursor hit the top of the visible pane too
+  quickly during reverse browsing
 
 ### Debugger UI polish stays execution-first
 

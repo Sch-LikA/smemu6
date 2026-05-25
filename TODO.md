@@ -1440,12 +1440,14 @@ Current implemented floor:
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
-  watch to a new 4-digit hex address. When the repo-relative `sdcc/FLO.symbols`
-  dump is available, the disassembly pane also adds a compact FLO symbol column
+  watch to a new 4-digit hex address. When native builds generate the FLO ST
+  export header, the disassembly pane also adds a compact FLO symbol column
   for exact address matches and appends symbol hints for direct `call` / `jp`
   / `rst` targets. Threaded service vectors such as `E7 07` or `D7 14` are
   also decoded as one logical row when the current restart opcode byte plus the
-  following service-code byte matches a known symbol.
+  following service-code byte matches a known symbol. The visible disassembly
+  slice now keeps a slightly deeper backward context so `Shift+F6` can walk
+  farther up before the cursor reaches the top of the pane.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

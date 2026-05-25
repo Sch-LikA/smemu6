@@ -181,6 +181,10 @@ if(NOT EMSCRIPTEN)
             DEPENDS ${SMAKY6_SM6_HEADER} ${SMAKY6_SM6_JSON} ${SMAKY6_FLO_HEADER} ${SMAKY6_FLO_JSON}
         )
 
+        add_dependencies(smemu6 smaky6_st_exports)
+        target_include_directories(smemu6 PRIVATE ${SMAKY6_ST_GENERATED_DIR})
+        target_compile_definitions(smemu6 PRIVATE SMEMU6_HAS_GENERATED_FLO_SYMBOLS=1)
+
         add_executable(smaky6_st_generated_example
             sdcc/smaky6_st_generated_example.c
             ${SMAKY6_SM6_HEADER}
