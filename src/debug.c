@@ -980,27 +980,28 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
              m->dbg.mem_cursor,
              octal ? "OCTAL" : "HEX");
     dbg_draw_text(m, x + 16, y + 16, line, DBG_COL_ACCENT);
+    dbg_draw_text(m, x + 16, y + 28, "ARROWS MOVE  PGUP/PGDN PAGE  O TOGGLE BASE", DBG_COL_DIM);
     dbg_draw_text(m,
                   x + 16,
-                  y + 28,
-                  m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  O TOGGLE BASE  G JUMP  P=PC  CTRL+A/V PRESETS",
+                  y + 40,
+                  m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "G JUMP  P=PC  CTRL+A/V PRESETS",
                   DBG_COL_DIM);
     if (m->dbg.mem_jump_active) {
         snprintf(line, sizeof(line), "JUMP>%s", m->dbg.mem_jump_buf);
-        dbg_draw_text(m, x + w - 96, y + 28, line, DBG_COL_WARN);
+        dbg_draw_text(m, x + w - 96, y + 40, line, DBG_COL_WARN);
     }
 
     for (int group = 1; group < 4; group++) {
         int sep_x = value_x + group * 4 * value_col_w + (group - 1) * group_gap + group_gap / 2;
 
-        dbg_fill_rect(m->dbg.renderer, sep_x, y + 48, 1, h - 60, DBG_COL_BORDER);
+        dbg_fill_rect(m->dbg.renderer, sep_x, y + 56, 1, h - 68, DBG_COL_BORDER);
     }
     if (show_ascii) {
-        dbg_fill_rect(m->dbg.renderer, ascii_x - 8, y + 48, 1, h - 60, DBG_COL_BORDER);
+        dbg_fill_rect(m->dbg.renderer, ascii_x - 8, y + 56, 1, h - 68, DBG_COL_BORDER);
     }
 
     for (int row = 0; row < DBG_MEM_ROWS; row++) {
-        int row_y = y + 52 + row * 11;
+        int row_y = y + 60 + row * 10;
 
         snprintf(line, sizeof(line), "%04X:", (unsigned)(m->dbg.mem_base + row * DBG_MEM_COLS));
         dbg_draw_text(m, addr_x, row_y, line, DBG_COL_DIM);
@@ -1097,12 +1098,13 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
     dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 8, state_value_x, "FLAGS'", flags_shadow);
 
-    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 84, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 84, DBG_COL_BORDER);
     dbg_draw_text(m, 28, 404, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, 404 + DBG_LINE_H, "SPACE RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
     dbg_draw_text(m, 28, 404 + DBG_LINE_H * 2, "F8 CURSOR  F9 BP  O BASE  G JUMP", DBG_COL_WARN);
-    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 3, "ARROWS MOVE  P PC  CTRL+A/V PRESETS", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 3, "ARROWS MOVE  P PC", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 4, "CTRL+A/V PRESETS", DBG_COL_WARN);
 
     dbg_render_disassembly(m, 284, 12, 604, 214);
     dbg_render_memory(m, 284, 230, 604, 230);
