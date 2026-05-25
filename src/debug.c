@@ -185,6 +185,66 @@ static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
     return best;
 }
 
+static void dbg_format_pc_symbol(struct Smaky6 *m, char *out, size_t out_size)
+{
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+    const char *exact = dbg_lookup_flo_symbol(pc, 1);
+    uint16_t best_addr = 0;
+    const char *best_name = NULL;
+    int best_score = -1;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+
+    if (!dbg_flo_symbols_loaded()) {
+        return;
+    }
+    if (exact) {
+        snprintf(out, out_size, "PC=%s", exact);
+        return;
+    }
+
+#ifdef SMEMU6_HAS_GENERATED_FLO_SYMBOLS
+    for (size_t i = 0; i < smaky6_flo_symbol_count; i++) {
+        const struct GeneratedSmaky6StEntry *entry = &smaky6_flo_symbols[i];
+        const char *name = entry->best_name ? entry->best_name : entry->name;
+        size_t len;
+        int score;
+
+        if (entry->value > pc) {
+            continue;
+        }
+        if (entry->value < 0x0100u && name[0] != '?') {
+            continue;
+        }
+
+        len = strlen(name);
+        score = (name[0] == '?') ? 100 : 0;
+        if (entry->value >= 0x0100u) {
+            score += 20;
+        }
+        if (len >= 3) {
+            score += 10;
+        }
+        score += (int)len;
+
+        if (!best_name || entry->value > best_addr || (entry->value == best_addr && score > best_score)) {
+            best_addr = entry->value;
+            best_name = name;
+            best_score = score;
+        }
+    }
+#endif
+
+    if (!best_name) {
+        return;
+    }
+
+    snprintf(out, out_size, "PC=%s+%Xh", best_name, (unsigned)(pc - best_addr));
+}
+
 static int dbg_get_disasm_target(struct Smaky6 *m, uint16_t addr, uint16_t *target_out)
 {
     uint8_t bytes[3] = {
@@ -1323,6 +1383,7 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 {
     struct DebugInsn insn[40];
     char stack_symbols[96];
+    char pc_symbol[64];
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
     uint16_t view = m->dbg.disasm_cursor;
     uint16_t low_anchor;
@@ -1362,8 +1423,12 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
              m->dbg.run_to_cursor_active ? " RUN" : "",
              dbg_flo_symbols_loaded() ? " FLO" : "");
     dbg_draw_text(m, x + 16, y + 16, header, DBG_COL_ACCENT);
+    dbg_format_pc_symbol(m, pc_symbol, sizeof(pc_symbol));
+    if (pc_symbol[0] != '\0') {
+        dbg_draw_text(m, x + 16 + 280, y + 16, pc_symbol, DBG_COL_WARN);
+    }
     dbg_format_stack_symbols(m, stack_symbols, sizeof(stack_symbols));
-    dbg_draw_text(m, x + 320, y + 16, stack_symbols, DBG_COL_DIM);
+    dbg_draw_text(m, x + 16 + 392, y + 16, stack_symbols, DBG_COL_DIM);
 
     while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(high_anchor + 96u)) {
         insn[count].addr = scan;

@@ -378,6 +378,9 @@ FLO labels. Number keys `0`..`3` jump the disassembly cursor directly to those
 four stack words and push the previous cursor onto the same follow-history
 stack used by `Enter` / `Backspace`, which makes return-address browsing easier
 without opening another pane.
+That same header also shows the live `PC`'s nearest FLO symbol plus offset, so
+single-stepping stays anchored to the current routine even when the exact
+instruction address does not match a symbol boundary.
 
 If a single `F6` step lands on the same `djnz` row again, that usually means
 the instruction executed and looped back to the same address while only

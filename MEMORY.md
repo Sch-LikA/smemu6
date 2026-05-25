@@ -329,6 +329,8 @@ Implementation note:
 - keep the shared debugger navigation gate and stack-target validity checks in
   a tiny standalone helper so follow-target, history-back, and stack-jump rules
   cannot drift apart silently
+- keep current-symbol context lightweight by showing the live PC's nearest FLO
+  symbol plus offset in the disassembly header instead of adding another panel
 
 ### CALM service catalog uses disassembly tables before later manuals
 

@@ -1459,6 +1459,8 @@ Current implemented floor:
   symbol hint for top stack entries that resolve to known FLO labels now sits
   in the disassembly header area, and number keys `0`..`3` jump the
   disassembly cursor to those four stack words through the same history stack.
+  That same header now also shows the live `PC`'s nearest FLO symbol plus
+  offset, so stepping stays oriented even between exact symbol boundaries.
   The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected

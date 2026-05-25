@@ -409,6 +409,10 @@ touches `0` à `3` déplacent directement le curseur de désassemblage vers ces
 quatre mots de pile et empilent l'ancienne position dans le même petit
 historique que `Entrée` / `Retour arrière`, ce qui facilite la lecture des
 adresses de retour sans ajouter un nouveau panneau.
+Ce même en-tête montre aussi le symbole FLO le plus proche du `PC` actif,
+avec son décalage, afin que le pas à pas reste ancré sur la routine courante
+même quand l'adresse exacte de l'instruction ne tombe pas sur une frontière de
+symbole.
 
 Si un pas `F6` revient sur la même ligne `djnz`, cela signifie en général que
 l'instruction a bien été exécutée mais qu'elle a rebouclé sur la même adresse
