@@ -344,9 +344,11 @@ Z80 registers, flags, a compact disassembly view centered on the current PC, a
 resumes execution, `S` or `F6` executes one instruction, and `F7` executes one
 full 50 Hz frame while keeping the debugger open. In the memory pane, use the
 arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
-`G` to jump to a 4-digit address, and `P` to sync the cursor to the current
-PC. In the disassembly pane, `Shift+Up` / `Shift+Down` moves the selection,
-`F8` runs until the selected instruction address, and `F9` toggles a
+`G` to jump to a 4-digit address, `P` to sync the cursor to the current
+PC, and `O` to switch the byte display between hex and octal. Octal mode is
+currently a display mode only; in-place byte edits remain hex-based. In the
+disassembly pane, `Shift+Up` / `Shift+Down` moves the selection, `F8` runs
+until the selected instruction address, and `F9` toggles a
 breakpoint at that address. `Ctrl+A` and `Ctrl+V` jump the memory pane to the
 alpha and graphic planes. The debugger is currently native-only; the web build
 does not expose an HTML debugger panel yet.

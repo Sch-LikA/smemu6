@@ -1425,8 +1425,10 @@ Current implemented floor:
   table in the debugger state.
 - The memory pane currently supports arrows for navigation, `PageUp` /
   `PageDown` for paging, hex-key nibble edits, `G` for a 4-digit hex jump, and
-  `P` to sync the cursor to the current PC. ROM-backed bytes are highlighted
-  differently from writable RAM.
+  `P` to sync the cursor to the current PC. `O` now toggles the displayed byte
+  base between hex and octal; octal mode keeps the same 16-column window but
+  currently remains display-only while in-place edits stay hex-based.
+  ROM-backed bytes are highlighted differently from writable RAM.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.
@@ -1459,8 +1461,9 @@ view of any address range, with the ability to:
 - Highlight ROM-protected ranges differently from writable RAM
 - Show the alpha-plane or graphic-plane at a known offset for quick inspection
 
-Current status: first 16x16 hex/ASCII page is implemented in the native
-debugger window, including quick alpha/graphic-plane presets.
+Current status: first 16x16 memory page is implemented in the native debugger
+window with hex/octal display toggle, grouped columns, quick alpha/graphic-plane
+presets, and hex editing.
 
 ### Pause and single-step execution
 

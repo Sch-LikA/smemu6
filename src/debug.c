@@ -235,6 +235,11 @@ static void dbg_format_hex8(char *out, size_t out_size, uint8_t value)
     snprintf(out, out_size, "%02Xh", (unsigned)value);
 }
 
+static void dbg_format_oct8(char *out, size_t out_size, uint8_t value)
+{
+    snprintf(out, out_size, "%03o", (unsigned)value);
+}
+
 static void dbg_format_hex16(char *out, size_t out_size, uint16_t value)
 {
     snprintf(out, out_size, "%04Xh", (unsigned)value);
@@ -956,29 +961,42 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 
 static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
 {
+    const int octal = m->dbg.mem_view_octal != 0;
     const int addr_x = x + 16;
-    const int hex_x = x + 72;
-    const int hex_col_w = 21;
-    const int ascii_x = hex_x + DBG_MEM_COLS * hex_col_w + 12;
+    const int value_x = x + 72;
+    const int value_col_w = octal ? 28 : 21;
+    const int group_gap = octal ? 8 : 5;
+    const int show_ascii = octal ? 0 : 1;
+    const int ascii_x = x + w - 16 - DBG_MEM_COLS * 9;
     char line[160];
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
     snprintf(line,
              sizeof(line),
-             "MEMORY %04Xh-%04Xh  CURSOR=%04Xh",
+             "MEMORY %04Xh-%04Xh  CURSOR=%04Xh  VIEW=%s  EDIT=HEX",
              m->dbg.mem_base,
              (uint16_t)(m->dbg.mem_base + DBG_MEM_PAGE_SIZE - 1u),
-             m->dbg.mem_cursor);
+             m->dbg.mem_cursor,
+             octal ? "OCTAL" : "HEX");
     dbg_draw_text(m, x + 16, y + 16, line, DBG_COL_ACCENT);
     dbg_draw_text(m,
                   x + 16,
                   y + 28,
-                  m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  HEX EDIT  G JUMP  P=PC  CTRL+A/V PRESETS",
+                  m->dbg.mem_jump_active ? "JUMP: TYPE 4 HEX DIGITS" : "ARROWS MOVE  PGUP/PGDN PAGE  O TOGGLE BASE  G JUMP  P=PC  CTRL+A/V PRESETS",
                   DBG_COL_DIM);
     if (m->dbg.mem_jump_active) {
         snprintf(line, sizeof(line), "JUMP>%s", m->dbg.mem_jump_buf);
         dbg_draw_text(m, x + w - 96, y + 28, line, DBG_COL_WARN);
+    }
+
+    for (int group = 1; group < 4; group++) {
+        int sep_x = value_x + group * 4 * value_col_w + (group - 1) * group_gap + group_gap / 2;
+
+        dbg_fill_rect(m->dbg.renderer, sep_x, y + 48, 1, h - 60, DBG_COL_BORDER);
+    }
+    if (show_ascii) {
+        dbg_fill_rect(m->dbg.renderer, ascii_x - 8, y + 48, 1, h - 60, DBG_COL_BORDER);
     }
 
     for (int row = 0; row < DBG_MEM_ROWS; row++) {
@@ -990,22 +1008,30 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
             uint16_t addr = (uint16_t)(m->dbg.mem_base + row * DBG_MEM_COLS + col);
             uint8_t value = dbg_mem8(m, addr);
             char byte[8];
-            int byte_x = hex_x + col * hex_col_w;
+            int byte_x = value_x + col * value_col_w + (col / 4) * group_gap;
             int byte_ascii_x = ascii_x + col * 9;
             uint32_t byte_col = m->rom_mask[addr] ? DBG_COL_ROM : DBG_COL_TEXT;
             uint32_t ascii_col = byte_col;
 
-            snprintf(byte, sizeof(byte), "%02X", (unsigned)value);
+            if (octal) {
+                dbg_format_oct8(byte, sizeof(byte), value);
+            } else {
+                snprintf(byte, sizeof(byte), "%02X", (unsigned)value);
+            }
             if (addr == m->dbg.mem_cursor) {
-                dbg_fill_rect(m->dbg.renderer, byte_x - 2, row_y - 2, 20, 11, DBG_COL_ACTIVE);
-                dbg_fill_rect(m->dbg.renderer, byte_ascii_x - 1, row_y - 2, 9, 11, DBG_COL_ACTIVE);
+                dbg_fill_rect(m->dbg.renderer, byte_x - 2, row_y - 2, octal ? 29 : 20, 11, DBG_COL_ACTIVE);
+                if (show_ascii) {
+                    dbg_fill_rect(m->dbg.renderer, byte_ascii_x - 1, row_y - 2, 9, 11, DBG_COL_ACTIVE);
+                }
                 byte_col = DBG_COL_WARN;
                 ascii_col = DBG_COL_WARN;
             }
             dbg_draw_text(m, byte_x, row_y, byte, byte_col);
-            byte[0] = (value >= 32 && value < 127) ? (char)value : '.';
-            byte[1] = '\0';
-            dbg_draw_text(m, byte_ascii_x, row_y, byte, ascii_col);
+            if (show_ascii) {
+                byte[0] = (value >= 32 && value < 127) ? (char)value : '.';
+                byte[1] = '\0';
+                dbg_draw_text(m, byte_ascii_x, row_y, byte, ascii_col);
+            }
         }
     }
 }
@@ -1071,9 +1097,15 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
     dbg_draw_kv(m, state_x, 240 + DBG_LINE_H * 8, state_value_x, "FLAGS'", flags_shadow);
 
-    dbg_render_disassembly(m, 284, 12, 604, 210);
-    dbg_render_memory(m, 284, 224, 604, 236);
-    dbg_draw_text(m, 18, 474, "F12 CLOSE  SPACE RUN/PAUSE  F8 RUN CURSOR  F9 BREAKPOINT  SHIFT+UP/DOWN DISASM", DBG_COL_WARN);
+    dbg_fill_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 388, 260, 72, DBG_COL_BORDER);
+    dbg_draw_text(m, 28, 404, "SHORTCUTS", DBG_COL_ACCENT);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H, "SPACE RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 2, "F8 CURSOR  F9 BP  O BASE  G JUMP", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 404 + DBG_LINE_H * 3, "ARROWS MOVE  P PC  CTRL+A/V PRESETS", DBG_COL_WARN);
+
+    dbg_render_disassembly(m, 284, 12, 604, 214);
+    dbg_render_memory(m, 284, 230, 604, 230);
 }
 
 void debug_init(struct Smaky6 *m)
@@ -1102,6 +1134,7 @@ void debug_init(struct Smaky6 *m)
     m->dbg.breakpoint_resume_armed = 0;
     m->dbg.mem_base = 0;
     m->dbg.mem_cursor = 0;
+    m->dbg.mem_view_octal = 0;
     m->dbg.mem_edit_high_nibble = 1;
     m->dbg.mem_jump_active = 0;
     m->dbg.mem_jump_len = 0;
@@ -1328,6 +1361,9 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             m->dbg.mem_jump_active = 1;
             m->dbg.mem_jump_len = 0;
             m->dbg.mem_jump_buf[0] = '\0';
+            return 1;
+        case SDL_SCANCODE_O:
+            m->dbg.mem_view_octal = m->dbg.mem_view_octal ? 0 : 1;
             return 1;
         case SDL_SCANCODE_P:
             m->dbg.mem_cursor = (uint16_t)Z80_PC(m->cpu);

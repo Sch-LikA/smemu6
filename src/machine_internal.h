@@ -215,6 +215,7 @@ struct Smaky6 {
         uint8_t breakpoint_resume_armed;
         uint16_t mem_base;
         uint16_t mem_cursor;
+        uint8_t mem_view_octal;
         uint8_t mem_edit_high_nibble;
         uint8_t mem_jump_active;
         uint8_t mem_jump_len;

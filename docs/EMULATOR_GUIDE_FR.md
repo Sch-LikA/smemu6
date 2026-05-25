@@ -372,9 +372,11 @@ commandes d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou
 `F6` exécute une instruction, et `F7` exécute une trame 50 Hz complète tout en
 laissant le débogueur ouvert. Dans le panneau mémoire, les flèches déplacent
 le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
-éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex, et
-`P` recale le curseur sur le PC courant. Dans la vue de désassemblage,
-`Shift+Haut` / `Shift+Bas` déplacent la sélection, `F8` lance l'exécution
+éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex,
+`P` recale le curseur sur le PC courant, et `O` bascule l'affichage des octets
+entre l'hexadécimal et l'octal. Le mode octal reste pour l'instant un mode
+d'affichage ; l'édition en place demeure hexadécimale. Dans la vue de
+désassemblage, `Shift+Haut` / `Shift+Bas` déplacent la sélection, `F8` lance l'exécution
 jusqu'à l'adresse sélectionnée, et `F9` active ou retire un point d'arrêt à
 cette adresse. `Ctrl+A` et `Ctrl+V` placent directement la vue mémoire sur les
 plans alpha et graphique. Ce débogueur reste pour l'instant réservé aux
