@@ -457,23 +457,22 @@ static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out
 
 static void dbg_format_selected_target(struct Smaky6 *m, char *out, size_t out_size)
 {
-    char insn[96];
     char target_buf[16];
     uint16_t target;
     const char *symbol;
 
     if (!dbg_get_disasm_target(m, m->dbg.disasm_cursor, &target)) {
-        snprintf(out, out_size, "TARGET none");
+        if (out_size > 0) {
+            out[0] = '\0';
+        }
         return;
     }
 
-    dbg_disassemble_at(m, m->dbg.disasm_cursor, insn, sizeof(insn));
     dbg_format_hex16(target_buf, sizeof(target_buf), target);
     symbol = dbg_lookup_flo_symbol(target, 1);
     snprintf(out,
              out_size,
-             symbol ? "TARGET %s -> %s ;%s" : "TARGET %s -> %s",
-             insn,
+             symbol ? "TGT %s ;%s" : "TGT %s",
              target_buf,
              symbol);
 }
@@ -1485,6 +1484,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     char flags_shadow[16];
     char mode[80];
     char stop[96];
+    char status[160];
     char mem_summary[96];
     char target_summary[128];
     char stack_preview[96];
@@ -1515,14 +1515,18 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
     dbg_format_selected_target(m, target_summary, sizeof(target_summary));
     dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
+    snprintf(status,
+             sizeof(status),
+             "%s",
+             m->dbg.run_to_cursor_active
+                 ? (m->dbg.step_over_active ? "STEP OVER ACTIVE" : "TARGET ACTIVE")
+                 : stop);
+    if (target_summary[0] != '\0' && strlen(status) + 2 < sizeof(status)) {
+        strncat(status, "  ", sizeof(status) - strlen(status) - 1);
+        strncat(status, target_summary, sizeof(status) - strlen(status) - 1);
+    }
     dbg_draw_text(m, 24, 20, mode, DBG_COL_ACCENT);
-    dbg_draw_text(m,
-                  430,
-                  20,
-                  m->dbg.run_to_cursor_active
-                      ? (m->dbg.step_over_active ? "STEP OVER ACTIVE" : "TARGET ACTIVE")
-                      : stop,
-                  DBG_COL_WARN);
+    dbg_draw_text(m, 430, 20, status, DBG_COL_WARN);
 
     dbg_fill_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, top_y, 260, 210, DBG_COL_BORDER);
@@ -1616,11 +1620,6 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_render_disassembly(m, 284, top_y, 604, 214);
     dbg_render_memory(m, 284, 266, 604, 242);
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
-    dbg_draw_text(m,
-                  430,
-                  shortcuts_y + 32,
-                  target_summary,
-                  strcmp(target_summary, "TARGET none") == 0 ? DBG_COL_DIM : DBG_COL_WARN);
 }
 
 void debug_init(struct Smaky6 *m)
