@@ -321,7 +321,8 @@ Implementation note:
 - keep footer separators out of the bitmap-font glyph area; even a 1-pixel line
   through the watch row is visibly noisy in the native debugger
 - reuse the existing FLO symbol lookup to annotate top stack words in the STATE
-  panel before adding any deeper stack-navigation model
+  preview path, but place the compact symbol hint where it does not collide with
+  box separators or footer lines
 
 ### CALM service catalog uses disassembly tables before later manuals
 

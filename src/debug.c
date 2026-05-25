@@ -1286,6 +1286,7 @@ static int dbg_event_targets_window(const struct Smaky6 *m, const SDL_Event *ev)
 static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
 {
     struct DebugInsn insn[40];
+    char stack_symbols[96];
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
     uint16_t view = m->dbg.disasm_cursor;
     uint16_t low_anchor;
@@ -1325,6 +1326,8 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
              m->dbg.run_to_cursor_active ? " RUN" : "",
              dbg_flo_symbols_loaded() ? " FLO" : "");
     dbg_draw_text(m, x + 16, y + 16, header, DBG_COL_ACCENT);
+    dbg_format_stack_symbols(m, stack_symbols, sizeof(stack_symbols));
+    dbg_draw_text(m, x + 320, y + 16, stack_symbols, DBG_COL_DIM);
 
     while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(high_anchor + 96u)) {
         insn[count].addr = scan;
@@ -1522,7 +1525,6 @@ static void dbg_render_registers(struct Smaky6 *m)
     char stop[96];
     char status[160];
     char mem_summary[96];
-    char stack_symbols[96];
     char target_summary[128];
     char stack_preview[96];
     const char *mode_label;
@@ -1550,7 +1552,6 @@ static void dbg_render_registers(struct Smaky6 *m)
              (unsigned long long)m->dbg.frame_counter);
     dbg_format_stop_reason(m, stop, sizeof(stop));
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
-    dbg_format_stack_symbols(m, stack_symbols, sizeof(stack_symbols));
     dbg_format_selected_target(m, target_summary, sizeof(target_summary));
     dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
     snprintf(status,
@@ -1648,7 +1649,6 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_fill_rect(m->dbg.renderer, 24, state_panel_y + 152, 236, 1, DBG_COL_BORDER);
     dbg_draw_text(m, state_x, state_panel_y + 160, "STACK", DBG_COL_DIM);
     dbg_draw_text(m, state_x + 56, state_panel_y + 160, stack_preview, DBG_COL_WARN);
-    dbg_draw_text(m, state_x + 56, state_panel_y + 160 + DBG_LINE_H, stack_symbols, DBG_COL_DIM);
 
     dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
