@@ -1129,8 +1129,10 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
     const int group_gap = octal ? 8 : 5;
     const int show_ascii = octal ? 0 : 1;
     const int ascii_x = x + w - 16 - DBG_MEM_COLS * 9;
+    int watch_x = x + 16;
     char line[160];
     char summary[96];
+    char watch_slot[24];
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
@@ -1204,7 +1206,21 @@ static void dbg_render_memory(struct Smaky6 *m, int x, int y, int w, int h)
         }
     }
 
-    dbg_fill_rect(m->dbg.renderer, x + 12, y + h - 28, w - 24, 1, DBG_COL_BORDER);
+    for (int i = 0; i < 3; i++) {
+        snprintf(watch_slot,
+                 sizeof(watch_slot),
+                 "%c%04X:%02X",
+                 (i == (int)m->dbg.watch_selected) ? '>' : ' ',
+                 (unsigned)m->dbg.watch_addrs[i],
+                 (unsigned)dbg_mem8(m, m->dbg.watch_addrs[i]));
+        dbg_draw_text(m,
+                      watch_x,
+                      y + h - 30,
+                      watch_slot,
+                      i == (int)m->dbg.watch_selected ? DBG_COL_ACCENT : DBG_COL_DIM);
+        watch_x += (int)strlen(watch_slot) * (DBG_FONT_W * DBG_FONT_SCALE + 1) + 8;
+    }
+    dbg_fill_rect(m->dbg.renderer, x + 12, y + h - 16, w - 24, 1, DBG_COL_BORDER);
     dbg_describe_mem_cursor(m, summary, sizeof(summary));
     dbg_draw_text(m, x + 16, y + h - 18, summary, DBG_COL_WARN);
 }
@@ -1218,7 +1234,6 @@ static void dbg_render_registers(struct Smaky6 *m)
     char stop[96];
     char mem_summary[96];
     char stack_preview[96];
-    char watch_slot[24];
     const char *mode_label;
     const struct DebugCpuSnapshot *prev = m->dbg.prev_stop_valid ? &m->dbg.prev_stop_snapshot : NULL;
     const int reg_x = 28;
@@ -1329,25 +1344,11 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_text(m, state_x, state_panel_y + 160, "STACK", DBG_COL_DIM);
     dbg_draw_text(m, state_x + 56, state_panel_y + 160, stack_preview, DBG_COL_WARN);
 
-    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 72, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
     dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  TAB/W WATCH", DBG_COL_WARN);
-    for (int i = 0, watch_x = 28; i < 3; i++) {
-        snprintf(watch_slot,
-                 sizeof(watch_slot),
-                 "%c%04X:%02X",
-                 (i == (int)m->dbg.watch_selected) ? '>' : ' ',
-                 (unsigned)m->dbg.watch_addrs[i],
-                 (unsigned)dbg_mem8(m, m->dbg.watch_addrs[i]));
-        dbg_draw_text(m,
-                      watch_x,
-                      shortcuts_y + 32 + DBG_LINE_H * 2,
-                      watch_slot,
-                      i == (int)m->dbg.watch_selected ? DBG_COL_ACCENT : DBG_COL_DIM);
-        watch_x += (int)strlen(watch_slot) * (DBG_FONT_W * DBG_FONT_SCALE + 1) + 8;
-    }
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
