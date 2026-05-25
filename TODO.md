@@ -1420,8 +1420,8 @@ Current implemented floor:
 - The current native slice shows live Z80 registers, flags, a compact
   disassembly pane around PC, a 256-byte memory editor, and supports `Space`
   pause/resume, `S` / `F6` single-step, `Shift+F6` disassembly-cursor-back,
-  `Shift+F7` step-over for `CALL` / `RST` instructions (falling back to a
-  single step on other opcodes), and `F7` single-frame stepping.
+  `Shift+F7` step-over for `CALL` / `RST` / `DJNZ` instructions (falling back
+  to a single step on other opcodes), and `F7` single-frame stepping.
 - The disassembly pane now has a movable cursor (`Shift+Up` / `Shift+Down`),
   `F8` run-to-cursor, `F9` breakpoint toggle, and `Enter` follow-target for
   direct `call` / `jp` / `jr` / `djnz` / `rst` destinations, with a small
@@ -1497,9 +1497,9 @@ presets, and hex editing.
 - **Step instruction** (`F6` or `S`): execute exactly one Z80 instruction, update
   registers, redraw debug window.
 - **Step over** (`Shift+F7`): when the current opcode is `CALL` / conditional
-  `CALL` / `RST`, run until the next sequential PC so subroutines execute
-  without stopping inside them; on other opcodes this falls back to one normal
-  instruction step.
+  `CALL` / `RST` / `DJNZ`, run until the next sequential PC so subroutines or
+  counted loops execute without stopping inside them; on other opcodes this
+  falls back to one normal instruction step.
 - **Step frame** (`F7`): run until the next 50 Hz frame boundary (one ISR cycle).
 - **Run to cursor** (`F8`): execute until PC reaches the address highlighted in
   the disassembly view.

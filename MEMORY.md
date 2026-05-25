@@ -220,9 +220,10 @@ Why:
 
 ### Integrated debugger step over uses Shift+F7 and the existing target-run path
 
-Bind debugger step over to `Shift+F7` and implement it only for `CALL`,
-conditional `CALL`, and `RST` opcodes by running until the next sequential PC.
-For other opcodes, fall back to a normal single-instruction step.
+Bind debugger step over to `Shift+F7` and implement it for `CALL`,
+conditional `CALL`, `RST`, and `DJNZ` opcodes by running until the next
+sequential PC. For other opcodes, fall back to a normal single-instruction
+step.
 
 Why:
 
@@ -232,6 +233,9 @@ Why:
 - limiting the first slice to call-like instructions matches the common
   debugger expectation without inventing ambiguous semantics for jumps or block
   repeat instructions
+- `DJNZ` needs the same treatment in practice because a taken counted loop can
+  legitimately return to the same disassembly row after `F6`, which looks like
+  a no-op unless the user is watching register `B`
 
 ### Integrated debugger FLO annotations come from the checked-in symbol dump
 

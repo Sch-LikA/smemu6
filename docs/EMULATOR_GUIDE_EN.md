@@ -342,9 +342,9 @@ drive activity LEDs.  At the right end:
 Z80 registers, flags, a compact disassembly view centered on the current PC, a
 256-byte hex/ASCII memory editor, and execution controls. `Space` pauses or
 resumes execution, `S` or `F6` executes one instruction, `Shift+F7` steps over
-`CALL` / `RST` instructions by running to the next sequential `PC` (and falls
-back to a normal single-step on other opcodes), and `F7` executes one full 50
-Hz frame while keeping the debugger open, so it typically advances through
+`CALL` / `RST` / `DJNZ` instructions by running to the next sequential `PC`
+(and falls back to a normal single-step on other opcodes), and `F7` executes
+one full 50 Hz frame while keeping the debugger open, so it typically advances through
 many instructions up to the next video / IRQ boundary. In the memory pane, use the
 arrow keys to move, `PageUp` / `PageDown` to page, hex keys to edit nibbles,
 `G` to jump to a 4-digit address, `P` to sync the cursor to the current
@@ -369,6 +369,11 @@ disassembly cursor to its decoded destination for direct `call` / `jp` /
 `jr` / `djnz` / `rst` control-flow edges. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
+
+If a single `F6` step lands on the same `djnz` row again, that usually means
+the instruction executed and looped back to the same address while only
+register `B` changed. `Shift+F7` is the faster way to step over that counted
+loop and stop at the fallthrough address.
 
 In native builds, the debugger now uses the generated FLO ST export header
 compiled into the emulator itself, so it no longer depends on an external

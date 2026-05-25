@@ -952,6 +952,7 @@ static void dbg_move_disasm_cursor(struct Smaky6 *m, int direction)
 static int dbg_is_step_over_candidate(uint8_t opcode)
 {
     return opcode == 0xCDu ||
+           opcode == 0x10u ||
            (opcode & 0xC7u) == 0xC4u ||
            (opcode & 0xC7u) == 0xC7u;
 }

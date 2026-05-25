@@ -370,9 +370,9 @@ Z80 en direct, les drapeaux, une vue de désassemblage compacte centrée sur le
 PC courant, un éditeur mémoire hexadécimal/ASCII sur 256 octets et des
 commandes d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou
 `F6` exécute une instruction, `Shift+F7` exécute un « step over » sur les
-instructions `CALL` / `RST` en courant jusqu'au `PC` séquentiel suivant (et
-retombe sinon sur un simple pas d'instruction), et `F7` exécute une trame 50
-Hz complète tout en laissant le débogueur ouvert ; cela fait donc avancer en
+instructions `CALL` / `RST` / `DJNZ` en courant jusqu'au `PC` séquentiel
+suivant (et retombe sinon sur un simple pas d'instruction), et `F7` exécute
+une trame 50 Hz complète tout en laissant le débogueur ouvert ; cela fait donc avancer en
 général plusieurs instructions jusqu'à la prochaine limite vidéo / IRQ. Dans le panneau mémoire, les flèches déplacent
 le curseur, `PageUp` / `PageDown` changent de page, les touches hexadécimales
 éditent les nibbles, `G` lance un saut vers une adresse sur 4 chiffres hex,
@@ -398,6 +398,12 @@ déplace le curseur de désassemblage vers sa destination décodée pour les
 transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
+
+Si un pas `F6` revient sur la même ligne `djnz`, cela signifie en général que
+l'instruction a bien été exécutée mais qu'elle a rebouclé sur la même adresse
+en ne modifiant visiblement que le registre `B`. `Shift+F7` est alors le moyen
+le plus rapide pour franchir cette boucle comptée et s'arrêter à l'adresse de
+retombée.
 
 Dans les builds natifs, le débogueur utilise maintenant l'en-tête généré des
 exports FLO directement compilé dans l'émulateur ; il ne dépend donc plus d'un
