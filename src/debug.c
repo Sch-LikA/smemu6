@@ -890,7 +890,15 @@ static void dbg_render_disassembly(struct Smaky6 *m, int x, int y, int w, int h)
         dbg_sync_disasm_cursor(m);
         view = m->dbg.disasm_cursor;
     }
-    scan = (view > 48u) ? (uint16_t)(view - 48u) : 0u;
+    scan = view;
+    for (int i = 0; i < 5; i++) {
+        uint16_t prev = dbg_prev_disasm_addr(m, scan);
+
+        if (prev == scan) {
+            break;
+        }
+        scan = prev;
+    }
 
     dbg_fill_rect(m->dbg.renderer, x, y, w, h, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, x, y, w, h, DBG_COL_BORDER);
