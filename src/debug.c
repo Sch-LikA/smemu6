@@ -79,6 +79,7 @@ static const char *const DBG_BLOCK[4][4] = {
 };
 
 static uint8_t dbg_mem8(struct Smaky6 *m, uint16_t addr);
+static uint16_t dbg_mem16(struct Smaky6 *m, uint16_t addr);
 
 /* Key PC milestones in samos_sys17.rom used by debug_trace_pc() */
 static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
@@ -298,6 +299,24 @@ static void dbg_describe_mem_cursor(struct Smaky6 *m, char *out, size_t out_size
              (unsigned)value,
              display,
              m->rom_mask[addr] ? "ROM" : "RAM");
+}
+
+static void dbg_format_stack_preview(struct Smaky6 *m, char *out, size_t out_size)
+{
+    uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+    uint16_t w0 = dbg_mem16(m, sp);
+    uint16_t w1 = dbg_mem16(m, (uint16_t)(sp + 2u));
+    uint16_t w2 = dbg_mem16(m, (uint16_t)(sp + 4u));
+    uint16_t w3 = dbg_mem16(m, (uint16_t)(sp + 6u));
+
+    snprintf(out,
+             out_size,
+             "%04X: %04X %04X %04X %04X",
+             sp,
+             w0,
+             w1,
+             w2,
+             w3);
 }
 
 static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out_size)
@@ -1184,6 +1203,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     char mode[80];
     char stop[96];
     char mem_summary[96];
+    char stack_preview[96];
     const char *mode_label;
     const struct DebugCpuSnapshot *prev = m->dbg.prev_stop_valid ? &m->dbg.prev_stop_snapshot : NULL;
     const int reg_x = 28;
@@ -1192,7 +1212,8 @@ static void dbg_render_registers(struct Smaky6 *m)
     const int state_value_x = 160;
     const int top_y = 48;
     const int state_panel_y = 260;
-    const int shortcuts_y = 428;
+    const int state_panel_h = 176;
+    const int shortcuts_y = 444;
 
     dbg_fill_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, 12, 876, 28, DBG_COL_BORDER);
@@ -1206,6 +1227,7 @@ static void dbg_render_registers(struct Smaky6 *m)
              (unsigned long long)m->dbg.frame_counter);
     dbg_format_stop_reason(m, stop, sizeof(stop));
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
+    dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
     dbg_draw_text(m, 24, 20, mode, DBG_COL_ACCENT);
     dbg_draw_text(m, 430, 20, m->dbg.run_to_cursor_active ? "TARGET ACTIVE" : stop, DBG_COL_WARN);
 
@@ -1247,8 +1269,8 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_kv_col(m, reg_x, top_y + 52 + DBG_LINE_H * 10, reg_value_x, "SP", buf,
                     dbg_value_color(prev && prev->sp != (uint16_t)Z80_SP(m->cpu)));
 
-    dbg_fill_rect(m->dbg.renderer, 12, state_panel_y, 260, 160, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, state_panel_y, 260, 160, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 12, state_panel_y, 260, state_panel_h, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, state_panel_y, 260, state_panel_h, DBG_COL_BORDER);
     dbg_draw_text(m, state_x, state_panel_y + 16, "STATE", DBG_COL_ACCENT);
 
     snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
@@ -1288,8 +1310,12 @@ static void dbg_render_registers(struct Smaky6 *m)
                     flags_shadow,
                     dbg_value_color(prev && ((prev->af_shadow & 0x00FFu) != (m->cpu.af_.uint16_value & 0x00FFu))));
 
-    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 80, DBG_COL_PANEL);
-    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 80, DBG_COL_BORDER);
+    dbg_fill_rect(m->dbg.renderer, 24, state_panel_y + 144, 236, 1, DBG_COL_BORDER);
+    dbg_draw_text(m, state_x, state_panel_y + 152, "STACK", DBG_COL_DIM);
+    dbg_draw_text(m, state_x + 56, state_panel_y + 152, stack_preview, DBG_COL_WARN);
+
+    dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
     dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SH-UP/DN", DBG_COL_WARN);

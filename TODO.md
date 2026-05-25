@@ -1434,7 +1434,8 @@ Current implemented floor:
   current PC more distinctly from the selected disassembly cursor, and shows a
   decoded summary for the selected memory byte. The visible disassembly slice
   stays centered on the live PC unless the moved cursor is still close enough to
-  fit in the same 12-line view.
+  fit in the same 12-line view. The STATE area now also includes a compact
+  stack-top preview showing the first four 16-bit words at `SP`.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.
