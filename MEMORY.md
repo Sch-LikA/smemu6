@@ -186,6 +186,21 @@ Why:
 - until the exact oscillator/divider path is traced, the emulator keeps a
   temporary fallback clock so `-psg` remains testable instead of silent
 
+### Integrated debugger is native-first and opt-in
+
+The first integrated debugger slice is enabled only on native builds and stays
+disabled by default until the user presses `F12`.
+
+Why:
+
+- the native SDL build can open a second debugger window immediately with no
+  extra dependencies
+- the web build needs a dedicated HTML debugger panel rather than a second SDL
+  window model, so shipping the same UI there now would force the wrong
+  abstraction
+- keeping the debugger opt-in avoids changing normal emulator startup or
+  cluttering the default runtime path
+
 ## Known Limitations
 
 ### SDCC programs still do not return cleanly to the CLI

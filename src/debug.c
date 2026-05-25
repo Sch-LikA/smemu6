@@ -6,7 +6,23 @@
 #include "memory.h"
 
 #include <Z80.h>
+#include <SDL2/SDL.h>
 #include <stdio.h>
+#include <string.h>
+
+#define DBG_WIN_W 960
+#define DBG_WIN_H 540
+#define DBG_FONT_W 8
+#define DBG_FONT_H 8
+#define DBG_FONT_SCALE 2
+
+#define DBG_COL_BG      0xFF08100Cu
+#define DBG_COL_PANEL   0xFF102018u
+#define DBG_COL_BORDER  0xFF24543Cu
+#define DBG_COL_TEXT    0xFFB8F0C8u
+#define DBG_COL_DIM     0xFF6AA47Eu
+#define DBG_COL_ACCENT  0xFFFFD36Au
+#define DBG_COL_WARN    0xFFFF9C5Cu
 
 /* Key PC milestones in samos_sys17.rom used by debug_trace_pc() */
 static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
@@ -34,9 +50,268 @@ static const struct { uint16_t pc; const char *label; } MILESTONES[] = {
 };
 #define N_MILESTONES (int)(sizeof(MILESTONES)/sizeof(MILESTONES[0]))
 
+static void dbg_set_color(SDL_Renderer *ren, uint32_t col)
+{
+    SDL_SetRenderDrawColor(ren,
+                           (uint8_t)((col >> 16) & 0xFFu),
+                           (uint8_t)((col >> 8) & 0xFFu),
+                           (uint8_t)(col & 0xFFu),
+                           (uint8_t)((col >> 24) & 0xFFu));
+}
+
+static void dbg_fill_rect(SDL_Renderer *ren, int x, int y, int w, int h, uint32_t col)
+{
+    SDL_Rect r = { x, y, w, h };
+
+    dbg_set_color(ren, col);
+    SDL_RenderFillRect(ren, &r);
+}
+
+static void dbg_draw_rect(SDL_Renderer *ren, int x, int y, int w, int h, uint32_t col)
+{
+    SDL_Rect r = { x, y, w, h };
+
+    dbg_set_color(ren, col);
+    SDL_RenderDrawRect(ren, &r);
+}
+
+static int dbg_draw_char(struct Smaky6 *m, int px, int py, char c, uint32_t col)
+{
+    unsigned char uc = (unsigned char)c;
+    const uint8_t *glyph;
+
+    if (!m->dbg.renderer) {
+        return DBG_FONT_W * DBG_FONT_SCALE + 1;
+    }
+    if (uc >= 128) {
+        uc = '?';
+    }
+
+    glyph = &m->vid.chargen[uc * 16u];
+    dbg_set_color(m->dbg.renderer, col);
+    for (int row = 0; row < DBG_FONT_H; row++) {
+        uint8_t bits = glyph[row];
+
+        for (int bit = 0; bit < DBG_FONT_W; bit++) {
+            if (bits & (1u << bit)) {
+                SDL_Rect dot = {
+                    px + bit * DBG_FONT_SCALE,
+                    py + row * DBG_FONT_SCALE,
+                    DBG_FONT_SCALE,
+                    DBG_FONT_SCALE
+                };
+
+                SDL_RenderFillRect(m->dbg.renderer, &dot);
+            }
+        }
+    }
+
+    return DBG_FONT_W * DBG_FONT_SCALE + 1;
+}
+
+static void dbg_draw_text(struct Smaky6 *m, int x, int y, const char *s, uint32_t col)
+{
+    while (*s) {
+        x += dbg_draw_char(m, x, y, *s, col);
+        s++;
+    }
+}
+
+static void dbg_draw_kv(struct Smaky6 *m, int x, int y, const char *label, const char *value)
+{
+    dbg_draw_text(m, x, y, label, DBG_COL_DIM);
+    dbg_draw_text(m, x + 180, y, value, DBG_COL_TEXT);
+}
+
+static void dbg_format_flags(zuint8 flags, char *out, size_t out_size)
+{
+    snprintf(out,
+             out_size,
+             "%c%c%c%c%c%c%c%c",
+             (flags & 0x80u) ? 'S' : '-',
+             (flags & 0x40u) ? 'Z' : '-',
+             (flags & 0x20u) ? '5' : '-',
+             (flags & 0x10u) ? 'H' : '-',
+             (flags & 0x08u) ? '3' : '-',
+             (flags & 0x04u) ? 'P' : '-',
+             (flags & 0x02u) ? 'N' : '-',
+             (flags & 0x01u) ? 'C' : '-');
+}
+
+static void dbg_close_window(struct Smaky6 *m)
+{
+    if (m->dbg.renderer) {
+        SDL_DestroyRenderer(m->dbg.renderer);
+        m->dbg.renderer = NULL;
+    }
+    if (m->dbg.window) {
+        SDL_DestroyWindow(m->dbg.window);
+        m->dbg.window = NULL;
+    }
+
+    m->dbg.visible = 0;
+    m->dbg.paused = 0;
+    m->dbg.stepping = 0;
+    m->dbg.step_instruction_pending = 0;
+    m->dbg.step_frame_pending = 0;
+    m->dbg.window_id = 0;
+}
+
+static int dbg_open_window(struct Smaky6 *m)
+{
+#ifdef __EMSCRIPTEN__
+    (void)m;
+    fprintf(stderr, "debug: native debugger window is unavailable in the web build\n");
+    return -1;
+#else
+    SDL_Renderer *ren;
+
+    if (m->dbg.window) {
+        return 0;
+    }
+
+    m->dbg.window = SDL_CreateWindow("Smaky 6 Debugger",
+                                     SDL_WINDOWPOS_CENTERED,
+                                     SDL_WINDOWPOS_CENTERED,
+                                     DBG_WIN_W,
+                                     DBG_WIN_H,
+                                     SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    if (!m->dbg.window) {
+        fprintf(stderr, "debug: failed to create debugger window: %s\n", SDL_GetError());
+        return -1;
+    }
+
+    ren = SDL_CreateRenderer(m->dbg.window,
+                             -1,
+                             SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!ren) {
+        ren = SDL_CreateRenderer(m->dbg.window, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!ren) {
+        fprintf(stderr, "debug: failed to create debugger renderer: %s\n", SDL_GetError());
+        SDL_DestroyWindow(m->dbg.window);
+        m->dbg.window = NULL;
+        return -1;
+    }
+
+    m->dbg.renderer = ren;
+    m->dbg.window_id = SDL_GetWindowID(m->dbg.window);
+    SDL_RenderSetLogicalSize(m->dbg.renderer, DBG_WIN_W, DBG_WIN_H);
+    m->dbg.visible = 1;
+    return 0;
+#endif
+}
+
+static int dbg_event_targets_window(const struct Smaky6 *m, const SDL_Event *ev)
+{
+    if (!m->dbg.visible || m->dbg.window_id == 0) {
+        return 0;
+    }
+
+    switch (ev->type) {
+    case SDL_WINDOWEVENT:
+        return ev->window.windowID == m->dbg.window_id;
+    case SDL_KEYDOWN:
+    case SDL_KEYUP:
+        return ev->key.windowID == m->dbg.window_id;
+    case SDL_TEXTINPUT:
+        return ev->text.windowID == m->dbg.window_id;
+    default:
+        return 0;
+    }
+}
+
+static void dbg_render_pc_bytes(struct Smaky6 *m, int x, int y)
+{
+    uint16_t pc = (uint16_t)Z80_PC(m->cpu);
+    uint16_t base = (pc >= 16u) ? (uint16_t)(pc - 16u) : 0u;
+
+    dbg_draw_text(m, x, y, "PC BYTES", DBG_COL_ACCENT);
+    for (int row = 0; row < 8; row++) {
+        char line[96];
+        uint16_t addr = (uint16_t)(base + row * 4u);
+
+        snprintf(line,
+                 sizeof(line),
+                 "%c %04X: %02X %02X %02X %02X",
+                 (pc >= addr && pc < (uint16_t)(addr + 4u)) ? '>' : ' ',
+                 addr,
+                 memory_read(m, addr),
+                 memory_read(m, (uint16_t)(addr + 1u)),
+                 memory_read(m, (uint16_t)(addr + 2u)),
+                 memory_read(m, (uint16_t)(addr + 3u)));
+        dbg_draw_text(m, x, y + 30 + row * 24, line, DBG_COL_TEXT);
+    }
+}
+
+static void dbg_render_registers(struct Smaky6 *m)
+{
+    char buf[64];
+    char flags[16];
+    char flags_shadow[16];
+
+    dbg_fill_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 12, 12, 430, 340, DBG_COL_BORDER);
+    dbg_draw_text(m, 28, 28, "CPU REGISTERS", DBG_COL_ACCENT);
+
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_AF(m->cpu));
+    dbg_draw_kv(m, 28, 64, "AF", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.af_.uint16_value);
+    dbg_draw_kv(m, 28, 88, "AF'", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_BC(m->cpu));
+    dbg_draw_kv(m, 28, 112, "BC", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.bc_.uint16_value);
+    dbg_draw_kv(m, 28, 136, "BC'", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_DE(m->cpu));
+    dbg_draw_kv(m, 28, 160, "DE", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.de_.uint16_value);
+    dbg_draw_kv(m, 28, 184, "DE'", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_HL(m->cpu));
+    dbg_draw_kv(m, 28, 208, "HL", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)m->cpu.hl_.uint16_value);
+    dbg_draw_kv(m, 28, 232, "HL'", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IX(m->cpu));
+    dbg_draw_kv(m, 28, 256, "IX", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_IY(m->cpu));
+    dbg_draw_kv(m, 28, 280, "IY", buf);
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_SP(m->cpu));
+    dbg_draw_kv(m, 28, 304, "SP", buf);
+
+    dbg_fill_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_PANEL);
+    dbg_draw_rect(m->dbg.renderer, 458, 12, 490, 340, DBG_COL_BORDER);
+    dbg_draw_text(m, 474, 28, "STATE", DBG_COL_ACCENT);
+
+    snprintf(buf, sizeof(buf), "%04X", (unsigned)Z80_PC(m->cpu));
+    dbg_draw_kv(m, 474, 64, "PC", buf);
+    snprintf(buf, sizeof(buf), "%02X / %02X", (unsigned)m->cpu.i, (unsigned)m->cpu.r);
+    dbg_draw_kv(m, 474, 88, "I / R", buf);
+    snprintf(buf, sizeof(buf), "%u / %u / IM%u",
+             (unsigned)m->cpu.iff1,
+             (unsigned)m->cpu.iff2,
+             (unsigned)m->cpu.im);
+    dbg_draw_kv(m, 474, 112, "IFF1 / IFF2 / IM", buf);
+    snprintf(buf, sizeof(buf), "%s", m->dbg.paused ? "PAUSED" : "RUNNING");
+    dbg_draw_kv(m, 474, 136, "EXECUTION", buf);
+    snprintf(buf, sizeof(buf), "%u", (unsigned)m->dbg.last_run_tstates);
+    dbg_draw_kv(m, 474, 160, "LAST T-STATES", buf);
+    snprintf(buf, sizeof(buf), "%llu", (unsigned long long)m->dbg.frame_counter);
+    dbg_draw_kv(m, 474, 184, "FRAME COUNT", buf);
+
+    dbg_format_flags((zuint8)(Z80_AF(m->cpu) & 0x00FFu), flags, sizeof(flags));
+    dbg_draw_kv(m, 474, 220, "FLAGS", flags);
+    dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
+    dbg_draw_kv(m, 474, 244, "FLAGS'", flags_shadow);
+
+    dbg_render_pc_bytes(m, 474, 280);
+}
+
 void debug_init(struct Smaky6 *m)
 {
+    m->dbg.visible = 0;
+    m->dbg.paused = 0;
     m->dbg.stepping = 0;
+    m->dbg.step_instruction_pending = 0;
+    m->dbg.step_frame_pending = 0;
     m->dbg.trace    = 0;
     m->dbg.trace_flow = 0;
     m->dbg.flow_budget = 0;
@@ -46,8 +321,119 @@ void debug_init(struct Smaky6 *m)
     m->dbg.last_io19_pc = 0xFFFF;
     m->dbg.last_io19_data = 0xFF;
     m->dbg.io19_repeat_count = 0;
+    m->dbg.last_run_tstates = 0;
+    m->dbg.frame_counter = 0;
+    m->dbg.window = NULL;
+    m->dbg.renderer = NULL;
+    m->dbg.window_id = 0;
 }
-void debug_fini(struct Smaky6 *m)   { (void)m; }
+
+void debug_fini(struct Smaky6 *m)
+{
+    dbg_close_window(m);
+}
+
+int debug_is_visible(struct Smaky6 *m) { return m->dbg.visible; }
+int debug_is_paused(struct Smaky6 *m) { return m->dbg.paused; }
+
+void debug_request_step_instruction(struct Smaky6 *m)
+{
+    m->dbg.paused = 1;
+    m->dbg.stepping = 1;
+    m->dbg.step_instruction_pending = 1;
+}
+
+void debug_request_step_frame(struct Smaky6 *m)
+{
+    m->dbg.paused = 1;
+    m->dbg.stepping = 1;
+    m->dbg.step_frame_pending = 1;
+}
+
+int debug_consume_step_instruction(struct Smaky6 *m)
+{
+    int pending = m->dbg.step_instruction_pending;
+    m->dbg.step_instruction_pending = 0;
+    return pending;
+}
+
+int debug_consume_step_frame(struct Smaky6 *m)
+{
+    int pending = m->dbg.step_frame_pending;
+    m->dbg.step_frame_pending = 0;
+    return pending;
+}
+
+void debug_note_instruction_run(struct Smaky6 *m, uint32_t tstates)
+{
+    m->dbg.last_run_tstates = tstates;
+}
+
+void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates)
+{
+    m->dbg.last_run_tstates = tstates;
+    m->dbg.frame_counter++;
+}
+
+int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
+{
+    if (!dbg_event_targets_window(m, ev)) {
+        return 0;
+    }
+
+    switch (ev->type) {
+    case SDL_WINDOWEVENT:
+        if (ev->window.event == SDL_WINDOWEVENT_CLOSE) {
+            dbg_close_window(m);
+        }
+        return 1;
+
+    case SDL_KEYDOWN:
+        switch (ev->key.keysym.scancode) {
+        case SDL_SCANCODE_F12:
+            dbg_close_window(m);
+            return 1;
+        case SDL_SCANCODE_SPACE:
+            m->dbg.paused = !m->dbg.paused;
+            m->dbg.stepping = m->dbg.paused;
+            if (!m->dbg.paused) {
+                m->dbg.step_instruction_pending = 0;
+                m->dbg.step_frame_pending = 0;
+            }
+            return 1;
+        case SDL_SCANCODE_S:
+        case SDL_SCANCODE_F6:
+            debug_request_step_instruction(m);
+            return 1;
+        case SDL_SCANCODE_F7:
+            debug_request_step_frame(m);
+            return 1;
+        default:
+            return 1;
+        }
+
+    case SDL_KEYUP:
+    case SDL_TEXTINPUT:
+        return 1;
+
+    default:
+        return 0;
+    }
+}
+
+void debug_render(struct Smaky6 *m)
+{
+    if (!m->dbg.visible || !m->dbg.renderer) {
+        return;
+    }
+
+    dbg_fill_rect(m->dbg.renderer, 0, 0, DBG_WIN_W, DBG_WIN_H, DBG_COL_BG);
+    dbg_render_registers(m);
+    dbg_draw_text(m, 28, 380, "F12 CLOSE   SPACE PAUSE/RUN   S OR F6 STEP INSTR   F7 STEP FRAME", DBG_COL_WARN);
+    dbg_draw_text(m, 28, 410, "Native-only debugger window. Web UI can reuse the same backend later.", DBG_COL_DIM);
+    dbg_draw_text(m, 28, 440, "Disassembly and memory editor are still pending in this first integrated slice.", DBG_COL_DIM);
+    SDL_RenderPresent(m->dbg.renderer);
+}
 
 /* Called from the Z80 hook each opcode fetch; prints a line the first time
  * the CPU reaches each labeled milestone address. */
@@ -827,9 +1213,16 @@ void debug_trace_pc(struct Smaky6 *m, uint16_t pc)
 
 void debug_toggle(struct Smaky6 *m)
 {
-    m->dbg.stepping = !m->dbg.stepping;
-    fprintf(stderr, "debug: single-step %s\n", m->dbg.stepping ? "ON" : "OFF");
-    if (m->dbg.stepping) debug_dump_regs(m);
+    if (m->dbg.visible) {
+        dbg_close_window(m);
+        fprintf(stderr, "debug: window hidden\n");
+        return;
+    }
+
+    if (dbg_open_window(m) == 0) {
+        fprintf(stderr, "debug: window shown (F12 toggle, Space pause, S/F6 step, F7 frame)\n");
+        debug_render(m);
+    }
 }
 
 void debug_dump_regs(struct Smaky6 *m)
@@ -856,7 +1249,10 @@ void debug_hexdump(struct Smaky6 *m, uint16_t from, uint16_t len)
     fprintf(stderr, "\n");
 }
 
-int debug_is_stepping(struct Smaky6 *m) { return m->dbg.stepping; }
+int debug_is_stepping(struct Smaky6 *m)
+{
+    return m->dbg.stepping || m->dbg.step_instruction_pending || m->dbg.step_frame_pending;
+}
 
 void debug_set_trace(struct Smaky6 *m, int on)
 {

@@ -282,6 +282,8 @@ audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 - `End`: current audited ordinary-key position 30 (`0x04` normal, `0x05` shifted).
 - `F11` or `Pause`: **BREAK** (top-right key), triggers NMI and drops into SYSMON monitor.
 - `Shift+F11` or `Shift+Pause`: **SHIFT+BREAK**, hard reset and reboot from DX0:.
+- `F12`: toggle the optional **native debugger window**. It is disabled by default,
+  opens only on demand, and is currently not exposed in the web build.
 - `Escape`: **ESC / UNDO** (top-left key), current working mapping emits `0x06`.
 
 Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
@@ -335,6 +337,12 @@ drive activity LEDs.  At the right end:
 - **RESET** button — requires **two clicks**: first click arms the button
   (blinks orange for 3 s); second click confirms the hard reset.  Clicking
   anywhere else cancels.
+
+**Native debugger window:** Press `F12` to open a second SDL window with live
+Z80 registers, flags, PC-near byte view, and execution controls. `Space`
+pauses or resumes execution, `S` or `F6` executes one instruction, and `F7`
+executes one full 50 Hz frame while keeping the debugger open. The debugger is
+currently native-only; the web build does not expose an HTML debugger panel yet.
 
 ---
 

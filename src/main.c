@@ -178,6 +178,7 @@ static void usage(const char *argv0)
         "  -help          Show this help\n"
         "  Pause / F11          BREAK key (top-right, NMI → monitor)\n"
         "  Shift+Pause / Shift+F11  SHIFT+BREAK (hard reset)\n"
+        "  F12                  Toggle native debugger window\n"
         "  Escape               ESC / UNDO key (top-left, current working code 0x06)\n"
         "  Ctrl+D / SIGUSR1  Dump RAM to smaky6_ram_NNNN_pcXXXX.bin at any time\n"
         "  Ctrl+R / SIGUSR2  Refresh mounted host-directory virtual floppies\n",
@@ -425,6 +426,10 @@ static void main_loop_iter(void)
     SDL_PumpEvents();   /* answer WM pings (_NET_WM_PING) every iteration */
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+        if (debug_handle_event(L->m, &ev)) {
+            continue;
+        }
+
         switch (ev.type) {
         case SDL_QUIT:
             L->running = 0;
@@ -566,11 +571,21 @@ static void main_loop_iter(void)
 
     /* Run as many 50 Hz frames as the accumulated time allows */
     while (L->accum_ms >= 20.0) {
+        int ran_machine_frame = 0;
+
         if (check_timeouts(L)) break;
         if (!L->running) break;   /* honour quit requests between frames */
 
         if (!L->freeze_cpu) {
-            if (L->m->dbg.trace_kbd && L->m->kbd.found) {
+            if (debug_consume_step_instruction(L->m)) {
+                machine_step_instruction(L->m);
+                if (L->m->cpu_stalled) {
+                    fprintf(stderr, "[main] CPU stall detected during single-step; exiting cleanly\n");
+                    L->running = 0;
+                    break;
+                }
+            } else if (!debug_is_paused(L->m) || debug_consume_step_frame(L->m)) {
+                if (L->m->dbg.trace_kbd && L->m->kbd.found) {
                 fprintf(stderr,
                         "[kbd] pre-frame %d found=%d code=%02X held=%d boot=%d reassert=%d\n",
                         L->frame_cnt + 1,
@@ -579,18 +594,25 @@ static void main_loop_iter(void)
                         L->m->kbd.physically_held,
                         L->m->kbd.boot_key_held,
                         L->m->kbd.reassert_pending);
-            }
-            keyboard_frame_tick(L->m);
-            machine_int(L->m);
-            machine_run_frame(L->m);
-            if (L->m->cpu_stalled) {
-                fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
-                L->running = 0;
-                break;
+                }
+                keyboard_frame_tick(L->m);
+                machine_int(L->m);
+                machine_run_frame(L->m);
+                if (L->m->cpu_stalled) {
+                    fprintf(stderr, "[main] CPU stall detected; exiting cleanly\n");
+                    L->running = 0;
+                    break;
+                }
+                ran_machine_frame = 1;
             }
         } /* !freeze_cpu */
         L->accum_ms -= 20.0;
         L->frame_due = 1;
+
+        if (!L->freeze_cpu && !ran_machine_frame) {
+            continue;
+        }
+
         L->frame_cnt++;
 
         if (L->break_to_monitor && !L->stage1_pressed && L->frame_cnt == 100) {
@@ -734,6 +756,7 @@ static void main_loop_iter(void)
     /* ── Render ─────────────────────────────────────────────────────── */
     if (L->frame_due) {
         video_render(L->m);
+        debug_render(L->m);
         L->frame_due = 0;
     }
 #ifndef __EMSCRIPTEN__

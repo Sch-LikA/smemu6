@@ -176,7 +176,11 @@ struct Smaky6 {
 
     /* Debug */
     struct {
+        int visible;
+        int paused;
         int stepping;
+        int step_instruction_pending;
+        int step_frame_pending;
         int trace;       /* 1 = log Z80 PC at boot milestones to stderr */
         int trace_port08; /* 1 = log port 0x08 IN/OUT traffic */
         int trace_kbd;    /* 1 = log every CLA / status port read */
@@ -200,6 +204,11 @@ struct Smaky6 {
         uint32_t io19_repeat_count; /* suppressed repeated 0x19 writes */
         uint16_t frame_start_pc; /* PC at start of frame for stall detection */
         int stall_frames; /* consecutive frames with no PC progress */
+        uint32_t last_run_tstates;
+        uint64_t frame_counter;
+        SDL_Window *window;
+        SDL_Renderer *renderer;
+        Uint32 window_id;
         /* Drift check: accumulate executed cycles; every SMAKY6_FRAME_HZ frames
          * (= 1 second) verify total is within 1% of expected. */
         uint64_t drift_cycles_accum; /* running sum of executed cycles */

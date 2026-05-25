@@ -302,6 +302,7 @@ le chemin strict CLA / `SYS.SY`.
 | `Fin` (End) | Position de touche ordinaire 30 auditée (`0x04` normal, `0x05` avec Shift) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
+| `F12` | Bascule la **fenêtre de débogage native**. Elle est désactivée par défaut, s'ouvre à la demande seulement et n'est pas encore exposée dans le build web |
 | `Escape` | **ESC / UNDO** (touche en haut à gauche) — le mapping de travail courant émet `0x06` |
 
 Les anciens alias de convenance comme `F8`, `Inser`, `Orig`, `Alt gauche`,
@@ -361,6 +362,15 @@ Winchester.  À droite se trouvent deux boutons :
 - **RESET** — nécessite **deux clics** : le premier arme le bouton (il clignote
   en orange pendant 3 s) ; le second confirme la réinitialisation matérielle.
   Cliquer ailleurs annule l'état armé.
+
+### Fenêtre de débogage native
+
+Appuyez sur `F12` pour ouvrir une seconde fenêtre SDL affichant les registres
+Z80 en direct, les drapeaux, un aperçu des octets autour du PC et des commandes
+d'exécution. `Space` met l'exécution en pause ou la relance, `S` ou `F6`
+exécute une instruction, et `F7` exécute une trame 50 Hz complète tout en
+laissant le débogueur ouvert. Ce débogueur reste pour l'instant réservé aux
+versions natives ; le build web n'expose pas encore de panneau HTML dédié.
 
 ### Touches standard
 

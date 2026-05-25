@@ -441,7 +441,7 @@ void machine_run_frame(struct Smaky6 *m)
     }
     m->dbg.frame_start_pc = pc_now;
 
-    if (!debug_is_stepping(m)) {
+    {
         zusize cycles = 0;
         m->snd.frame_base = 0;   /* reset sound frame-position tracker */
         if (do_int_pulse) {
@@ -504,6 +504,7 @@ void machine_run_frame(struct Smaky6 *m)
         sound_end_frame(m);
         rtc_tick_frame(&m->rtc);
         floppy_tick(m);
+        debug_note_frame_run(m, (uint32_t)cycles);
 
         /* Drift check (debug builds only): once per second verify that the
          * accumulated executed cycles match the expected frame budget within
@@ -528,12 +529,24 @@ void machine_run_frame(struct Smaky6 *m)
             m->dbg.drift_frames       = 0;
         }
 #endif
-    } else {
-        /* Single-step: execute one instruction */
-        z80_execute(&m->cpu, 1);
-        debug_dump_regs(m);
     }
 
+}
+
+uint32_t machine_step_instruction(struct Smaky6 *m)
+{
+    zusize ran = z80_execute(&m->cpu, 1);
+
+    if (ran == 0) {
+        fprintf(stderr, "[stall] CPU made no progress in single-step at PC %04X; exiting\n",
+                (unsigned)Z80_PC(m->cpu));
+        m->cpu_stalled = 1;
+        return 0;
+    }
+
+    keyboard_tick_cycles(m, (uint32_t)ran);
+    debug_note_instruction_run(m, (uint32_t)ran);
+    return (uint32_t)ran;
 }
 
 void machine_nmi(struct Smaky6 *m)

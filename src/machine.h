@@ -49,6 +49,9 @@ int  machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base);
 /* Run one full 50 Hz frame (~50 000 T-states at 2.5 MHz) */
 void machine_run_frame(struct Smaky6 *m);
 
+/* Execute exactly one Z80 instruction without advancing a full 50 Hz frame. */
+uint32_t machine_step_instruction(struct Smaky6 *m);
+
 /* Assert / release NMI (BREAK key) */
 void machine_nmi(struct Smaky6 *m);
 

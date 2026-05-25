@@ -1397,9 +1397,19 @@ path is permanently blocked by `0x4582=0x80` has been withdrawn pending re-audit
 
 ## Debugger
 
+Current implemented floor:
+
+- Native build only, disabled by default.
+- `F12` toggles a second SDL debugger window on demand.
+- The first integrated slice already shows live Z80 registers, flags, current
+  PC-near bytes, and supports `Space` pause/resume, `S` / `F6` single-step,
+  and `F7` single-frame stepping.
+- Web debugger UI is intentionally deferred until there is a dedicated HTML
+  panel design; no second-window SDL approach should be assumed for Emscripten.
+
 ### Live CPU register window
 
-An optional secondary SDL window (toggled with a key, e.g. F12 / Ctrl+D) showing
+An optional secondary SDL window (toggled with `F12`) showing
 all Z80 registers updated every frame:
 
 |Column 1|Column 2|
@@ -1414,6 +1424,9 @@ all Z80 registers updated every frame:
 Should also show the current disassembly around PC (5 lines back, 10 ahead)
 using a simple Z80 disassembler (the `z80` / `zeta` dep may already expose one;
 otherwise a minimal standalone table is ~200 lines of C).
+
+Status: live registers and a PC-near byte view exist; mnemonic disassembly is
+still pending.
 
 ### Memory editor
 
@@ -1444,9 +1457,10 @@ view of any address range, with the ability to:
 
 - The existing `debug.c` / `debug.h` files already have `debug_toggle()` and
   `trace_kbd` / `trace_regs` flags.  Extend rather than replace.
-- The debug window can be a second `SDL_Window` + `SDL_Renderer` created on demand;
-  no extra dependencies needed beyond SDL2 + chargen ROM font.
+- The native debug window can be a second `SDL_Window` + `SDL_Renderer` created
+  on demand; no extra dependencies needed beyond SDL2 + chargen ROM font.
 - All breakpoint and step state lives in `struct dbg` (in `machine_internal.h`).
-- The main loop already has a `freeze_cpu` flag; pause can reuse it.
-- Single-step requires a new `step_pending` flag checked in `machine_run_frame()`:
-  execute exactly one instruction then set `freeze_cpu=1` again.
+- The main loop must keep rendering while debugger pause is active, but should
+  avoid advancing prompt/injection state unless an emulated frame actually ran.
+- Instruction-step is a distinct execution path from the normal 50 Hz frame
+  runner so it does not accidentally advance frame timing or inject a fresh IRQ.

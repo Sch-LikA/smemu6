@@ -99,6 +99,10 @@ Same as the native build — see [docs/EMULATOR_GUIDE_EN.md](../docs/EMULATOR_GU
 | Shift+Pause / Shift+F11  | SHIFT+BREAK (hard reset) |
 | Ctrl+Q                   | Quit (reloads page)      |
 
+`F12` currently does nothing in the web build. The new integrated debugger is
+native-only for now and will need a dedicated HTML panel instead of a second
+SDL window before it is exposed here.
+
 For Smaky function keys CURSOR / COPY / KILL / PROGRA / SHOW / SEARCH / CHANGE,
 prefer the dedicated front-panel web buttons after startup. Browsers often
 reserve `F1`..`F7`, and some integrated browser surfaces do not deliver those
