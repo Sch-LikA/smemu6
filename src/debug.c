@@ -1292,7 +1292,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 80, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STEP  F7 FRAME", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SHIFT UP/DN", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CURSOR  F9 BP  SH-UP/DN", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
