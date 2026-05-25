@@ -227,9 +227,11 @@ struct Smaky6 {
         uint32_t last_run_tstates;
         uint64_t frame_counter;
         uint16_t disasm_cursor;
+        uint16_t disasm_history[16];
         uint16_t run_to_cursor_addr;
         uint16_t breakpoint_resume_pc;
         uint16_t breakpoints[16];
+        uint8_t disasm_history_count;
         uint8_t breakpoint_count;
         uint8_t run_to_cursor_active;
         uint8_t step_over_active;

@@ -270,6 +270,14 @@ Why:
 - reusing one target-decoder helper keeps the navigation behavior aligned with
   the disassembly suffix hints instead of growing a second inconsistent decoder
 
+Implementation note:
+
+- keep a small disassembly-history stack so `Backspace` can jump back after a
+  follow-target action instead of forcing manual reverse navigation
+- keep the control-flow target decoding and step-over candidate rules in a tiny
+  standalone helper with a dedicated regression test so navigation and stepping
+  stay consistent
+
 ### Integrated debugger disassembly centers the active focus
 
 Keep the live `PC` row near the middle when the disassembly cursor is synced to

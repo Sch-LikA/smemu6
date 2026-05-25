@@ -395,7 +395,8 @@ panneau ; quand vous parcourez avec `Shift+F6` ou `Shift+Haut` / `Shift+Bas`,
 la vue se recentre autour de la ligne sélectionnée pour qu'elle reste visible
 pendant le parcours avant ou arrière. `Entrée` sur une instruction suivable
 déplace le curseur de désassemblage vers sa destination décodée pour les
-transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`. Ce
+transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`, et
+`Retour arrière` remonte cette petite pile d'historique de suivi. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 

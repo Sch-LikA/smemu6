@@ -1425,7 +1425,9 @@ Current implemented floor:
 - The disassembly pane now has a movable cursor (`Shift+Up` / `Shift+Down`),
   `F8` run-to-cursor, `F9` breakpoint toggle, and `Enter` follow-target for
   direct `call` / `jp` / `jr` / `djnz` / `rst` destinations, with a small
-  fixed breakpoint table in the debugger state.
+  fixed breakpoint table in the debugger state. `Backspace` now pops a small
+  disassembly-history stack so followed targets can be unwound without manual
+  scrolling.
 - The memory pane currently supports arrows for navigation, `PageUp` /
   `PageDown` for paging, hex-key nibble edits, `G` for a 4-digit hex jump, and
   `P` to sync the cursor to the current PC. `O` now toggles the displayed byte
@@ -1441,7 +1443,9 @@ Current implemented floor:
   browsing does not scroll that selection out of view after only a few steps.
   The row-window math now also lives in a tiny standalone helper with a native
   regression test target so the centering / visibility rules can be verified
-  without opening the SDL debugger window.
+  without opening the SDL debugger window. The control-flow target decoding and
+  step-over candidate rules now also live in a second tiny helper with its own
+  regression test target, so follow-target and step-over semantics stay aligned.
   The STATE area now also includes a compact
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /

@@ -27,6 +27,9 @@ void debug_request_step_instruction(struct Smaky6 *m);
 /* Queue a single-frame step while paused. */
 void debug_request_step_frame(struct Smaky6 *m);
 
+/* Returns 1 if the legacy single-step mode flag is active */
+int debug_is_stepping(struct Smaky6 *m);
+
 /* Returns 1 when breakpoints or a pending run-to-cursor target require
  * instruction-boundary checks during normal frame execution. */
 int debug_stop_conditions_active(struct Smaky6 *m);
@@ -54,9 +57,6 @@ void debug_dump_regs(struct Smaky6 *m);
 
 /* Hex dump of memory range [from, from+len) to stdout */
 void debug_hexdump(struct Smaky6 *m, uint16_t from, uint16_t len);
-
-/* Returns 1 if the legacy single-step mode flag is active */
-int debug_is_stepping(struct Smaky6 *m);
 
 /* Called from the Z80 opcode-fetch hook; prints milestone labels to stderr
  * when -trace is active.  pc = current Z80 program counter. */

@@ -85,6 +85,11 @@ add_library(smemu6_debug_viewport STATIC
 )
 target_include_directories(smemu6_debug_viewport PUBLIC src)
 
+add_library(smemu6_debug_flow STATIC
+    src/debug_flow.c
+)
+target_include_directories(smemu6_debug_flow PUBLIC src)
+
 # ── tinyfiledialogs (native file dialog; no CMake build, just two files) ─────
 # Not used for Emscripten builds (no native dialog API in the browser).
 if(NOT EMSCRIPTEN)
@@ -311,6 +316,7 @@ endif()
 
 target_link_libraries(smemu6 PRIVATE smaky6_psg)
 target_link_libraries(smemu6 PRIVATE smemu6_debug_viewport)
+target_link_libraries(smemu6 PRIVATE smemu6_debug_flow)
 
 # ── Version compile definition ───────────────────────────────────────────────
 target_compile_definitions(smemu6 PRIVATE SMEMU6_VERSION="${SMEMU6_VERSION}")
@@ -350,6 +356,19 @@ if(NOT EMSCRIPTEN)
     endif()
     add_test(NAME smemu6_debug_viewport
              COMMAND smemu6_debug_viewport_test)
+
+    add_executable(smemu6_debug_flow_test
+        src/debug_flow_test.c
+    )
+    target_link_libraries(smemu6_debug_flow_test PRIVATE smemu6_debug_flow)
+    target_include_directories(smemu6_debug_flow_test PRIVATE src)
+    if(MSVC)
+        target_compile_options(smemu6_debug_flow_test PRIVATE /W3)
+    else()
+        target_compile_options(smemu6_debug_flow_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME smemu6_debug_flow
+             COMMAND smemu6_debug_flow_test)
 
     if(UNIX)
         add_test(

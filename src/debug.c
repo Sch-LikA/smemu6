@@ -3,6 +3,7 @@
 /* debug.c – Built-in machine monitor / debugger */
 #include "machine_internal.h"
 #include "debug.h"
+#include "debug_flow.h"
 #include "debug_viewport.h"
 #include "memory.h"
 
@@ -182,27 +183,13 @@ static const char *dbg_lookup_flo_symbol(uint16_t value, int require_code_like)
 
 static int dbg_get_disasm_target(struct Smaky6 *m, uint16_t addr, uint16_t *target_out)
 {
-    uint8_t op = dbg_mem8(m, addr);
-    uint16_t target;
+    uint8_t bytes[3] = {
+        dbg_mem8(m, addr),
+        dbg_mem8(m, (uint16_t)(addr + 1u)),
+        dbg_mem8(m, (uint16_t)(addr + 2u))
+    };
 
-    if ((op & 0xC7u) == 0xC2u || op == 0xC3u || (op & 0xC7u) == 0xC4u || op == 0xCDu) {
-        target = dbg_mem16(m, (uint16_t)(addr + 1u));
-        *target_out = target;
-        return 1;
-    }
-    if (op == 0x10u || op == 0x18u || op == 0x20u || op == 0x28u || op == 0x30u || op == 0x38u) {
-        int8_t rel = (int8_t)dbg_mem8(m, (uint16_t)(addr + 1u));
-
-        *target_out = (uint16_t)(addr + 2u + rel);
-        return 1;
-    }
-    if ((op & 0xC7u) == 0xC7u) {
-        target = (uint16_t)(op & 0x38u);
-        *target_out = target;
-        return 1;
-    }
-
-    return 0;
+    return debug_flow_decode_target(addr, bytes, sizeof(bytes), target_out);
 }
 
 static const char *dbg_lookup_flo_target_symbol(struct Smaky6 *m, uint16_t addr)
@@ -949,12 +936,29 @@ static void dbg_move_disasm_cursor(struct Smaky6 *m, int direction)
     }
 }
 
-static int dbg_is_step_over_candidate(uint8_t opcode)
+static void dbg_push_disasm_history(struct Smaky6 *m, uint16_t addr)
 {
-    return opcode == 0xCDu ||
-           opcode == 0x10u ||
-           (opcode & 0xC7u) == 0xC4u ||
-           (opcode & 0xC7u) == 0xC7u;
+    if (m->dbg.disasm_history_count > 0 &&
+        m->dbg.disasm_history[m->dbg.disasm_history_count - 1] == addr) {
+        return;
+    }
+    if (m->dbg.disasm_history_count >= (int)(sizeof(m->dbg.disasm_history) / sizeof(m->dbg.disasm_history[0]))) {
+        memmove(&m->dbg.disasm_history[0],
+                &m->dbg.disasm_history[1],
+                (sizeof(m->dbg.disasm_history) - sizeof(m->dbg.disasm_history[0])));
+        m->dbg.disasm_history_count--;
+    }
+    m->dbg.disasm_history[m->dbg.disasm_history_count++] = addr;
+}
+
+static int dbg_pop_disasm_history(struct Smaky6 *m, uint16_t *addr_out)
+{
+    if (m->dbg.disasm_history_count == 0) {
+        return 0;
+    }
+
+    *addr_out = m->dbg.disasm_history[--m->dbg.disasm_history_count];
+    return 1;
 }
 
 static void dbg_set_memory_view(struct Smaky6 *m, uint16_t base)
@@ -995,7 +999,7 @@ static int dbg_begin_step_over(struct Smaky6 *m)
     char text[96];
     int len;
 
-    if (!dbg_is_step_over_candidate(opcode)) {
+    if (!debug_flow_is_step_over_candidate(opcode)) {
         return 0;
     }
 
@@ -1038,6 +1042,26 @@ static void dbg_follow_disasm_target(struct Smaky6 *m)
     }
 
     fprintf(stderr, "debug: follow target %04X -> %04X\n",
+            (unsigned)m->dbg.disasm_cursor,
+            (unsigned)target);
+    dbg_push_disasm_history(m, m->dbg.disasm_cursor);
+    m->dbg.disasm_cursor = target;
+}
+
+static void dbg_pop_disasm_cursor(struct Smaky6 *m)
+{
+    uint16_t target;
+
+    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+        fprintf(stderr, "debug: pause execution before rewinding disassembly history\n");
+        return;
+    }
+    if (!dbg_pop_disasm_history(m, &target)) {
+        fprintf(stderr, "debug: disassembly history is empty\n");
+        return;
+    }
+
+    fprintf(stderr, "debug: history back %04X -> %04X\n",
             (unsigned)m->dbg.disasm_cursor,
             (unsigned)target);
     m->dbg.disasm_cursor = target;
@@ -1560,7 +1584,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
     dbg_draw_text(m, 28, shortcuts_y + 16, "SHORTCUTS", DBG_COL_ACCENT);
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  SF7 OVR", DBG_COL_WARN);
-    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F7 FRM F8 CUR F9 BP ENT FLW", DBG_COL_WARN);
+    dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR F9 BP ENT FLW BS BK", DBG_COL_WARN);
 
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
 
@@ -1822,6 +1846,9 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
         case SDL_SCANCODE_RETURN:
         case SDL_SCANCODE_KP_ENTER:
             dbg_follow_disasm_target(m);
+            return 1;
+        case SDL_SCANCODE_BACKSPACE:
+            dbg_pop_disasm_cursor(m);
             return 1;
         case SDL_SCANCODE_LEFT:
             dbg_move_memory_cursor(m, -1);

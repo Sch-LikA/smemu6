@@ -366,7 +366,8 @@ when you browse with `Shift+F6` or `Shift+Up` / `Shift+Down`, the pane recenters
 around the selected line so it stays visible while you walk backward or
 forward. Press `Enter` on a selected followable instruction to move the
 disassembly cursor to its decoded destination for direct `call` / `jp` /
-`jr` / `djnz` / `rst` control-flow edges. The debugger is
+`jr` / `djnz` / `rst` control-flow edges, and `Backspace` jumps back through
+that follow-history stack. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
