@@ -1613,15 +1613,14 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_draw_text(m, 28, shortcuts_y + 32, "SPC RUN  S/F6 STP  SF7 OVR", DBG_COL_WARN);
     dbg_draw_text(m, 28, shortcuts_y + 32 + DBG_LINE_H, "F8 CUR F9 BP ENT FLW BS BK", DBG_COL_WARN);
 
+    dbg_render_disassembly(m, 284, top_y, 604, 214);
+    dbg_render_memory(m, 284, 266, 604, 242);
     dbg_draw_text(m, 430, shortcuts_y + 16, mem_summary, DBG_COL_DIM);
     dbg_draw_text(m,
                   430,
                   shortcuts_y + 32,
                   target_summary,
                   strcmp(target_summary, "TARGET none") == 0 ? DBG_COL_DIM : DBG_COL_WARN);
-
-    dbg_render_disassembly(m, 284, top_y, 604, 214);
-    dbg_render_memory(m, 284, 266, 604, 242);
 }
 
 void debug_init(struct Smaky6 *m)
