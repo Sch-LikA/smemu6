@@ -393,6 +393,13 @@ adresse hexadécimale sur 4 chiffres. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
+Quand le fichier repo-relatif `sdcc/FLO.symbols` est disponible, l'en-tête du
+désassemblage affiche aussi un petit marqueur `FLO` et chaque ligne peut
+montrer deux indices supplémentaires : une courte colonne de symbole quand
+l'adresse de l'instruction correspond exactement à un export FLO, et un suffixe
+final `;NOM` pour les cibles directes de `call`, `jp` ou `rst` qui
+correspondent à un symbole FLO connu.
+
 La partie gauche du débogueur est divisée en deux résumés compacts :
 
 - **CPU REGISTERS** montre l'ensemble principal des registres Z80 `AF`, `BC`,
@@ -421,6 +428,10 @@ La partie gauche du débogueur est divisée en deux résumés compacts :
   un point d'arrêt à cette adresse. Une même ligne peut afficher plusieurs
   marqueurs en même temps, par exemple si l'instruction courante est aussi la
   ligne sélectionnée avec point d'arrêt.
+- Si les symboles FLO sont chargés, la courte colonne placée juste après
+  l'adresse montre le meilleur export correspondant à cette adresse exacte,
+  par exemple `?OPEN:` ou `OUTCAR:`. Le suffixe optionnel après le mnémonique
+  indique qu'une cible de contrôle direct correspond à un export FLO connu.
 - Le panneau **MEMORY** affiche une page de 256 octets à la fois sous forme de
   grille `16 x 16`. La marge de gauche indique l'adresse de base de chaque
   ligne. Les colonnes d'octets sont regroupées par blocs de quatre pour

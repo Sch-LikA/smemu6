@@ -233,6 +233,22 @@ Why:
   debugger expectation without inventing ambiguous semantics for jumps or block
   repeat instructions
 
+### Integrated debugger FLO annotations come from the checked-in symbol dump
+
+The native debugger reads the repo-relative `sdcc/FLO.symbols` text dump on a
+best-effort basis and uses it only for compact disassembly hints: exact-address
+labels and direct `call` / `jp` / `rst` target suffixes.
+
+Why:
+
+- the checked-in text dump is already present in normal source checkouts, so
+  the debugger does not need a generated-header dependency or a private binary
+  `FLO.ST` runtime path
+- keeping the first slice display-only avoids coupling emulator execution to
+  symbol availability
+- exact-address and direct-target hints are usually useful, while dumping every
+  matching low-memory constant into the pane would add noise
+
 ### Debugger UI polish stays execution-first
 
 Prefer small debugger UI improvements that make stop state and execution flow

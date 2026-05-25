@@ -1440,7 +1440,10 @@ Current implemented floor:
   stack-top preview showing the first four 16-bit words at `SP`. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
-  watch to a new 4-digit hex address.
+  watch to a new 4-digit hex address. When the repo-relative `sdcc/FLO.symbols`
+  dump is available, the disassembly pane also adds a compact FLO symbol column
+  for exact address matches and appends symbol hints for direct `call` / `jp`
+  / `rst` targets.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
 - Web debugger UI is intentionally deferred until there is a dedicated HTML
   panel design; no second-window SDL approach should be assumed for Emscripten.

@@ -364,6 +364,12 @@ watch by typing a new 4-digit hex address. The debugger is
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
+When the repo-relative `sdcc/FLO.symbols` file is available, the disassembly
+header adds a small `FLO` marker and each row may show two extra hints: a
+compact symbol column when the instruction address matches a FLO export, and a
+trailing `;NAME` suffix for direct `call`, `jp`, or `rst` targets that match a
+known FLO symbol.
+
 The left side of the debugger is split into two small summaries:
 
 - **CPU REGISTERS** shows the main Z80 register set `AF`, `BC`, `DE`, `HL`,
@@ -389,6 +395,10 @@ The left side of the debugger is split into two small summaries:
   debugger's selected cursor line, and `B` marks a breakpoint at that address.
   A line may show more than one marker at once, for example when the current
   instruction is also the selected breakpoint line.
+- If FLO symbols are loaded, the short column immediately after the address
+  shows the best matching export at that exact instruction address, for example
+  `?OPEN:` or `OUTCAR:`. The optional suffix after the mnemonic marks a direct
+  control-flow target that resolves to a known FLO export.
 - The **MEMORY** pane shows one 256-byte page at a time as a `16 x 16` grid.
   The left margin is the base address of each row. Byte columns are grouped in
   blocks of four for easier scanning. The highlighted cell is the current
