@@ -4,7 +4,14 @@ This directory contains tools and examples for developing native CALM assembly p
 
 ## What is CALM?
 
-CALM is the **Computer Assembly Language Machine** — the native assembly language for Smaky 6, running on a Zilog Z80 processor. Unlike SDCC (which compiles C to Z80 assembly), CALM programs are written directly in Z80 assembly and assembled using the **SMILE** tool.
+CALM is the **Computer Assembly Language Machine** used by the Smaky toolchain.
+On Smaky 6, sources are assembled for `.PROC Z80`, but the syntax is not just
+plain handwritten Z80 mnemonics: the older `.SR` files use CALM verbs such as
+`LOAD`, `COMP`, `JUMP,cond`, bit forms such as `TEST A:4`, and `.W ?NAME`
+runtime-service calls assembled by **SMILE**.
+
+For the Smaky 6-era dialect seen in extracted `.SR` sources, see
+[docs/dev/CALM_SYNTAX.md](../docs/dev/CALM_SYNTAX.md).
 
 ## Key Differences from SDCC
 

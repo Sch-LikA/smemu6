@@ -9,6 +9,22 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
+## CALM / SMILE assembler
+
+- Keep treating the later CALM manuals as only partial hints. The Smaky 6-era
+  `.SR` corpus under `private/floppies/extracted/` and `private/docs/disasm/`
+  is now the primary reference for syntax and usage.
+- Extend [docs/dev/CALM_SYNTAX.md](docs/dev/CALM_SYNTAX.md) as more source files
+  are decoded, especially for directives and operators that do not appear in
+  the current sample set.
+- Cross-check the older `.SR` dialect against later CALM documentation before
+  importing any syntax into examples or tooling. If a form is not observed in
+  Smaky 6 sources, mark it as unconfirmed instead of documenting it as fact.
+- Build a small extracted-source inventory for SMILE runtime entry points such
+  as `?TEXT`, `?TEXTIM`, `?GETCAR`, `?RTN`, `?RETURN`, `?PLAY`, and file I/O
+  services so future CALM examples can prefer documented calls over hard-coded
+  addresses.
+
 ## PSG sound-card add-on
 
 - Fetch `emu2149` through CMake `FetchContent`, pinned to a known upstream
