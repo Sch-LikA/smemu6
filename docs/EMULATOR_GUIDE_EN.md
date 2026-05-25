@@ -369,9 +369,9 @@ header adds a small `FLO` marker and each row may show two extra hints: a
 compact symbol column when the instruction address matches a FLO export, and a
 trailing `;NAME` suffix for direct `call`, `jp`, or `rst` targets that match a
 known FLO symbol. In CALM-style threaded code, `RST 20h` also consumes the
-following inline service word as part of the same row, so calls such as
-`?TEXTIM` or `?OPEN` no longer appear as a misleading run of repeated `RST 20h`
-bytes.
+following service byte as part of the same row, so 2-byte threaded vectors
+such as `E7 5E` (`?TEXTIM`) or `D7 14` (`?OPEN`) no longer appear as a
+misleading run of repeated raw `RST` bytes.
 
 The left side of the debugger is split into two small summaries:
 

@@ -248,9 +248,10 @@ Why:
   symbol availability
 - exact-address and direct-target hints are usually useful, while dumping every
   matching low-memory constant into the pane would add noise
-- CALM-threaded `RST 20h` service calls must be decoded together with the
-  following inline service word; otherwise the disassembly lands on the low
-  byte `E7` of each vector and shows bogus repeated `RST 20h` rows
+- CALM-threaded service calls are 2-byte vectors whose first byte is already
+  the restart opcode (`D7`, `E7`, or `EF`) and whose second byte is the service
+  code; decoding them as standalone 1-byte `RST` instructions produces bogus
+  repeated rows and hides the symbol names
 
 ### Debugger UI polish stays execution-first
 

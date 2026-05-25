@@ -251,6 +251,19 @@ static const char *dbg_lookup_flo_target_symbol(struct Smaky6 *m, uint16_t addr)
     return NULL;
 }
 
+static const char *dbg_lookup_threaded_service_symbol(struct Smaky6 *m, uint16_t addr)
+{
+    uint8_t op = dbg_mem8(m, addr);
+    uint16_t vector;
+
+    if (op != 0xD7u && op != 0xE7u && op != 0xEFu) {
+        return NULL;
+    }
+
+    vector = (uint16_t)(((uint16_t)dbg_mem8(m, (uint16_t)(addr + 1u)) << 8) | op);
+    return dbg_lookup_flo_symbol(vector, 0);
+}
+
 static int dbg_find_breakpoint_index(const struct Smaky6 *m, uint16_t addr)
 {
     for (int i = 0; i < m->dbg.breakpoint_count; i++) {
@@ -888,13 +901,12 @@ static int dbg_decode_core(struct Smaky6 *m, uint16_t opcode_pc, const char *idx
             snprintf(out, out_size, "%s%s", DBG_ALU[y], imm);
             return base_len + 1;
         case 7:
-            if ((unsigned)(y * 8) == 0x20u) {
-                uint16_t vector = dbg_mem16(m, (uint16_t)(opcode_pc + 1u));
-                const char *service = dbg_lookup_flo_symbol(vector, 0);
+            {
+                const char *service = dbg_lookup_threaded_service_symbol(m, opcode_pc);
 
                 if (service) {
-                    snprintf(out, out_size, "rst 20h ; %s", service);
-                    return base_len + 2;
+                    snprintf(out, out_size, "rst %02Xh ; %s", (unsigned)(y * 8), service);
+                    return base_len + 1;
                 }
             }
             snprintf(out, out_size, "rst %02Xh", (unsigned)(y * 8));
