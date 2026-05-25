@@ -1229,7 +1229,7 @@ int debug_consume_step_frame(struct Smaky6 *m)
 void debug_note_instruction_run(struct Smaky6 *m, uint32_t tstates)
 {
     m->dbg.last_run_tstates = tstates;
-    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+    if ((!m->dbg.paused || m->dbg.stepping) && !m->dbg.run_to_cursor_active) {
         dbg_sync_disasm_cursor(m);
     }
 }
@@ -1238,7 +1238,7 @@ void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates)
 {
     m->dbg.last_run_tstates = tstates;
     m->dbg.frame_counter++;
-    if (!m->dbg.paused && !m->dbg.run_to_cursor_active) {
+    if ((!m->dbg.paused || m->dbg.stepping) && !m->dbg.run_to_cursor_active) {
         dbg_sync_disasm_cursor(m);
     }
 }
