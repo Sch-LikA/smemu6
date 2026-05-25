@@ -372,6 +372,10 @@ the currently selected follow destination before you press `Enter`. The debugger
 currently native-only; the web build does not expose an HTML debugger panel
 yet.
 
+The STATE panel's stack preview also shows a compact symbol line for the top
+stack words when they resolve to known FLO labels, which makes return-address
+browsing easier without opening another pane.
+
 If a single `F6` step lands on the same `djnz` row again, that usually means
 the instruction executed and looped back to the same address while only
 register `B` changed. `Shift+F7` is the faster way to step over that counted

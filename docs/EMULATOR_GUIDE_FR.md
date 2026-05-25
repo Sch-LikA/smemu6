@@ -402,6 +402,11 @@ actuellement sélectionnée avant d'appuyer sur `Entrée`. Ce
 débogueur reste pour l'instant réservé aux versions natives ; le build web
 n'expose pas encore de panneau HTML dédié.
 
+L'aperçu de pile dans le panneau STATE montre aussi une ligne compacte de
+symboles pour les premiers mots de pile quand ils correspondent à des labels
+FLO connus, ce qui facilite la lecture des adresses de retour sans ajouter un
+nouveau panneau.
+
 Si un pas `F6` revient sur la même ligne `djnz`, cela signifie en général que
 l'instruction a bien été exécutée mais qu'elle a rebouclé sur la même adresse
 en ne modifiant visiblement que le registre `B`. `Shift+F7` est alors le moyen

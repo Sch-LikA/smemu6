@@ -1452,7 +1452,8 @@ Current implemented floor:
   A compact selected-target summary now shows the current follow destination in
   the top status strip before `Enter` is pressed.
   The STATE area now also includes a compact
-  stack-top preview showing the first four 16-bit words at `SP`. The memory
+  stack-top preview showing the first four 16-bit words at `SP`, plus a compact
+  symbol line for top stack entries that resolve to known FLO labels. The memory
   footer also exposes a tiny watch row for three live bytes. `Tab` /
   `Shift+Tab` now select the active watch slot, and `W` retargets that selected
   watch to a new 4-digit hex address. The footer separator now sits above that

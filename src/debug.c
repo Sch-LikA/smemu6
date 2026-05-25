@@ -419,6 +419,46 @@ static void dbg_format_stack_preview(struct Smaky6 *m, char *out, size_t out_siz
              w3);
 }
 
+static void dbg_format_stack_symbols(struct Smaky6 *m, char *out, size_t out_size)
+{
+    uint16_t sp = (uint16_t)Z80_SP(m->cpu);
+    uint16_t words[4] = {
+        dbg_mem16(m, sp),
+        dbg_mem16(m, (uint16_t)(sp + 2u)),
+        dbg_mem16(m, (uint16_t)(sp + 4u)),
+        dbg_mem16(m, (uint16_t)(sp + 6u))
+    };
+    size_t used = 0;
+
+    if (out_size == 0) {
+        return;
+    }
+    out[0] = '\0';
+
+    for (int i = 0; i < 4; i++) {
+        const char *symbol = dbg_lookup_flo_symbol(words[i], 1);
+        int written;
+
+        if (!symbol) {
+            continue;
+        }
+        written = snprintf(out + used,
+                           out_size - used,
+                           "%sS%d:%s",
+                           used ? " " : "",
+                           i,
+                           symbol);
+        if (written < 0 || (size_t)written >= out_size - used) {
+            break;
+        }
+        used += (size_t)written;
+    }
+
+    if (used == 0) {
+        snprintf(out, out_size, "S0:- S1:-");
+    }
+}
+
 static void dbg_format_stop_reason(const struct Smaky6 *m, char *out, size_t out_size)
 {
     uint16_t pc = m->dbg.last_stop_valid
@@ -1482,6 +1522,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     char stop[96];
     char status[160];
     char mem_summary[96];
+    char stack_symbols[96];
     char target_summary[128];
     char stack_preview[96];
     const char *mode_label;
@@ -1509,6 +1550,7 @@ static void dbg_render_registers(struct Smaky6 *m)
              (unsigned long long)m->dbg.frame_counter);
     dbg_format_stop_reason(m, stop, sizeof(stop));
     dbg_describe_mem_cursor(m, mem_summary, sizeof(mem_summary));
+    dbg_format_stack_symbols(m, stack_symbols, sizeof(stack_symbols));
     dbg_format_selected_target(m, target_summary, sizeof(target_summary));
     dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
     snprintf(status,
@@ -1606,6 +1648,7 @@ static void dbg_render_registers(struct Smaky6 *m)
     dbg_fill_rect(m->dbg.renderer, 24, state_panel_y + 152, 236, 1, DBG_COL_BORDER);
     dbg_draw_text(m, state_x, state_panel_y + 160, "STACK", DBG_COL_DIM);
     dbg_draw_text(m, state_x + 56, state_panel_y + 160, stack_preview, DBG_COL_WARN);
+    dbg_draw_text(m, state_x + 56, state_panel_y + 160 + DBG_LINE_H, stack_symbols, DBG_COL_DIM);
 
     dbg_fill_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_PANEL);
     dbg_draw_rect(m->dbg.renderer, 12, shortcuts_y, 260, 64, DBG_COL_BORDER);
