@@ -549,6 +549,106 @@
     /* log */
     #log-wrap { width: 100%; }
 
+    #machine-tools {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+
+    #btn-debug-toggle.active {
+      background: linear-gradient(180deg, #c9b548 0%, #9a7f1c 100%);
+      color: #201808;
+      border-color: #5c4910;
+      box-shadow: 0 2px 0 #5c4910, 0 3px 5px #00000033;
+    }
+
+    #web-debugger {
+      width: 100%;
+      background: linear-gradient(180deg, #101812 0%, #09100b 100%);
+      border: 1px solid #254632;
+      border-radius: 4px;
+      padding: 10px 12px 12px;
+      box-shadow: inset 0 1px 0 #ffffff0d;
+    }
+    #web-debugger.hidden { display: none; }
+
+    .debug-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .debug-toolbar-title {
+      color: #8aa890;
+      font-size: var(--ui-font-small);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .debug-toolbar-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .debug-mini-btn {
+      min-height: 28px;
+      padding: 4px 10px;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+    }
+
+    .debug-status-pill {
+      color: #d0c8a8;
+      font-size: var(--ui-font-small);
+      letter-spacing: 0.05em;
+    }
+
+    .debug-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .debug-block {
+      min-width: 0;
+    }
+
+    .debug-block.wide {
+      grid-column: 1 / -1;
+    }
+
+    .debug-label {
+      display: block;
+      margin-bottom: 5px;
+      color: #8aa890;
+      font-size: var(--ui-font-small);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .debug-pre {
+      width: 100%;
+      min-height: 86px;
+      background: #040804;
+      border: 1px solid #0e1a0e;
+      border-radius: 2px;
+      padding: 6px 8px;
+      color: #b8f0c8;
+      font-size: var(--ui-font-small);
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    #web-debug-disasm {
+      min-height: 186px;
+    }
+
     #log-toggle {
       background: none; border: none;
       color: #8a8070;
@@ -592,12 +692,18 @@
 
       #drives,
       #btns,
-      #log-wrap {
+      #log-wrap,
+      #machine-tools,
+      #web-debugger {
         width: 100%;
       }
 
       #fn-buttons {
         grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .debug-grid {
+        grid-template-columns: 1fr;
       }
     }
 
@@ -807,6 +913,43 @@
     </div>
   </div>
 
+  <div id="machine-tools">
+    <button class="panel-btn" id="btn-debug-toggle" type="button" disabled>DEBUG</button>
+  </div>
+
+  <section id="web-debugger" class="hidden" aria-live="polite">
+    <div class="debug-toolbar">
+      <span class="debug-toolbar-title">HTML debugger</span>
+      <div class="debug-toolbar-actions">
+        <button class="panel-btn debug-mini-btn" id="btn-debug-pause" type="button" disabled>PAUSE</button>
+        <button class="panel-btn debug-mini-btn" id="btn-debug-step" type="button" disabled>STEP</button>
+        <button class="panel-btn debug-mini-btn" id="btn-debug-frame" type="button" disabled>FRAME</button>
+        <button class="panel-btn debug-mini-btn" id="btn-debug-refresh" type="button" disabled>REFRESH</button>
+      </div>
+      <span class="debug-status-pill" id="web-debug-status">Debugger idle</span>
+    </div>
+
+    <div class="debug-grid">
+      <div class="debug-block">
+        <span class="debug-label">Summary</span>
+        <pre class="debug-pre" id="web-debug-summary">Start the emulator, then open DEBUG.</pre>
+      </div>
+      <div class="debug-block">
+        <span class="debug-label">Registers</span>
+        <pre class="debug-pre" id="web-debug-registers">AF ----  AF' ----
+BC ----  BC' ----
+DE ----  DE' ----
+HL ----  HL' ----
+IX ----  IY ----
+SP ----  FLAGS --------</pre>
+      </div>
+      <div class="debug-block wide">
+        <span class="debug-label">Disassembly</span>
+        <pre class="debug-pre" id="web-debug-disasm">No snapshot yet.</pre>
+      </div>
+    </div>
+  </section>
+
   <div id="log-wrap">
     <button id="log-toggle">&#x25b6; system log</button>
     <pre id="output" class="hidden"></pre>
@@ -840,6 +983,8 @@ var prefersTouchInput = window.matchMedia('(pointer: coarse)').matches;
 var webFunctionMask = 0;
 var webFunctionLatchedMask = 0;
 var webFunctionPressedBit = 0;
+var webDebuggerOpen = false;
+var webDebuggerPollTimer = null;
 var webFunctionButtons = [
   { id: 'btn-fn-cursor', bit: 0x40 },
   { id: 'btn-fn-copy',   bit: 0x20 },
@@ -910,6 +1055,89 @@ function focusEmulatorCanvasSoon() {
   window.requestAnimationFrame(function() {
     focusEmulatorInput(prefersTouchInput);
   });
+}
+
+function webDebugCall(name, returnType) {
+  var args = Array.prototype.slice.call(arguments, 2);
+  return Module.ccall(name, returnType || null, [], args);
+}
+
+function formatDebugSummary(snapshot) {
+  var lines = [];
+
+  lines.push(snapshot.stop || 'LIVE execution');
+  lines.push('PC ' + (snapshot.pc || '----') + (snapshot.pcSymbol ? '  ' + snapshot.pcSymbol : ''));
+  lines.push('CUR ' + (snapshot.cursor || '----') + (snapshot.target ? '  ' + snapshot.target : ''));
+  lines.push('STACK ' + (snapshot.stack || '---- ---- ---- ----'));
+  if (snapshot.stackSymbols)
+    lines.push(snapshot.stackSymbols);
+  lines.push('RUN ' + (snapshot.runToCursor ? 'run-to-cursor' : 'direct') + '  BP ' + (snapshot.breakpoints || 0));
+  lines.push('T-STATES ' + (snapshot.lastRunTstates || 0) + '  FRAMES ' + (snapshot.frameCounter || 0));
+  return lines.join('\n');
+}
+
+function formatDebugRegisters(snapshot) {
+  return [
+    'AF  ' + (snapshot.af || '----') + '  AF\' ' + (snapshot.afShadow || '----'),
+    'BC  ' + (snapshot.bc || '----') + '  BC\' ' + (snapshot.bcShadow || '----'),
+    'DE  ' + (snapshot.de || '----') + '  DE\' ' + (snapshot.deShadow || '----'),
+    'HL  ' + (snapshot.hl || '----') + '  HL\' ' + (snapshot.hlShadow || '----'),
+    'IX  ' + (snapshot.ix || '----') + '  IY  ' + (snapshot.iy || '----'),
+    'SP  ' + (snapshot.sp || '----'),
+    'FLAGS   ' + (snapshot.flags || '--------'),
+    'FLAGS\' ' + (snapshot.flagsShadow || '--------')
+  ].join('\n');
+}
+
+function renderWebDebuggerSnapshot(snapshot) {
+  document.getElementById('web-debug-status').textContent = snapshot.paused ? 'Paused' : 'Running';
+  document.getElementById('web-debug-summary').textContent = formatDebugSummary(snapshot);
+  document.getElementById('web-debug-registers').textContent = formatDebugRegisters(snapshot);
+  document.getElementById('web-debug-disasm').textContent = (snapshot.disasm || []).join('\n');
+  document.getElementById('btn-debug-pause').textContent = snapshot.paused ? 'RUN' : 'PAUSE';
+  document.getElementById('btn-debug-step').disabled = !snapshot.paused;
+  document.getElementById('btn-debug-frame').disabled = !snapshot.paused;
+  document.getElementById('btn-debug-refresh').disabled = false;
+}
+
+function refreshWebDebugger() {
+  if (!emulatorStarted || !runtimeReady)
+    return;
+
+  try {
+    var raw = webDebugCall('smemu6_debug_snapshot', 'string');
+    var snapshot = JSON.parse(raw || '{}');
+
+    renderWebDebuggerSnapshot(snapshot);
+  } catch (err) {
+    document.getElementById('web-debug-status').textContent = 'Snapshot failed';
+    document.getElementById('web-debug-summary').textContent = 'Debugger snapshot failed:\n' + (err && err.message ? err.message : err);
+  }
+}
+
+function stopWebDebuggerPolling() {
+  if (webDebuggerPollTimer !== null) {
+    window.clearInterval(webDebuggerPollTimer);
+    webDebuggerPollTimer = null;
+  }
+}
+
+function startWebDebuggerPolling() {
+  stopWebDebuggerPolling();
+  refreshWebDebugger();
+  webDebuggerPollTimer = window.setInterval(refreshWebDebugger, 200);
+}
+
+function setWebDebuggerOpen(open) {
+  webDebuggerOpen = !!open;
+  document.getElementById('web-debugger').classList.toggle('hidden', !webDebuggerOpen);
+  document.getElementById('btn-debug-toggle').classList.toggle('active', webDebuggerOpen);
+  document.getElementById('btn-debug-toggle').textContent = webDebuggerOpen ? 'DEBUG ON' : 'DEBUG';
+  if (webDebuggerOpen) {
+    startWebDebuggerPolling();
+  } else {
+    stopWebDebuggerPolling();
+  }
 }
 
 function shouldClaimBrowserFunctionKey(e) {
@@ -1085,6 +1313,9 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   Module.callMain(args);
   document.getElementById('status-overlay').classList.add('hidden');
   document.getElementById('btn-keyboard').disabled = false;
+  document.getElementById('btn-debug-toggle').disabled = false;
+  document.getElementById('btn-debug-pause').disabled = false;
+  document.getElementById('btn-debug-refresh').disabled = false;
   webFunctionButtons.forEach(function(entry) {
     document.getElementById(entry.id).disabled = false;
   });
@@ -1190,6 +1421,42 @@ document.getElementById('vk-anchor').addEventListener('input', function() {
 document.getElementById('log-toggle').addEventListener('click', function() {
   var hidden = document.getElementById('output').classList.toggle('hidden');
   this.textContent = (hidden ? '\u25b6' : '\u25bc') + ' system log';
+});
+
+document.getElementById('btn-debug-toggle').addEventListener('click', function() {
+  if (!emulatorStarted)
+    return;
+  setWebDebuggerOpen(!webDebuggerOpen);
+});
+
+document.getElementById('btn-debug-pause').addEventListener('click', function() {
+  if (!emulatorStarted)
+    return;
+  webDebugCall('smemu6_debug_toggle_pause', null);
+  refreshWebDebugger();
+  focusEmulatorCanvasSoon();
+});
+
+document.getElementById('btn-debug-step').addEventListener('click', function() {
+  if (!emulatorStarted)
+    return;
+  webDebugCall('smemu6_debug_step_instruction', null);
+  window.setTimeout(refreshWebDebugger, 0);
+  focusEmulatorCanvasSoon();
+});
+
+document.getElementById('btn-debug-frame').addEventListener('click', function() {
+  if (!emulatorStarted)
+    return;
+  webDebugCall('smemu6_debug_step_frame', null);
+  window.setTimeout(refreshWebDebugger, 0);
+  focusEmulatorCanvasSoon();
+});
+
+document.getElementById('btn-debug-refresh').addEventListener('click', function() {
+  if (!emulatorStarted)
+    return;
+  refreshWebDebugger();
 });
 
 document.getElementById('canvas').addEventListener('click', function() {

@@ -21,6 +21,9 @@ int debug_is_visible(struct Smaky6 *m);
 /* Returns 1 when debugger execution pause is active. */
 int debug_is_paused(struct Smaky6 *m);
 
+/* Toggle debugger execution pause/run state. */
+void debug_toggle_pause(struct Smaky6 *m);
+
 /* Queue a single-instruction step while paused. */
 void debug_request_step_instruction(struct Smaky6 *m);
 
@@ -67,5 +70,8 @@ void debug_set_trace(struct Smaky6 *m, int on);
 
 /* Enable / disable focused low-RAM flow tracing after ROM handoff. */
 void debug_set_trace_flow(struct Smaky6 *m, int on);
+
+/* Build a compact JSON debugger snapshot for the web UI. */
+const char *debug_web_snapshot(struct Smaky6 *m);
 
 #endif /* DEBUG_H */

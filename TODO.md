@@ -1473,8 +1473,10 @@ Current implemented floor:
   also decoded as one logical row when the current restart opcode byte plus the
   following service-code byte matches a known symbol.
 - `Ctrl+A` and `Ctrl+V` jump the memory pane to the alpha and graphic planes.
-- Web debugger UI is intentionally deferred until there is a dedicated HTML
-  panel design; no second-window SDL approach should be assumed for Emscripten.
+- The web build now also exposes a first HTML debugger slice inside the page:
+  a toggleable panel with pause/run, step-in, step-frame, refresh, a compact
+  stop/register summary, and a live disassembly snapshot driven by exported
+  debugger state instead of any second-window SDL approach.
 
 ### Live CPU register window
 

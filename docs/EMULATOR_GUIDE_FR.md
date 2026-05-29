@@ -302,7 +302,7 @@ le chemin strict CLA / `SYS.SY`.
 | `Fin` (End) | Position de touche ordinaire 30 auditée (`0x04` normal, `0x05` avec Shift) |
 | `F11` ou `Pause` | **BREAK** (touche en haut à droite) — déclenche une NMI → entre dans le moniteur SYSMON |
 | `Shift+F11` ou `Shift+Pause` | **SHIFT+BREAK** — réinitialisation matérielle (redémarre depuis DX0:) |
-| `F12` | Bascule la **fenêtre de débogage native**. Elle est désactivée par défaut, s'ouvre à la demande seulement et n'est pas encore exposée dans le build web |
+| `F12` | Bascule la **fenêtre de débogage native**. Elle est désactivée par défaut, s'ouvre à la demande seulement. Dans le build web, utilisez plutôt le panneau `DEBUG` intégré à la page |
 | `Escape` | **ESC / UNDO** (touche en haut à gauche) — le mapping de travail courant émet `0x06` |
 
 Les anciens alias de convenance comme `F8`, `Inser`, `Orig`, `Alt gauche`,
@@ -398,9 +398,16 @@ déplace le curseur de désassemblage vers sa destination décodée pour les
 transferts de contrôle directs `call` / `jp` / `jr` / `djnz` / `rst`, et
 `Retour arrière` remonte cette petite pile d'historique de suivi. Un résumé
 compact de cible dans la barre d'état supérieure montre la destination suivable
-actuellement sélectionnée avant d'appuyer sur `Entrée`. Ce
-débogueur reste pour l'instant réservé aux versions natives ; le build web
-n'expose pas encore de panneau HTML dédié.
+actuellement sélectionnée avant d'appuyer sur `Entrée`.
+
+**Panneau de débogage web :** dans le build web, utilisez le bouton `DEBUG`
+intégré à la page pour ouvrir la première tranche du débogueur HTML. Elle
+expose pour l'instant pause/reprise, pas d'instruction, pas de trame,
+rafraîchissement manuel, un résumé compact de l'arrêt et des registres, ainsi
+qu'un instantané live du désassemblage exporté par le backend du débogueur.
+Cette première tranche reste volontairement plus petite que la fenêtre SDL
+native : elle n'expose pas encore l'édition des points d'arrêt, l'édition
+mémoire ou le parcours du curseur.
 
 Le panneau STATE montre toujours les mots bruts en haut de pile, et l'en-tête
 du désassemblage porte maintenant un indice compact de symboles pour les

@@ -633,6 +633,116 @@ static void dbg_format_flags(zuint8 flags, char *out, size_t out_size)
              (flags & 0x01u) ? 'C' : '-');
 }
 
+struct DebugJsonBuf {
+    char *out;
+    size_t out_size;
+    size_t used;
+};
+
+static void dbg_json_putc(struct DebugJsonBuf *buf, char c)
+{
+    if (!buf || !buf->out || buf->out_size == 0) {
+        return;
+    }
+    if (buf->used + 1u >= buf->out_size) {
+        buf->out[buf->out_size - 1u] = '\0';
+        return;
+    }
+    buf->out[buf->used++] = c;
+    buf->out[buf->used] = '\0';
+}
+
+static void dbg_json_puts(struct DebugJsonBuf *buf, const char *text)
+{
+    if (!text) {
+        return;
+    }
+    while (*text) {
+        dbg_json_putc(buf, *text++);
+    }
+}
+
+static void dbg_json_put_escaped(struct DebugJsonBuf *buf, const char *text)
+{
+    if (!text) {
+        return;
+    }
+    while (*text) {
+        unsigned char c = (unsigned char)*text++;
+
+        switch (c) {
+        case '\\':
+            dbg_json_puts(buf, "\\\\");
+            break;
+        case '"':
+            dbg_json_puts(buf, "\\\"");
+            break;
+        case '\n':
+            dbg_json_puts(buf, "\\n");
+            break;
+        case '\r':
+            dbg_json_puts(buf, "\\r");
+            break;
+        case '\t':
+            dbg_json_puts(buf, "\\t");
+            break;
+        default:
+            dbg_json_putc(buf, (c < 0x20u) ? ' ' : (char)c);
+            break;
+        }
+    }
+}
+
+static void dbg_json_field_prefix(struct DebugJsonBuf *buf, int *first)
+{
+    if (!*first) {
+        dbg_json_putc(buf, ',');
+    }
+    *first = 0;
+}
+
+static void dbg_json_field_string(struct DebugJsonBuf *buf, const char *key, const char *value, int *first)
+{
+    dbg_json_field_prefix(buf, first);
+    dbg_json_putc(buf, '"');
+    dbg_json_puts(buf, key);
+    dbg_json_puts(buf, "\":\"");
+    dbg_json_put_escaped(buf, value ? value : "");
+    dbg_json_putc(buf, '"');
+}
+
+static void dbg_json_field_int(struct DebugJsonBuf *buf, const char *key, int value, int *first)
+{
+    char num[32];
+
+    snprintf(num, sizeof(num), "%d", value);
+    dbg_json_field_prefix(buf, first);
+    dbg_json_putc(buf, '"');
+    dbg_json_puts(buf, key);
+    dbg_json_puts(buf, "\":");
+    dbg_json_puts(buf, num);
+}
+
+static void dbg_json_field_uint64(struct DebugJsonBuf *buf, const char *key, uint64_t value, int *first)
+{
+    char num[32];
+
+    snprintf(num, sizeof(num), "%llu", (unsigned long long)value);
+    dbg_json_field_prefix(buf, first);
+    dbg_json_putc(buf, '"');
+    dbg_json_puts(buf, key);
+    dbg_json_puts(buf, "\":");
+    dbg_json_puts(buf, num);
+}
+
+static void dbg_json_field_bool(struct DebugJsonBuf *buf, const char *key, int value, int *first)
+{
+    dbg_json_field_prefix(buf, first);
+    dbg_json_putc(buf, '"');
+    dbg_json_puts(buf, key);
+    dbg_json_puts(buf, value ? "\":true" : "\":false");
+}
+
 static const char *dbg_r16_name(int p, const char *idx)
 {
     if (idx && p == 2) {
@@ -1814,6 +1924,24 @@ void debug_fini(struct Smaky6 *m)
 int debug_is_visible(struct Smaky6 *m) { return m->dbg.visible; }
 int debug_is_paused(struct Smaky6 *m) { return m->dbg.paused; }
 
+void debug_toggle_pause(struct Smaky6 *m)
+{
+    if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu)) && m->dbg.paused) {
+        dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
+    }
+    m->dbg.run_to_cursor_active = 0;
+    m->dbg.step_over_active = 0;
+    m->dbg.paused = !m->dbg.paused;
+    m->dbg.stepping = m->dbg.paused;
+    if (!m->dbg.paused) {
+        m->dbg.step_instruction_pending = 0;
+        m->dbg.step_frame_pending = 0;
+        m->dbg.stop_reason = DBG_STOP_NONE;
+    } else {
+        dbg_record_stop(m, DBG_STOP_MANUAL_PAUSE);
+    }
+}
+
 void debug_request_step_instruction(struct Smaky6 *m)
 {
     if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu))) {
@@ -1972,20 +2100,7 @@ int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev)
             dbg_close_window(m);
             return 1;
         case SDL_SCANCODE_SPACE:
-            if (dbg_has_breakpoint(m, (uint16_t)Z80_PC(m->cpu)) && m->dbg.paused) {
-                dbg_arm_breakpoint_resume(m, (uint16_t)Z80_PC(m->cpu));
-            }
-            m->dbg.run_to_cursor_active = 0;
-            m->dbg.step_over_active = 0;
-            m->dbg.paused = !m->dbg.paused;
-            m->dbg.stepping = m->dbg.paused;
-            if (!m->dbg.paused) {
-                m->dbg.step_instruction_pending = 0;
-                m->dbg.step_frame_pending = 0;
-                m->dbg.stop_reason = DBG_STOP_NONE;
-            } else {
-                dbg_record_stop(m, DBG_STOP_MANUAL_PAUSE);
-            }
+            debug_toggle_pause(m);
             return 1;
         case SDL_SCANCODE_F8:
             dbg_begin_run_to_cursor(m);
@@ -2976,4 +3091,180 @@ void debug_set_trace_flow(struct Smaky6 *m, int on)
     m->dbg.flow_spin_count = 0;
     if (on)
         fprintf(stderr, "debug: post-handoff flow trace enabled\n");
+}
+
+const char *debug_web_snapshot(struct Smaky6 *m)
+{
+    static char json[8192];
+    struct DebugJsonBuf buf = { json, sizeof(json), 0 };
+    struct DebugInsn insn[40];
+    char stop[96];
+    char target_summary[128];
+    char stack_preview[96];
+    char stack_symbols[96];
+    char pc_symbol[64];
+    char flags[16];
+    char flags_shadow[16];
+    char reg[16];
+    uint16_t pc;
+    uint16_t view;
+    uint16_t low_anchor;
+    uint16_t high_anchor;
+    uint16_t scan;
+    int count = 0;
+    int current = 0;
+    int selected = 0;
+    int focus;
+    int start;
+    int max_start;
+    int first = 1;
+
+    if (!m) {
+        return "{}";
+    }
+
+    pc = (uint16_t)Z80_PC(m->cpu);
+    view = (!m->dbg.paused && !m->dbg.run_to_cursor_active) ? pc : m->dbg.disasm_cursor;
+    low_anchor = view < pc ? view : pc;
+    high_anchor = view > pc ? view : pc;
+    scan = low_anchor;
+    for (int i = 0; i < DBG_DISASM_SCAN_MARGIN_ROWS; i++) {
+        uint16_t prev = dbg_prev_disasm_addr(m, scan);
+
+        if (prev == scan) {
+            break;
+        }
+        scan = prev;
+    }
+
+    while (count < (int)(sizeof(insn) / sizeof(insn[0])) && scan < (uint16_t)(high_anchor + 96u)) {
+        insn[count].addr = scan;
+        insn[count].len = (uint8_t)dbg_disassemble_at(m, scan, insn[count].text, sizeof(insn[count].text));
+        if (insn[count].len == 0) {
+            insn[count].len = 1;
+        }
+        if (scan <= pc && (uint16_t)(scan + insn[count].len) > pc) {
+            current = count;
+        }
+        if (scan == view) {
+            selected = count;
+        }
+        count++;
+        if ((uint16_t)(scan + insn[count - 1].len) <= scan) {
+            break;
+        }
+        scan = (uint16_t)(scan + insn[count - 1].len);
+    }
+
+    focus = (view != pc) ? selected : current;
+    max_start = count > DBG_DISASM_VISIBLE_ROWS ? count - DBG_DISASM_VISIBLE_ROWS : 0;
+    start = debug_disasm_view_start(count,
+                                    focus,
+                                    selected,
+                                    DBG_DISASM_VISIBLE_ROWS,
+                                    DBG_DISASM_FOCUS_ROW);
+    if (start > max_start) {
+        start = max_start;
+    }
+
+    dbg_format_stop_reason(m, stop, sizeof(stop));
+    dbg_format_selected_target(m, target_summary, sizeof(target_summary));
+    dbg_format_stack_preview(m, stack_preview, sizeof(stack_preview));
+    dbg_format_stack_symbols(m, stack_symbols, sizeof(stack_symbols));
+    dbg_format_pc_symbol(m, pc_symbol, sizeof(pc_symbol));
+    dbg_format_flags((zuint8)(Z80_AF(m->cpu) & 0x00FFu), flags, sizeof(flags));
+    dbg_format_flags((zuint8)(m->cpu.af_.uint16_value & 0x00FFu), flags_shadow, sizeof(flags_shadow));
+
+    dbg_json_putc(&buf, '{');
+    dbg_json_field_bool(&buf, "paused", m->dbg.paused != 0, &first);
+    dbg_json_field_bool(&buf, "stepping", debug_is_stepping(m) != 0, &first);
+    dbg_json_field_bool(&buf, "runToCursor", m->dbg.run_to_cursor_active != 0, &first);
+    dbg_json_field_int(&buf, "breakpoints", (int)m->dbg.breakpoint_count, &first);
+    dbg_json_field_string(&buf, "stop", stop, &first);
+    dbg_format_hex16(reg, sizeof(reg), pc);
+    dbg_json_field_string(&buf, "pc", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), view);
+    dbg_json_field_string(&buf, "cursor", reg, &first);
+    dbg_json_field_string(&buf, "pcSymbol", pc_symbol, &first);
+    dbg_json_field_string(&buf, "target", target_summary, &first);
+    dbg_json_field_string(&buf, "stack", stack_preview, &first);
+    dbg_json_field_string(&buf, "stackSymbols", stack_symbols, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_AF(m->cpu));
+    dbg_json_field_string(&buf, "af", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), m->cpu.af_.uint16_value);
+    dbg_json_field_string(&buf, "afShadow", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_BC(m->cpu));
+    dbg_json_field_string(&buf, "bc", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), m->cpu.bc_.uint16_value);
+    dbg_json_field_string(&buf, "bcShadow", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_DE(m->cpu));
+    dbg_json_field_string(&buf, "de", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), m->cpu.de_.uint16_value);
+    dbg_json_field_string(&buf, "deShadow", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_HL(m->cpu));
+    dbg_json_field_string(&buf, "hl", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), m->cpu.hl_.uint16_value);
+    dbg_json_field_string(&buf, "hlShadow", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_IX(m->cpu));
+    dbg_json_field_string(&buf, "ix", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_IY(m->cpu));
+    dbg_json_field_string(&buf, "iy", reg, &first);
+    dbg_format_hex16(reg, sizeof(reg), (uint16_t)Z80_SP(m->cpu));
+    dbg_json_field_string(&buf, "sp", reg, &first);
+    dbg_json_field_string(&buf, "flags", flags, &first);
+    dbg_json_field_string(&buf, "flagsShadow", flags_shadow, &first);
+    dbg_json_field_int(&buf, "lastRunTstates", (int)m->dbg.last_run_tstates, &first);
+    dbg_json_field_uint64(&buf, "frameCounter", m->dbg.frame_counter, &first);
+
+    dbg_json_field_prefix(&buf, &first);
+    dbg_json_puts(&buf, "\"disasm\":[");
+    for (int row = 0; row < DBG_DISASM_VISIBLE_ROWS && start + row < count; row++) {
+        char bytes[24] = "";
+        char line[192];
+        char symbol_col[8] = "";
+        char target_suffix[24] = "";
+        int insn_idx = start + row;
+        int is_current = (insn_idx == current);
+        int is_selected = (insn_idx == selected);
+        int has_breakpoint = dbg_has_breakpoint(m, insn[insn_idx].addr);
+        const char *row_symbol = dbg_lookup_flo_symbol(insn[insn_idx].addr, 1);
+        const char *target_symbol = dbg_lookup_flo_target_symbol(m, insn[insn_idx].addr);
+
+        if (row > 0) {
+            dbg_json_putc(&buf, ',');
+        }
+        for (int i = 0; i < insn[insn_idx].len && i < 4; i++) {
+            char byte[8];
+
+            snprintf(byte,
+                     sizeof(byte),
+                     "%s%02X",
+                     i ? " " : "",
+                     (unsigned)dbg_mem8(m, (uint16_t)(insn[insn_idx].addr + i)));
+            strncat(bytes, byte, sizeof(bytes) - strlen(bytes) - 1);
+        }
+        if (row_symbol) {
+            snprintf(symbol_col, sizeof(symbol_col), "%s:", row_symbol);
+        }
+        if (target_symbol) {
+            snprintf(target_suffix, sizeof(target_suffix), " ;%s", target_symbol);
+        }
+        snprintf(line,
+                 sizeof(line),
+                 "%c%c%c %04X %-7s %-11s %s%s",
+                 is_current ? '>' : ' ',
+                 is_selected ? '*' : ' ',
+                 has_breakpoint ? 'B' : ' ',
+                 insn[insn_idx].addr,
+                 symbol_col,
+                 bytes,
+                 insn[insn_idx].text,
+                 target_suffix);
+        dbg_json_putc(&buf, '"');
+        dbg_json_put_escaped(&buf, line);
+        dbg_json_putc(&buf, '"');
+    }
+    dbg_json_puts(&buf, "]}");
+
+    return json;
 }

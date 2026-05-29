@@ -183,46 +183,80 @@ Why:
   same `U8`-side control trunk; this is now strong evidence that `SW1` is a
   logic/configuration input to the clock-shaping network rather than a direct
   raw-clock source selector
-- the exact oscillator frequency is still unresolved from the netlist alone,
   because the fitted `RV1` value is not encoded there and the resulting
-  effective clock/division still needs confirmation
 - until the exact oscillator/divider path is traced, the emulator keeps a
-  temporary fallback clock so `-psg` remains testable instead of silent
 
 ### Integrated debugger is native-first and opt-in
 
-The first integrated debugger slice is enabled only on native builds and stays
 disabled by default until the user presses `F12`.
-
 Why:
-
 - the native SDL build can open a second debugger window immediately with no
-  extra dependencies
 - the web build needs a dedicated HTML debugger panel rather than a second SDL
-  window model, so shipping the same UI there now would force the wrong
   abstraction
 - keeping the debugger opt-in avoids changing normal emulator startup or
   cluttering the default runtime path
-
-### Integrated debugger keeps its own small local disassembler
 
 The current native debugger disassembly pane uses a small local decoder inside
 `src/debug.c` instead of integrating `z80dasm` or another external tool.
 
 Why:
-
 - the debugger only needs display-oriented single-instruction decoding around
-  the current PC, not a full standalone disassembly workflow
 - keeping the decoder local avoids adding a new dependency, import path, and
   portability surface for both native and web builds
 - the same local backend can later feed either the native SDL window or a web
   HTML debugger panel
-
 ### Integrated debugger step over uses Shift+F7 and the existing target-run path
-
 Bind debugger step over to `Shift+F7` and implement it for `CALL`,
-conditional `CALL`, `RST`, and `DJNZ` opcodes by running until the next
 sequential PC. For other opcodes, fall back to a normal single-instruction
+
+  ### 2026-05-25
+
+  Worked on:
+
+  - polished the integrated native debugger around stack/context visibility and
+    low-risk navigation behavior
+  - moved the compact stack-symbol hint out of the boxed STATE footer and into
+    the disassembly header
+  - made the stack hint actionable, then hardened the shared navigation rules
+    with one more tiny helper/test slice
+  - added lightweight current-symbol context so the live `PC` stays anchored to a
+    nearby FLO routine name while stepping
+
+  Completed:
+
+  - moved the stack hint into the disassembly header in `9b8fea0`
+    (`fix: move stack hint to disassembly`)
+  - added direct `0`..`3` jumps from the stack hint into disassembly history in
+    `61c70a1` (`feat: jump to stack hint targets`)
+  - extracted shared debugger navigation gating and stack-target validity into a
+    standalone helper/test in `b5e56d6`
+    (`test: extract debug navigation helper`)
+  - added live `PC` nearest-FLO-symbol context in the disassembly header in
+    `129bb78` (`feat: show current flo symbol context`)
+
+  In progress:
+
+  - no open code change on the debugger right now; the remaining likely follow-up
+    is a layout-only pass if the disassembly header feels crowded during longer
+    interactive use
+
+  Decisions made:
+
+  - keep stack-symbol hints in the disassembly header, not inside the STATE box;
+    see `Debugger UI polish stays execution-first` above
+  - make stack hints actionable by reusing the existing disassembly follow-history
+    path instead of creating separate stack-navigation state; see `Debugger UI
+    polish stays execution-first` above
+  - show current-symbol context as the live `PC`'s nearest FLO symbol plus offset
+    in the header rather than adding another debugger pane; see `Debugger UI
+    polish stays execution-first` above
+
+  Next session priorities:
+
+  - decide whether the disassembly header needs a spacing/layout cleanup after
+    real debugger use
+  - if debugger work continues, prefer another tiny helper/test slice only when a
+    repeated rule appears again; otherwise keep changes directly in `src/debug.c`
 step.
 
 Why:
@@ -331,6 +365,21 @@ Implementation note:
   cannot drift apart silently
 - keep current-symbol context lightweight by showing the live PC's nearest FLO
   symbol plus offset in the disassembly header instead of adding another panel
+
+### Web debugger starts as a snapshot-driven HTML panel
+
+For the first browser debugger slice, expose a small HTML panel inside the web
+shell and feed it with exported debugger snapshot/control functions instead of
+trying to mirror the native second SDL window.
+
+Why:
+
+- the web build already has a thin `Module.ccall` bridge, so a compact snapshot
+  plus a few controls is the smallest useful browser debugger surface
+- this keeps one debugger backend in `src/debug.c` instead of inventing a
+  second independent JS-side debugger model
+- it avoids overcommitting to full native-parity layout before the browser
+  control/status shape is validated in real use
 
 ### CALM service catalog uses disassembly tables before later manuals
 

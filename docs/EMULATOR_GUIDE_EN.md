@@ -283,7 +283,7 @@ audited S471 table, then feeds them through the strict CLA / `SYS.SY` path.
 - `F11` or `Pause`: **BREAK** (top-right key), triggers NMI and drops into SYSMON monitor.
 - `Shift+F11` or `Shift+Pause`: **SHIFT+BREAK**, hard reset and reboot from DX0:.
 - `F12`: toggle the optional **native debugger window**. It is disabled by default,
-  opens only on demand, and is currently not exposed in the web build.
+  opens only on demand. In the web build, use the on-page `DEBUG` panel instead.
 - `Escape`: **ESC / UNDO** (top-left key), current working mapping emits `0x06`.
 
 Older convenience aliases such as `F8`, `Insert`, `Home`, `Left Alt`, `Left Ctrl`,
@@ -368,9 +368,14 @@ forward. Press `Enter` on a selected followable instruction to move the
 disassembly cursor to its decoded destination for direct `call` / `jp` /
 `jr` / `djnz` / `rst` control-flow edges, and `Backspace` jumps back through
 that follow-history stack. A compact target summary in the top status strip shows
-the currently selected follow destination before you press `Enter`. The debugger is
-currently native-only; the web build does not expose an HTML debugger panel
-yet.
+the currently selected follow destination before you press `Enter`.
+
+**Web debugger panel:** In the web build, use the on-page `DEBUG` button to
+open the first HTML debugger slice. It currently exposes pause/run,
+single-instruction step, single-frame step, manual refresh, a compact stop and
+register summary, and a live disassembly snapshot driven by exported debugger
+state. This first slice is intentionally smaller than the native SDL window:
+it does not yet expose breakpoint editing, memory editing, or cursor browsing.
 
 The STATE panel still shows the raw top stack words, and the disassembly header
 now carries a compact symbol hint for top stack entries that resolve to known

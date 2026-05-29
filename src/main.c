@@ -827,6 +827,39 @@ void smemu6_set_function_bits(unsigned int bits)
         keyboard_set_mouse_function_bits(s_loop->m, (uint8_t)(bits & 0x7Fu));
 }
 
+EMSCRIPTEN_KEEPALIVE
+const char *smemu6_debug_snapshot(void)
+{
+    if (!s_loop || !s_loop->m) {
+        return "{}";
+    }
+    return debug_web_snapshot(s_loop->m);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void smemu6_debug_toggle_pause(void)
+{
+    if (s_loop && s_loop->m) {
+        debug_toggle_pause(s_loop->m);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void smemu6_debug_step_instruction(void)
+{
+    if (s_loop && s_loop->m) {
+        debug_request_step_instruction(s_loop->m);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void smemu6_debug_step_frame(void)
+{
+    if (s_loop && s_loop->m) {
+        debug_request_step_frame(s_loop->m);
+    }
+}
+
 #endif /* __EMSCRIPTEN__ */
 
 #ifdef __EMSCRIPTEN__
