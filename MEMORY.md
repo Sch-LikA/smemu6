@@ -87,6 +87,7 @@ Why:
 - one-shot cleanup still belongs only to explicitly buffered synthetic input via
   `release_after_buffer_commit`
 
+
 ### The web build excludes archived ST export helper tools
 
 Keep the archived `SM6.ST` / `FLO.ST` exporter utilities and generated-header
