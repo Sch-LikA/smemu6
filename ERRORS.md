@@ -21,6 +21,18 @@ Check this file before suggesting approaches to similar tasks.
 
 ## Entries
 
+**Task:** Make SIGMA move the inverse selection with `r/d/f/c`
+
+**Attempts:**
+1. **Attempt 1:** treated the bug as a renderer problem; adding inverse-mask `-scrdump` rows proved the highlight attribute was being redrawn correctly, but the mask never moved after `f`.
+2. **Attempt 2:** preserved held ordinary keys across SAMOS circular-buffer commits; this improved the traces and kept the key logically held longer, but SIGMA still only blinked the current block.
+3. **Attempt 3:** removed the first-read bit-7 prefix for direct/text ordinary keys; build and visible tests still produced no movement, so the probe was reverted.
+4. **Attempt 4:** forced real `r/d/f/c` SDL keys through the matrix path and suppressed their text events; focused manual tracing showed SIGMA still consumed the same `E6` then `66` stream and still did not move the block, so the probe was reverted.
+
+**Current working floor:** keep the validated inverse-video renderer, keep the inverse-mask `-scrdump` diagnostics, keep held ordinary keys surviving circular-buffer commits, and keep the normal direct-key prefix and text-input behavior.
+
+**Note for next time:** before changing host keyboard routing again, first inspect what SIGMA itself reads or compares. Real SDL `f` and injected plain `f` already reach the guest in the same way, so more host-side permutations are likely noise until Sigma-side expectations are understood.
+
 **Task:** Make `PROGRA+z` work in SMILE without regressing ordinary typing
 
 **Attempts:**
