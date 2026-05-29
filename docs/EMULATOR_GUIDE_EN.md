@@ -618,7 +618,9 @@ They produce output on **stderr**.
 - `-tracecd`: all reads from port `0xCD` (Winchester DMA/status register).
 - `-trace-win`: every Winchester controller command (RESTORE, SEEK, READ, WRITE) with CHS and LBA.
 - `-tracefdc`: focused floppy ID/checksum stream events.
-- `-scrdump`: changed screen rows printed to stderr each frame.
+- `-scrdump`: changed screen rows printed to stderr each frame. Inverse-only
+  alpha changes also emit a `[scri rXX]` mask row where `^` marks cells with
+  bit 7 set.
 
 **Tip:** Combine with shell redirection to capture traces without mixing
 them with emulator output:

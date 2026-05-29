@@ -262,18 +262,26 @@ void video_render(struct Smaky6 *m)
         if (memcmp(cur, shadow, VIDEO_COLS_CHAR) != 0) {
             memcpy(shadow, cur, VIDEO_COLS_CHAR);
 
-            /* Build a printable version of the row, stripping trailing spaces */
+            /* Build a printable version of the row, stripping trailing spaces. */
             char line[VIDEO_COLS_CHAR + 1];
+            char inverse_mask[VIDEO_COLS_CHAR + 1];
             int  len = 0;
+            int  inverse_len = 0;
             for (int col = 0; col < VIDEO_COLS_CHAR; col++) {
-                uint8_t c = cur[col] & 0x7Fu;
+                uint8_t cell = cur[col];
+                uint8_t c = cell & 0x7Fu;
                 line[col] = (c >= 0x20 && c < 0x7F) ? (char)c : ' ';
+                inverse_mask[col] = (cell & 0x80u) ? '^' : ' ';
                 if (line[col] != ' ') len = col + 1;
+                if (inverse_mask[col] != ' ') inverse_len = col + 1;
             }
             line[len] = '\0';
+            inverse_mask[inverse_len] = '\0';
 
             if (len > 0 && m->dbg.trace_scr)
                 fprintf(stderr, "[scr r%02d] %s\n", row, line);
+            if (inverse_len > 0 && m->dbg.trace_scr)
+                fprintf(stderr, "[scri r%02d] %s\n", row, inverse_mask);
 
             if (row <= 3 && strncmp(line, "ERROR", 5) == 0) {
                 fprintf(stderr,

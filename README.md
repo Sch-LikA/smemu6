@@ -551,7 +551,9 @@ allowing diagnosis of disk access patterns and CHS mapping issues.
 #### `-scrdump`
 
 After each frame, dump any changed alpha-plane rows to stderr as ASCII text.
-Useful for capturing screen output in headless / CI runs without a screen.
+If only the inverse attribute changes, emit a companion `[scri rXX]` mask line
+where `^` marks cells whose alpha byte has bit 7 set. Useful for capturing
+screen output in headless / CI runs without a screen.
 
 #### `-dump-ram <path>`
 

@@ -56,6 +56,13 @@ against disassembly or hardware documentation.
   exact simultaneous ordinary/function-key handoff by snapshotting CLA/status
   reads together with `0x457E`, `0x4580`, `0x4581`, `0x4582`, and `0x457C/0x457D`
   around the Stage 1 / Stage 2 path.
+- Keep `-scrdump` useful for attribute-only UI debugging too: when alpha bit 7
+  changes without any printable glyph change, emit a separate inverse-mask row
+  instead of only the stripped ASCII row.
+- Keep physically held ordinary keys alive across SAMOS circular-buffer commit
+  writes; interactive programs such as SIGMA can consume the same key both as a
+  live keyboard event and as buffered input, and collapsing it to one-shot too
+  early only blinks the current selection instead of moving it.
 - Add a small scripted chord injector for interactive programs so headless runs
   can type a CLI command, wait a configurable number of frames, then assert a
   simultaneous function-key + ordinary-key combination such as `PROGRA+z`.

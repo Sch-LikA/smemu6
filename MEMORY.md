@@ -72,6 +72,21 @@ Why:
 - applying one-shot consumption to mouse latches breaks the intended hold/toggle
   behavior
 
+### Held ordinary keys survive circular-buffer commits
+
+Do not clear a physically held ordinary key just because SAMOS advanced the
+keyboard circular-buffer write pointer and committed that same byte into the
+buffer workspace.
+
+Why:
+
+- interactive programs such as SIGMA may still need the held key on the live
+  CLA path after the buffered commit side effect
+- collapsing the key to one-shot at `0x457C` advance causes the current
+  selection to blink/reassert in place instead of moving
+- one-shot cleanup still belongs only to explicitly buffered synthetic input via
+  `release_after_buffer_commit`
+
 ### The web build excludes archived ST export helper tools
 
 Keep the archived `SM6.ST` / `FLO.ST` exporter utilities and generated-header

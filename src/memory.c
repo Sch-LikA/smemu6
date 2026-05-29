@@ -54,15 +54,6 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
             if (m->kbd.physically_held && committed_code != 0x00u) {
                 m->bus[0x4558u] = 0x23u;
                 m->bus[0x4577u] = committed_code;
-
-                if (!m->kbd.release_after_buffer_commit) {
-                    m->kbd.key_code = 0x00;
-                    m->kbd.found = 0;
-                    m->kbd.physically_held = 0;
-                    m->kbd.regular_prefix_pending = 0;
-                    m->kbd.reassert_pending = 0;
-                    m->kbd.reassert_cycles = 0;
-                }
             }
 
             if (m->kbd.release_after_buffer_commit) {

@@ -682,7 +682,7 @@ rétro-ingénierie. Elles produisent leur sortie sur **stderr**.
 | `-tracecd` | Toutes les lectures du port `0xCD` (registre DMA/statut Winchester) |
 | `-trace-win` | Chaque commande du contrôleur Winchester (RESTORE, SEEK, READ, WRITE) avec CHS et LBA |
 | `-tracefdc` | Événements ciblés du flux ID/checksum disquette |
-| `-scrdump` | Lignes d'écran modifiées affichées sur stderr à chaque image |
+| `-scrdump` | Lignes d'écran modifiées affichées sur stderr à chaque image ; les changements d'inversion seuls ajoutent une ligne `[scri rXX]` où `^` marque le bit 7 |
 
 **Astuce :** Combinez avec la redirection shell pour capturer les traces
 sans les mélanger à la sortie de l'émulateur :
