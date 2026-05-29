@@ -129,7 +129,9 @@ void video_render(struct Smaky6 *m)
         for (int row = 0; row < VIDEO_ROWS_CHAR; row++) {
             for (int col = 0; col < VIDEO_COLS_CHAR; col++) {
                 uint16_t addr = (uint16_t)(MEM_ALPHA_BASE + row * VIDEO_COLS_CHAR + col);
-                uint8_t  code = memory_read(m, addr) & 0x7Fu;
+                uint8_t  cell = memory_read(m, addr);
+                uint8_t  code = cell & 0x7Fu;
+                int      inverse = (cell & 0x80u) != 0;
                 int      px0   = col * 8;
 
                 /* Two-level exact mapping for the alpha plane.
@@ -140,6 +142,18 @@ void video_render(struct Smaky6 *m)
                 int row_y0 = row * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
                 int row_y1 = (row + 1) * VIDEO_ASPECT_H / VIDEO_ROWS_CHAR;
                 int rh     = row_y1 - row_y0;  /* 19 or 20 */
+
+                if (inverse) {
+                    for (int y = row_y0; y < row_y1; y++) {
+                        for (int b = 0; b < 8; b++) {
+                            int px = px0 + b;
+
+                            if (px < VIDEO_PX_W) {
+                                pixels[y * VIDEO_PX_W + px] = LIT;
+                            }
+                        }
+                    }
+                }
 
                 for (int sl = 0; sl < VIDEO_CHAR_H; sl++) {
                     /* TMS2716 layout: 16 bytes/char; rows 0-9 hold glyph+descenders,
@@ -152,7 +166,7 @@ void video_render(struct Smaky6 *m)
                         int px = px0 + b;
                         if (px < VIDEO_PX_W && (bits & (1u << b))) {
                             for (int y = y0; y < y1; y++)
-                                pixels[y * VIDEO_PX_W + px] = LIT;
+                                pixels[y * VIDEO_PX_W + px] = inverse ? BG : LIT;
                         }
                     }
                 }

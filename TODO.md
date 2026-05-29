@@ -950,6 +950,13 @@ Writing `0x00` to port `0x00` now blanks the machine area (black pixels).
 Port writes with bit 0 = 1 re-enable the display.  The status bar remains
 visible in both states.  Implemented via `vid.display_on` flag.
 
+### ~~Alpha inverse-video attribute~~ ✓ DONE
+
+Alpha screen RAM bit 7 is now treated as the per-cell inverse-video attribute
+instead of being ignored. The renderer fills inverse cells with the lit
+phosphor colour first, then draws the glyph itself back in background colour,
+which matches the reversed text blocks seen on the real machine.
+
 ### ~~CRT phosphor colour option~~ ✅ Done
 
 Add a `-phosphor <colour>` CLI option (and a matching control in the launcher)

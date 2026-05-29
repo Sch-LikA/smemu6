@@ -248,6 +248,9 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 - `-no-display-off`: ignore display-blank writes to port `0x00`; the screen stays visible at all times.
 - `-verbose-video`: log display on/off and video mode changes to stderr.
 
+In alpha mode, screen RAM bit 7 is now honored as the hardware inverse-video
+attribute for each character cell.
+
 ### Timing and timeouts
 
 - `-timeout <s>`: global wall-clock timeout in seconds. `0` disables it; the default is 45 s when `-trace` is active.

@@ -263,6 +263,9 @@ valides sont :
 | `-no-display-off` | Ignore les écritures d'extinction d'écran sur le port `0x00` ; l'écran reste visible en permanence |
 | `-verbose-video` | Affiche sur stderr les changements d'état d'écran (allumage, extinction, mode vidéo) |
 
+En mode alpha, le bit 7 de la RAM écran est maintenant respecté comme attribut
+matériel d'inversion vidéo pour chaque cellule de caractère.
+
 ### Timing et timeouts
 
 | Option | Description |
