@@ -87,6 +87,22 @@ Why:
 - one-shot cleanup still belongs only to explicitly buffered synthetic input via
   `release_after_buffer_commit`
 
+### Reset must preserve the default caps-on keyboard layer
+
+Keep the keyboard in its default caps-on layer across machine reset, and when
+SDL text input supplies ordinary letters, resolve their final Smaky byte from
+the matrix position and current layer rather than blindly trusting the host
+text case.
+
+Why:
+
+- SIGMA menu navigation compares against uppercase `D/F/R/C` bytes, not the
+  lowercase host text bytes
+- the keyboard layer already models case through the Smaky matrix tables, so
+  SDL text input should reuse that layer choice instead of bypassing it
+- `keyboard_init()` alone was not enough because `machine_reset()` was
+  immediately clearing `caps_lock_active` back to the lowercase layer
+
 
 ### The web build excludes archived ST export helper tools
 

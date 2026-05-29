@@ -690,7 +690,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 1;
     m->kbd.shift_pressed = 0;
-    m->kbd.caps_lock_active = 0;
+    m->kbd.caps_lock_active = 1;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
@@ -853,6 +853,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 {
     uint8_t key_code;
     SDL_Scancode scan = SDL_SCANCODE_UNKNOWN;
+    SmakyMatrixPosition position = MATRIX_POS_NONE;
     int needs_fresh_text_key = (ev->text[0] != '\0' && ev->text[1] == '\0');
 
     if (fnct_layer_active(m)) {
@@ -880,6 +881,10 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
                 fprintf(stderr, "[kbd-text] ignored repeat \"%s\" with no fresh text keydown\n", ev->text);
             return;
         }
+
+        position = lookup_matrix_position(scan, SDL_GetKeyFromScancode(scan), 0);
+        if (position != MATRIX_POS_NONE)
+            key_code = resolve_matrix_code(m, position);
 
         m->kbd.host_text_down[scan] = 2;
     } else if (m->dbg.trace_kbd) {

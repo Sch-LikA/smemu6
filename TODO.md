@@ -63,6 +63,10 @@ against disassembly or hardware documentation.
   writes; interactive programs such as SIGMA can consume the same key both as a
   live keyboard event and as buffered input, and collapsing it to one-shot too
   early only blinks the current selection instead of moving it.
+- Keep ordinary SDL text-input letters aligned with the Smaky keyboard layer
+  table instead of trusting host text case alone; SIGMA menu navigation expects
+  uppercase `D/F/R/C`, and the machine reset path must preserve the default
+  caps-on state so plain host `d/f/r/c` reach the guest as `0x44/0x46/0x52/0x43`.
 - Add a small scripted chord injector for interactive programs so headless runs
   can type a CLI command, wait a configurable number of frames, then assert a
   simultaneous function-key + ordinary-key combination such as `PROGRA+z`.
