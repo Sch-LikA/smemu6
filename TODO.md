@@ -9,10 +9,10 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
-## Build / Release
+## ~~Build / Release~~ ✅ Done
 
-- Keep the GitHub Pages web deployment wired to both `master` pushes and
-  pushed `v*` version tags, so a release tag refreshes the published web build
+- `pages.yml` now deploys the web build on both `master` pushes and pushed
+  `v*` version tags, so release tags refresh the published web version
   alongside the desktop release artifacts.
 
 ## CALM / SMILE assembler
@@ -1351,7 +1351,9 @@ The `release` job in `release.yml` collects all platform artifacts and creates a
 
 ### ~~Web / GitHub Pages deployment~~ ✅ Done
 
-`pages.yml` builds the Emscripten web target on every push to `master` using `mymindstorm/setup-emsdk@v14` (SDK 3.1.6) and deploys to GitHub Pages. Live at <https://sch-lika.github.io/smemu6/>.
+`pages.yml` builds the Emscripten web target on pushes to `master` and pushed
+`v*` version tags using `mymindstorm/setup-emsdk@v14` (SDK 3.1.6) and deploys
+to GitHub Pages. Live at <https://sch-lika.github.io/smemu6/>.
 
 ### Experimental SDCC scaffold not yet in CI
 
