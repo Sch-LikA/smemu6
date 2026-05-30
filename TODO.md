@@ -9,6 +9,12 @@ against disassembly or hardware documentation.
 
 ## UI / Display
 
+## Build / Release
+
+- Keep the GitHub Pages web deployment wired to both `master` pushes and
+  pushed `v*` version tags, so a release tag refreshes the published web build
+  alongside the desktop release artifacts.
+
 ## CALM / SMILE assembler
 
 - Keep treating the later CALM manuals as only partial hints. The Smaky 6-era
