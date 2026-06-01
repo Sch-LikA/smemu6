@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+/* Assert one viewport-start calculation result. */
 static int expect_start(int actual, int expected, const char *label)
 {
     if (actual != expected) {
@@ -13,6 +14,7 @@ static int expect_start(int actual, int expected, const char *label)
     return 0;
 }
 
+/* Exercise the disassembly viewport positioning logic around edge cases. */
 int main(void)
 {
     if (expect_start(debug_disasm_view_start(20, 10, 10, 11, 5), 5, "pc centered") != 0) {

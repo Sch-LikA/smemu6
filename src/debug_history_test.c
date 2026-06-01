@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+/* Assert that a size-producing helper returned the expected count. */
 static int expect_size(size_t actual, size_t expected, const char *label)
 {
     if (actual != expected) {
@@ -13,6 +14,7 @@ static int expect_size(size_t actual, size_t expected, const char *label)
     return 0;
 }
 
+/* Assert that a popped or shifted history value matches the expected word. */
 static int expect_value(uint16_t actual, uint16_t expected, const char *label)
 {
     if (actual != expected) {
@@ -22,6 +24,7 @@ static int expect_value(uint16_t actual, uint16_t expected, const char *label)
     return 0;
 }
 
+/* Exercise bounded push/pop history behaviour, dedupe, and sliding eviction. */
 int main(void)
 {
     uint16_t history[4] = { 0 };

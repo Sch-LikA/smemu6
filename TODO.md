@@ -44,9 +44,12 @@ against disassembly or hardware documentation.
   scheme.
 - Netlist result: the direct AY `CLOCK` net is `Net-(U1-CLOCK)` and is driven
   by `U16` pin `4`, not directly by the `SW1` / `U8` / `U7` control path.
-- Next clock-correction slice: determine the fitted `RV1` value and the actual
-  `U16` Schmitt-trigger RC oscillator frequency from the `1nF1` + `R6` + `RV1`
-  network before replacing the current fallback `2.41152 MHz` in the emulator.
+- Clock model baseline now uses the measured `1.410 MHz` real-hardware value,
+  with `-psg-clock <hz>` exposing the observed potentiometer sweep range
+  `1000000..2400000` for bring-up and comparison.
+- Next clock-correction slice: determine the fitted `RV1` value / default knob
+  position so the emulator can model a realistic startup setting instead of
+  only exposing the full measured sweep as a manual override.
 - `1nF1` is now confirmed as `1 nF`, so follow-up hardware work can focus on
   `RV1` and any downstream effective division rather than re-checking the
   capacitor value.

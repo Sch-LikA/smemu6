@@ -8,7 +8,9 @@
 
 struct Smaky6;
 
+/* Open the SDL audio path and reset the per-frame mixer state. */
 void sound_init(struct Smaky6 *m);
+/* Drain and close the SDL audio path plus any owned mixer state. */
 void sound_fini(struct Smaky6 *m);
 
 /* Configure sound output.  Must be called BEFORE sound_init().
@@ -17,10 +19,10 @@ void sound_fini(struct Smaky6 *m);
 void sound_set_beeper_enabled(int enabled);
 void sound_set_drive_sound_enabled(int enabled);
 
-/* Produce a square-wave beep (freq in Hz, duration in ms) */
+/* Queue a standalone square-wave beep into the shared audio mixer. */
 void sound_beep(struct Smaky6 *m, unsigned freq_hz, unsigned duration_ms);
 
-/* Called from the I/O port write when the software toggles the buzzer bit */
+/* Update the live beeper latch from port 0x03 writes during CPU execution. */
 void sound_set_bit(struct Smaky6 *m, int level);
 
 /* Called at end of each 50 Hz frame to flush the per-frame sample buffer

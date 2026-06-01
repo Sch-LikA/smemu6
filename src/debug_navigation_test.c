@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+/* Assert one integer-valued navigation helper result. */
 static int expect_int(int actual, int expected, const char *label)
 {
     if (actual != expected) {
@@ -13,6 +14,7 @@ static int expect_int(int actual, int expected, const char *label)
     return 0;
 }
 
+/* Exercise debugger follow-policy and stack-target classification helpers. */
 int main(void)
 {
     if (expect_int(debug_navigation_can_follow(0, 0), 0, "running blocks follow") != 0) {

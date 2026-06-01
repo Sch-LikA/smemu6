@@ -21,9 +21,13 @@ struct Smaky6StTable {
     size_t count;
 };
 
+/* Load one archived ST symbol table into heap-owned decoded records. */
 int smaky6_st_load_file(const char *path, struct Smaky6StTable *table);
+/* Release the heap-owned record array attached to a decoded symbol table. */
 void smaky6_st_free_table(struct Smaky6StTable *table);
+/* Return the preferred display/export name for one decoded ST record. */
 const char *smaky6_st_best_name(const struct Smaky6StRecord *record);
+/* Find one decoded ST record by either its raw decoded name or preferred alias. */
 const struct Smaky6StRecord *smaky6_st_find_by_name(const struct Smaky6StTable *table,
                                                     const char *name);
 

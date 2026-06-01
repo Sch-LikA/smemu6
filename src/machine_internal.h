@@ -269,6 +269,7 @@ struct Smaky6 {
     /* Optional PSG add-on currently mapped to ports 0x20–0x27 when enabled. */
     struct {
         int enabled;
+        uint32_t chip_clock_hz;
         struct Smaky6Psg card;
     } psg;
 

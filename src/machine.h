@@ -28,6 +28,13 @@
 #define SMAKY6_AUDIO_HZ            44100u
 #define SMAKY6_SAMPLES_PER_FRAME   SMAKY_DIV_ROUND_NEAREST(SMAKY6_AUDIO_HZ, SMAKY6_FRAME_HZ)  /* 882 */
 
+/* Optional PSG add-on clock.
+ * Real hardware was measured around 1.410 MHz, and the card potentiometer
+ * shifts the local oscillator across roughly 1.0 .. 2.4 MHz. */
+#define SMAKY6_PSG_CLOCK_DEFAULT_HZ 1410000u
+#define SMAKY6_PSG_CLOCK_MIN_HZ     1000000u
+#define SMAKY6_PSG_CLOCK_MAX_HZ     2400000u
+
 /* Compile-time sanity checks */
 #if ((SMAKY6_CPU_HZ) % (SMAKY6_FRAME_HZ)) != 0
 #warning "SMAKY6_CPU_HZ is not an integer multiple of SMAKY6_FRAME_HZ; TSTATES_PER_FRAME truncates."
@@ -62,6 +69,7 @@ void machine_int(struct Smaky6 *m);
 void machine_reset(struct Smaky6 *m);
 
 /* Optional PSG expansion card. Returns 0 on success. */
+int machine_set_psg_clock_hz(struct Smaky6 *m, uint32_t hz);
 int machine_set_psg_enabled(struct Smaky6 *m, int on);
 int machine_psg_enabled(const struct Smaky6 *m);
 

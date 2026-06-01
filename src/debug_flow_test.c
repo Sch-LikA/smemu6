@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 
+/* Assert one decode result against the expected presence flag and target. */
 static int expect_decode(uint16_t addr,
                          const uint8_t *bytes,
                          size_t size,
@@ -28,6 +29,7 @@ static int expect_decode(uint16_t addr,
     return 0;
 }
 
+/* Assert whether one opcode should participate in step-over handling. */
 static int expect_step_over(uint8_t opcode, int expected, const char *label)
 {
     int actual = debug_flow_is_step_over_candidate(opcode);
@@ -39,6 +41,7 @@ static int expect_step_over(uint8_t opcode, int expected, const char *label)
     return 0;
 }
 
+/* Exercise the focused debug-flow helpers with representative branch opcodes. */
 int main(void)
 {
     static const uint8_t call_abs[] = { 0xCDu, 0x34u, 0x12u };

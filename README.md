@@ -318,7 +318,8 @@ Current scope:
 
 - claims ports `0x20/0x21`, `0x22/0x23`, `0x24/0x25`, `0x26/0x27`
 - odd port = register select, even port = data, matching the current SIGMA-derived probe map
-- current implementation still uses a temporary fallback `2.41152 MHz` AY clock; the KiCad netlist now shows the real AY `CLOCK` net is driven locally from `U16` pin 4 through a Schmitt-trigger RC network (`1nF1`, `R6`, `RV1`), but the actual fitted oscillator value is still not confirmed
+- default PSG clock is now the measured real-hardware value `1.410 MHz`; use `-psg-clock <hz>` to sweep the observed potentiometer range `1000000..2400000` during SIGMA bring-up
+- the KiCad netlist still shows the AY `CLOCK` net is driven locally from `U16` pin 4 through a Schmitt-trigger RC network (`1nF1`, `R6`, `RV1`), so remaining hardware work is about matching the potentiometer setting and any downstream shaping, not recovering a host-bus clock source
 - conflicts with `-harddisk` and `-harddisk2`, because the Winchester controller already uses the same decoded port range
 
 ---

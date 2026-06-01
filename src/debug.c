@@ -1921,7 +1921,10 @@ void debug_fini(struct Smaky6 *m)
     dbg_close_window(m);
 }
 
+/* Report whether the native debugger window is currently open. */
 int debug_is_visible(struct Smaky6 *m) { return m->dbg.visible; }
+
+/* Report whether debugger execution is currently paused. */
 int debug_is_paused(struct Smaky6 *m) { return m->dbg.paused; }
 
 void debug_toggle_pause(struct Smaky6 *m)

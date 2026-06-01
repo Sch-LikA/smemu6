@@ -8,7 +8,9 @@
 
 struct Smaky6;
 
+/* Reset the parallel interface data and status latches. */
 void parallel_init(struct Smaky6 *m);
+/* No dynamic parallel-interface resources are owned today; kept for symmetry. */
 void parallel_fini(struct Smaky6 *m);
 
 /*
@@ -19,8 +21,11 @@ void parallel_fini(struct Smaky6 *m);
  *   bit 6 = S6
  *   bit 7 = S7
  */
+/* Read the bidirectional data latch exposed on port 0x02. */
 uint8_t parallel_read_data(struct Smaky6 *m);
+/* Update the bidirectional data latch from a guest write to port 0x02. */
 void    parallel_write_data(struct Smaky6 *m, uint8_t val);
+/* Read the status bits exposed on port 0x03. */
 uint8_t parallel_read_status(struct Smaky6 *m);
 
 #endif /* PARALLEL_H */

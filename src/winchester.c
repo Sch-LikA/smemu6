@@ -38,6 +38,7 @@ static int selected_drive(const WinState *w)
     return (w->sdh >> 3) & 1;
 }
 
+/* Look up one sector in the per-drive in-memory write overlay. */
 static WinOverlaySector *find_overlay_sector(WinState *w, int drive, uint32_t lba)
 {
     for (size_t i = 0; i < w->overlay_count[drive]; i++) {
@@ -48,6 +49,7 @@ static WinOverlaySector *find_overlay_sector(WinState *w, int drive, uint32_t lb
     return NULL;
 }
 
+/* Release all overlay sectors accumulated for one emulated drive. */
 static void clear_overlay_drive(WinState *w, int drive)
 {
     free(w->overlay[drive]);
@@ -56,6 +58,8 @@ static void clear_overlay_drive(WinState *w, int drive)
     w->overlay_capacity[drive] = 0;
 }
 
+/* Store or replace one 256-byte sector in the in-memory write overlay.
+ * Guest Winchester writes never modify the backing image directly. */
 static int store_overlay_sector(WinState *w, int drive, uint32_t lba,
                                 const uint8_t *data)
 {
@@ -144,12 +148,14 @@ static int read_sector(WinState *w, uint32_t lba)
 
 /* ── Public API ──────────────────────────────────────────────────────────── */
 
+/* Initialise Winchester state, leaving both drives unmounted and idle. */
 void winchester_init(WinState *w)
 {
     memset(w, 0, sizeof(*w));
     w->phase = WD_IDLE;
 }
 
+/* Mount one Winchester image on drive 0 or 1 and clear any old overlay state. */
 int winchester_load(WinState *w, int drive, const char *path)
 {
     if (drive < 0 || drive > 1) return -1;
@@ -167,6 +173,7 @@ int winchester_load(WinState *w, int drive, const char *path)
     return 0;
 }
 
+/* Close both drive images and discard their volatile write overlays. */
 void winchester_fini(WinState *w)
 {
     for (int i = 0; i < 2; i++) {
@@ -222,13 +229,19 @@ uint8_t winchester_read_data(WinState *w)
 
 /* ── Port writes ─────────────────────────────────────────────────────────── */
 
+/* Latch the currently addressed sector number from the guest register write. */
 void winchester_write_sector_num(WinState *w, uint8_t v)
 {
     w->sector_num = v & 0x1Fu;
 }
 
+/* Latch the low cylinder byte for later command decoding. */
 void winchester_write_cyl_lo(WinState *w, uint8_t v) { w->cyl_lo = v; }
+
+/* Latch the high cylinder byte for later command decoding. */
 void winchester_write_cyl_hi(WinState *w, uint8_t v) { w->cyl_hi = v; }
+
+/* Latch the SDH register, including drive/head selection bits. */
 void winchester_write_sdh   (WinState *w, uint8_t v) { w->sdh    = v; }
 
 /*

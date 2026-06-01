@@ -16,6 +16,8 @@ static const struct Smaky6StNameOverride st_name_overrides[] = {
     {"SILENC", 0x00FFu, "SILENCE"},
 };
 
+/* Decode one 6-character archived ST symbol name into printable ASCII while
+ * preserving the original high-bit flags separately. */
 static void smaky6_st_decode_name(struct Smaky6StRecord *record)
 {
     size_t out = 0;
@@ -44,6 +46,8 @@ static void smaky6_st_decode_name(struct Smaky6StRecord *record)
     record->decoded_name[out] = '\0';
 }
 
+/* Return the best exported name for one record, applying curated aliases for
+ * historically awkward archived names. */
 const char *smaky6_st_best_name(const struct Smaky6StRecord *record)
 {
     if (!record)
@@ -59,6 +63,7 @@ const char *smaky6_st_best_name(const struct Smaky6StRecord *record)
     return record->decoded_name;
 }
 
+/* Parse an entire archived ST symbol table file into decoded records. */
 int smaky6_st_load_file(const char *path, struct Smaky6StTable *table)
 {
     FILE *fp;
@@ -127,6 +132,7 @@ int smaky6_st_load_file(const char *path, struct Smaky6StTable *table)
     return 0;
 }
 
+/* Release the heap-owned record array and clear the table metadata. */
 void smaky6_st_free_table(struct Smaky6StTable *table)
 {
     if (!table)
@@ -137,6 +143,7 @@ void smaky6_st_free_table(struct Smaky6StTable *table)
     table->count = 0;
 }
 
+/* Find one symbol record by either its decoded archive name or preferred alias. */
 const struct Smaky6StRecord *smaky6_st_find_by_name(const struct Smaky6StTable *table,
                                                     const char *name)
 {

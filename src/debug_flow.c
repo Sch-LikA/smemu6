@@ -1,5 +1,8 @@
 #include "debug_flow.h"
 
+/* Decode the control-flow target of a single Z80 branch/call/restart opcode.
+ * Returns 1 only when the byte stream is long enough and the opcode encodes a
+ * direct destination the debugger can display or step over. */
 int debug_flow_decode_target(uint16_t addr,
                              const uint8_t *bytes,
                              size_t size,
@@ -28,6 +31,8 @@ int debug_flow_decode_target(uint16_t addr,
     return 0;
 }
 
+/* Identify instructions that should use debugger step-over semantics.
+ * This currently covers CALL, DJNZ, conditional CALL, and RST opcodes. */
 int debug_flow_is_step_over_candidate(uint8_t opcode)
 {
     return opcode == 0xCDu ||

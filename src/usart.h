@@ -22,13 +22,18 @@ struct Usart {
 
 struct Smaky6;
 
+/* Reset both USART instances to their power-on idle state. */
 void usart_init(struct Smaky6 *m);
+/* No dynamic USART resources are owned today; kept for symmetric teardown. */
 void usart_fini(struct Smaky6 *m);
 
-/* Port read/write dispatchers for each USART */
+/* Read the current receive/data register state for the selected USART. */
 uint8_t usart_read_data(struct Smaky6 *m, UsartId id);
+/* Latch one outgoing data byte into the selected USART model. */
 void    usart_write_data(struct Smaky6 *m, UsartId id, uint8_t val);
+/* Read the current status bits exposed by the selected USART. */
 uint8_t usart_read_status(struct Smaky6 *m, UsartId id);
+/* Latch a mode/command write for the selected USART control port. */
 void    usart_write_command(struct Smaky6 *m, UsartId id, uint8_t val);
 
 #endif /* USART_H */

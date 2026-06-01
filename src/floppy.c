@@ -12,11 +12,14 @@
 
 /* Direct field access: struct Smaky6 fully visible via machine_internal.h */
 
+/* Report whether a drive slot currently owns mounted media of any kind. */
 static int floppy_media_is_mounted(const struct FloppyMedia *media)
 {
     return media->kind != FLOPPY_MEDIA_NONE;
 }
 
+/* Reset the streaming read/write state machine for one drive selection.
+ * Call this whenever media or geometry changes invalidate the current stream. */
 static void floppy_reset_stream_state(struct Smaky6 *m, int drive)
 {
     m->fdc.byte_pos = 0;
@@ -31,6 +34,8 @@ static void floppy_reset_stream_state(struct Smaky6 *m, int drive)
     m->fdc.phased_sector[drive] = 0;
 }
 
+/* Tear down one mounted floppy image or virtual floppy overlay and restore the
+ * controller-visible drive state to its power-on defaults. */
 static void floppy_unmount_drive(struct Smaky6 *m, int drive)
 {
     struct FloppyMedia *media = &m->fdc.media[drive];
@@ -45,6 +50,8 @@ static void floppy_unmount_drive(struct Smaky6 *m, int drive)
     floppy_reset_stream_state(m, drive);
 }
 
+/* Infer controller geometry from image size and reset the stream state to a
+ * known track-zero view of the new medium. */
 static void floppy_apply_geometry(struct Smaky6 *m, int drive, size_t size,
                                   const char *path, const char *kind)
 {
@@ -66,6 +73,8 @@ static void floppy_apply_geometry(struct Smaky6 *m, int drive, size_t size,
     floppy_reset_stream_state(m, drive);
 }
 
+/* Read one 256-byte sector payload from either a file-backed or memory-backed
+ * floppy medium, zero-filling any short tail. */
 static int floppy_read_sector_bytes(struct FloppyMedia *media, long offset,
                                     uint8_t *out)
 {
@@ -99,6 +108,8 @@ static int floppy_read_sector_bytes(struct FloppyMedia *media, long offset,
     return -1;
 }
 
+/* Write one 256-byte sector payload back to the currently mounted medium when
+ * that medium is writable. */
 static int floppy_write_sector_bytes(struct FloppyMedia *media, long offset,
                                      const uint8_t *in)
 {
@@ -130,6 +141,7 @@ static int floppy_write_sector_bytes(struct FloppyMedia *media, long offset,
     return -1;
 }
 
+/* Initialise both floppy drives and the Micropolis stream state machine. */
 void floppy_init(struct Smaky6 *m)
 {
     for (int d = 0; d < 2; d++) {
@@ -157,6 +169,7 @@ void floppy_init(struct Smaky6 *m)
     memset(m->fdc.write_buf, 0, sizeof(m->fdc.write_buf));
 }
 
+/* Unmount both floppy drives and release any owned image or overlay memory. */
 void floppy_fini(struct Smaky6 *m)
 {
     for (int d = 0; d < 2; d++) {
@@ -164,6 +177,7 @@ void floppy_fini(struct Smaky6 *m)
     }
 }
 
+/* Mount one disk image on the requested drive as a writable file-backed floppy. */
 int floppy_mount(struct Smaky6 *m, int drive, const char *path)
 {
     floppy_unmount_drive(m, drive);

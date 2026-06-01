@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Open an output stream or map '-' to stdout for command-line tools. */
 static FILE *st_open_output(const char *path)
 {
     if (!path || strcmp(path, "-") == 0)
@@ -13,12 +14,14 @@ static FILE *st_open_output(const char *path)
     return fopen(path, "w");
 }
 
+/* Return the last path component without modifying the source string. */
 static const char *st_basename(const char *path)
 {
     const char *slash = strrchr(path, '/');
     return slash ? slash + 1 : path;
 }
 
+/* Derive the filename stem used for generated identifiers and metadata. */
 static void st_stem(char *dst, size_t dst_size, const char *path)
 {
     const char *base = st_basename(path);
@@ -31,6 +34,7 @@ static void st_stem(char *dst, size_t dst_size, const char *path)
     dst[len] = '\0';
 }
 
+/* Convert an arbitrary filename stem into a lowercase C identifier fragment. */
 static void st_identifier(char *dst, size_t dst_size, const char *stem)
 {
     size_t out = 0;
@@ -48,6 +52,7 @@ static void st_identifier(char *dst, size_t dst_size, const char *stem)
     dst[out] = '\0';
 }
 
+/* Convert an arbitrary filename stem into an uppercase identifier fragment. */
 static void st_upper_identifier(char *dst, size_t dst_size, const char *stem)
 {
     st_identifier(dst, dst_size, stem);
@@ -56,6 +61,7 @@ static void st_upper_identifier(char *dst, size_t dst_size, const char *stem)
         dst[i] = (char)toupper((unsigned char)dst[i]);
 }
 
+/* Emit one JSON string literal with the minimal escaping this tool needs. */
 static void emit_json_string(FILE *out, const char *text)
 {
     fputc('"', out);
@@ -69,6 +75,7 @@ static void emit_json_string(FILE *out, const char *text)
     fputc('"', out);
 }
 
+/* Emit the decoded symbol table as a JSON document for downstream tooling. */
 static void emit_json(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
@@ -105,6 +112,7 @@ static void emit_json(FILE *out, const char *path, const struct Smaky6StTable *t
     fprintf(out, "  ]\n}\n");
 }
 
+/* Emit a host-side C header containing the decoded symbol table as static data. */
 static void emit_header(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
@@ -138,6 +146,7 @@ static void emit_header(FILE *out, const char *path, const struct Smaky6StTable 
     fprintf(out, "#endif\n");
 }
 
+/* Emit a compact SDCC-friendly header with one constant per exported symbol. */
 static void emit_sdcc_header(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
@@ -171,6 +180,7 @@ static void emit_sdcc_header(FILE *out, const char *path, const struct Smaky6StT
     fprintf(out, "\n#endif\n");
 }
 
+/* Emit a CALM/assembler include with one .equ per exported symbol. */
 static void emit_sdcc_asm(FILE *out, const char *path, const struct Smaky6StTable *table)
 {
     char stem[32];
@@ -197,6 +207,8 @@ static void emit_sdcc_asm(FILE *out, const char *path, const struct Smaky6StTabl
     }
 }
 
+/* Convert one archived ST file into JSON, host-C header, SDCC header, or
+ * assembler constants according to the selected CLI mode. */
 int main(int argc, char **argv)
 {
     struct Smaky6StTable table;

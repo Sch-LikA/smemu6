@@ -2,6 +2,7 @@
 
 #define HELLO_ROW 11u
 
+/* Minimal SDCC smoke test: write a few lines into alpha RAM and return. */
 void main(void)
 {
     smaky6_alpha_clear_screen();

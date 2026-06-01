@@ -15,20 +15,22 @@ typedef enum {
     VMODE_SUPER    = 2   /* Superimposed (?IAGRA) */
 } VideoMode;
 
+/* Create the SDL renderer resources and initialise video-side machine state. */
 void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren);
+/* Release all SDL textures/buffers owned by the video subsystem. */
 void video_fini(struct Smaky6 *m);
 
 /* Load character generator ROM (2716, 2 KB).
  * Falls back to built-in synthetic 74S262 table if path is NULL or missing. */
 void video_load_chargen(struct Smaky6 *m, const char *path);
 
-/* Set display mode from emulated I/O port write */
+/* Switch the emulated display between alpha, graphics, and superimposed modes. */
 void video_set_mode(struct Smaky6 *m, VideoMode mode);
 
 /* Override graphic nibble bit order: 0=LSB-left, 1=MSB-left (default: MSB). */
 void video_set_gfx_msb_first(struct Smaky6 *m, int on);
 
-/* Render one frame to the SDL2 window */
+/* Render the current alpha/graphics state plus overlays into the SDL window. */
 void video_render(struct Smaky6 *m);
 
 /*

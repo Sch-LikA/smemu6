@@ -592,6 +592,8 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
 
 /* ── launcher_run ────────────────────────────────────────────────────────── */
 
+/* Run the SDL startup dialog and return the selected launch configuration.
+ * Headless environments bypass the UI and synthesize sensible defaults. */
 int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
 {
     /* Sentinel defaults — means "not set, let main() keep CLI/default" */

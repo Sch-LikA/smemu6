@@ -180,10 +180,12 @@ Why:
 - allowing both silently would make the guest talk to two incompatible devices
   on the same I/O addresses and hide the real hardware conflict
 
-### PSG first clock assumption and audio path
+### PSG measured default clock and audio path
 
-Current PSG slice still uses a temporary fallback AY clock and mixes PSG output
-through the existing SDL audio frame buffer.
+Current PSG slice uses the measured `1.410 MHz` AY clock as its default,
+allows manual override across the observed potentiometer range
+`1.0 .. 2.4 MHz`, and mixes PSG output through the existing SDL audio frame
+buffer.
 
 Why:
 
@@ -215,8 +217,13 @@ Why:
   same `U8`-side control trunk; this is now strong evidence that `SW1` is a
   logic/configuration input to the clock-shaping network rather than a direct
   raw-clock source selector
-  because the fitted `RV1` value is not encoded there and the resulting
-- until the exact oscillator/divider path is traced, the emulator keeps a
+- real hardware was measured around `1.410 MHz`, which is now the emulator's
+  default PSG clock instead of the older `2.41152 MHz` fallback
+- the user also measured the potentiometer sweep at roughly `1.0 .. 2.4 MHz`,
+  so the emulator now accepts that full range as an explicit override for
+  SIGMA bring-up and A/B testing
+- the remaining unknown is the realistic default `RV1` setting on power-up,
+  not whether the card uses a local oscillator at all
 
 ### Integrated debugger is native-first and opt-in
 
@@ -358,6 +365,99 @@ while the user is browsing away from the live machine state.
 Why:
 
 - the previous slice only decoded a short window before the live `PC`, so
+
+### 2026-05-30
+
+Worked on:
+
+- re-read the project workflow/docs, cut release tag `v1.3`, and checked why the
+  web deployment did not refresh from that tag push
+- traced the GitHub Actions split between desktop release artifacts and Pages
+  deployment, then fixed the Pages trigger to include pushed `v*` tags
+- cleaned the top-level TODO wording so the release/web deployment note now
+  reflects the completed workflow behavior
+
+Completed:
+
+- created and pushed annotated tag `v1.3` on `3211ab1`
+  (`fix: preserve sigma uppercase navigation keys`)
+- committed the Pages workflow fix in `cebd78c`
+  (`ci: deploy web pages on release tags`) and pushed `master`
+- committed the TODO cleanup in `623ee91`
+  (`docs: mark release web deploy note done`)
+
+In progress:
+
+- `v1.3` still points to the pre-workflow-fix commit, so the GitHub Release tag
+  and the live web deployment may reference different commits until a later tag
+  such as `v1.3.1` is cut
+- local uncommitted workspace state still includes this `MEMORY.md` update and
+  the untracked PDF `docs/Smaky 6 La programmation du Smaky I.pdf`
+
+Decisions made:
+
+- treat GitHub Pages deployment as a first-class release path: version tags
+  should trigger the web rebuild in addition to the desktop release workflow
+- keep the fix minimal by extending `pages.yml` triggers rather than merging
+  the Pages build into `release.yml`
+- do not fold unrelated existing `MEMORY.md` edits into the workflow-fix commit;
+  keep release/workflow commits narrowly scoped
+
+Next session priorities:
+
+- if release parity matters, cut and push a follow-up tag so desktop release
+  assets and the live web deployment point at the same commit
+- otherwise continue with the highest-impact open TODO items: SDCC exit-path
+  investigation, keyboard/SMILE follow-up validation, or floppy hot-swap/write
+  support
+
+### 2026-05-29
+
+Worked on:
+
+- finished the SIGMA inverse-selection investigation after the inverse-video
+  renderer fix, focusing on why `r/d/f/c` only blinked the current block
+- traced the keyboard path end-to-end with visible SDL validation, `-scrdump`
+  inverse-mask rows, and targeted workspace logging
+- narrowed the issue from renderer vs keyboard down to Sigma-side expectations
+  for uppercase navigation bytes
+
+Completed:
+
+- confirmed and kept the inverse-mask `-scrdump` diagnostics and the held-key
+  circular-buffer preservation work as the validated keyboard-debug floor
+- rejected and reverted two wrong paths: removing the ordinary-key prefix and
+  forcing `r/d/f/c` through a separate matrix-only route (`0dc929c`,
+  `5bc653d`)
+- identified from Sigma segment disassembly that the menu compares against
+  uppercase `D/F/R/C`
+- fixed ordinary SDL text letters to resolve through the Smaky layer table and
+  preserved the default caps-on layer through machine reset in `3211ab1`
+  (`fix: preserve sigma uppercase navigation keys`)
+- validated the final fix visibly: plain host `f` now reaches Sigma as `0x46`
+  (`C6` first read, then `46`) and moves the inverse selection block right
+
+In progress:
+
+- no open code change in this slice; only optional follow-up validation remains
+  for the other Sigma directions (`d`, `r`, `c`) if needed
+
+Decisions made:
+
+- treat Sigma navigation as a keyboard-layer case problem, not a renderer
+  refresh problem; the inverse mask already repaints correctly
+- keep the default caps-on keyboard layer across reset so ordinary letters use
+  the Smaky uppercase table unless the guest or user changes state
+- when SDL text input is used for ordinary keys, resolve the final guest byte
+  from the Smaky matrix position and active layer instead of trusting host text
+  case
+
+Next session priorities:
+
+- if Sigma input work continues, verify the remaining directions (`d`, `r`,
+  `c`) against the same final path
+- otherwise move on; the current Sigma menu navigation regression is fixed and
+  committed
   repeated `Shift+F6` presses could move the selected line outside the visible
   pane after only a few steps
 - centering the live row makes the default paused view easier to read, while
@@ -485,22 +585,24 @@ Completed:
 
 In progress:
 
-- the exact AY clock frequency is still unresolved
-- the remaining hardware unknown is the fitted `RV1` value/setting and whether
-  any later effective division changes the final AY clock seen at `U16 pin 4`
+- the remaining hardware unknown is the fitted `RV1` value / default setting
+  that corresponds to the measured `1.410 MHz` operating point
+- any later effective division or shaping between the raw `U16` oscillator and
+  the final AY clock still needs confirmation against runtime SIGMA behavior
 
 Decisions made:
 
-- keep the emulator clock value as a fallback until the oscillator frequency is
-  hardware-backed; see `PSG first clock assumption and audio path` above
+- use the measured `1.410 MHz` value as the default emulator PSG clock and
+  expose the measured `1.0 .. 2.4 MHz` potentiometer sweep as a manual
+  override; see `PSG measured default clock and audio path` above
 - treat `SW1` as decode/configuration logic input, not as the direct AY clock
-  source selector; see `PSG first clock assumption and audio path` above
+  source selector; see `PSG measured default clock and audio path` above
 
 Next session priorities:
 
-- determine the fitted `RV1` value or range from BOM, board markings, or user
-  confirmation
-- infer or measure the resulting `U16` oscillator frequency and decide whether
-  `SMAKY6_PSG_CHIP_CLOCK_HZ` should change from the current fallback
-- only after that, revisit SIGMA runtime validation against the corrected PSG
-  clock model
+- determine the fitted `RV1` value or default knob position from BOM, board
+  markings, or user confirmation
+- correlate SIGMA runtime behavior against the new measured default and nearby
+  `-psg-clock` overrides
+- decide whether the emulator should later model the potentiometer as a named
+  hardware control rather than only as a raw Hz override

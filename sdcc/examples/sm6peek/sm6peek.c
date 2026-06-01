@@ -10,6 +10,7 @@
 
 #define PROBE_ROW 10u
 
+/* Render one labelled address/value probe line into the alpha screen. */
 static void put_value_line(unsigned char row, const char *label,
                            unsigned short address, unsigned short value)
 {
@@ -25,6 +26,7 @@ static void put_value_line(unsigned char row, const char *label,
     smaky6_alpha_put_text_xy(row, 14u, value_hex);
 }
 
+/* Display a few live SM6 workspace addresses using the standalone SDCC helpers. */
 void main(void)
 {
     smaky6_alpha_clear_screen();

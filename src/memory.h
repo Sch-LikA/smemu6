@@ -8,18 +8,20 @@
 
 struct Smaky6;
 
-/* Initialise / teardown */
+/* Clear the flat bus and re-arm Phantom ROM write protection. */
 void memory_init(struct Smaky6 *m);
+/* No heap-owned memory exists today; kept for symmetric subsystem teardown. */
 void memory_fini(struct Smaky6 *m);
 
-/* Load binary file into flat bus; returns 0 on success */
+/* Load one raw binary file into the flat machine bus at base. */
 int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base);
 
-/* Flat read / write (used by Z80 callbacks and internal modules) */
+/* Read one byte from the flat machine bus with ROM/workspace side effects. */
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr);
+/* Write one byte to the flat machine bus while honouring ROM masks and hooks. */
 void    memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data);
 
-/* Remove ROM write-protection from a region (Phantom ROM bank-switch) */
+/* Remove ROM write-protection from a region after the Phantom bank-switch. */
 void memory_unprotect_rom(struct Smaky6 *m, uint16_t base, uint16_t len);
 
 /*

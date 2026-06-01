@@ -42,18 +42,21 @@ static volatile sig_atomic_t g_terminate_requested = 0;
 static volatile sig_atomic_t g_dump_ram_requested   = 0;
 static volatile sig_atomic_t g_refresh_virtual_floppies_requested = 0;
 
+/* Record a request for the main loop to exit at the next safe checkpoint. */
 static void handle_terminate_signal(int sig)
 {
     (void)sig;
     g_terminate_requested = 1;
 }
 
+/* Record an asynchronous RAM-dump request for the main loop to service. */
 static void handle_dump_signal(int sig)
 {
     (void)sig;
     g_dump_ram_requested = 1;
 }
 
+/* Record an asynchronous host-directory virtual-floppy refresh request. */
 static void handle_refresh_virtual_floppies_signal(int sig)
 {
     (void)sig;
@@ -62,6 +65,8 @@ static void handle_refresh_virtual_floppies_signal(int sig)
 
 /* ── RAM dump ───────────────────────────────────────────────────────────────*/
 
+/* Dump the full 64 KB machine address space to a sequenced file for post-mortem
+ * debugging without disturbing the running emulator state. */
 static void do_ram_dump(const struct Smaky6 *m)
 {
     char path[64];
@@ -81,6 +86,7 @@ static void do_ram_dump(const struct Smaky6 *m)
             path, (unsigned)machine_get_pc(m));
 }
 
+/* Ask each mounted host-directory virtual floppy to rescan its source tree. */
 static void do_virtual_floppy_refresh(struct Smaky6 *m)
 {
     int refreshed = 0;
@@ -99,6 +105,7 @@ static void do_virtual_floppy_refresh(struct Smaky6 *m)
     }
 }
 
+/* Emit the host-directory virtual floppy layout as JSON to stdout or a file. */
 static int dump_virtual_floppy_manifest(const char *hostdir, const char *manifest_path)
 {
     char error[256];
@@ -130,6 +137,7 @@ static int dump_virtual_floppy_manifest(const char *hostdir, const char *manifes
 
 /* ── Helpers ────────────────────────────────────────────────────────────────*/
 
+/* Print the command-line usage summary and current runtime options. */
 static void usage(const char *argv0)
 {
     fprintf(stderr,
@@ -142,6 +150,7 @@ static void usage(const char *argv0)
         "  -harddisk <img>  Mount Winchester hard-disk image on drive 0 (SM6WIN0)\n"
         "  -harddisk2 <img> Mount Winchester hard-disk image on drive 1 (SM6WIN1)\n"
         "  -psg           Enable the experimental PSG card on ports 0x20..0x27 (conflicts with Winchester)\n"
+        "  -psg-clock <hz>  Set PSG card clock in Hz (1000000..2400000, default 1410000)\n"
         "  -trace         Log Z80 PC at boot milestones to stderr\n"
         "  -break-to-monitor Inject SHIFT+BREAK to enter monitor mode\n"
         "  -inject-str <s> Inject string when CLI prompt appears (use \\n or \\r for Enter/CR, \\f to wait for next prompt)\n"
@@ -241,6 +250,7 @@ enum {
 /* Check both timeout watchdogs.  Sets L->running=0 and returns 1 if either
  * threshold was exceeded; otherwise returns 0.  Safe to call multiple times
  * per iteration — the timeout_reported flag prevents duplicate messages. */
+/* Check the wall-clock timeout watchdog and stop the main loop when it fires. */
 static int check_timeouts(MainLoopCtx *L)
 {
     if (L->timeout_reported) return 0;
@@ -258,6 +268,7 @@ static int check_timeouts(MainLoopCtx *L)
     return 0;
 }
 
+/* Report whether prompt-gated injection may fire on the current frame. */
 static int prompt_injection_ready(const MainLoopCtx *L, int prompt_now)
 {
     if (!prompt_now)
@@ -269,6 +280,8 @@ static int prompt_injection_ready(const MainLoopCtx *L, int prompt_now)
     return (L->frame_cnt - L->prompt_visible_since_frame) >= L->inject_delay_frames;
 }
 
+/* Decide whether scripted injection should fire now, either from an absolute
+ * frame trigger or from the prompt-stability gate. */
 static int injection_ready(const MainLoopCtx *L, int prompt_now)
 {
     if (L->inject_at_frame >= 0)
@@ -276,6 +289,8 @@ static int injection_ready(const MainLoopCtx *L, int prompt_now)
     return prompt_injection_ready(L, prompt_now);
 }
 
+/* Parse one CLI function-key chord specification such as PROGRA+z or 0x08+0x7A
+ * into the emulator's function-bit mask plus 7-bit key code. */
 static int parse_inject_chord(const char *arg, uint8_t *fonct_bits_out, uint8_t *keycode_out)
 {
     static const struct {
@@ -371,6 +386,7 @@ static int parse_inject_chord(const char *arg, uint8_t *fonct_bits_out, uint8_t 
     return 1;
 }
 
+/* Release top-level SDL and machine resources when the native or web main loop ends. */
 static void main_loop_cleanup(void)
 {
     if (!s_loop) return;
@@ -401,6 +417,8 @@ static void main_loop_cleanup(void)
     SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 }
 
+/* Run one host event/timing iteration, including input handling, frame pacing,
+ * scripted injections, rendering, and clean-shutdown checks. */
 static void main_loop_iter(void)
 {
     MainLoopCtx *L = s_loop;
@@ -820,6 +838,7 @@ void smemu6_mount_dx1(const char *path)
         floppy_mount(s_loop->m, 1, path);
 }
 
+/* Update the web UI's latched function-key bitmask. */
 EMSCRIPTEN_KEEPALIVE
 void smemu6_set_function_bits(unsigned int bits)
 {
@@ -827,6 +846,7 @@ void smemu6_set_function_bits(unsigned int bits)
         keyboard_set_mouse_function_bits(s_loop->m, (uint8_t)(bits & 0x7Fu));
 }
 
+/* Return a compact debugger snapshot string for the web frontend. */
 EMSCRIPTEN_KEEPALIVE
 const char *smemu6_debug_snapshot(void)
 {
@@ -836,6 +856,7 @@ const char *smemu6_debug_snapshot(void)
     return debug_web_snapshot(s_loop->m);
 }
 
+/* Toggle paused/running debugger state from the web frontend. */
 EMSCRIPTEN_KEEPALIVE
 void smemu6_debug_toggle_pause(void)
 {
@@ -844,6 +865,7 @@ void smemu6_debug_toggle_pause(void)
     }
 }
 
+/* Queue one debugger single-instruction step from the web frontend. */
 EMSCRIPTEN_KEEPALIVE
 void smemu6_debug_step_instruction(void)
 {
@@ -852,6 +874,7 @@ void smemu6_debug_step_instruction(void)
     }
 }
 
+/* Queue one debugger single-frame step from the web frontend. */
 EMSCRIPTEN_KEEPALIVE
 void smemu6_debug_step_frame(void)
 {
@@ -865,6 +888,8 @@ void smemu6_debug_step_frame(void)
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
+/* Parse CLI options, create the SDL/machine runtime, and enter the platform's
+ * native or Emscripten main loop. */
 int main(int argc, char *argv[])
 {
     const char *disk_path  = NULL;
@@ -915,6 +940,7 @@ int main(int argc, char *argv[])
     const char *disk_hostdir = NULL;
     const char *disk2_hostdir = NULL;
     const char *vfd_manifest_path = NULL;
+    uint32_t psg_clock_hz = SMAKY6_PSG_CLOCK_DEFAULT_HZ;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-floppy") == 0 && i + 1 < argc) {
@@ -947,6 +973,20 @@ int main(int argc, char *argv[])
             harddisk2_path = argv[++i];
         } else if (strcmp(argv[i], "-psg") == 0) {
             enable_psg = 1;
+        } else if (strcmp(argv[i], "-psg-clock") == 0 && i + 1 < argc) {
+            char *end = NULL;
+            unsigned long v = strtoul(argv[++i], &end, 0);
+            if (!end || *end != '\0'
+                    || v < SMAKY6_PSG_CLOCK_MIN_HZ
+                    || v > SMAKY6_PSG_CLOCK_MAX_HZ) {
+                fprintf(stderr,
+                        "Invalid -psg-clock value: %s (expected %u..%u Hz)\n",
+                        argv[i],
+                        (unsigned)SMAKY6_PSG_CLOCK_MIN_HZ,
+                        (unsigned)SMAKY6_PSG_CLOCK_MAX_HZ);
+                return 1;
+            }
+            psg_clock_hz = (uint32_t)v;
         } else if (strcmp(argv[i], "-trace") == 0) {
             trace = 1;
         } else if (strcmp(argv[i], "-break-to-monitor") == 0) {
@@ -1321,6 +1361,15 @@ int main(int argc, char *argv[])
     struct Smaky6 *m = machine_create();
     if (!m) {
         fprintf(stderr, "machine_create: out of memory\n");
+        SDL_DestroyRenderer(ren);
+        SDL_DestroyWindow(win);
+        SDL_Quit();
+        return 1;
+    }
+
+    if (machine_set_psg_clock_hz(m, psg_clock_hz) != 0) {
+        fprintf(stderr, "machine_set_psg_clock_hz: invalid PSG clock configuration\n");
+        machine_destroy(m);
         SDL_DestroyRenderer(ren);
         SDL_DestroyWindow(win);
         SDL_Quit();

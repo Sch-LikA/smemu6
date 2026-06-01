@@ -1,7 +1,9 @@
 #include "smaky6.h"
 
+/* External text emitter entry provided by the matching assembly helper. */
 void smaky6_emit_text(const char *text);
 
+/* Exercise the RST20/06 text-emitter helper and leave a visible post-call marker. */
 void main(void)
 {
     smaky6_alpha_clear_screen();

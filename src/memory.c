@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Read one byte from the flat machine bus, including the audited keyboard
+ * workspace interception at 0x457E used by SYS.SY stage-1 helpers. */
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
 {
     uint16_t pc = (uint16_t)Z80_PC(m->cpu);
@@ -38,6 +40,8 @@ uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
     return m->bus[addr];
 }
 
+/* Write one byte into the flat machine bus while honouring the ROM mask and
+ * the keyboard/circular-buffer side effects observed in SAMOS. */
 void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 {
     if (m->rom_mask[addr]) return;   /* ignore writes to ROM */
@@ -119,12 +123,14 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
 
 /* ---- init / fini --------------------------------------------------------- */
 
+/* Clear RAM and ROM-protection metadata back to power-on state. */
 void memory_init(struct Smaky6 *m)
 {
     memset(m->bus,      0x00, sizeof(m->bus));
     memset(m->rom_mask, 0x00, sizeof(m->rom_mask));
 }
 
+/* No dynamic memory subsystem resources exist today; kept for symmetry. */
 void memory_fini(struct Smaky6 *m)
 {
     /* nothing to free – bus is embedded in struct */
@@ -133,6 +139,7 @@ void memory_fini(struct Smaky6 *m)
 
 /* ---- ROM loader ---------------------------------------------------------- */
 
+/* Load one binary blob into the machine bus and mark the loaded range as ROM. */
 int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base)
 {
     FILE *f = fopen(path, "rb");
@@ -177,6 +184,8 @@ int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base)
     return 0;
 }
 
+/* Clear ROM write protection for a contiguous range after the Phantom loader
+ * swaps RAM into the low address space. */
 void memory_unprotect_rom(struct Smaky6 *m, uint16_t base, uint16_t len)
 {
     /* Clear rom_mask for [base, base+len), making the region writable.

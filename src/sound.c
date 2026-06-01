@@ -136,12 +136,14 @@ static float    g_step_prev_lp     = 0.0f;
 static int      g_sector_left      = 0;            /* remaining samples for sector click */
 static int      g_sector_pos       = 0;
 
+/* Generate deterministic pseudo-random noise for the synthesized drive sounds. */
 static inline float lcg_noise(void)
 {
     g_lcg = g_lcg * 1664525u + 1013904223u;
     return (float)(int32_t)g_lcg * (1.0f / 2147483648.0f);  /* -1..+1 */
 }
 
+/* Mix one full frame of PSG samples into the shared audio output buffer. */
 static void psg_mix_frame(struct Smaky6 *m)
 {
     for (int i = 0; i < (int)SAMPLES_PER_FRAME; i++) {
@@ -234,6 +236,7 @@ static void floppy_mix_frame(void)
 
 /* -- helpers --------------------------------------------------------------- */
 
+/* Convert a Z80 T-state offset within the current frame into an audio sample index. */
 static inline int cycles_to_sample(zusize frame_pos)
 {
     /* Map T-state position within frame to sample index [0, SAMPLES_PER_FRAME] */
@@ -243,6 +246,7 @@ static inline int cycles_to_sample(zusize frame_pos)
     return s;
 }
 
+/* Fill a sample range with the current unipolar buzzer level. */
 static inline void fill_buf(int from, int to, int level)
 {
     /* level=1: speaker deflected → +AUDIO_AMPLITUDE
@@ -256,16 +260,19 @@ static inline void fill_buf(int from, int to, int level)
 
 /* -- public API ------------------------------------------------------------ */
 
+/* Enable or disable the simple beeper source before audio initialisation. */
 void sound_set_beeper_enabled(int enabled)
 {
     g_beeper_enabled = enabled ? 1 : 0;
 }
 
+/* Enable or disable synthesized drive sounds before audio initialisation. */
 void sound_set_drive_sound_enabled(int enabled)
 {
     g_drive_sound_enabled = enabled ? 1 : 0;
 }
 
+/* Open the SDL audio device on demand and initialize the per-frame mixer state. */
 void sound_init(struct Smaky6 *m)
 {
     if (g_audio_dev) return;
@@ -333,6 +340,8 @@ static int SDLCALL s_audio_close_thread(void *arg)
     return 0;
 }
 
+/* Stop and close the SDL audio device, deferring the potentially blocking close
+ * call to a detached helper thread when possible. */
 void sound_fini(struct Smaky6 *m)
 {
     (void)m;

@@ -179,6 +179,8 @@ static const AccentEntry ACCENT_TABLE[] = {
 
 static void clear_ordinary_key(struct Smaky6 *m);
 
+/* Recompute the effective function-key state from keyboard, cursor-alias, and
+ * mouse-latch sources, keeping the consumed mask in sync. */
 static void refresh_function_bits(struct Smaky6 *m)
 {
     uint8_t old_bits = m->kbd.fonct_bits;
@@ -197,11 +199,15 @@ static void refresh_function_bits(struct Smaky6 *m)
     }
 }
 
+/* Return only the function bits that are still visible to the guest after any
+ * one-shot keyboard consumption has been applied. */
 static uint8_t visible_function_bits(const struct Smaky6 *m)
 {
     return (uint8_t)(m->kbd.fonct_bits & (uint8_t)~m->kbd.fonct_consumed_bits & 0x7Fu);
 }
 
+/* Drop all host-owned key state after focus loss while preserving the boot-time
+ * virtual Enter path when that special hold is still active. */
 void keyboard_cancel_host_input(struct Smaky6 *m)
 {
     keyboard_clear_all_function_bits(m);
@@ -217,6 +223,7 @@ void keyboard_cancel_host_input(struct Smaky6 *m)
         clear_ordinary_key(m);
 }
 
+/* Clear every function-key source and recompute the effective visible bitmask. */
 void keyboard_clear_all_function_bits(struct Smaky6 *m)
 {
     m->kbd.fonct_consumed_bits = 0;
@@ -226,12 +233,15 @@ void keyboard_clear_all_function_bits(struct Smaky6 *m)
     refresh_function_bits(m);
 }
 
+/* Replace the mouse-owned function-key latch state used by the SDL status bar. */
 void keyboard_set_mouse_function_bits(struct Smaky6 *m, uint8_t bits)
 {
     m->kbd.fonct_mouse_bits = bits & 0x7Fu;
     refresh_function_bits(m);
 }
 
+/* Mark function bits as consumed for one-shot host-key delivery without
+ * disturbing persistent mouse latches. */
 void keyboard_acknowledge_function_bits(struct Smaky6 *m, uint8_t mask)
 {
     uint8_t fkey_mask = mask & 0x7Fu;
@@ -263,6 +273,8 @@ static int matrix_position_uses_text_input(SmakyMatrixPosition position)
     }
 }
 
+/* Report whether one SDL scancode is expected to also produce SDL text input
+ * for the printable compatibility path. */
 static int is_host_text_scancode(SDL_Scancode scan)
 {
     for (size_t i = 0; i < sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0]); i++) {
@@ -273,6 +285,8 @@ static int is_host_text_scancode(SDL_Scancode scan)
     return 0;
 }
 
+/* Track whether a printable host key is currently held so text input can be
+ * matched back to a fresh keydown instead of stale repeats. */
 static void set_host_text_scancode_down(struct Smaky6 *m, SDL_Scancode scan, int down)
 {
     if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES)
@@ -292,6 +306,8 @@ static void set_host_text_scancode_down(struct Smaky6 *m, SDL_Scancode scan, int
     }
 }
 
+/* Claim one pending printable host scancode that has not yet been matched to
+ * an SDL_TEXTINPUT event. */
 static SDL_Scancode claim_pending_host_text_scancode(struct Smaky6 *m)
 {
     for (int scan = SDL_SCANCODE_UNKNOWN + 1; scan < SDL_NUM_SCANCODES; scan++) {
@@ -302,6 +318,8 @@ static SDL_Scancode claim_pending_host_text_scancode(struct Smaky6 *m)
     return SDL_SCANCODE_UNKNOWN;
 }
 
+/* Decode one SDL text-input payload into the 7-bit Smaky character space,
+ * including the small accented-character compatibility table. */
 static int decode_text_input_code(const char *text, uint8_t *code_out)
 {
     const unsigned char b0 = (unsigned char)text[0];
@@ -333,11 +351,14 @@ static int decode_text_input_code(const char *text, uint8_t *code_out)
     return 0;
 }
 
+/* Report whether any function-key source is currently active. */
 static int fnct_layer_active(const struct Smaky6 *m)
 {
     return m->kbd.fonct_bits != 0;
 }
 
+/* Map letter key symbols to their logical Smaky matrix positions so host
+ * keyboard layouts can still target the intended letter keys. */
 static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)
 {
     switch (sym) {
@@ -372,6 +393,8 @@ static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)
     }
 }
 
+/* Resolve an SDL key event to one physical Smaky matrix position, optionally
+ * preferring logical letter mapping over the host scancode. */
 static SmakyMatrixPosition lookup_matrix_position(SDL_Scancode scan, SDL_Keycode sym, int prefer_logical_letters)
 {
     if (prefer_logical_letters) {
@@ -451,6 +474,7 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
 static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code);
 static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition position);
 
+/* Queue one ordinary matrix key until the current CLA-visible latch becomes available. */
 static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
 {
     for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
@@ -479,6 +503,7 @@ static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPo
     return 1;
 }
 
+/* Queue one ordinary matrix key with an already-resolved key code override. */
 static int queue_ordinary_key_code(struct Smaky6 *m, SDL_Scancode scan,
                                    SmakyMatrixPosition position, uint8_t key_code)
 {
@@ -509,6 +534,7 @@ static int queue_ordinary_key_code(struct Smaky6 *m, SDL_Scancode scan,
     return 1;
 }
 
+/* Queue one direct text-derived key code that may not correspond to a matrix position. */
 static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
     if (scan != SDL_SCANCODE_UNKNOWN) {
@@ -538,6 +564,8 @@ static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t ke
     return 1;
 }
 
+/* Mark a queued host key as released so the promoted latch can drop after
+ * buffer commit instead of pretending the key is still held. */
 static void mark_queued_key_released(struct Smaky6 *m, SDL_Scancode scan)
 {
     for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
@@ -549,6 +577,8 @@ static void mark_queued_key_released(struct Smaky6 *m, SDL_Scancode scan)
     }
 }
 
+/* Promote the oldest queued ordinary key into the active CLA-visible latch
+ * once the current latch is fully idle. */
 static int promote_pending_ordinary_key(struct Smaky6 *m)
 {
     if (!ordinary_latch_idle(m) || m->kbd.pending_ordinary_len == 0)
@@ -588,6 +618,7 @@ static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition p
     return S471_TABLE[current_layer(m)][position] & 0x7Fu;
 }
 
+/* Translate host arrow-key aliases into CURSOR+letter chord components. */
 static int lookup_cursor_alias(SDL_Scancode scan, SmakyMatrixPosition *position_out,
                                uint8_t *key_code_out, uint8_t *source_out)
 {
@@ -627,6 +658,7 @@ static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPos
     latch_matrix_key_code(m, scan, position, resolve_matrix_code(m, position));
 }
 
+/* Latch one ordinary matrix key with an explicit resolved key code. */
 static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
@@ -653,6 +685,7 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
     }
 }
 
+/* Latch one direct 7-bit key code that may not correspond to a matrix position. */
 static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
@@ -849,6 +882,8 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     }
 }
 
+/* Translate one SDL text-input event into the strict Smaky ordinary-key path,
+ * pairing it with the freshest compatible host keydown when possible. */
 void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 {
     uint8_t key_code;
@@ -952,6 +987,8 @@ uint8_t keyboard_read_stage1_code(struct Smaky6 *m)
     return value;
 }
 
+/* Emit one focused keyboard trace snapshot including the key SAMOS workspace
+ * bytes used during the current hardware-model investigation. */
 void keyboard_trace_snapshot(struct Smaky6 *m, const char *site,
                              uint16_t pc, uint16_t addr,
                              uint8_t before, uint8_t after)

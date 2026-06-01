@@ -2,6 +2,8 @@
 
 #include <string.h>
 
+/* Push one address into the bounded debugger history, deduplicating the top
+ * entry and sliding older entries out when capacity is full. */
 size_t debug_history_push(uint16_t *entries,
                           size_t count,
                           size_t capacity,
@@ -24,6 +26,7 @@ size_t debug_history_push(uint16_t *entries,
     return count;
 }
 
+/* Pop the newest debugger history entry if one is available. */
 int debug_history_pop(uint16_t *entries,
                       size_t *count,
                       uint16_t *value_out)

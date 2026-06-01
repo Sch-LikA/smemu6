@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Load one ST file and dump every decoded record in a human-readable form. */
 static void st_dump_file(const char *path)
 {
     struct Smaky6StTable table;
@@ -31,6 +32,7 @@ static void st_dump_file(const char *path)
     smaky6_st_free_table(&table);
 }
 
+/* Dump one or more archived ST symbol tables to stdout for inspection. */
 int main(int argc, char **argv)
 {
     if (argc < 2) {

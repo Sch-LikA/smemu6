@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <string.h>
 
+/* Return one AY core pointer when the wrapper and chip index are valid. */
 static PSG *smaky6_psg_chip(const struct Smaky6Psg *psg, unsigned chip)
 {
     if (!psg || chip >= SMAKY6_PSG_CHIP_COUNT) {
@@ -15,6 +16,8 @@ static PSG *smaky6_psg_chip(const struct Smaky6Psg *psg, unsigned chip)
     return psg->chip[chip];
 }
 
+/* Allocate all four AY-compatible cores, cache the requested clock/sample-rate,
+ * and reset the wrapper to a clean power-on state. */
 int smaky6_psg_init(struct Smaky6Psg *psg, uint32_t chip_clock_hz, uint32_t sample_rate)
 {
     unsigned chip;
@@ -40,6 +43,7 @@ int smaky6_psg_init(struct Smaky6Psg *psg, uint32_t chip_clock_hz, uint32_t samp
     return 0;
 }
 
+/* Delete all allocated AY cores and clear the cached configuration fields. */
 void smaky6_psg_fini(struct Smaky6Psg *psg)
 {
     unsigned chip;
@@ -59,6 +63,7 @@ void smaky6_psg_fini(struct Smaky6Psg *psg)
     psg->sample_rate = 0;
 }
 
+/* Reset every allocated AY core back to its default register state. */
 void smaky6_psg_reset(struct Smaky6Psg *psg)
 {
     unsigned chip;
@@ -74,6 +79,7 @@ void smaky6_psg_reset(struct Smaky6Psg *psg)
     }
 }
 
+/* Write one register-select byte to the addressed AY chip. */
 void smaky6_psg_write_select(struct Smaky6Psg *psg, unsigned chip, uint8_t reg)
 {
     PSG *ay = smaky6_psg_chip(psg, chip);
@@ -85,6 +91,7 @@ void smaky6_psg_write_select(struct Smaky6Psg *psg, unsigned chip, uint8_t reg)
     PSG_writeIO(ay, 0, reg);
 }
 
+/* Write one data byte to the currently selected register of the addressed AY chip. */
 void smaky6_psg_write_data(struct Smaky6Psg *psg, unsigned chip, uint8_t value)
 {
     PSG *ay = smaky6_psg_chip(psg, chip);
@@ -96,6 +103,7 @@ void smaky6_psg_write_data(struct Smaky6Psg *psg, unsigned chip, uint8_t value)
     PSG_writeIO(ay, 1, value);
 }
 
+/* Read back the currently selected register value from the addressed AY chip. */
 uint8_t smaky6_psg_read_data(const struct Smaky6Psg *psg, unsigned chip)
 {
     PSG *ay = smaky6_psg_chip(psg, chip);
@@ -107,6 +115,7 @@ uint8_t smaky6_psg_read_data(const struct Smaky6Psg *psg, unsigned chip)
     return PSG_readIO(ay);
 }
 
+/* Mix one signed sample from all installed AY chips and clamp to int16. */
 int16_t smaky6_psg_mix_sample(struct Smaky6Psg *psg)
 {
     int mix = 0;

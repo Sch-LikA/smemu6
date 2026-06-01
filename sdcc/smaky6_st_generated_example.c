@@ -13,6 +13,7 @@
 #  include "generated_sm6_st_symbols.h"
 #endif
 
+/* Look up one generated symbol entry by either its decoded or preferred name. */
 static const struct GeneratedSmaky6StEntry *find_symbol(const char *name)
 {
     for (size_t i = 0; i < smaky6_sm6_symbol_count; ++i) {
@@ -25,6 +26,7 @@ static const struct GeneratedSmaky6StEntry *find_symbol(const char *name)
     return NULL;
 }
 
+/* Smoke-test the generated ST export header by resolving a few known symbols. */
 int main(void)
 {
     const char *names[] = {"MAXMEM", "OUTCAR", "ALPHA", "LF"};

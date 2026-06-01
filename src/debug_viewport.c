@@ -1,5 +1,7 @@
 #include "debug_viewport.h"
 
+/* Clamp one viewport index into the valid instruction-row range.
+ * Empty views collapse to row 0 so the caller can keep simple arithmetic. */
 static int debug_clamp_index(int value, int count)
 {
     if (count <= 0) {
@@ -14,6 +16,8 @@ static int debug_clamp_index(int value, int count)
     return value;
 }
 
+/* Choose the first visible disassembly row so the focused instruction stays
+ * near focus_row while still forcing the selected row on-screen. */
 int debug_disasm_view_start(int count,
                             int focus,
                             int selected,

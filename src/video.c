@@ -54,11 +54,14 @@ void video_fini(struct Smaky6 *m)
     m->vid.phosphor_buf = NULL;
 }
 
+/* Update the persistence-decay factor used when the phosphor buffer is active. */
 void video_set_phosphor_decay(struct Smaky6 *m, float decay)
 {
     m->vid.phosphor_decay = decay;
 }
 
+/* Load the external chargen ROM when available, otherwise fall back to the
+ * built-in synthetic font image. */
 void video_load_chargen(struct Smaky6 *m, const char *path)
 {
     uint8_t *cg = m->vid.chargen;
@@ -84,11 +87,13 @@ void video_load_chargen(struct Smaky6 *m, const char *path)
     fprintf(stderr, "video: using embedded chargen ROM\n");
 }
 
+/* Switch the emulated video mode latched by port 0x00 writes. */
 void video_set_mode(struct Smaky6 *m, VideoMode mode)
 {
     m->vid.mode = mode;
 }
 
+/* Select whether graphics nibble bits are interpreted MSB-first or LSB-first. */
 void video_set_gfx_msb_first(struct Smaky6 *m, int on)
 {
     m->vid.gfx_msb_first = on ? 1 : 0;
@@ -96,6 +101,7 @@ void video_set_gfx_msb_first(struct Smaky6 *m, int on)
 
 /* ── Render ─────────────────────────────────────────────────────────────── */
 
+/* Render one complete video frame, including phosphor persistence and UI bars. */
 void video_render(struct Smaky6 *m)
 {
     SDL_Renderer *ren  = m->vid.ren;

@@ -8,6 +8,7 @@
 
 /* ── BCD helpers ─────────────────────────────────────────────────────────── */
 
+/* Convert one decimal host-time component into packed BCD for the RTC image. */
 static uint8_t int_to_bcd(int n)
 {
     return (uint8_t)(((n / 10) << 4) | (n % 10));
@@ -33,6 +34,7 @@ static void rtc_preload_miso(RtcState *rtc)
 }
 
 /* BCD increment with ceiling; returns 1 on carry (value wrapped to 0). */
+/* Increment one packed-BCD register with a fixed ceiling and report carry. */
 static int bcd_inc(uint8_t *reg, int max_val)
 {
     int lo  = *reg & 0x0F;
@@ -45,6 +47,7 @@ static int bcd_inc(uint8_t *reg, int max_val)
 
 /* ── Public API ─────────────────────────────────────────────────────────── */
 
+/* Seed the RTC registers from host localtime() and reset the serial protocol state. */
 void rtc_init(RtcState *rtc)
 {
     memset(rtc, 0, sizeof(*rtc));
@@ -81,6 +84,7 @@ void rtc_init(RtcState *rtc)
             rtc->regs[2], rtc->regs[3], rtc->regs[4]);
 }
 
+/* Advance the emulated RTC by one 50 Hz frame, rolling over BCD fields as needed. */
 void rtc_tick_frame(RtcState *rtc)
 {
     /* Tick the seconds register once every 50 frames (50 Hz clock). */
@@ -110,6 +114,7 @@ void rtc_tick_frame(RtcState *rtc)
     }
 }
 
+/* Drive the RTC serial state machine from a guest OUT to port 0x08. */
 void rtc_write_port(RtcState *rtc, uint8_t data)
 {
     int ck      = (data >> 3) & 1;

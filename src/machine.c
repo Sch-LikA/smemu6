@@ -21,31 +21,29 @@
 
 #define SMAKY6_PSG_PORT_BASE 0x20u
 #define SMAKY6_PSG_PORT_LAST 0x27u
-/* Temporary fallback PSG clock.
- *
- * The KiCad netlist shows the AY CLOCK net is driven by U16 pin 4, with a
- * local U16 Schmitt-trigger RC network using 1nF1 plus the R6/RV1 resistor
- * path. That confirms the clock is locally generated on the card rather than
- * taken directly from the host bus, but this numeric value is still only a
- * provisional stand-in until the fitted RV1 value or resulting oscillator
- * frequency is established. */
-#define SMAKY6_PSG_CHIP_CLOCK_HZ 2411520u
 
+/* Report whether a decoded 6-bit I/O port belongs to the optional PSG card.
+ * The ownership check stays here so machine-level decode order remains explicit. */
 static int psg_handles_port(const struct Smaky6 *m, uint8_t lo)
 {
     return m->psg.enabled && lo >= SMAKY6_PSG_PORT_BASE && lo <= SMAKY6_PSG_PORT_LAST;
 }
 
+/* Map one decoded PSG port back to the corresponding AY chip index.
+ * Ports are arranged as four consecutive even/odd register pairs. */
 static unsigned psg_chip_from_port(uint8_t lo)
 {
     return (unsigned)((lo - SMAKY6_PSG_PORT_BASE) >> 1);
 }
 
+/* Distinguish even PSG data ports from odd register-select ports. */
 static int psg_port_is_data(uint8_t lo)
 {
     return (lo & 1u) == 0u;
 }
 
+/* Execute a run budget one instruction at a time while debugger stop
+ * conditions are active, preserving keyboard timing and stall detection. */
 static int machine_run_budget_instruction_granular(struct Smaky6 *m, zusize budget, zusize *cycles)
 {
     while (*cycles < budget) {
@@ -72,13 +70,13 @@ static int machine_run_budget_instruction_granular(struct Smaky6 *m, zusize budg
 
 /* ── Z80 library callbacks ──────────────────────────────────────────────────*/
 
-/* Memory read (Z80 context → m via context pointer) */
+/* Forward one Z80 memory read callback into the machine memory subsystem. */
 static zuint8 z80_mem_read(void *ctx, zuint16 addr)
 {
     return memory_read((struct Smaky6 *)ctx, addr);
 }
 
-/* Opcode fetch — same as memory read, but also fires the trace hook */
+/* Fetch one opcode byte and report the PC to debugger trace hooks first. */
 static zuint8 z80_opcode_fetch(void *ctx, zuint16 addr)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
@@ -86,13 +84,14 @@ static zuint8 z80_opcode_fetch(void *ctx, zuint16 addr)
     return memory_read(m, addr);
 }
 
-/* Memory write */
+/* Forward one Z80 memory write callback into the machine memory subsystem. */
 static void z80_mem_write(void *ctx, zuint16 addr, zuint8 data)
 {
     memory_write((struct Smaky6 *)ctx, addr, data);
 }
 
-/* I/O read */
+/* Decode one Z80 I/O read across the machine's currently installed devices.
+ * PSG ports take precedence over Winchester when the optional sound card is enabled. */
 static zuint8 z80_io_read(void *ctx, zuint16 port)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
@@ -162,7 +161,7 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
     }
 }
 
-/* I/O write */
+/* Decode one Z80 I/O write across video, storage, PSG, and debug-traced ports. */
 static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
@@ -351,6 +350,8 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
  *
  * Signature matches Z80Read: (void *context, zuint16 address). */
 
+/* Present the IM0 interrupt opcode currently driven by the active device.
+ * Floppy sector-hole NMIs inject RST 08h; the regular 50 Hz interrupt injects RST 38h. */
 static zuint8 z80_int_fetch(void *ctx, zuint16 address)
 {
     struct Smaky6 *m = (struct Smaky6 *)ctx;
@@ -361,10 +362,14 @@ static zuint8 z80_int_fetch(void *ctx, zuint16 address)
 }
 /* ── Lifecycle ──────────────────────────────────────────────────────────────*/
 
+/* Allocate and initialise the full machine, including all optional devices in
+ * their powered-off default state and the Z80 callback wiring. */
 struct Smaky6 *machine_create(void)
 {
     struct Smaky6 *m = calloc(1, sizeof(*m));
     if (!m) return NULL;
+
+    m->psg.chip_clock_hz = SMAKY6_PSG_CLOCK_DEFAULT_HZ;
 
     memory_init(m);
     keyboard_init(m);
@@ -399,6 +404,7 @@ struct Smaky6 *machine_create(void)
     return m;
 }
 
+/* Tear down every subsystem owned by the machine in reverse startup order. */
 void machine_destroy(struct Smaky6 *m)
 {
     if (!m) return;
@@ -415,11 +421,14 @@ void machine_destroy(struct Smaky6 *m)
     free(m);
 }
 
+/* Load one ROM image into the machine bus at the requested base address. */
 int machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base)
 {
     return memory_load_file(m, path, base);
 }
 
+/* Execute one 50 Hz frame worth of machine time, including optional INT pulse,
+ * storage/RTC side effects, audio mixing, and debugger-controlled pauses. */
 void machine_run_frame(struct Smaky6 *m)
 {
     /* Smaky 6: 2.5 MHz, 50 Hz → 50,000 T-states per frame.
@@ -609,6 +618,8 @@ frame_done:
 
 }
 
+/* Execute exactly one instruction for debugger single-step mode and propagate
+ * the resulting timing into the keyboard and debugger subsystems. */
 uint32_t machine_step_instruction(struct Smaky6 *m)
 {
     zusize ran = z80_execute(&m->cpu, 1);
@@ -625,6 +636,7 @@ uint32_t machine_step_instruction(struct Smaky6 *m)
     return (uint32_t)ran;
 }
 
+/* Assert the non-maskable BREAK interrupt immediately. */
 void machine_nmi(struct Smaky6 *m)
 {
     z80_nmi(&m->cpu);
@@ -637,6 +649,8 @@ void machine_int(struct Smaky6 *m)
 }
 
 /* Reset CPU-visible machine state and restore the power-on virtual Enter hold. */
+/* Reset CPU-visible machine state and restore the boot-time keyboard defaults
+ * that the Phantom loader expects before SAMOS takes over. */
 void machine_reset(struct Smaky6 *m)
 {
     z80_instant_reset(&m->cpu);
@@ -666,6 +680,8 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.reassert_cycles = 0;
 }
 
+/* Enable or disable the optional PSG add-on and allocate/free its four-chip
+ * audio core as part of the machine audio path. */
 int machine_set_psg_enabled(struct Smaky6 *m, int on)
 {
     int enable = on ? 1 : 0;
@@ -685,7 +701,7 @@ int machine_set_psg_enabled(struct Smaky6 *m, int on)
     }
 
     if (smaky6_psg_init(&m->psg.card,
-                        SMAKY6_PSG_CHIP_CLOCK_HZ,
+                        m->psg.chip_clock_hz,
                         SMAKY6_AUDIO_HZ) != 0) {
         return -1;
     }
@@ -694,11 +710,31 @@ int machine_set_psg_enabled(struct Smaky6 *m, int on)
     return 0;
 }
 
+/* Store the machine-wide PSG clock configuration before the card is enabled.
+ * Runtime retuning is rejected for now because the current wrapper recreates
+ * the underlying AY cores only at initialisation time. */
+int machine_set_psg_clock_hz(struct Smaky6 *m, uint32_t hz)
+{
+    if (!m || hz < SMAKY6_PSG_CLOCK_MIN_HZ || hz > SMAKY6_PSG_CLOCK_MAX_HZ) {
+        return -1;
+    }
+
+    if (m->psg.enabled) {
+        return -1;
+    }
+
+    m->psg.chip_clock_hz = hz;
+    return 0;
+}
+
+/* Report whether the optional PSG card is currently installed in this machine. */
 int machine_psg_enabled(const struct Smaky6 *m)
 {
     return m && m->psg.enabled;
 }
 
+/* Seed the strict keyboard model with one synthetic ordinary key plus optional
+ * function-bit chord, clearing any host-owned state first. */
 static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits)
 {
     m->kbd.key_code        = code & 0x7Fu;
@@ -729,6 +765,7 @@ void machine_inject_key(struct Smaky6 *m, uint8_t code)
     machine_inject_key_state(m, code, 0x00u);
 }
 
+/* Inject one ordinary key together with function-key bits for scripted chords. */
 void machine_inject_key_chord(struct Smaky6 *m, uint8_t code, uint8_t fonct_bits)
 {
     machine_inject_key_state(m, code, fonct_bits);
@@ -814,6 +851,8 @@ void machine_inject_to_circ_buf(struct Smaky6 *m, uint8_t code)
                 (unsigned)wr);
 }
 
+/* Scan the rendered alpha plane for the SAMOS CLI prompt marker used by
+ * scripted injection helpers. */
 int machine_cli_prompt_visible(const struct Smaky6 *m)
 {
     /* The CLI prompt "* -" appears on screen row 16 (0-based).
@@ -829,76 +868,91 @@ int machine_cli_prompt_visible(const struct Smaky6 *m)
     return 0;
 }
 
+/* Toggle the coarse PC milestone trace owned by the debugger subsystem. */
 void machine_set_trace(struct Smaky6 *m, int on)
 {
     debug_set_trace(m, on);
 }
 
+/* Enable or disable focused RTC port tracing on port 0x08. */
 void machine_set_trace_port08(struct Smaky6 *m, int on)
 {
     m->dbg.trace_port08 = on ? 1 : 0;
 }
 
+/* Enable or disable focused keyboard port tracing. */
 void machine_set_trace_kbd(struct Smaky6 *m, int on)
 {
     m->dbg.trace_kbd = on ? 1 : 0;
 }
 
+/* Toggle the dense post-handoff low-RAM control-flow trace. */
 void machine_set_trace_flow(struct Smaky6 *m, int on)
 {
     debug_set_trace_flow(m, on);
 }
 
+/* Enable or disable logging for the unknown port 0x11 read path. */
 void machine_set_trace_port11(struct Smaky6 *m, int on)
 {
     m->dbg.trace_port11 = on ? 1 : 0;
 }
 
+/* Enable or disable logging for the Winchester-related port 0xCD probe path. */
 void machine_set_trace_port_cd(struct Smaky6 *m, int on)
 {
     m->dbg.trace_port_cd = on ? 1 : 0;
 }
 
+/* Enable or disable floppy control-port tracing on port 0x19. */
 void machine_set_trace_port19(struct Smaky6 *m, int on)
 {
     m->dbg.trace_port19 = on ? 1 : 0;
 }
 
+/* Enable or disable focused floppy stream tracing. */
 void machine_set_trace_fdc(struct Smaky6 *m, int on)
 {
     m->dbg.trace_fdc = on ? 1 : 0;
 }
 
+/* Enable or disable buzzer write tracing. */
 void machine_set_trace_snd(struct Smaky6 *m, int on)
 {
     m->dbg.trace_snd = on ? 1 : 0;
 }
 
+/* Enable or disable changed-row screen dumps to stderr. */
 void machine_set_trace_scr(struct Smaky6 *m, int on)
 {
     m->dbg.trace_scr = on ? 1 : 0;
 }
 
+/* Force the display to ignore guest display-off writes when requested. */
 void machine_set_no_display_off(struct Smaky6 *m, int on)
 {
     m->vid.no_display_off = on ? 1 : 0;
 }
 
+/* Enable or disable verbose video mode/display transition logging. */
 void machine_set_verbose_video(struct Smaky6 *m, int on)
 {
     m->vid.verbose_video = on ? 1 : 0;
 }
 
+/* Toggle the scanline overlay used by the SDL renderer. */
 void machine_set_scanlines(struct Smaky6 *m, int on)
 {
     m->vid.scanlines = on ? 1 : 0;
 }
 
+/* Select the current phosphor palette used for rendering. */
 void machine_set_phosphor(struct Smaky6 *m, int white)
 {
     m->vid.phosphor = white ? PHOSPHOR_WHITE : PHOSPHOR_GREEN;
 }
 
+/* Forward a phosphor persistence change into the video subsystem. */
 void machine_set_phosphor_decay(struct Smaky6 *m, float decay)
 {
     video_set_phosphor_decay(m, decay);
