@@ -225,6 +225,25 @@ Why:
 - the remaining unknown is the realistic default `RV1` setting on power-up,
   not whether the card uses a local oscillator at all
 
+### SIGMA PSG probe needs AY parallel-port behavior, not audio-only emulation
+
+SIGMA's hardware-detection path does not stop at AY tone/noise register
+readback. It also probes AY parallel I/O behavior, so the wrapper must model
+the observed card-status input on chip 3 instead of delegating every read to
+`emu2149` unchanged.
+
+Why:
+
+- SIGMA verifies that chip 0 register 7 preserves AY port-direction bits 6/7 on
+  readback; `emu2149` masks them away unless the wrapper restores them
+- SIGMA then drives chip 3 port A and samples chip 3 port B; the observed
+  expected values are `0xF7` when chip 3 port A bit 7 is low and `0xFF` when
+  chip 3 port A bit 7 is high, with the remaining chip 3 port B bits pulled
+  high
+- without that port-level model, SIGMA exits back to the CLI immediately after
+  `SIGMA REV 2.1`; with it, SIGMA proceeds to load `PSG.DF` and reaches the
+  music menu
+
 ### Integrated debugger is native-first and opt-in
 
 disabled by default until the user presses `F12`.

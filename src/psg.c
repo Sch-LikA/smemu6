@@ -16,6 +16,34 @@ static PSG *smaky6_psg_chip(const struct Smaky6Psg *psg, unsigned chip)
     return psg->chip[chip];
 }
 
+static int smaky6_psg_port_is_output(const struct Smaky6Psg *psg, unsigned chip, unsigned port)
+{
+    uint8_t mask;
+
+    if (!psg || chip >= SMAKY6_PSG_CHIP_COUNT || port > 1u) {
+        return 0;
+    }
+
+    mask = (uint8_t)(port == 0u ? 0x40u : 0x80u);
+    return (psg->mixer_shadow[chip] & mask) != 0u;
+}
+
+static uint8_t smaky6_psg_input_port_value(const struct Smaky6Psg *psg, unsigned chip, unsigned port)
+{
+    if (chip == 3u && port == 1u) {
+        uint8_t value = 0xF7u;
+
+        /* SIGMA's card-detect probe sees port B bit 3 follow port A bit 7
+         * while the remaining input bits stay pulled high. */
+        if (psg->port_latch[3u][0] & 0x80u) {
+            value |= 0x08u;
+        }
+        return value;
+    }
+
+    return 0xFFu;
+}
+
 /* Allocate all four AY-compatible cores, cache the requested clock/sample-rate,
  * and reset the wrapper to a clean power-on state. */
 int smaky6_psg_init(struct Smaky6Psg *psg, uint32_t chip_clock_hz, uint32_t sample_rate)
@@ -88,6 +116,7 @@ void smaky6_psg_write_select(struct Smaky6Psg *psg, unsigned chip, uint8_t reg)
         return;
     }
 
+    psg->selected_reg[chip] = (uint8_t)(reg & 0x1Fu);
     PSG_writeIO(ay, 0, reg);
 }
 
@@ -100,6 +129,12 @@ void smaky6_psg_write_data(struct Smaky6Psg *psg, unsigned chip, uint8_t value)
         return;
     }
 
+    if (psg->selected_reg[chip] == 7u) {
+        psg->mixer_shadow[chip] = value;
+    } else if (psg->selected_reg[chip] == 14u || psg->selected_reg[chip] == 15u) {
+        psg->port_latch[chip][psg->selected_reg[chip] - 14u] = value;
+    }
+
     PSG_writeIO(ay, 1, value);
 }
 
@@ -107,12 +142,28 @@ void smaky6_psg_write_data(struct Smaky6Psg *psg, unsigned chip, uint8_t value)
 uint8_t smaky6_psg_read_data(const struct Smaky6Psg *psg, unsigned chip)
 {
     PSG *ay = smaky6_psg_chip(psg, chip);
+    unsigned selected;
+    uint8_t value;
 
     if (!ay) {
         return 0xFF;
     }
 
-    return PSG_readIO(ay);
+    selected = psg->selected_reg[chip];
+    value = PSG_readIO(ay);
+    if (selected == 7u) {
+        value = (uint8_t)(value | (psg->mixer_shadow[chip] & 0xC0u));
+    } else if (selected == 14u || selected == 15u) {
+        unsigned port = selected - 14u;
+
+        if (smaky6_psg_port_is_output(psg, chip, port)) {
+            value = psg->port_latch[chip][port];
+        } else {
+            value = smaky6_psg_input_port_value(psg, chip, port);
+        }
+    }
+
+    return value;
 }
 
 /* Mix one signed sample from all installed AY chips and clamp to int16. */

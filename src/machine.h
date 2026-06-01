@@ -87,6 +87,7 @@ void machine_set_trace_flow(struct Smaky6 *m, int on);
 void machine_set_trace_port11(struct Smaky6 *m, int on);
 void machine_set_trace_port_cd(struct Smaky6 *m, int on);
 void machine_set_trace_port19(struct Smaky6 *m, int on);
+void machine_set_trace_psg(struct Smaky6 *m, int on);
 void machine_set_trace_fdc(struct Smaky6 *m, int on);
 void machine_set_trace_snd(struct Smaky6 *m, int on);
 void machine_set_trace_scr(struct Smaky6 *m, int on);

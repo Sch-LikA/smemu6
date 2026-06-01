@@ -12,6 +12,9 @@ typedef struct __PSG PSG;
 
 struct Smaky6Psg {
     PSG *chip[SMAKY6_PSG_CHIP_COUNT];
+    uint8_t selected_reg[SMAKY6_PSG_CHIP_COUNT];
+    uint8_t mixer_shadow[SMAKY6_PSG_CHIP_COUNT];
+    uint8_t port_latch[SMAKY6_PSG_CHIP_COUNT][2];
     uint32_t chip_clock_hz;
     uint32_t sample_rate;
 };

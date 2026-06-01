@@ -207,6 +207,7 @@ struct Smaky6 {
         int trace_port11; /* 1 = log port 0x11 IN/OUT */
         int trace_port_cd;/* 1 = log port 0xCD IN/OUT */
         int trace_port19; /* 1 = log port 0x19 writes */
+        int trace_psg;    /* 1 = log PSG port 0x20..0x27 traffic */
         int trace_fdc;    /* 1 = log focused floppy ID/checksum stream events */
         int trace_flow;   /* 1 = log dense post-handoff control flow */
         int trace_snd;   /* 1 = log every port 0x03 write (buzzer) */

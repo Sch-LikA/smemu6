@@ -47,9 +47,15 @@ against disassembly or hardware documentation.
 - Clock model baseline now uses the measured `1.410 MHz` real-hardware value,
   with `-psg-clock <hz>` exposing the observed potentiometer sweep range
   `1000000..2400000` for bring-up and comparison.
+- SIGMA now passes the current card-detect path with `-psg`, loads `PSG.DF`,
+  and reaches the main music menu; the key wrapper fixes were register-7
+  direction-bit readback plus the observed chip-3 port-B status behavior.
 - Next clock-correction slice: determine the fitted `RV1` value / default knob
   position so the emulator can model a realistic startup setting instead of
   only exposing the full measured sweep as a manual override.
+- Next PSG slice after menu bring-up: exercise actual SIGMA menu actions
+  (`Audition`, composition/playback paths, configuration) to confirm whether
+  any remaining AY port or timing behavior is still missing beyond detection.
 - `1nF1` is now confirmed as `1 nF`, so follow-up hardware work can focus on
   `RV1` and any downstream effective division rather than re-checking the
   capacitor value.

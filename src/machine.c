@@ -42,6 +42,24 @@ static int psg_port_is_data(uint8_t lo)
     return (lo & 1u) == 0u;
 }
 
+static void trace_psg_io(const struct Smaky6 *m, const char *dir, uint8_t lo, uint8_t value)
+{
+    unsigned chip = psg_chip_from_port(lo);
+
+    if (!m->dbg.trace_psg) {
+        return;
+    }
+
+    fprintf(stderr,
+            "[psg] %s pc=%04X port=%02X chip=%u %s=%02X\n",
+            dir,
+            (unsigned)Z80_PC(m->cpu),
+            (unsigned)lo,
+            chip,
+            psg_port_is_data(lo) ? "data" : "reg",
+            (unsigned)value);
+}
+
 /* Execute a run budget one instruction at a time while debugger stop
  * conditions are active, preserving keyboard timing and stall detection. */
 static int machine_run_budget_instruction_granular(struct Smaky6 *m, zusize budget, zusize *cycles)
@@ -99,8 +117,11 @@ static zuint8 z80_io_read(void *ctx, zuint16 port)
 
     if (psg_handles_port(m, lo)) {
         if (psg_port_is_data(lo)) {
-            return smaky6_psg_read_data(&m->psg.card, psg_chip_from_port(lo));
+            uint8_t value = smaky6_psg_read_data(&m->psg.card, psg_chip_from_port(lo));
+            trace_psg_io(m, "IN ", lo, value);
+            return value;
         }
+        trace_psg_io(m, "IN ", lo, 0xFFu);
         return 0xFFu;
     }
 
@@ -168,6 +189,7 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
     uint8_t lo = port & 0x3Fu;
 
     if (psg_handles_port(m, lo)) {
+        trace_psg_io(m, "OUT", lo, data);
         if (psg_port_is_data(lo)) {
             smaky6_psg_write_data(&m->psg.card, psg_chip_from_port(lo), data);
         } else {
@@ -908,6 +930,12 @@ void machine_set_trace_port_cd(struct Smaky6 *m, int on)
 void machine_set_trace_port19(struct Smaky6 *m, int on)
 {
     m->dbg.trace_port19 = on ? 1 : 0;
+}
+
+/* Enable or disable tracing for PSG ports 0x20..0x27. */
+void machine_set_trace_psg(struct Smaky6 *m, int on)
+{
+    m->dbg.trace_psg = on ? 1 : 0;
 }
 
 /* Enable or disable focused floppy stream tracing. */

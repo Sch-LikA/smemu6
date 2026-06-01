@@ -166,6 +166,7 @@ static void usage(const char *argv0)
         "  -gfxbits <b>   Bitmap bit order: lsb|msb (default: msb — hardware-verified)\n"
         "  -scale <n>     Integer display scale (1..8, default 2 = 1024x496 window)\n"
         "  -trace08       Trace IN/OUT traffic on port 0x08\n"
+        "  -tracepsg      Trace PSG port 0x20..0x27 traffic\n"
         "  -traceflow     Trace focused post-handoff low-RAM control flow\n"
         "  -trace11       Trace port 0x11 reads\n"
         "  -tracecd       Trace port 0xCD reads (Winchester)\n"
@@ -911,6 +912,7 @@ int main(int argc, char *argv[])
     int trace11 = 0;
     int tracecd = 0;
     int trace19 = 0;
+    int tracepsg = 0;
     int tracefdc = 0;
     int tracekbd = 0;
     int tracesnd = 0;
@@ -989,6 +991,8 @@ int main(int argc, char *argv[])
             psg_clock_hz = (uint32_t)v;
         } else if (strcmp(argv[i], "-trace") == 0) {
             trace = 1;
+        } else if (strcmp(argv[i], "-tracepsg") == 0) {
+            tracepsg = 1;
         } else if (strcmp(argv[i], "-break-to-monitor") == 0) {
             break_to_monitor = 1;
         } else if (strcmp(argv[i], "-inject-str") == 0 && i + 1 < argc) {
@@ -1484,6 +1488,8 @@ int main(int argc, char *argv[])
         machine_set_trace_port_cd(m, 1);
     if (trace19)
         machine_set_trace_port19(m, 1);
+    if (tracepsg)
+        machine_set_trace_psg(m, 1);
     if (tracefdc)
         machine_set_trace_fdc(m, 1);
     if (tracesnd)
