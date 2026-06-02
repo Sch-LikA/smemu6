@@ -50,6 +50,10 @@ against disassembly or hardware documentation.
 - SIGMA now passes the current card-detect path with `-psg`, loads `PSG.DF`,
   and reaches the main music menu; the key wrapper fixes were register-7
   direction-bit readback plus the observed chip-3 port-B status behavior.
+- SIGMA mode-switch follow-up: the wrapper reset path now clears cached
+  register-selection, mixer-shadow, and port-latch state together with the AY
+  cores so `Composition` / `Ecoute` and the live keyboard do not inherit stale
+  PSG state across in-program resets.
 - Next clock-correction slice: determine the fitted `RV1` value / default knob
   position so the emulator can model a realistic startup setting instead of
   only exposing the full measured sweep as a manual override.

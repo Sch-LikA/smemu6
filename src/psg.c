@@ -64,6 +64,8 @@ int smaky6_psg_init(struct Smaky6Psg *psg, uint32_t chip_clock_hz, uint32_t samp
             smaky6_psg_fini(psg);
             return -1;
         }
+        PSG_setClockDivider(psg->chip[chip], 1);
+        PSG_setQuality(psg->chip[chip], 1);
         PSG_setVolumeMode(psg->chip[chip], 2);
         PSG_reset(psg->chip[chip]);
     }
@@ -99,6 +101,10 @@ void smaky6_psg_reset(struct Smaky6Psg *psg)
     if (!psg) {
         return;
     }
+
+    memset(psg->selected_reg, 0, sizeof(psg->selected_reg));
+    memset(psg->mixer_shadow, 0, sizeof(psg->mixer_shadow));
+    memset(psg->port_latch, 0, sizeof(psg->port_latch));
 
     for (chip = 0; chip < SMAKY6_PSG_CHIP_COUNT; chip++) {
         if (psg->chip[chip]) {
