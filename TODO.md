@@ -11,9 +11,10 @@ against disassembly or hardware documentation.
 
 ## ~~Build / Release~~ ✅ Done
 
-- `pages.yml` now deploys the web build on both `master` pushes and pushed
-  `v*` version tags, so release tags refresh the published web version
-  alongside the desktop release artifacts.
+- `pages.yml` now deploys the web build from `master` pushes, while version
+  tags are handled only by `release.yml`; this avoids GitHub Pages
+  environment-protection failures on tagged releases while keeping the
+  published site in sync with merged changes.
 
 ## CALM / SMILE assembler
 
