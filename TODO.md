@@ -121,6 +121,10 @@ SDL_Init; it fills a `LauncherConfig` struct and returns; `main()` applies the
 struct to the existing config fields and continues with the normal startup path.
 Skip with `-no-launcher` or when `SDL_VIDEODRIVER=dummy` (headless).
 
+The current launcher sound section exposes both the built-in beeper toggle and
+the optional PSG-card toggle. The PSG setting still obeys the existing
+Winchester conflict (`-psg` vs. `-harddisk` / `-harddisk2`).
+
 #### Window layout (top to bottom)
 
 ##### Header

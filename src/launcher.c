@@ -28,7 +28,7 @@
 /* ── Geometry ────────────────────────────────────────────────────────────── */
 
 #define WIN_W  460
-#define WIN_H  505
+#define WIN_H  529
 
 /* Colours (ARGB) — Smaky 6 palette: cream body, charcoal keys, green phosphor */
 #define COL_BG          0xFFCFC6A4   /* cream/beige machine body */
@@ -345,6 +345,7 @@ typedef struct {
 
     /* Sound */
     int   beeper;
+    int   psg;
 } State;
 
 /* Widget hit areas (filled during draw, used during event handling) */
@@ -360,6 +361,7 @@ typedef struct {
     SDL_Rect scanlines_dd;
     SDL_Rect no_blank_dd;
     SDL_Rect beeper_dd;
+    SDL_Rect psg_dd;
     SDL_Rect btn_help;
     SDL_Rect btn_start;
 } HitAreas;
@@ -571,6 +573,14 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     }
     y += ROW_H;
 
+    draw_text(ren, LABEL_X, y + 5, "PSG card:", COL_TEXT);
+    {
+        const char *lbl = s->psg ? "On" : "Off";
+        draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H, lbl, mx, my);
+        ha->psg_dd = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
+    }
+    y += ROW_H;
+
     draw_text(ren, LABEL_X, y + 5, "Drive sounds:", COL_TEXT);
     draw_text(ren, CTRL_X, y + 5, "Off (coming soon)", COL_TEXT_DIM);
     y += ROW_H + 10;
@@ -606,6 +616,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     cfg->scanlines       = -1;
     cfg->no_display_off  = -1;
     cfg->beeper          = -1;
+    cfg->psg             = -1;
 
     /* Detect headless / dummy video driver */
     const char *driver = SDL_GetCurrentVideoDriver();
@@ -624,6 +635,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         cfg->scanlines       = 1;
         cfg->no_display_off  = 1;
         cfg->beeper          = 1;
+        cfg->psg             = 0;
         return 0;
     }
 
@@ -676,6 +688,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         .scanlines       = 1,   /* on */
         .no_display_off  = 0,   /* off by default */
         .beeper          = 1,   /* on */
+        .psg             = 0,   /* off */
     };
 
     /* Pre-populate from CLI hints */
@@ -698,6 +711,8 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
             s.no_display_off = hints->no_display_off;
         if (hints->beeper >= 0)
             s.beeper = hints->beeper;
+        if (hints->psg >= 0)
+            s.psg = hints->psg;
     }
 
     HitAreas ha;
@@ -779,6 +794,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
                 if (rect_hit(&ha.scanlines_dd,mx, my)) { s.scanlines ^= 1; break; }
                 if (rect_hit(&ha.no_blank_dd, mx, my)) { s.no_display_off ^= 1; break; }
                 if (rect_hit(&ha.beeper_dd,   mx, my)) { s.beeper ^= 1; break; }
+                if (rect_hit(&ha.psg_dd,      mx, my)) { s.psg ^= 1; break; }
                 if (rect_hit(&ha.btn_help,    mx, my)) { show_help(win); break; }
                 if (rect_hit(&ha.btn_start,   mx, my)) {
                     result = 0;
@@ -823,6 +839,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         cfg->scanlines       = s.scanlines;
         cfg->no_display_off  = s.no_display_off;
         cfg->beeper          = s.beeper;
+        cfg->psg             = s.psg;
     } else {
         free(s.dx0_path);
         free(s.dx1_path);

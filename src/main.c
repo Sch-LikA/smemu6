@@ -1270,6 +1270,7 @@ int main(int argc, char *argv[])
             .scanlines       = scanlines ? 1 : -1,
             .no_display_off  = no_display_off ? 1 : -1,
             .beeper          = enable_beeper ? -1 : 0,  /* -1=default(on), 0=off */
+            .psg             = enable_psg ? 1 : -1,
         };
         LauncherConfig lc;
         int lresult = launcher_run(&lc, &hints);
@@ -1310,8 +1311,18 @@ int main(int argc, char *argv[])
         if (lc.scanlines >= 0)  scanlines      = lc.scanlines;
         if (lc.no_display_off >= 0) no_display_off = lc.no_display_off;
         if (lc.beeper >= 0)     enable_beeper  = lc.beeper;
+        if (lc.psg >= 0)        enable_psg     = lc.psg;
         /* Re-apply beeper setting now that launcher may have changed it */
         sound_set_beeper_enabled(enable_beeper);
+
+        if ((enable_beeper || enable_drive_sound || enable_psg)
+                && (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) == 0) {
+            if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+                fprintf(stderr, "SDL_InitSubSystem(SDL_INIT_AUDIO): %s\n", SDL_GetError());
+                SDL_Quit();
+                return 1;
+            }
+        }
     }
 #endif /* __EMSCRIPTEN__ */
 

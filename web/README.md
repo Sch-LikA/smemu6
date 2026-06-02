@@ -83,10 +83,11 @@ add those headers.
 2. Wait for the launcher to finish loading the bundled floppy library.
 3. Pick a built-in disk from the DX0 / DX1 dropdowns, or use **Use own…** to
   stage your own `.dsk` image before boot.
-4. Click **Start** to launch the emulator with the selected disks.
-5. After the emulator has started, use **Insert…** on the front panel to load a
+4. Adjust the launcher options you want, including the optional **PSG card** toggle when testing SIGMA.
+5. Click **Start** to launch the emulator with the selected disks.
+6. After the emulator has started, use **Insert…** on the front panel to load a
   new `.dsk` image into the virtual filesystem, then click **Reset** to reboot.
-6. On phones and tablets, tap **Keyboard** on the front panel to ask the browser
+7. On phones and tablets, tap **Keyboard** on the front panel to ask the browser
   to open the device's on-screen keyboard.
 
 ## Controls
@@ -129,8 +130,9 @@ At build time, `--preload-file` bundles:
   **Keyboard** button that focuses a hidden text field so mobile browsers can
   show the system on-screen keyboard. The touch layout now also shows a short
   hint below the control strip so this button is easier to discover.
-- The launcher preloads the bundled floppy library from `/floppies/` and lets
-  you choose DX0 / DX1 boot disks before starting the emulator.
+- The launcher preloads the bundled floppy library from `/floppies/`, lets you
+  choose DX0 / DX1 boot disks before starting the emulator, and exposes the
+  same optional PSG-card bring-up toggle as the native launcher.
 - The launcher dialog is automatically skipped in the web build (`-no-launcher`
   is passed via `Module.arguments`).  Use the HTML controls instead.
 - The running front panel now exposes dedicated web buttons for the seven Smaky

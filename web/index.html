@@ -857,6 +857,17 @@
     </div>
   </div>
 
+  <div class="lnch-section">
+    <div class="lnch-section-title">Sound</div>
+    <div class="lnch-opts">
+      <label class="lnch-opt" for="lnch-psg">
+        <input type="checkbox" id="lnch-psg">
+        <span class="toggle-track"></span>
+        <span class="opt-label">PSG card</span>
+      </label>
+    </div>
+  </div>
+
   <div class="lnch-section" style="padding-bottom: 6px;">
     <button id="btn-start" disabled>&#x25b6;&nbsp;&nbsp;Start</button>
   </div>
@@ -1277,6 +1288,7 @@ document.getElementById('btn-start').addEventListener('click', async function() 
   syncMachineDisplayScale();
 
   if (document.getElementById('lnch-scanlines').checked)  args.push('-scanlines');
+  if (document.getElementById('lnch-psg').checked)        args.push('-psg');
 
   var phosphor = document.getElementById('lnch-phosphor').value;
   if (phosphor === 'white') args.push('-phosphor', 'white');

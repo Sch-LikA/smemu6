@@ -322,6 +322,7 @@ Current scope:
 - default PSG clock is now the measured real-hardware value `1.410 MHz`; use `-psg-clock <hz>` to sweep the observed potentiometer range `1000000..2400000` during SIGMA bring-up
 - the KiCad netlist still shows the AY `CLOCK` net is driven locally from `U16` pin 4 through a Schmitt-trigger RC network (`1nF1`, `R6`, `RV1`), so remaining hardware work is about matching the potentiometer setting and any downstream shaping, not recovering a host-bus clock source
 - conflicts with `-harddisk` and `-harddisk2`, because the Winchester controller already uses the same decoded port range
+- the native SDL launcher and the web launcher can now enable the PSG card before boot; on native builds the same hard-disk conflict still applies
 
 ---
 
