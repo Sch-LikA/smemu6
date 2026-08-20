@@ -464,6 +464,13 @@ int machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base)
     return memory_load_file(m, path, base);
 }
 
+/* Load a ROM image from a memory buffer (port path: embedded .h array).
+ * Mirrors machine_load_rom() but takes bytes instead of a file path. */
+int machine_load_rom_mem(struct Smaky6 *m, const void *data, size_t size, uint16_t base)
+{
+    return memory_load_mem(m, data, size, base);
+}
+
 /* Execute one 50 Hz frame worth of machine time, including optional INT pulse,
  * storage/RTC side effects, audio mixing, and debugger-controlled pauses. */
 void machine_run_frame(struct Smaky6 *m)

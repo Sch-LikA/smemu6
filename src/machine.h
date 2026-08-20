@@ -4,6 +4,7 @@
 #ifndef MACHINE_H
 #define MACHINE_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /* Integer arithmetic helpers (no floating-point, C99/C11 safe) */
@@ -52,6 +53,8 @@ void           machine_destroy(struct Smaky6 *m);
 
 /* Load ROM image into the machine; returns 0 on success */
 int  machine_load_rom(struct Smaky6 *m, const char *path, uint16_t base);
+/* Load ROM image from a memory buffer; returns 0 on success (port path). */
+int  machine_load_rom_mem(struct Smaky6 *m, const void *data, size_t size, uint16_t base);
 
 /* Run one full 50 Hz frame (~50 000 T-states at 2.5 MHz) */
 void machine_run_frame(struct Smaky6 *m);

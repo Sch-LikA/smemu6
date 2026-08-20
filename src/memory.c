@@ -184,6 +184,31 @@ int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base)
     return 0;
 }
 
+/* Load a ROM image from a memory buffer (port path: embedded .h array, no
+ * host filesystem). Same ROM-protection semantics as memory_load_file(). */
+int memory_load_mem(struct Smaky6 *m, const void *data, size_t size, uint16_t base)
+{
+    if (!data) {
+        fprintf(stderr, "memory: load_mem: NULL data pointer\n");
+        return -1;
+    }
+
+    if (size > (size_t)(MEM_TOTAL - base)) {
+        fprintf(stderr, "memory: ROM image (%lu bytes) overflows bus at 0x%04X\n",
+                (unsigned long)size, base);
+        return -1;
+    }
+
+    memcpy(m->bus + base, data, size);
+
+    /* Mark loaded range as ROM (read-only) */
+    memset(m->rom_mask + base, 1, size);
+
+    fprintf(stderr, "memory: loaded ROM from memory (%lu bytes) at 0x%04X\n",
+            (unsigned long)size, base);
+    return 0;
+}
+
 /* Clear ROM write protection for a contiguous range after the Phantom loader
  * swaps RAM into the low address space. */
 void memory_unprotect_rom(struct Smaky6 *m, uint16_t base, uint16_t len)

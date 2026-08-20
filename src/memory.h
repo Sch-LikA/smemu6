@@ -4,6 +4,7 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 struct Smaky6;
@@ -15,6 +16,8 @@ void memory_fini(struct Smaky6 *m);
 
 /* Load one raw binary file into the flat machine bus at base. */
 int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base);
+/* Load one raw ROM image from a memory buffer into the flat bus at base. */
+int memory_load_mem(struct Smaky6 *m, const void *data, size_t size, uint16_t base);
 
 /* Read one byte from the flat machine bus with ROM/workspace side effects. */
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr);
