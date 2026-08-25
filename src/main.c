@@ -183,6 +183,7 @@ static void usage(const char *argv0)
         "  -phosphor <colour>  Screen phosphor: green (default, P31 #00E700) or white (#E8E8E8)\n"
         "  -dump-ram <f>  Dump full 64 KB RAM to file at exit\n"
         "  -no-launcher   Skip the startup configuration dialog\n"
+        "  -keymap <modern|position>  Host keymap: modern (default) types the character shown on the host key; position maps each host key to the Smaky key at the same physical position\n"
         "  -loadbin <addr> <file>  Load raw binary into RAM at hex address (e.g. -loadbin 0x4600 test.bin)\n"
         "  -freeze        Do not run the CPU; display static RAM contents (use with -loadbin)\n"
         "  -help          Show this help\n"
@@ -926,6 +927,7 @@ int main(int argc, char *argv[])
     int scanlines          = 0;  /* -scanlines: draw CRT scanline overlay */
     int phosphor_white     = 0;  /* -phosphor white: use white phosphor palette */
     int no_launcher        = 0;  /* -no-launcher: skip startup dialog */
+    int keymap_modern      = 1;  /* -keymap modern (default) | position */
     const char *dump_ram_path = NULL;  /* -dump-ram: write RAM to this file at exit */
     int inject_at_prompt = 1;          /* -inject-at-prompt N: fire inject when prompt_count >= N */
     int inject_at_frame = -1;          /* -inject-at-frame N: fire inject at frame N instead of prompt gating */
@@ -1168,6 +1170,16 @@ int main(int argc, char *argv[])
             inject_at_prompt = (int)n;
         } else if (strcmp(argv[i], "-no-launcher") == 0) {
             no_launcher = 1;
+        } else if (strcmp(argv[i], "-keymap") == 0 && i + 1 < argc) {
+            const char *km = argv[++i];
+            if (strcmp(km, "modern") == 0)
+                keymap_modern = 1;
+            else if (strcmp(km, "position") == 0)
+                keymap_modern = 0;
+            else {
+                fprintf(stderr, "Invalid -keymap value: %s (expected modern|position)\n", km);
+                return 1;
+            }
         } else if (strcmp(argv[i], "-loadbin") == 0 && i + 2 < argc) {
             char *end = NULL;
             unsigned long addr = strtoul(argv[i + 1], &end, 16);
@@ -1371,6 +1383,8 @@ int main(int argc, char *argv[])
     }
     SDL_RenderSetLogicalSize(ren, VIDEO_WIN_W, VIDEO_WIN_H);
     SDL_StartTextInput();
+
+    keyboard_set_keymap_modern(keymap_modern);
 
     /* ── Machine init ───────────────────────────────────────────────────── */
     struct Smaky6 *m = machine_create();

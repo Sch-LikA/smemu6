@@ -633,9 +633,11 @@ Next session priorities:
   Smaky `e` key is; the Smaky `0` is matrix position 12, where a modern host
   keyboard has `=`. The reported "0 yields e" is the position-faithful model
   behaving as designed, not a table bug.
-- Decision (pending user selection): keep position-faithful mapping by
-  default; propose startup option `-keymap position|modern` where `modern`
-  resolves text keys by reverse S471-table lookup (host `0` types `0`).
+- Decision (user-selected 2026-08-25): `-keymap modern|position` startup
+  option with `modern` as the default. Modern mode resolves host text
+  characters by reverse S471-table lookup in the current layer (host `0`
+  types `0`), falling back to position mapping for characters absent from
+  the layer. Position mode preserves the physical-position-faithful model.
   Rejected: one-off remap `SDL_SCANCODE_0 -> 12` (breaks position fidelity).
 - Decision: boot and machine reset now start with the caps layer off
   (`caps_lock_active = 0`), matching the real machine (boots lowercase) and

@@ -20,6 +20,12 @@ void keyboard_fini(struct Smaky6 *m);
  * the active layer, and F1..F7 update the separate non-matrix function bits. */
 void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
 
+/* Select the host keymap: modern (default) resolves host text characters
+ * through the S471 table so a modern keyboard types the character it shows;
+ * position maps each host key to the Smaky key at the same physical spot.
+ * Call before the first text event. */
+void keyboard_set_keymap_modern(int modern);
+
 /* Feed one SDL text-input event into the printable compatibility path. */
 void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);
 

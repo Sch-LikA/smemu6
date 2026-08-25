@@ -211,6 +211,7 @@ DX0 slot and the floppy (if present) occupies DX1. The valid combinations are:
 
 - `-break-to-monitor`: inject SHIFT+BREAK to enter the SYSMON monitor at startup.
 - `-no-launcher`: skip the startup configuration dialog and boot directly with the supplied media/options.
+- `-keymap <modern|position>`: select the host keymap. `modern` (default) resolves each host text character through the S471 table in the current layer, so a modern keyboard types the character it shows (host `0` types `0`). `position` maps each host key to the Smaky key at the same physical position (host `0` types the Smaky `é` key that sits there). Non-text keys (function keys, arrows, Enter, BS) are unchanged.
 
 ### String injection
 

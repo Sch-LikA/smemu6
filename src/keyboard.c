@@ -618,6 +618,27 @@ static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition p
     return S471_TABLE[current_layer(m)][position] & 0x7Fu;
 }
 
+/* Host keymap selection: modern (default) resolves host text characters
+ * through the S471 table so a modern keyboard types the character it shows;
+ * position maps each host key to the Smaky key at the same physical spot. */
+static int keymap_modern = 1;
+
+/* Select the host keymap. Call before the first text event. */
+void keyboard_set_keymap_modern(int modern)
+{
+    keymap_modern = (modern != 0);
+}
+
+/* Find the matrix position whose output on the given layer equals the host
+ * character. Returns MATRIX_POS_NONE when the layer has no such key. */
+static SmakyMatrixPosition reverse_lookup_matrix_position(S471Layer layer, uint8_t code)
+{
+    for (int i = 0; i < MATRIX_POS_COUNT; i++)
+        if (S471_TABLE[layer][i] == code)
+            return (SmakyMatrixPosition)i;
+    return MATRIX_POS_NONE;
+}
+
 /* Translate host arrow-key aliases into CURSOR+letter chord components. */
 static int lookup_cursor_alias(SDL_Scancode scan, SmakyMatrixPosition *position_out,
                                uint8_t *key_code_out, uint8_t *source_out)
@@ -889,6 +910,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
     uint8_t key_code;
     SDL_Scancode scan = SDL_SCANCODE_UNKNOWN;
     SmakyMatrixPosition position = MATRIX_POS_NONE;
+    SmakyMatrixPosition modern_position = MATRIX_POS_NONE;
     int needs_fresh_text_key = (ev->text[0] != '\0' && ev->text[1] == '\0');
 
     if (fnct_layer_active(m)) {
@@ -918,6 +940,11 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
         }
 
         position = lookup_matrix_position(scan, SDL_GetKeyFromScancode(scan), 0);
+        if (keymap_modern) {
+            modern_position = reverse_lookup_matrix_position(current_layer(m), key_code);
+            if (modern_position != MATRIX_POS_NONE)
+                position = modern_position;
+        }
         if (position != MATRIX_POS_NONE)
             key_code = resolve_matrix_code(m, position);
 

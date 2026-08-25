@@ -87,11 +87,11 @@ against disassembly or hardware documentation.
   layer). Consequence: SIGMA menu navigation expects uppercase `D/F/R/C`, so
   host CAPS LOCK must be toggled before those keys reach the guest uppercase
   (supersedes the 3211ab1 caps-on convenience default; see MEMORY.md).
-- Keyboard keymap mode decision pending (2026-08-25): the current
-  position-faithful mapping makes host `0` (which sits where the Smaky `e`
-  key is) type `e`; candidate startup option `-keymap position|modern` where
-  `modern` resolves text keys via reverse S471 lookup so host `0` types `0`.
-  Awaiting user selection before implementing.
+- `-keymap modern|position` startup option (default `modern`, 2026-08-25):
+  modern resolves host text characters via reverse S471 lookup in the
+  current layer so host `0` types `0`; position keeps the
+  physical-position-faithful mapping (host `0` types the Smaky `e` key at
+  that spot). Non-text keys (function keys, arrows, Enter, BS) unchanged.
 - Open (keyboard timing, "keys stop being accepted / repeat after a while"):
   wire the documented-but-missing `release_after_reassert` escape so a
   released key still latched survives exactly one synthetic reassert then is
