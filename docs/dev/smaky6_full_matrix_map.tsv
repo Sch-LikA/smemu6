@@ -9,10 +9,10 @@ position_id	front_label	physical_location	row/col if known	normal	shift	fnct	cap
 07	7	Top row col7	PROMgrid r0 c7	37	29	17	37	PROM dump; physical placement from key legends
 08	8	Top row col8	PROMgrid r0 c8	38	3F	18	38	PROM dump; physical placement from key legends
 09	9	Top row col9	PROMgrid r0 c9	39	40	19	39	PROM dump; physical placement from key legends
-10	zero_equals_a_grave_key	Top row col10	PROMgrid r0 c10	12	1D	00	12	PROM dump; user-confirmed legends: 0 / = / à
-11	apostrophe_question_u_grave_key	Top row col11	PROMgrid r0 c11	15	16	5E	15	PROM dump; user-confirmed legends: ' / ? / û
-12	caret_doublequote_c_cedilla_key	Top row col12	PROMgrid r0 c12	30	23	10	30	PROM dump; user-confirmed legends: ^ / " / ç
-13	backslash_hash_key	Top row col13	PROMgrid r0 c13	5C	60	7E	5C	PROM dump; user-confirmed legends: \\ / #
+10	e_acute_key	Top row col10	PROMgrid r0 c10	12	1D	00	12	PROM dump; user-confirmed top row 2026-08-25 (unshifted): ESC 1-9 e ^ 0 \ BS; keycap legend: e
+11	e_circumflex_caret_key	Top row col11	PROMgrid r0 c11	15	16	5E	15	PROM dump; user-confirmed top row 2026-08-25 (unshifted); keycap legend: ^; normal layer emits e-circumflex
+12	zero_key	Top row col12	PROMgrid r0 c12	30	23	10	30	PROM dump; user-confirmed top row 2026-08-25 (unshifted); keycap legend: 0
+13	backslash_key	Top row col13	PROMgrid r0 c13	5C	60	7E	5C	PROM dump; user-confirmed top row 2026-08-25 (unshifted); keycap legend: \\
 14	DEL/BS	Top row col14	PROMgrid r0 c14	08	7F	01	08	PROM dump; physical placement from key legends
 15	(unused)	Top row col15	PROMgrid r0 c15	00	00	00	00	PROM dump; physical placement from key legends
 16	TAB	Row 2 (Q row) col0	PROMgrid r1 c0	09	0B	03	09	PROM dump; physical placement from key legends
