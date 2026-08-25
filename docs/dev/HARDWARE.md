@@ -263,7 +263,7 @@ Port 0x00 bit encoding:
 - `Rows`: 20.
 - `Cell size`: 8 × 8 pixels, displayed as 8 px wide × 8 px tall.
 - `Character ROM`: **74S262** plus **2716 EPROM** (2 KB, 128 chars × 16 bytes).
-- `Character set`: 7-bit ASCII; no lowercase on original hardware.
+- `Character set`: 7-bit ASCII; the audited S471 ROM provides a lowercase normal layer and an uppercase caps layer. Power-on state is the lowercase normal layer (confirmed on the real machine 2026-08-25).
 - `Bit order`: bit 0 is the leftmost pixel, LSB-first.
 - `Total buffer`: 1280 bytes at `0x4000`.
 
@@ -500,7 +500,7 @@ Reading port 0x00 **clears FOUND and FULCLA** and **resumes the scan counter**.
 ### 5.4 Key layout
 
 The keyboard has **57 alphanumeric / punctuation keys** plus **7 function keys**
-in a **QWERTZ Swiss** layout.  Uppercase only on alphanumeric characters.
+in a **QWERTZ Swiss** layout.  Alphanumeric keys emit lowercase in the normal layer and uppercase in the caps layer; the machine powers on in the lowercase layer (confirmed 2026-08-25).
 
 ### 5.5 Function key (FOUND=0) return value
 

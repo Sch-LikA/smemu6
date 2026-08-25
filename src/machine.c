@@ -690,7 +690,7 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 1;
     m->kbd.shift_pressed   = 0;
-    m->kbd.caps_lock_active = 1;
+    m->kbd.caps_lock_active = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     keyboard_clear_all_function_bits(m);

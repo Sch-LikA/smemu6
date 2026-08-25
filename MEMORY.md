@@ -625,3 +625,25 @@ Next session priorities:
   `-psg-clock` overrides
 - decide whether the emulator should later model the potentiometer as a named
   hardware control rather than only as a raw Hz override
+
+## Session 2026-08-25: keyboard bug audit (0/e, caps boot, stuck latch)
+
+- Real-machine top row (user-confirmed 2026-08-25, unshifted):
+  `ESC 1 2 3 4 5 6 7 8 9 e ^ 0 \ BS`. Host `0` sits at col 10, where the
+  Smaky `e` key is; the Smaky `0` is matrix position 12, where a modern host
+  keyboard has `=`. The reported "0 yields e" is the position-faithful model
+  behaving as designed, not a table bug.
+- Decision (pending user selection): keep position-faithful mapping by
+  default; propose startup option `-keymap position|modern` where `modern`
+  resolves text keys by reverse S471-table lookup (host `0` types `0`).
+  Rejected: one-off remap `SDL_SCANCODE_0 -> 12` (breaks position fidelity).
+- Decision: boot and machine reset now start with the caps layer off
+  (`caps_lock_active = 0`), matching the real machine (boots lowercase) and
+  the `check_keyboard_asd_trace` expectations (`0x61/0x73/0x64`). This
+  supersedes 3211ab1's caps-on default, which existed so SIGMA's uppercase
+  D/F/R/C navigation worked without toggling; users must now toggle host
+  CAPS LOCK for SIGMA menu navigation.
+- Open: keyboard stuck-latch / self-repeat (issue 3). `release_after_reassert`
+  is declared and cleared but never set or consumed; plan: wire the documented
+  "one synthetic reassert then drop" escape plus a frame-count backstop, after
+  reproducing with `--trace-kbd`.
