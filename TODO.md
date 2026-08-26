@@ -251,7 +251,7 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 |Label|Control|Emulator option|Default|
 |---|---|---|---|
 |Beeper|Toggle: **On** / **Off**|`-no-beeper` when Off|On|
-|Drive sounds|Static label: **Off** *(coming soon)*|`-drive-sound` (stub)|Off|
+|Drive sounds|Static label: **Off** *(coming soon)*|`-drive-sound` (working flag; launcher control still a stub)|Off|
 
 ##### Button row (bottom)
 
@@ -454,6 +454,28 @@ Regression coverage:
 - `tools/check_keyboard_asd_trace.sh` now injects overlapping `keydown`/`keyup`
   events for `a`, `s`, and `d` against the SDL window;
 - the script asserts visible CLI insertions at `pc=0x590F` for all three keys.
+
+### Power-on virtual Enter autoboot — non-original behaviour [requested]
+
+The real Smaky 6 autoboots to floppy with **no key press**.  The Phantom
+ROM's `kbd_wait` loops (0x00FD "boot key" and the later OS-load wait — see
+`docs/dev/samos_sys17_annotated.asm` and `docs/dev/samos_report.txt`) poll
+`IN(0x00)` until bit 7 is clear, but in the emulator the S471 model never
+produces such a read while idle, so boot stalls.  The emulator papers over
+this with a **power-on virtual Enter**: `machine_reset()` arms
+`kbd.found=1`, `key_code=0x00`, `physically_held=1`, `boot_key_held=1`, and
+the scanner re-asserts FOUND after each boot-phase CLA read (the bit-7
+regular-key prefix is consumed, the second read passes `kbd_wait`) until the
+ROM executes `EI`.
+
+Requested follow-up: analyze why the ROM's `kbd_wait` needs a fake key here —
+determine what the real S471 returns on `IN(0x00)` with no key pressed
+(idle FOUND / bit-7 behaviour, cf. `docs/dev/keyboard_analysis.md`), correct
+the keyboard port model so the ROM passes `kbd_wait` the way it does on real
+hardware, and then remove the virtual Enter.  Regression gate:
+`tools/check_virtual_floppy_dx0_hostdir_boot.sh` must still reach the SAMOS
+CLI with **no** `-inject-*` flags, and the keyboard CTest harnesses must
+still pass.
 
 ### Released promoted-key repeat disarm ✅ Done  [confirmed]
 
