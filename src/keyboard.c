@@ -451,7 +451,10 @@ static void release_ordinary_key(struct Smaky6 *m)
     int seen_by_cla = m->kbd.cla_seen_current;
 
     m->kbd.physically_held = hold_until_commit;
-    m->kbd.release_after_reassert = 0;
+    /* If the key was released before its in-flight latch reached the CLA
+     * reader, the read must deliver it once and must NOT rearm reassertion:
+     * the key is no longer on the matrix. */
+    m->kbd.release_after_reassert = hold_until_commit;
     m->kbd.release_after_buffer_commit = hold_until_commit;
     m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
@@ -975,8 +978,17 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         m->kbd.cla_seen_current = 1;
         m->kbd.found = 0;
         if (held && !chord_repeat) {
-            m->kbd.reassert_pending = 1;
-            m->kbd.reassert_cycles = SMAKY6_SCAN_REASSERT_TSTATES;
+            if (m->kbd.release_after_reassert) {
+                /* In-flight latch for a key that was already released:
+                 * deliver once, stop holding, no reassert, no repeat arming. */
+                m->kbd.release_after_reassert = 0;
+                m->kbd.physically_held = 0;
+                m->bus[0x4558u] = 0;
+                m->bus[0x4577u] = 0;
+            } else {
+                m->kbd.reassert_pending = 1;
+                m->kbd.reassert_cycles = SMAKY6_SCAN_REASSERT_TSTATES;
+            }
         } else {
             if (chord_repeat)
                 m->kbd.physically_held = 0;

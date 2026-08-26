@@ -92,11 +92,16 @@ against disassembly or hardware documentation.
   current layer so host `0` types `0`; position keeps the
   physical-position-faithful mapping (host `0` types the Smaky `e` key at
   that spot). Non-text keys (function keys, arrows, Enter, BS) unchanged.
-- Open (keyboard timing, "keys stop being accepted / repeat after a while"):
-  wire the documented-but-missing `release_after_reassert` escape so a
-  released key still latched survives exactly one synthetic reassert then is
-  dropped, instead of waiting forever for the `0x457C` +1 commit hook; add a
-  frame-count backstop. Reproduce with `--trace-kbd` first.
+- Keyboard stuck-latch fix (2026-08-25): wired `release_after_reassert`.
+  A key released before its in-flight latch is read by CLA is delivered
+  exactly once and never re-arms reassertion — the scanner only reasserts
+  keys still physically held (HARDWARE.md), but the old code armed reassert
+  from `physically_held` alone. That produced the "keys repeat / new keys
+  stop being accepted" symptom: an infinite 50 Hz re-latch loop of the
+  released key plus a pending queue that never promotes. Deterministic
+  scenario checks live in `tmp/issue3_check.c` (scratch, not committed);
+  a frame-count backstop was considered and not added once the arming bug
+  was fixed.
 - Add a small scripted chord injector for interactive programs so headless runs
   can type a CLI command, wait a configurable number of frames, then assert a
   simultaneous function-key + ordinary-key combination such as `PROGRA+z`.

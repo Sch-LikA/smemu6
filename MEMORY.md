@@ -645,7 +645,17 @@ Next session priorities:
   supersedes 3211ab1's caps-on default, which existed so SIGMA's uppercase
   D/F/R/C navigation worked without toggling; users must now toggle host
   CAPS LOCK for SIGMA menu navigation.
-- Open: keyboard stuck-latch / self-repeat (issue 3). `release_after_reassert`
-  is declared and cleared but never set or consumed; plan: wire the documented
-  "one synthetic reassert then drop" escape plus a frame-count backstop, after
-  reproducing with `--trace-kbd`.
+- Issue 3 resolved (2026-08-25): `release_after_reassert` is now set in
+  `release_ordinary_key` when a key is released before its in-flight latch
+  reaches the CLA reader, and consumed in `keyboard_read_cla` (deliver once,
+  drop the hold, clear 0x4558/0x4577, no reassert). Root cause of the
+  "keys stop being accepted / repeat spontaneously" report: the CLA read
+  armed reassertion from `physically_held` alone, so a released-but-in-flight
+  key re-latched forever at 50 Hz and blocked promotion of queued keys.
+  Verified with `tmp/issue3_check.c` (9 scenarios, incl. long-hold reassert
+  regression guard); full CTest 11/12 (the 1 failure is the missing
+  smaky6_samos.py tool).
+- Note: the earlier trace repro of this issue was confounded by the dirty
+  working tree (machine.c INT/iff experiments) which was discarded on
+  2026-08-25; the fix above was found and proven on the clean tree via the
+  deterministic harness instead of a `--trace-kbd` session.
