@@ -345,6 +345,7 @@ typedef struct {
 
     /* Sound */
     int   beeper;
+    int   drive_sound;
     int   psg;
 } State;
 
@@ -361,6 +362,7 @@ typedef struct {
     SDL_Rect scanlines_dd;
     SDL_Rect no_blank_dd;
     SDL_Rect beeper_dd;
+    SDL_Rect drive_sound_dd;
     SDL_Rect psg_dd;
     SDL_Rect btn_help;
     SDL_Rect btn_start;
@@ -582,7 +584,11 @@ static void draw_frame(SDL_Renderer *ren, const State *s, int mx, int my, HitAre
     y += ROW_H;
 
     draw_text(ren, LABEL_X, y + 5, "Drive sounds:", COL_TEXT);
-    draw_text(ren, CTRL_X, y + 5, "Off (coming soon)", COL_TEXT_DIM);
+    {
+        const char *lbl = s->drive_sound ? "On" : "Off";
+        draw_dropdown(ren, CTRL_X, y, CTRL_W, CTRL_H, lbl, mx, my);
+        ha->drive_sound_dd = make_rect(CTRL_X, y, CTRL_W, CTRL_H);
+    }
     y += ROW_H + 10;
 
     /* ── ROM warning ─────────────────────────────────────────────────────── */
@@ -616,6 +622,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
     cfg->scanlines       = -1;
     cfg->no_display_off  = -1;
     cfg->beeper          = -1;
+    cfg->drive_sound     = -1;
     cfg->psg             = -1;
 
     /* Detect headless / dummy video driver */
@@ -635,6 +642,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         cfg->scanlines       = 1;
         cfg->no_display_off  = 1;
         cfg->beeper          = 1;
+        cfg->drive_sound     = 1;
         cfg->psg             = 0;
         return 0;
     }
@@ -688,6 +696,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         .scanlines       = 1,   /* on */
         .no_display_off  = 0,   /* off by default */
         .beeper          = 1,   /* on */
+        .drive_sound     = 1,   /* on by default */
         .psg             = 0,   /* off */
     };
 
@@ -711,6 +720,8 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
             s.no_display_off = hints->no_display_off;
         if (hints->beeper >= 0)
             s.beeper = hints->beeper;
+        if (hints->drive_sound >= 0)
+            s.drive_sound = hints->drive_sound;
         if (hints->psg >= 0)
             s.psg = hints->psg;
     }
@@ -794,6 +805,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
                 if (rect_hit(&ha.scanlines_dd,mx, my)) { s.scanlines ^= 1; break; }
                 if (rect_hit(&ha.no_blank_dd, mx, my)) { s.no_display_off ^= 1; break; }
                 if (rect_hit(&ha.beeper_dd,   mx, my)) { s.beeper ^= 1; break; }
+                if (rect_hit(&ha.drive_sound_dd, mx, my)) { s.drive_sound ^= 1; break; }
                 if (rect_hit(&ha.psg_dd,      mx, my)) { s.psg ^= 1; break; }
                 if (rect_hit(&ha.btn_help,    mx, my)) { show_help(win); break; }
                 if (rect_hit(&ha.btn_start,   mx, my)) {
@@ -839,6 +851,7 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
         cfg->scanlines       = s.scanlines;
         cfg->no_display_off  = s.no_display_off;
         cfg->beeper          = s.beeper;
+        cfg->drive_sound     = s.drive_sound;
         cfg->psg             = s.psg;
     } else {
         free(s.dx0_path);

@@ -176,7 +176,8 @@ static void usage(const char *argv0)
         "  -tracesnd      Trace every port 0x03 write (buzzer)\n"
         "  -scrdump       Dump changed screen rows to stderr\n"
         "  -no-beeper     Disable the machine buzzer (beeper is on by default)\n"
-        "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
+        "  -drive-sound   Enable floppy drive sounds (on by default)\n"
+        "  -no-drive-sound  Disable floppy drive sounds\n"
         "  -audio-dump <f>  Dump mixed audio to a WAV file (debug)\n"
         "  -no-display-off  Ignore display-off writes (port 0x00 bit0=0); screen stays on\n"
         "  -verbose-video   Log display on/off and mode changes to stderr\n"
@@ -921,7 +922,7 @@ int main(int argc, char *argv[])
     int tracewin = 0;
     int scrdump = 0;
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
-    int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
+    int enable_drive_sound = 1;  /* -no-drive-sound: disable drive sounds (on by default) */
     char audio_dump_path[256];   /* -audio-dump <file>: dump mixed audio as WAV (debug) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
     int verbose_video      = 0;  /* -verbose-video: log display on/off/mode changes to stderr */
@@ -1138,6 +1139,8 @@ int main(int argc, char *argv[])
             enable_beeper = 0;
         } else if (strcmp(argv[i], "-drive-sound") == 0) {
             enable_drive_sound = 1;
+        } else if (strcmp(argv[i], "-no-drive-sound") == 0) {
+            enable_drive_sound = 0;
         } else if (strcmp(argv[i], "-audio-dump") == 0 && i + 1 < argc) {
             snprintf(audio_dump_path, sizeof(audio_dump_path), "%s", argv[++i]);
         } else if (strcmp(argv[i], "-no-display-off") == 0) {
@@ -1288,6 +1291,7 @@ int main(int argc, char *argv[])
             .scanlines       = scanlines ? 1 : -1,
             .no_display_off  = no_display_off ? 1 : -1,
             .beeper          = enable_beeper ? -1 : 0,  /* -1=default(on), 0=off */
+            .drive_sound     = enable_drive_sound ? -1 : 0,
             .psg             = enable_psg ? 1 : -1,
         };
         LauncherConfig lc;
@@ -1329,9 +1333,11 @@ int main(int argc, char *argv[])
         if (lc.scanlines >= 0)  scanlines      = lc.scanlines;
         if (lc.no_display_off >= 0) no_display_off = lc.no_display_off;
         if (lc.beeper >= 0)     enable_beeper  = lc.beeper;
+        if (lc.drive_sound >= 0) enable_drive_sound = lc.drive_sound;
         if (lc.psg >= 0)        enable_psg     = lc.psg;
-        /* Re-apply beeper setting now that launcher may have changed it */
+        /* Re-apply sound settings now that launcher may have changed them */
         sound_set_beeper_enabled(enable_beeper);
+        sound_set_drive_sound_enabled(enable_drive_sound);
 
         if ((enable_beeper || enable_drive_sound || enable_psg)
                 && (SDL_WasInit(SDL_INIT_AUDIO) & SDL_INIT_AUDIO) == 0) {

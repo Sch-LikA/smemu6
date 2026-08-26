@@ -277,7 +277,7 @@ matériel d'inversion vidéo pour chaque cellule de caractère.
 | Option | Défaut | Description |
 |--------|--------|-------------|
 | `-no-beeper` | — | Coupe le buzzer 1-bit de la machine (le buzzer est **actif** par défaut) |
-| `-drive-sound` | — | Active les sons du lecteur de disquettes (échantillons 5,25" enregistrés ; approximation procédurale si les échantillons manquent) (désactivé par défaut) |
+| `-drive-sound` / `-no-drive-sound` | — | Sons du lecteur de disquettes (échantillons 5,25" enregistrés ; approximation procédurale si les échantillons manquent). **Activé par défaut** ; couper avec `-no-drive-sound` |
 
 ---
 
@@ -613,7 +613,8 @@ des fichiers (par exemple le build web), une approximation procédurale
 — ronronnement moteur en bruit filtré, claquement de pas, tic d'index à
 80/s — est utilisée à la place.
 
-Les sons du lecteur sont **désactivés par défaut**.
+Les sons du lecteur sont **activés par défaut**.  Couper avec `-no-drive-sound`
+(le menu de démarrage possède un interrupteur « Drive sounds » correspondant).
 
 **Exemple — démarrer avec buzzer et sons du lecteur :**
 
@@ -624,7 +625,7 @@ Les sons du lecteur sont **désactivés par défaut**.
 **Exemple — tout couper :**
 
 ```bash
-./smemu6 -floppy <disque.dsk> -no-beeper
+./smemu6 -floppy <disque.dsk> -no-beeper -no-drive-sound
 ```
 
 ---

@@ -259,7 +259,7 @@ attribute for each character cell.
 ### Sound
 
 - `-no-beeper`: silence the machine's 1-bit buzzer. The beeper is on by default.
-- `-drive-sound`: enable floppy drive sounds (recorded 5.25" drive samples; procedural fallback if samples are missing). Off by default.
+- `-drive-sound` / `-no-drive-sound`: floppy drive sounds (recorded 5.25" drive samples; procedural fallback if samples are missing). **On by default**; disable with `-no-drive-sound`.
 
 ---
 
@@ -553,18 +553,19 @@ Sample source: MAME team recordings (CC0 1.0 Universal), vendored under
 the web build), a procedural approximation — filtered-noise motor whir,
 step crack, 80 Hz index tick — is used instead.
 
-Drive sounds are **disabled by default**.  Enable with `-drive-sound`.
+Drive sounds are **enabled by default**.  Disable with `-no-drive-sound`
+(the launcher Sound section has a matching "Drive sounds" toggle).
 
-**Example — boot with beeper and drive sounds:**
+**Example — boot with beeper and drive sounds (both on by default):**
 
 ```bash
-./smemu6 -floppy <disk.dsk> -drive-sound
+./smemu6 -floppy <disk.dsk>
 ```
 
 **Example — mute everything:**
 
 ```bash
-./smemu6 -floppy <disk.dsk> -no-beeper
+./smemu6 -floppy <disk.dsk> -no-beeper -no-drive-sound
 ```
 
 ---

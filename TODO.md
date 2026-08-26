@@ -251,7 +251,7 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
 |Label|Control|Emulator option|Default|
 |---|---|---|---|
 |Beeper|Toggle: **On** / **Off**|`-no-beeper` when Off|On|
-|Drive sounds|Static label: **Off** *(coming soon)*|`-drive-sound` (working flag; launcher control still a stub)|Off|
+|Drive sounds|Toggle: **On** / **Off**|`-no-drive-sound` when Off|On|
 
 ##### Button row (bottom)
 
@@ -1152,8 +1152,9 @@ Architecture:
 
 Remaining / later:
 
-- Launcher: replace the static "Drive sounds: Off (coming soon)" label
-  with a real toggle (mirrors the beeper toggle) — see launcher section.
+- ~~Launcher: replace the static "Drive sounds: Off (coming soon)" label~~ ✅
+  done — working On/Off toggle in the launcher Sound section, on by default
+  (mirrors the beeper toggle; `-no-drive-sound` CLI flag for scripting).
 - Web build: package the sample set (preloaded file or embedded) so the
   web build uses samples too; procedural stays as fallback.
 - Optional: record the real Micropolis drive (user machine) for an

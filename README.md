@@ -456,11 +456,12 @@ running headless or when audio is unavailable.
 SDL_AUDIODRIVER=dummy ./smemu6 -floppy ../floppies/Sys1-H.dsk -no-beeper
 ```
 
-#### `-drive-sound`
+#### `-drive-sound` / `-no-drive-sound`
 
-Enable floppy drive sound effects: recorded 5.25" drive samples (spin loop,
-step clicks, spin-down) from `sound/floppy/`, or a procedural approximation
-when the samples are missing (e.g. web build).  Off by default.
+Enable or disable floppy drive sound effects: recorded 5.25" drive samples
+(spin loop, step clicks, spin-down) from `sound/floppy/`, or a procedural
+approximation when the samples are missing (e.g. web build).
+**On by default**; disable with `-no-drive-sound`.
 
 ```bash
 ./smemu6 -floppy ../floppies/Sys1-H.dsk -drive-sound

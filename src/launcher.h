@@ -26,6 +26,7 @@ typedef struct {
     int         scanlines;         /* 0/1; -1 = not set */
     int         no_display_off;    /* 0/1; -1 = not set */
     int         beeper;            /* 0/1; -1 = not set */
+    int         drive_sound;       /* 0/1; -1 = not set */
     int         psg;               /* 0/1; -1 = not set */
 } LauncherHints;
 
@@ -54,6 +55,7 @@ typedef struct {
 
     /* Sound */
     int         beeper;            /* 0/1; -1 = not set */
+    int         drive_sound;       /* 0/1; -1 = not set */
     int         psg;               /* 0/1; -1 = not set */
 } LauncherConfig;
 
