@@ -1,0 +1,13 @@
+Floppy drive sound samples: MAME team 5.25-inch recordings.
+
+Source : https://github.com/mamedev/mame (samples/floppy/)
+Archive: https://github.com/andresdelcampo/RetroDriveSounds
+License: CC0 1.0 Universal (public domain dedication)
+         https://creativecommons.org/publicdomain/zero/1.0/
+
+Files : 525_spin_loaded.wav       (200 ms steady rotation loop, one revolution)
+        525_spin_start_loaded.wav (spin-up sweep + first revolution)
+        525_spin_end.wav          (spin-down tail)
+        525_step_1_1.wav          (head-step click)
+
+Format: mono, 44100 Hz, 16-bit PCM.
