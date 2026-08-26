@@ -259,7 +259,7 @@ attribute for each character cell.
 ### Sound
 
 - `-no-beeper`: silence the machine's 1-bit buzzer. The beeper is on by default.
-- `-drive-sound`: enable synthesized floppy drive sounds: motor whir, head-step clicks, and sector-hole ticks. Off by default.
+- `-drive-sound`: enable floppy drive sounds (recorded 5.25" drive samples; procedural fallback if samples are missing). Off by default.
 
 ---
 
@@ -536,19 +536,24 @@ The buzzer is **enabled by default**. Pass `-no-beeper` to silence it.
 
 ### Floppy drive sounds
 
-The emulator can synthesize the acoustic character of the Micropolis 5.25"
-hard-sectored drive:
+The Smaky 6's Micropolis 5.25" drive makes no electronic sound on real
+hardware, so the emulator adds one: **recorded samples** of a 5.25" drive,
+played by the same FDC events that drive the emulated controller.
 
-- **Motor whir** — bandpass-filtered noise (300–1 500 Hz) that fades in when
-  the spindle starts and fades out ~0.8 s after the last seek activity.
-- **Head-step click** — a sharp crack (600–3 000 Hz bandpass noise with
-  exponential decay) produced on every track seek step.
-- **Sector-hole tick** — a soft noise burst fired once per sector hole as the
-  disk rotates (16 ticks per revolution at ~300 RPM).
+- **Spin-up / steady rotation** — a recorded 200 ms revolution loop (300
+  RPM, including the real 80 index-hole ticks per second) fades in with the
+  spin-up sweep when the spindle starts.
+- **Head-step click** — a recorded step burst on every actual track change,
+  played at a slightly randomized rate (0.95–1.05×) so repeated seeks don't
+  sound mechanical.
+- **Spin-down** — the loop fades out into a recorded 100 ms spin-down tail.
 
-Drive sounds are **disabled by default** (synthesized sounds are a
-work-in-progress; real samples will be added later). Enable with
-`-drive-sound`.
+Sample source: MAME team recordings (CC0 1.0 Universal), vendored under
+`sound/floppy/` in the source tree.  If the sample files are missing (e.g.
+the web build), a procedural approximation — filtered-noise motor whir,
+step crack, 80 Hz index tick — is used instead.
+
+Drive sounds are **disabled by default**.  Enable with `-drive-sound`.
 
 **Example — boot with beeper and drive sounds:**
 

@@ -458,8 +458,9 @@ SDL_AUDIODRIVER=dummy ./smemu6 -floppy ../floppies/Sys1-H.dsk -no-beeper
 
 #### `-drive-sound`
 
-Enable floppy drive sound effects: motor whir, head-step clicks, and
-sector-hole ticks.  Off by default.
+Enable floppy drive sound effects: recorded 5.25" drive samples (spin loop,
+step clicks, spin-down) from `sound/floppy/`, or a procedural approximation
+when the samples are missing (e.g. web build).  Off by default.
 
 ```bash
 ./smemu6 -floppy ../floppies/Sys1-H.dsk -drive-sound

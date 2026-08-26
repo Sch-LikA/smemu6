@@ -1088,6 +1088,62 @@ DRISEL1 (bit 5 = `0x20`) selects DX0, DRISEL2 (bit 6 = `0x40`) selects DX1;
 the latch updates whenever MOTORON (bit 3) is asserted. Stepping and sector reads
 respect `fdc.selected_drive`. The status bar shows `DX0:` and `DX1:` labels.
 
+### Drive sounds — sample-based playback
+
+The procedural synthesis (motor noise, step crack, sector tick) shipped in
+`c26d667` sounded artificial.  Plan: play **recorded samples** of a 5.25"
+drive instead, with the procedural engine kept as a built-in fallback.
+
+Sample source: the MAME team's 5.25" floppy set (CC0 1.0 Universal, no
+attribution required) via the `andresdelcampo/RetroDriveSounds` archive
+(https://github.com/andresdelcampo/RetroDriveSounds).  Files vendored under
+`sound/floppy/` (mono, 44 100 Hz, 16-bit PCM — matches the audio buffer
+exactly, no resampling):
+
+|File|Length|Use|
+|---|---|---|
+|`525_spin_start_loaded.wav`|200 ms|one-shot spin-up sweep|
+|`525_spin_loaded.wav`|200.3 ms|steady rotation loop (exactly one 300 RPM revolution — contains the real 80 Hz index ticks)|
+|`525_spin_end.wav`|100 ms|one-shot spin-down tail|
+|`525_step_1_1.wav`|75 ms|head-step click (played at 0.95–1.05× random rate)|
+
+Architecture:
+
+- `sound.c` loads the four WAVs at `sound_init()` from `sound/floppy/`
+  (CWD-relative, like `roms/`); if all four are present the sample engine
+  is active, otherwise the procedural fallback runs (web build, stripped
+  installs).
+- Sample engine: steady loop at 1.0× with a ~300 ms fade-in on motor ON
+  (plus the `spin_start` one-shot) and a ~150 ms fade-out into the
+  `spin_end` one-shot on motor OFF.  The rotation loop is **decoupled from
+  the 50 Hz data tick** — it plays at real 300 RPM speed (80 index ticks/s,
+  see HARDWARE.md §7.1), so the data model is untouched.
+- Event fixes (apply to both engines):
+  - motor state follows the real control bits: `MOTORON` bit 3 of port
+    0x19 in Phantom ROM mode, `MOTOR` bit 0 of port 0x1A in Plan F4
+    (SYS.SY) mode — `fdc.motor_on` updated in both port handlers,
+    `sound_floppy_motor()` called on change;
+  - step clicks fire only when the emulated track value actually changes
+    (kills ghost clicks on clamped steps and non-step writes);
+  - `sound_floppy_sector()` removed; the procedural engine's index tick
+    becomes a free-running 80 Hz timer (was tied to the 50 Hz data tick).
+
+Remaining / later:
+
+- Launcher: replace the static "Drive sounds: Off (coming soon)" label
+  with a real toggle (mirrors the beeper toggle) — see launcher section.
+- Web build: package the sample set (preloaded file or embedded) so the
+  web build uses samples too; procedural stays as fallback.
+- Optional: record the real Micropolis drive (user machine) for an
+  exact-model set, selectable via a future `-drive-sound-samples <dir>`
+  flag; the CC-BY Panasonic JU-475-5 5.25" set in the same archive is a
+  reference for what to capture (spin-up→idle→spin-down, single steps,
+  a read).
+- Optional: `-audio-dump <file.wav>` debug flag + scripted CTest asserting
+  motor onset, step-click count, and 80 Hz tick rate.
+
+
+
 ---
 
 ## ~~Winchester / Hard Disk~~ ✅ Done

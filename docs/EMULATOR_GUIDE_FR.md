@@ -277,7 +277,7 @@ matériel d'inversion vidéo pour chaque cellule de caractère.
 | Option | Défaut | Description |
 |--------|--------|-------------|
 | `-no-beeper` | — | Coupe le buzzer 1-bit de la machine (le buzzer est **actif** par défaut) |
-| `-drive-sound` | — | Active les sons synthétisés du lecteur de disquettes : ronronnement moteur, clics de pas de tête et tics de trou de secteur (désactivé par défaut) |
+| `-drive-sound` | — | Active les sons du lecteur de disquettes (échantillons 5,25" enregistrés ; approximation procédurale si les échantillons manquent) (désactivé par défaut) |
 
 ---
 
@@ -593,21 +593,27 @@ Le buzzer est **actif par défaut**. Passez `-no-beeper` pour le couper.
 
 ### Sons du lecteur de disquettes
 
-L'émulateur peut synthétiser l'environnement sonore du lecteur
-Micropolis 5.25" à secteurs fixes :
+Le lecteur Micropolis 5,25" du Smaky 6 ne fait aucun son électronique sur la
+machine réelle ; l'émulateur en ajoute un : des **échantillons enregistrés**
+d'un lecteur 5,25", joués par les mêmes événements FDC que le contrôleur
+émulé.
 
-- **Ronronnement moteur** — bruit filtré passe-bande (300–1 500 Hz) qui
-  monte en puissance au démarrage de la broche et décroît ~0,8 s après la
-  dernière activité de positionnement.
-- **Clic de pas de tête** — claquement sec (bruit passe-bande 600–3 000 Hz
-  avec décroissance exponentielle) produit à chaque pas de piste lors d'un
-  positionnement.
-- **Tic de trou de secteur** — bref bruit produit à chaque trou de secteur
-  au passage devant le capteur optique (16 tics par tour à ~300 tr/min).
+- **Mise en rotation / rotation stable** — une boucle enregistrée d'un tour
+  (200 ms, 300 tr/min, tics réels des trous d'index à 80/s) qui monte avec
+  le balayage de mise en rotation au démarrage de la broche.
+- **Clic de pas de tête** — un échantillon de pas à chaque changement de
+  piste effectif, joué à un taux légèrement aléatoire (0,95–1,05×) pour
+  éviter un effet mécanique lors des positionnements répétés.
+- **Arrêt de rotation** — la boucle décroît vers une queue d'arrêt
+  enregistrée (100 ms).
 
-Les sons du lecteur sont **désactivés par défaut** (sons synthétisés en
-cours de développement ; de vrais échantillons seront ajoutés plus tard).
-Activez avec `-drive-sound`.
+Source des échantillons : enregistrements de l'équipe MAME (CC0 1.0
+Universal), livrés sous `sound/floppy/` dans l'arbre source.  En l'absence
+des fichiers (par exemple le build web), une approximation procédurale
+— ronronnement moteur en bruit filtré, claquement de pas, tic d'index à
+80/s — est utilisée à la place.
+
+Les sons du lecteur sont **désactivés par défaut**.
 
 **Exemple — démarrer avec buzzer et sons du lecteur :**
 
