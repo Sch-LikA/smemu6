@@ -144,6 +144,7 @@ struct Smaky6 {
         uint8_t  track[2];
         uint8_t  sector;        /* current hard-sector index 0-15 */
         int      step_prev;
+        int      motor_on;      /* hardware MOTOR bit (0x19 bit3 / 0x1A bit0) */
         uint8_t  num_tracks[2]; /* 40 or 77, detected from image size */
 
         /* Sector data-stream state machine (port 0x1B reads) */

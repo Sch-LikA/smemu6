@@ -152,6 +152,7 @@ void floppy_init(struct Smaky6 *m)
     m->fdc.ctrl      = 0;
     m->fdc.sector    = 0;
     m->fdc.step_prev = 0;
+    m->fdc.motor_on  = 0;
     m->fdc.byte_pos  = 0;
     m->fdc.sec_csum  = 0;
     m->fdc.write_byte_pos = 0;
@@ -529,9 +530,13 @@ void floppy_write_cont(struct Smaky6 *m, uint8_t val)
         if (step_now && !m->fdc.step_prev) {
             int dir = (val >> 3) & 1;
             uint8_t max_track = m->fdc.num_tracks[drive] - 1;
+            uint8_t old_track = m->fdc.track[drive];
             if (dir) { if (m->fdc.track[drive] > 0)          m->fdc.track[drive]--; }
             else     { if (m->fdc.track[drive] < max_track)   m->fdc.track[drive]++; }
-            sound_floppy_step(m, drive);
+            /* Click only when the head actually moved (a step that hits
+             * the track boundary is silent on real hardware). */
+            if (m->fdc.track[drive] != old_track)
+                sound_floppy_step(m, drive);
         }
         m->fdc.step_prev = step_now;
     } else {
@@ -551,13 +556,27 @@ void floppy_write_cont(struct Smaky6 *m, uint8_t val)
         int sd = m->fdc.selected_drive;
         uint8_t b88    = m->bus[0x2B88];
         uint8_t target = ((b88 >> 6) & 1) ? m->bus[0x2B8C] : m->bus[0x2B8B];
+        uint8_t old_track = m->fdc.track[sd];
         if (m->fdc.track[sd] < target && m->fdc.track[sd] < m->fdc.num_tracks[sd] - 1u)
             m->fdc.track[sd]++;
         else if (m->fdc.track[sd] > target)
             m->fdc.track[sd]--;
-        sound_floppy_step(m, drive);
+        /* Click only when the head actually moved. */
+        if (m->fdc.track[sd] != old_track)
+            sound_floppy_step(m, drive);
     }
     m->fdc.ctrl = val;
+
+    /* Plan F4 CONT bit 0 (MOTOR) directly controls the spindle in
+     * post-ROM (SYS.SY) mode; Phantom ROM mode uses port 0x19 bit 3
+     * instead (machine.c). */
+    if (m->rom_mask[0x0000] == 0) {
+        int on = val & 1;
+        if (on != m->fdc.motor_on) {
+            m->fdc.motor_on = on;
+            sound_floppy_motor(m, m->fdc.selected_drive, on);
+        }
+    }
 }
 
 void floppy_tick(struct Smaky6 *m)
@@ -565,8 +584,9 @@ void floppy_tick(struct Smaky6 *m)
     m->fdc.sector   = (m->fdc.sector + 1) % FLOPPY_SECTORS;
     m->fdc.byte_pos = 0;   /* new hard-sector: reset data stream */
 
-    /* Sector-hole sensor click (audible while motor is spinning) */
-    sound_floppy_sector(m);
+    /* NOTE: the sector-hole tick sound is a free-running 80 Hz timer inside
+     * sound.c (procedural mode) or baked into the recorded rotation loop
+     * (sample mode) -- it no longer hooks this data-model tick. */
 
     /* Decay seek_busy counter — simulates realistic head-settle timing */
     if (m->fdc.seek_busy > 0)

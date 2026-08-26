@@ -317,6 +317,15 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
          * status. Conditioning on MOTORON caused DX1 detection to fail. */
         if (data & 0x60u)
             m->fdc.selected_drive = (data & 0x40u) ? 1 : 0;
+        /* MOTORON (bit 3) drives the spindle in Phantom ROM mode; Plan F4
+         * (post-ROM) mode uses port 0x1A bit 0 instead (floppy.c). */
+        if (m->rom_mask[0x0000] != 0) {
+            int on = (data >> 3) & 1;
+            if (on != m->fdc.motor_on) {
+                m->fdc.motor_on = on;
+                sound_floppy_motor(m, m->fdc.selected_drive, on);
+            }
+        }
         if (data != old_ctrl) {
             m->fdc.seek_busy = 2;  /* realistic seek settle delay (~40ms at 50Hz) */
         }

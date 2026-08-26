@@ -177,6 +177,7 @@ static void usage(const char *argv0)
         "  -scrdump       Dump changed screen rows to stderr\n"
         "  -no-beeper     Disable the machine buzzer (beeper is on by default)\n"
         "  -drive-sound   Enable floppy drive sounds: motor whir, head steps, sector ticks\n"
+        "  -audio-dump <f>  Dump mixed audio to a WAV file (debug)\n"
         "  -no-display-off  Ignore display-off writes (port 0x00 bit0=0); screen stays on\n"
         "  -verbose-video   Log display on/off and mode changes to stderr\n"
         "  -scanlines     Draw CRT-style scanline overlay (darkens every other output row)\n"
@@ -921,6 +922,7 @@ int main(int argc, char *argv[])
     int scrdump = 0;
     int enable_beeper      = 1;  /* -no-beeper: disable machine buzzer (on by default) */
     int enable_drive_sound = 0;  /* -drive-sound: enable floppy drive sounds (off by default) */
+    char audio_dump_path[256];   /* -audio-dump <file>: dump mixed audio as WAV (debug) */
     int no_display_off     = 0;  /* -no-display-off: ignore port 0x00 display-blank writes */
     int verbose_video      = 0;  /* -verbose-video: log display on/off/mode changes to stderr */
     float phosphor_decay   = PHOSPHOR_DECAY_DEFAULT; /* -phosphor-decay <v>: persistence per frame */
@@ -1136,6 +1138,8 @@ int main(int argc, char *argv[])
             enable_beeper = 0;
         } else if (strcmp(argv[i], "-drive-sound") == 0) {
             enable_drive_sound = 1;
+        } else if (strcmp(argv[i], "-audio-dump") == 0 && i + 1 < argc) {
+            snprintf(audio_dump_path, sizeof(audio_dump_path), "%s", argv[++i]);
         } else if (strcmp(argv[i], "-no-display-off") == 0) {
             no_display_off = 1;
         } else if (strcmp(argv[i], "-verbose-video") == 0) {
@@ -1238,6 +1242,8 @@ int main(int argc, char *argv[])
 
     sound_set_beeper_enabled(enable_beeper);
     sound_set_drive_sound_enabled(enable_drive_sound);
+    if (audio_dump_path[0])
+        sound_set_audio_dump(audio_dump_path);
 
     /* ── SDL2 init ─────────────────────────────────────────────────────────────────────── */
     /* Disable X11 _NET_WM_PING so the WM never marks the window as
