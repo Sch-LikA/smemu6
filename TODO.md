@@ -217,6 +217,20 @@ directly below each disk row (Browse + Clear buttons).  A small `×` button clea
   hostdir tree that boots to the SAMOS CLI. The script now acts as a wrapper
   around the unified `smaky6_samos.py extract-all ... --metadata --clear`
   implementation.
+- Root cause of the earlier `Erreur de lecture` on repacked hostdir media is now
+  confirmed: the ROM boot loader only reads the directory and `SYS.SY` at boot,
+  and its head-positioning routine can only crawl toward the `SYS.SY` start
+  sector; if `SYS.SY` is placed on a high track (e.g. sector 975 / track 60
+  from a pure alphabetical repack), the ROM times out and prints
+  `Erreur de lecture`. Verified empirically: original content with `SYS.SY`
+  moved to sector 975 fails to boot; the same repacked image with `SYS.SY`
+  first (sector 3) boots to the SAMOS CLI. The SAMOS OS itself reads files at
+  any track without trouble, so only the boot-time placement of `SYS.SY`
+  matters.
+- Fix implemented in the virtual-floppy builder: a root-level `SYS.SY` without
+  a `start_sector` sidecar field is automatically given the lowest preferred
+  start sector (`VFD_DIR_SECTORS`), so any hostdir boots regardless of sidecar
+  completeness. Explicit `start_sector` sidecar values always win.
 - Maintain a separate technical note for the SAMOS filesystem and boot-media
   contract, so directory layout, file metadata, and DX0 boot requirements live in
   one dedicated reference file instead of being scattered across TODO entries.

@@ -756,6 +756,18 @@ static int collect_virtual_files_internal(const char *path,
 
         free(entry_path);
 
+        /* Boot priority: the ROM boot loader can only read SYS.SY from low
+         * tracks (its head-positioning routine times out on high-track start
+         * sectors).  Give a root-level SYS.SY without an explicit
+         * start_sector sidecar the lowest preferred start sector so the
+         * sorted layout always places it first, at VFD_DIR_SECTORS. */
+        if (host_prefix == NULL && !file.has_preferred_start_sector &&
+            memcmp(file.name, "SYS", 3u) == 0 && file.name[3] == ' ' &&
+            strcmp(file.type, "SY") == 0) {
+            file.preferred_start_sector = (uint16_t)VFD_DIR_SECTORS;
+            file.has_preferred_start_sector = 1;
+        }
+
         sectors = virtual_file_sector_count(&file);
         file.start_sector = (uint16_t)total_sectors;
         file.end_sector = (uint16_t)(total_sectors + sectors);
