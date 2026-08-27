@@ -455,27 +455,29 @@ Regression coverage:
   events for `a`, `s`, and `d` against the SDL window;
 - the script asserts visible CLI insertions at `pc=0x590F` for all three keys.
 
-### Power-on virtual Enter autoboot — non-original behaviour [requested]
+### Power-on virtual Enter autoboot — non-original behaviour ✅ Done  [fixed]
 
-The real Smaky 6 autoboots to floppy with **no key press**.  The Phantom
-ROM's `kbd_wait` loops (0x00FD "boot key" and the later OS-load wait — see
-`docs/dev/samos_sys17_annotated.asm` and `docs/dev/samos_report.txt`) poll
-`IN(0x00)` until bit 7 is clear, but in the emulator the S471 model never
-produces such a read while idle, so boot stalls.  The emulator papers over
-this with a **power-on virtual Enter**: `machine_reset()` arms
-`kbd.found=1`, `key_code=0x00`, `physically_held=1`, `boot_key_held=1`, and
-the scanner re-asserts FOUND after each boot-phase CLA read (the bit-7
-regular-key prefix is consumed, the second read passes `kbd_wait`) until the
-ROM executes `EI`.
+The real Smaky 6 autoboots to floppy with **no key press**.  The mechanism
+is in the ROM itself: `boot_main` writes `XOR A; OUT (0x00),A` at 0x003C
+(reset keyboard FOUND flip-flop) and immediately calls `kbd_wait` (0x00FD),
+which exits as soon as a CLA read returns bit 7 clear.  On real hardware that
+reset write puts the keyboard in a neutral state, so the next `IN(0x00)`
+returns code `0x00` (FOUND set) with **no physical key press**, and the ROM
+passes `kbd_wait` and boots DX0.
 
-Requested follow-up: analyze why the ROM's `kbd_wait` needs a fake key here —
-determine what the real S471 returns on `IN(0x00)` with no key pressed
-(idle FOUND / bit-7 behaviour, cf. `docs/dev/keyboard_analysis.md`), correct
-the keyboard port model so the ROM passes `kbd_wait` the way it does on real
-hardware, and then remove the virtual Enter.  Regression gate:
-`tools/check_virtual_floppy_dx0_hostdir_boot.sh` must still reach the SAMOS
-CLI with **no** `-inject-*` flags, and the keyboard CTest harnesses must
-still pass.
+Fix: the S471 idle model is corrected — with no key and no function key
+held, the CLA read now returns the neutral `0x00` (bit 7 clear) instead of
+bit-7-set, matching the real hardware that lets the machine autoboot with no
+key press.  The virtual Enter (`boot_key_held` state, re-assert-until-EI,
+and the 0x4566 ISR-vector release trigger in `keyboard_frame_tick()`) is
+removed; power-on is plain idle.  The ROM's `OUT(0x00,0)` reset write at
+0x003C re-latches the neutral (flushing stale latched codes, keeping
+physically held keys) via `keyboard_reset_found()`.  Function-key-held reads
+keep the bit-7-set path (`0x80 | function bits`).  This also fixes
+launcher/headless boots, which previously lost the armed virtual state and
+stalled at `kbd_wait` (PC 0x00FD); the RAM monitor's OS-load `kbd_wait`
+(RAM 0x00B3) passes naturally with the neutral idle.  Updated in
+`docs/dev/keyboard_analysis.md`.
 
 ### Released promoted-key repeat disarm ✅ Done  [confirmed]
 

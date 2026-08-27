@@ -9,7 +9,7 @@
 
 struct Smaky6;
 
-/* Initialize the strict keyboard model, including the power-on virtual Enter state. */
+/* Initialize the strict keyboard model (plain idle; no virtual key at power-on). */
 void keyboard_init(struct Smaky6 *m);
 
 /* No explicit teardown is currently required for the keyboard subsystem. */
@@ -43,6 +43,9 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles);
  *   Reading CLA clears the FOUND latch and may schedule reassertion if the
  *   same ordinary key remains physically held.
  */
+/* Latch the one-shot neutral produced by the ROM's OUT(0x00,0) reset write. */
+void keyboard_reset_found(struct Smaky6 *m);
+
 uint8_t keyboard_read_cla(struct Smaky6 *m);
 
 /* Query the raw FOUND latch state without applying CLA-read side effects. */

@@ -609,12 +609,11 @@ static void main_loop_iter(void)
             } else if (!debug_is_paused(L->m) || debug_consume_step_frame(L->m)) {
                 if (L->m->dbg.trace_kbd && L->m->kbd.found) {
                 fprintf(stderr,
-                        "[kbd] pre-frame %d found=%d code=%02X held=%d boot=%d reassert=%d\n",
+                        "[kbd] pre-frame %d found=%d code=%02X held=%d reassert=%d\n",
                         L->frame_cnt + 1,
                         L->m->kbd.found,
                         (unsigned)L->m->kbd.key_code,
                         L->m->kbd.physically_held,
-                        L->m->kbd.boot_key_held,
                         L->m->kbd.reassert_pending);
                 }
                 keyboard_frame_tick(L->m);
@@ -1510,9 +1509,6 @@ int main(int argc, char *argv[])
     }
 
     machine_reset(m);
-    if (m->fdc.media[0].kind == FLOPPY_MEDIA_NONE && m->win.image[0] == NULL) {
-        machine_release_key(m);
-    }
     if (trace)
         machine_set_trace(m, 1);
     if (trace08)

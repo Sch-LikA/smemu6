@@ -206,8 +206,7 @@ static uint8_t visible_function_bits(const struct Smaky6 *m)
     return (uint8_t)(m->kbd.fonct_bits & (uint8_t)~m->kbd.fonct_consumed_bits & 0x7Fu);
 }
 
-/* Drop all host-owned key state after focus loss while preserving the boot-time
- * virtual Enter path when that special hold is still active. */
+/* Drop all host-owned key state after focus loss. */
 void keyboard_cancel_host_input(struct Smaky6 *m)
 {
     keyboard_clear_all_function_bits(m);
@@ -219,8 +218,7 @@ void keyboard_cancel_host_input(struct Smaky6 *m)
     m->bus[0x4558u] = 0;
     m->bus[0x4577u] = 0;
 
-    if (!m->kbd.boot_key_held)
-        clear_ordinary_key(m);
+    clear_ordinary_key(m);
 }
 
 /* Clear every function-key source and recompute the effective visible bitmask. */
@@ -690,7 +688,6 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
     m->kbd.found = 1;
     m->kbd.physically_held = 1;
     m->kbd.cla_seen_current = 0;
-    m->kbd.boot_key_held = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
@@ -717,7 +714,6 @@ static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t k
     m->kbd.found = 1;
     m->kbd.physically_held = (scan != SDL_SCANCODE_UNKNOWN);
     m->kbd.cla_seen_current = 0;
-    m->kbd.boot_key_held = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
@@ -733,17 +729,18 @@ static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t k
     }
 }
 
-/* Initialize the strict keyboard model, including the power-on virtual Enter hold. */
+/* Initialize the strict keyboard model.  Power-on is plain idle (no key,
+ * FOUND clear); the Phantom ROM's own OUT(0x00,0) reset write latches the
+ * one-shot neutral that passes kbd_wait — no virtual key is armed here. */
 void keyboard_init(struct Smaky6 *m)
 {
     m->kbd.key_code = 0x00;
-    m->kbd.found = 1;
+    m->kbd.found = 0;
     m->kbd.reassert_pending = 0;
     m->kbd.reassert_cycles = 0;
-    m->kbd.physically_held = 1;
+    m->kbd.physically_held = 0;
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = 0;
-    m->kbd.boot_key_held = 1;
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 1;
     m->kbd.shift_pressed = 0;
@@ -782,17 +779,9 @@ void keyboard_tick_cycles(struct Smaky6 *m, uint32_t cycles)
     }
 }
 
-/* Release the boot-time virtual Enter key once SAMOS has installed its ISR vector. */
+/* Promote the next pending ordinary key once the active latch becomes idle. */
 void keyboard_frame_tick(struct Smaky6 *m)
 {
-    if (m->kbd.boot_key_held) {
-        if (((uint16_t)m->bus[0x4566u] | ((uint16_t)m->bus[0x4567u] << 8)) == 0x003Eu) {
-            m->kbd.boot_key_held = 0;
-            clear_ordinary_key(m);
-            m->kbd.regular_prefix_armed = 1;
-        }
-    }
-
     promote_pending_ordinary_key(m);
 }
 
@@ -962,6 +951,34 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
         latch_direct_key_code(m, scan, key_code);
 }
 
+/* Port 0x00 reset write ("reset the keyboard FOUND flip-flop"): latch a
+ * one-shot neutral code 0x00.  The Phantom ROM writes OUT(0x00,0) at 0x003C
+ * and immediately polls kbd_wait, which exits when bit 7 is clear — so this
+ * neutral (FOUND set, code 0x00, not physically held, no reassertion) lets
+ * the ROM autoboot DX0 with no physical key press, exactly like real
+ * hardware.  A real key latched before the next CLA read overwrites it. */
+void keyboard_reset_found(struct Smaky6 *m)
+{
+    /* A physically held key is kept: the scanner re-latches it, matching
+     * real hardware where a key held across the reset write still wins. */
+    if (m->kbd.physically_held)
+        return;
+    m->kbd.key_code = 0x00u;
+    m->bus[0x457Eu] = 0x00u;
+    m->kbd.found = 1;
+    m->kbd.physically_held = 0;
+    m->kbd.cla_seen_current = 0;
+    m->kbd.regular_prefix_pending = 0;
+    m->kbd.release_after_reassert = 0;
+    m->kbd.release_after_buffer_commit = 0;
+    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_matrix_position = MATRIX_POS_NONE;
+    m->kbd.pending_ordinary_head = 0;
+    m->kbd.pending_ordinary_len = 0;
+    m->kbd.reassert_pending = 0;
+    m->kbd.reassert_cycles = 0;
+}
+
 /* Emulate CLA port reads: ordinary keys return bit7 clear, otherwise idle/function reads return bit7 set. */
 uint8_t keyboard_read_cla(struct Smaky6 *m)
 {
@@ -999,11 +1016,14 @@ uint8_t keyboard_read_cla(struct Smaky6 *m)
         return value;
     }
 
-    /* No ordinary key is currently latched. Real hardware presents the
-     * function/no-key state on the bit-7-set CLA path, so SAMOS Stage 1 can
-     * distinguish it from ordinary matrix bytes while still recovering the
-     * function bits with AND 0x7F. */
-    return (uint8_t)(0x80u | visible_function_bits(m));
+    /* No ordinary key is currently latched.  With no function key held the
+     * S471 presents the neutral state: bit 7 clear, code 0x00.  This is what
+     * lets the real machine autoboot without a key press — the ROM's
+     * kbd_wait loops (bit-7-clear = "code present") exit immediately on a
+     * neutral read.  While a function key is held the bit-7-set path carries
+     * the function bitmask instead. */
+    uint8_t bits = visible_function_bits(m);
+    return bits ? (uint8_t)(0x80u | bits) : 0x00u;
 }
 
 /* Emulate the keyboard status port, exposing FOUND on bit 2 and the fixed board high bit on bit 3. */

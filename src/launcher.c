@@ -634,9 +634,20 @@ int launcher_run(LauncherConfig *cfg, const LauncherHints *hints)
             driver = "dummy";
     }
     if (driver && strcmp(driver, "dummy") == 0) {
-        /* Headless: fill in sensible defaults and return immediately */
+        /* Headless: keep CLI-provided media when the hints carry it (so
+         * `smemu6 -floppy <img>` boots that image), otherwise use defaults. */
         cfg->dx0_mode        = LAUNCHER_STORAGE_FLOPPY;
         cfg->dx1_mode        = LAUNCHER_STORAGE_FLOPPY;
+        if (hints) {
+            if (hints->dx0_mode >= 0 && hints->dx0_path) {
+                cfg->dx0_mode = hints->dx0_mode;
+                cfg->dx0_path = SDL_strdup(hints->dx0_path);
+            }
+            if (hints->dx1_mode >= 0 && hints->dx1_path) {
+                cfg->dx1_mode = hints->dx1_mode;
+                cfg->dx1_path = SDL_strdup(hints->dx1_path);
+            }
+        }
         cfg->scale           = 1;   /* 2× */
         cfg->phosphor_white  = 0;
         cfg->scanlines       = 1;

@@ -79,7 +79,6 @@ struct Smaky6 {
         int      cla_seen_current;  /* 1 once the current ordinary key has been observed by a CLA read */
         int      release_after_reassert; /* 1 when a promoted released key must drop after one synthetic reassert */
         int      release_after_buffer_commit; /* 1 when a released promoted key should drop as soon as SYS.SY enqueues it */
-        int      boot_key_held;     /* 1 only for the power-on virtual Enter autoboot key */
         int      regular_prefix_pending; /* 1 = armed one-shot bit7 prefix for the next ordinary CLA read */
         int      regular_prefix_armed; /* 1 until the first post-boot ordinary key claims the validated bit7 prefix */
         int      shift_pressed;     /* current Shift state for verified layer-sensitive keys */

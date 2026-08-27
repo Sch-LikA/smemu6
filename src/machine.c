@@ -215,8 +215,14 @@ static void z80_io_write(void *ctx, zuint16 port, zuint8 data)
      *   MODE 2 P → 0x07  (both + small-points)
      *
      * Note: the keyboard FOUND flip-flop is cleared by READING port 0x00
-     * (the CLA read path), NOT by writing it.  Writes here are video-only. */
+     * (the CLA read path).  Additionally, the value 0x00 written here is
+     * the ROM's "reset the keyboard FOUND flip-flop" sequence (0x003C,
+     * right before kbd_wait): it latches a one-shot neutral code 0x00 so
+     * the ROM autoboots DX0 with no physical key press.  All other write
+     * values are video-only. */
     case 0x00:
+        if (data == 0x00u)
+            keyboard_reset_found(m);
         if (data & 0x01) { /* display enable bit — mode is meaningful */
             if (!m->vid.display_on) {
                 if (m->vid.verbose_video)
@@ -680,8 +686,9 @@ void machine_int(struct Smaky6 *m)
 }
 
 /* Reset CPU-visible machine state and restore the power-on virtual Enter hold. */
-/* Reset CPU-visible machine state and restore the boot-time keyboard defaults
- * that the Phantom loader expects before SAMOS takes over. */
+/* Reset CPU-visible machine state.  The keyboard powers on plain idle; the
+ * Phantom ROM's own OUT(0x00,0) reset write latches the one-shot neutral
+ * that passes kbd_wait (autoboot DX0 with no key press). */
 void machine_reset(struct Smaky6 *m)
 {
     z80_instant_reset(&m->cpu);
@@ -689,13 +696,9 @@ void machine_reset(struct Smaky6 *m)
     m->fdc.nmi_armed    = 0;
     if (m->psg.enabled)
         smaky6_psg_reset(&m->psg.card);
-    /* Re-arm power-on state: physically_held=1 so the scanner reasserts FOUND
-     * after each CLA read, passing through all boot-phase kbd_wait loops until
-     * EI is executed (keyboard_frame_tick releases it on iff1→1). */
-    m->kbd.found           = 1;
-    m->kbd.key_code        = 0x00;  /* Enter → boot from DX0 */
-    m->kbd.physically_held = 1;
-    m->kbd.boot_key_held   = 1;
+    m->kbd.found           = 0;
+    m->kbd.key_code        = 0x00;
+    m->kbd.physically_held = 0;
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 1;
     m->kbd.shift_pressed   = 0;
@@ -771,7 +774,6 @@ static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fon
     m->kbd.key_code        = code & 0x7Fu;
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
-    m->kbd.boot_key_held   = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.shift_pressed   = 0;
@@ -807,7 +809,6 @@ void machine_release_key(struct Smaky6 *m)
 {
     m->kbd.found           = 0;
     m->kbd.physically_held = 0;
-    m->kbd.boot_key_held   = 0;
     m->kbd.regular_prefix_pending = 0;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.shift_pressed   = 0;
@@ -834,7 +835,6 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.key_code        = 0x06;  /* ESC / UNDO physical key code */
     m->kbd.found           = 1;
     m->kbd.physically_held = 1;
-    m->kbd.boot_key_held   = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.host_text_down_count = 0;

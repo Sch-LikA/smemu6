@@ -14,8 +14,9 @@ probe notes from the keyboard bring-up. Treat the sections below in this order:
 
 Current high-level state:
 
-- Power-on boot uses the low-level CLA path with a virtual held Enter; no
-    separate `autoboot` shortcut remains.
+- Power-on boot passes the ROM `kbd_wait` naturally: the S471 idle is a
+    neutral `0x00` (bit 7 clear), so no key press is needed and no virtual
+    key or separate `autoboot` shortcut exists.
 - Ordinary post-boot key injection uses the same CLA-facing path as physical
     keys; `-inject-str` is still a higher-level CLI automation shortcut.
 - The emulator's strict host-matrix mapping is aligned with the currently known
@@ -69,32 +70,56 @@ n'est en fait pas nécessaire"* — bit 7 of the CLA byte encodes the FOUND stat
 `keyboard_read_cla()` correctly clears the `found` software flag when it returns a key code,
 directly mirroring this hardware behavior.
 
-### Power-on FOUND=1 (automatic DX0 boot)
+### Power-on autoboot (S471 idle is a neutral 0x00)
 
-On real hardware the FOUND latch (4013 FF2) powers up in an undefined state, in practice
-asserted.  The Phantom ROM boot menu at `0x003E` calls `kbd_wait` (`0x00FD`), which reads
-CLA in a tight loop and exits as soon as bit 7 = 0 (FOUND=1).  With FOUND=1 at power-on
-the first CLA read returns `0x00` (Enter) and the ROM immediately proceeds to boot from
-DX0 — no user key-press required.
+The real machine autoboots from DX0 with **no key press**.  The mechanism:
+with no key pressed the S471 presents the **neutral state on every CLA read
+— bit 7 clear, code 0x00** (the scanner latches the "no key" condition as a
+regular code-0 entry, FOUND set).  The Phantom ROM's `kbd_wait` (`0x00FD`)
+exits as soon as a CLA read returns bit 7 clear, so with a neutral idle it
+exits immediately with A=0x00 on its very first poll — both the boot
+`kbd_wait` at `0x003E` and the RAM monitor's OS-load `kbd_wait` at
+`0x00B5` (RAM 0x00B3 spin: `djnz` / `in a,(000h)` / `and 0x80` /
+`jr nz,spin`) pass without any key.  `A=0` selects single-sided DX0 floppy
+boot.
 
-The emulator replicates this with `found=1`, `key_code=0x00`, and `physically_held=1`
-in `keyboard_init()`.  `physically_held=1` models the scanner continuously reasserting
-FOUND (200µs reassertion) as long as a key is held, so every `kbd_wait` loop in the
-boot sequence exits immediately — both the Phantom ROM menu (0x00FD) and the SAMOS
-init kbd_wait at 0x00B5 ("Disque souple ...").
+`boot_main`'s `XOR A; OUT (0x00),A` at `0x003C` (reset the keyboard FOUND
+flip-flop) is a defensive re-latch of the neutral: it flushes any stale
+latched code (e.g. a key still held from before power-on).  The emulator
+models it in the port-0x00 write path (`keyboard_reset_found`): writing
+`0x00` re-latches the neutral unless a key is physically held (the scanner
+reasserts that key, matching real hardware).  All other port-0x00 write
+values are video-only.
 
-`keyboard_frame_tick()` releases the virtual key (clears `physically_held` and `found`)
-when the SAMOS ISR vector at `bus[0x4566..7]` is written to `0x003E` (SAMOS init at
-`0x00CD`, **after** the init kbd_wait exits).  No `samos_loaded` flag, FIFO handoff, or
-`iff1`-dependent CLA branch is needed in the current model.
+Power-on is plain idle in the emulator: no virtual key is armed by
+`keyboard_init()` or `machine_reset()`, and no `boot_key_held` state or
+`bus[0x4566..7]` release trigger exists.
+
+**Supersedes two earlier models** (both recorded earlier in this file):
+1. *Idle = bit-7-set (`0x80 | function bits`)*: contradicted by the real
+   machine's keyless autoboot — the RAM monitor's `kbd_wait` at 0x00B5
+   spins forever on a bit-7-set idle, so an OS load on real hardware would
+   be impossible without a key press.
+2. *Power-on FOUND=1 virtual Enter* (armed hold with reassertion until the
+   SAMOS ISR vector was installed): an unverifiable assumption about the
+   4013 latch's undefined power-up state; it also broke any boot path that
+   disturbed the armed state before the ROM polled (launcher/headless boots
+   stalled at `kbd_wait`, PC 0x00FD).
+
+With the neutral-idle model the ROM needs no help: `kbd_wait` passes
+naturally on every boot path.  The ROM contains exactly one `IN A,(0x00)`
+(in `kbd_wait` at 0x00FF); the RAM monitor copy added by SAMOS uses the
+same port.  Function keys keep the bit-7-set path: while one is held, the
+idle read returns `0x80 | function bits` per the official status bit
+description.
 
 No `samos_loaded` flag or `iff1` branch is needed in `keyboard_read_cla()`.  The pure
 hardware model works identically for all callers.
 
 ### Emulator keyboard flags
 
-- **`found`** — FOUND latch.  Set by power-on init and by `machine_inject_key()`.  `keyboard_read_cla()` clears it when returning a key code, then immediately re-sets it if `physically_held=1` (scanner reassertion model).
-- **`physically_held`** — scanner reassertion gate.  `1` at power-on (models FOUND latch SET) until the SAMOS ISR vector is installed; also set by `machine_inject_key()` and cleared by `machine_release_key()`.  While `1`, every CLA read re-asserts `found=1` after returning the key code — exactly matching real hardware where the scanner refires within 200µs while a key is physically held.
+- **`found`** — FOUND latch.  Set by key latches, by the port-0x00 reset write (one-shot neutral), and by `machine_inject_key()`.  `keyboard_read_cla()` clears it when returning a key code, then re-sets it if `physically_held=1` (scanner reassertion model).
+- **`physically_held`** — scanner reassertion gate.  Set by `machine_inject_key()` and cleared by `machine_release_key()`.  While `1`, every CLA read re-asserts `found=1` after returning the key code — exactly matching real hardware where the scanner refires within 200µs while a key is physically held.  No longer set at power-on (the virtual Enter hold is gone).
 
 Port 0x01 bit 2 (FOUND) reflects `found` (the latch state), not `physically_held` (the raw physical signal).  After a CLA read: `found=0`, `physically_held=1`, `reassert_pending=1` — bit 2 correctly returns 0 until the scanner reasserts.
 
@@ -636,7 +661,7 @@ bridge, but it is the only defensible remaining place to look.
 | ------ | ---- | ----------- |
 | Physical ordinary key (`SDL_KEYDOWN`/`KEYUP`) | Host scancode position → S471 lookup → CLA-visible `found/key_code` latch; overlapping taps queue in `pending_ordinary[8]` until promoted | `SYS.SY` Stage 1 / 2 / 3 / 4 → SAMOS circular buffer → syscall 0x0D (CLI blocking read) |
 | Function key F1–F7 (`SDL_KEYDOWN`/`KEYUP`) | Sets/clears `fonct_bits`; returned when CLA has no ordinary key latched, and returned directly by the `?GETFO` accessor at `0x0519` | `0x4580` via GETFON semantics and any callers that poll function-bit state through CLA or syscall `0x0E` |
-| Power-on / inject (`machine_inject_key()`) | Sets `found=1`, `key_code`, `physically_held=1` for the injected key; the power-on virtual-Enter hold is tracked separately so post-boot injections are not auto-cleared by the boot release logic | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
+| Reset-write neutral (port 0x00 ← 0x00) / inject (`machine_inject_key()`) | Reset write latches a one-shot neutral (`found=1`, `key_code=0x00`, not physically held); inject sets `found=1`, `key_code`, `physically_held=1` for the injected key | Phantom ROM kbd_wait / SAMOS ISR Stage 1 → `0x457E` (syscall 0x0E) |
 
 **Syscall 0x0E and function keys:** syscall `0x0E` is the function-key helper path. The current
 emulator model now treats the `0x0519` accessor as function-only and returns the currently-held
@@ -671,8 +696,7 @@ is stored in `pending_ordinary[8]` together with its already-resolved key code. 
 original layer decision even if Shift changes before the queued key is promoted.
 
 `keyboard_frame_tick()` no longer drains a FIFO into the circular buffer.  Its post-boot role is now
-only to release the virtual power-on Enter hold once the SAMOS ISR vector is installed, then promote
-the next pending ordinary key when the active latch becomes idle.
+only to promote the next pending ordinary key when the active latch becomes idle.
 
 Two release-side details were validated by the `Shift+MSG` CLI traces:
 
@@ -900,7 +924,7 @@ Prerequisites:
 | `0x457E` | Last key code from Stage 1 (used by syscall 0x0E) |
 | `0x4558` | Debounce / key-repeat countdown (0x23 = 35 frames) |
 | `0x4580` | **Function-key bitmask (GETFON register)** — written by SAMOS ISR Stage 1 (`AND 0x7F; LD (0x4580),A`) from the CLA return value each frame.  Since `keyboard_read_cla()` returns `0x80 | fonct_bits` when no regular key is held, Stage 1 stores exactly `fonct_bits` here automatically.  No extra write from `main.c` needed. |
-| `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait exits; used as the power-on virtual key release trigger in `keyboard_frame_tick()`) |
+| `0x4566` | SAMOS 50 Hz ISR vector (written to `0x003E` by SYS.SY at `0x00CD`, **after** boot-menu kbd_wait exits) |
 | `0x458A+` | Circular buffer storage (slots marked with bit 7 when filled) |
 | `0x45BF` | Timer countdown register (unrelated to keyboard) |
 | `0x45C0` | **CLI line buffer start** — typed characters stored here; overwritten by `-` cursor at start of each new input session |
