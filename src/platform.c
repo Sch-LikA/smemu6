@@ -66,3 +66,17 @@ void platform_frame_done(struct Smaky6 *m)
     if (!b || !b->frame_done) return;
     b->frame_done(b->ctx, m);
 }
+
+void platform_key(struct Smaky6 *m, smemu6_scancode scan, int down, int repeat)
+{
+    struct smemu6_backend *b = cur();
+    if (!b || !b->key) return;
+    b->key(b->ctx, m, scan, down, repeat);
+}
+
+void platform_text(struct Smaky6 *m, uint32_t codepoint)
+{
+    struct smemu6_backend *b = cur();
+    if (!b || !b->text) return;
+    b->text(b->ctx, m, codepoint);
+}

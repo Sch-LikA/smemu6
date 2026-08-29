@@ -16,6 +16,7 @@
 #include "rtc.h"
 #include "usart.h"
 #include "winchester.h"
+#include "smemu6_scancode.h"
 #include <Z80.h>
 #include <SDL2/SDL.h>
 #include <stdint.h>
@@ -84,11 +85,11 @@ struct Smaky6 {
         int      shift_pressed;     /* current Shift state for verified layer-sensitive keys */
         int      caps_lock_active;  /* latched CAPS/LOCK state selects the PROM caps layer */
         uint16_t host_text_down_count; /* number of printable host keys currently held down */
-        uint8_t  host_text_down[SDL_NUM_SCANCODES]; /* guards SDL_TEXTINPUT against stray post-keyup events */
-        SDL_Scancode active_scancode; /* host scancode currently owning the ordinary-key latch */
+        uint8_t  host_text_down[SMEMU6_NUM_SCANCODES]; /* guards text input against stray post-keyup events */
+        smemu6_scancode active_scancode; /* portable scancode currently owning the ordinary-key latch */
         uint8_t  active_matrix_position; /* 0..63 for the held ordinary key; 0xFF = none */
         struct {
-            SDL_Scancode scancode;
+            smemu6_scancode scancode;
             uint8_t matrix_position;
             uint8_t key_code;
             uint8_t released;

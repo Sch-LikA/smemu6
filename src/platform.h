@@ -15,6 +15,7 @@
 #define SMEMU6_PLATFORM_H
 
 #include <stdint.h>
+#include "smemu6_scancode.h"
 
 struct Smaky6;   /* forward; the full type lives only in the core */
 
@@ -50,9 +51,13 @@ struct smemu6_backend {
     /* End-of-emulation-frame hook (optional vsync / teardown). */
     void (*frame_done)(void *ctx, struct Smaky6 *m);
 
-    /* Input (later): portable scancode + unicode text into the core. */
-    void (*key)(void *ctx, uint16_t scancode, int down);
-    void (*text)(void *ctx, uint32_t codepoint);
+    /* Input: one portable scancode (or key release) into the core.  `m` is
+     * passed so the handler can feed the event via keyboard_event(); `repeat`
+     * distinguishes a fresh press from a held-key autorepeat. */
+    void (*key)(void *ctx, struct Smaky6 *m, smemu6_scancode scan, int down, int repeat);
+    /* Input: one decoded unicode codepoint (from an SDL_TEXTINPUT event) into
+     * the core via keyboard_text(). */
+    void (*text)(void *ctx, struct Smaky6 *m, uint32_t codepoint);
 };
 
 /* Install a backend. NULL selects the compiled-in default:
@@ -68,5 +73,7 @@ void platform_audio_push(const int16_t *samples, int frames);
 void platform_audio_close(void);
 void platform_present(struct Smaky6 *m, const struct smemu6_frame *frame);
 void platform_frame_done(struct Smaky6 *m);
+void platform_key(struct Smaky6 *m, smemu6_scancode scan, int down, int repeat);
+void platform_text(struct Smaky6 *m, uint32_t codepoint);
 
 #endif /* SMEMU6_PLATFORM_H */

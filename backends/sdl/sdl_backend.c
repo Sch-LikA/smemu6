@@ -10,6 +10,7 @@
  */
 #include "../src/platform.h"
 #include "../src/machine_internal.h"
+#include "../src/keyboard.h"
 
 #include <SDL2/SDL.h>
 #include <stdio.h>
@@ -112,6 +113,26 @@ static void sdl_audio_close(void *ctx)
         SDL_DetachThread(t);   /* let it finish on its own; never join */
     else
         SDL_CloseAudioDevice(dev);   /* thread creation failed: risk the block */
+}
+
+/* ── Input: keyboard ──────────────────────────────────────────────────── *
+ * The core is SDL-free, so this backend forwards the ALREADY-portable scancode
+ * straight into keyboard_event().  Any SDL->portable mapping lives in the
+ * front-end (main.c); for SDL the portable scancodes are already identical to
+ * SDL's, so this handler is a pure pass-through.  A non-SDL backend could map
+ * its own device codes onto the same portable space here instead. */
+static void sdl_key(void *ctx, struct Smaky6 *m, smemu6_scancode scan, int down, int repeat)
+{
+    (void)ctx;
+    keyboard_event(m, scan, down, repeat);
+}
+
+/* One decoded unicode codepoint from an SDL_TEXTINPUT event straight into the
+ * core ordinary-key path. */
+static void sdl_text(void *ctx, struct Smaky6 *m, uint32_t codepoint)
+{
+    (void)ctx;
+    keyboard_text(m, codepoint);
 }
 
 /* ── Present (desktop front-end) ─────────────────────────────────────── *
@@ -382,8 +403,9 @@ static void sdl_present(void *ctx, struct Smaky6 *m, const struct smemu6_frame *
     SDL_RenderPresent(ren);
 }
 
-/* The compiled-in default backend.  Only audio is wired in Step 1; present /
- * frame_done / key / text stay NULL until their subsystems are relocated here. */
+/* The compiled-in default backend.  Audio and present are wired in Steps 1-2;
+ * keyboard input (key/text) in Step 3.  Any method a target does not need
+ * stays NULL, and the core NULL-checks before calling. */
 struct smemu6_backend smemu6_sdl_backend = {
     .ctx                = &g_sdl_state,
     .audio_open         = sdl_audio_open,
@@ -391,4 +413,6 @@ struct smemu6_backend smemu6_sdl_backend = {
     .audio_push         = sdl_audio_push,
     .audio_close        = sdl_audio_close,
     .present            = sdl_present,
+    .key                = sdl_key,
+    .text               = sdl_text,
 };

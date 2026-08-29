@@ -5,7 +5,8 @@
 #define KEYBOARD_H
 
 #include <stdint.h>
-#include <SDL2/SDL.h>
+#include "smemu6_scancode.h"
+#include "smemu6_keycode.h"
 
 struct Smaky6;
 
@@ -15,10 +16,11 @@ void keyboard_init(struct Smaky6 *m);
 /* No explicit teardown is currently required for the keyboard subsystem. */
 void keyboard_fini(struct Smaky6 *m);
 
-/* Feed one SDL key event into the strict model.
+/* Feed one portable scancode into the strict model.
  * Ordinary matrix keys latch an S471-resolved code, Shift and CAPS/LOCK select
- * the active layer, and F1..F7 update the separate non-matrix function bits. */
-void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
+ * the active layer, and F1..F7 update the separate non-matrix function bits.
+ * `down` is 1 for key-down, 0 for key-up; `repeat` flags a held-key repeat. */
+void keyboard_event(struct Smaky6 *m, smemu6_scancode scan, int down, int repeat);
 
 /* Select the host keymap: modern (default) resolves host text characters
  * through the S471 table so a modern keyboard types the character it shows;
@@ -26,8 +28,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev);
  * Call before the first text event. */
 void keyboard_set_keymap_modern(int modern);
 
-/* Feed one SDL text-input event into the printable compatibility path. */
-void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev);
+/* Feed one decoded text codepoint into the printable compatibility path.
+ * The SDL front-end decodes its UTF-8 text event to a Unicode codepoint; this
+ * maps it into the 7-bit Smaky space (including accented characters). */
+void keyboard_text(struct Smaky6 *m, uint32_t codepoint);
 
 /* Call once per 50 Hz frame: handles boot-time virtual Enter release. */
 void keyboard_frame_tick(struct Smaky6 *m);
