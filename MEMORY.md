@@ -708,4 +708,21 @@ moves to backend), then Step 4 = SDL front-end layer (launcher/boot menu/debug/l
   `machine_internal.h` kbd struct fields use `smemu6_scancode` / `SMEMU6_NUM_SCANCODES`.
   main.c event loop casts SDL scancodes to portable and decodes its own UTF-8 TEXTINPUT into
   codepoints (new `decode_utf8_to_codepoints()`).  Host build green, all 12 ctest pass.
-  Phase B step 4 (video path SDL decoupling) DONE (2026-08-29), commit `cd8030e` on branch `feature/upstream-portable-improvements`.  Only the SDL *resources* moved: the streaming ARGB8888 texture + its SDL renderer left `struct Smaky6.vid` (machine_internal.h) and now live in backends/sdl's own `sdl_backend_state` struct.  The front-end hands the backend its renderer via a new vtable method `video_setup(void *ctx, void *renderer)` (+ `platform_video_setup()` / `platform_video_teardown()` dispatch in platform.c); the backend creates the texture with SDL_CreateTexture and owns it until video_teardown().  video_init()/video_render() are now SDL-free (video.c dropped <SDL2/SDL.h>); machine.c no longer references SDL_SCANCODE_* (uses SMEMU6_SCAN_UNKNOWN).  Kept in `m->vid` as portable UI state: `reset_armed` / `reset_armed_at` (backend reads, front-end writes) — deliberately NOT moved; the SDL window itself stays owned by the front-end (created/destroyed in main.c), only the renderer is handed to the backend.  Host build green, all 12 ctest pass, GUI launches OK with the new backend-owned texture flow.  With SMEMU6_HAVE_BACKEND unset: byte-identical; with it set: core compiles without any SDL dependency.  NEXT: integrate Step 1-4 into the ESP32 port (Repo C ./smemu6) as part of Task 3 consolidation.
+  Phase B step 4 (video path SDL decoupling) DONE (2026-08-29), commit `cd8030e`
+on branch `feature/upstream-portable-improvements`. Only the SDL *resources*
+moved: the streaming ARGB8888 texture + its SDL renderer left `struct
+Smaky6.vid` (machine_internal.h) and now live in backends/sdl's own
+`sdl_backend_state` struct. The front-end hands the backend its renderer via a
+new vtable method `video_setup(void *ctx, void *renderer)` (+
+`platform_video_setup()` / `platform_video_teardown()` dispatch in
+platform.c); the backend creates the texture with SDL_CreateTexture and owns
+it until video_teardown(). video_init()/video_render() are now SDL-free
+(video.c dropped <SDL2/SDL.h>); machine.c no longer references SDL_SCANCODE_*
+(uses SMEMU6_SCAN_UNKNOWN). Kept in `m->vid` as portable UI state:
+`reset_armed` / `reset_armed_at` (backend reads, front-end writes) —
+deliberately NOT moved; the SDL window itself stays owned by the front-end
+(created/destroyed in main.c), only the renderer is handed to the backend.
+Host build green, all 12 ctest pass, GUI launches OK with the new
+backend-owned texture flow. With SMEMU6_HAVE_BACKEND unset: byte-identical;
+with it set: core compiles without any SDL dependency. NEXT: integrate Step
+1-4 into the ESP32 port (Repo C ./smemu6) as part of Task 3 consolidation.
