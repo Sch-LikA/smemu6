@@ -416,7 +416,7 @@ struct Smaky6 *machine_create(void)
     m->dbg.trace_scr = 0;   /* screen dump off by default; enable with -scrdump */
     sound_init(m);
     debug_init(m);
-    rtc_init(&m->rtc);
+    smemu_rtc_init(&m->rtc);
     winchester_init(&m->win);
 
     /* Wire up Z80 callbacks */

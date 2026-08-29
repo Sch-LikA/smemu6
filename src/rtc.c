@@ -48,7 +48,7 @@ static int bcd_inc(uint8_t *reg, int max_val)
 /* ── Public API ─────────────────────────────────────────────────────────── */
 
 /* Seed the RTC registers from host localtime() and reset the serial protocol state. */
-void rtc_init(RtcState *rtc)
+void smemu_rtc_init(RtcState *rtc)
 {
     memset(rtc, 0, sizeof(*rtc));
     rtc->phase      = RTC_IDLE;

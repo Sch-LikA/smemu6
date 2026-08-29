@@ -65,7 +65,7 @@ typedef struct {
 } RtcState;
 
 /* Initialise RTC, seeding registers from host localtime(). */
-void rtc_init(RtcState *rtc);
+void smemu_rtc_init(RtcState *rtc);
 
 /* Call once per 50 Hz frame to advance the emulated clock. */
 void rtc_tick_frame(RtcState *rtc);
