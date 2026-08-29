@@ -100,7 +100,17 @@ void video_render(struct Smaky6 *m)
     VideoMode     mode = m->vid.mode;
     uint8_t      *cg   = m->vid.chargen;
 
+#if defined(SMEMU6_HAVE_BACKEND)
+    /* Embedded target: reuse ONE heap/PSRAM-allocated framebuffer instead of
+     * a 512*480 (~960 KiB) stack array, which overflows the tiny task stack.
+     * Allocated once and reused every frame; released at process exit. */
+    static uint32_t *s_fb = NULL;
+    if (!s_fb)
+        s_fb = smemu6_framebuffer_alloc((size_t)VIDEO_PX_W * VIDEO_ASPECT_H);
+    uint32_t *pixels = s_fb;
+#else
     uint32_t pixels[VIDEO_PX_W * VIDEO_ASPECT_H];
+#endif
 
     const uint32_t LIT = (m->vid.phosphor == PHOSPHOR_WHITE) ? VIDEO_COLOR_LIT_WHITE : VIDEO_COLOR_LIT;
     const uint32_t BG  = (m->vid.phosphor == PHOSPHOR_WHITE) ? VIDEO_COLOR_BG_WHITE  : VIDEO_COLOR_BG;

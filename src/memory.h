@@ -14,6 +14,16 @@ void memory_init(struct Smaky6 *m);
 /* No heap-owned memory exists today; kept for symmetric subsystem teardown. */
 void memory_fini(struct Smaky6 *m);
 
+/* Embedded targets (compiled when SMEMU6_HAVE_BACKEND is defined): one
+ * reusable per-render framebuffer, allocated once in a target-appropriate
+ * region (PSRAM on ESP32).  The weak default in memory.c uses malloc; a
+ * backend may supply a strong override that allocates from SRAM-capable /
+ * PSRAM memory.  Only referenced when SMEMU6_HAVE_BACKEND is set — the host
+ * SDL build keeps the stack array for byte-identical output. */
+#if defined(SMEMU6_HAVE_BACKEND)
+void  *smemu6_framebuffer_alloc(size_t size);
+#endif
+
 /* Load one raw binary file into the flat machine bus at base. */
 int memory_load_file(struct Smaky6 *m, const char *path, uint16_t base);
 /* Load one raw ROM image from a memory buffer into the flat bus at base. */

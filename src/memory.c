@@ -8,6 +8,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(SMEMU6_HAVE_BACKEND)
+/* Weak-default framebuffer allocator: portable malloc.  Embedded backends
+ * override this with a strong symbol that allocates from SRAM-capable /
+ * PSRAM memory (e.g. heap_caps_malloc(MALLOC_CAP_SPIRAM)).  The core never
+ * references an embedded allocator directly, keeping it C99-portable. */
+__attribute__((weak)) void *smemu6_framebuffer_alloc(size_t size)
+{
+    return malloc(size);
+}
+#endif
+
 /* Read one byte from the flat machine bus, including the audited keyboard
  * workspace interception at 0x457E used by SYS.SY stage-1 helpers. */
 uint8_t memory_read(struct Smaky6 *m, uint16_t addr)
