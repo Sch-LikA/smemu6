@@ -659,3 +659,19 @@ Next session priorities:
   working tree (machine.c INT/iff experiments) which was discarded on
   2026-08-25; the fix above was found and proven on the clean tree via the
   deterministic harness instead of a `--trace-kbd` session.
+
+- Phase B — platform backend abstraction — Step 1 (audio) DONE (2026-08-29),
+  commit `0a6bded` on branch `feature/upstream-portable-improvements`.
+  Core now owns rendering/mixing and hands every cross-boundary I/O to a
+  backend vtable (`src/platform.h` / `src/platform.c`, `smemu6_backend` with
+  NULL-safe dispatch + `smemu6_set_backend()`). SDL relocated to
+  `backends/sdl/sdl_backend.c`; auto-selected as default when
+  `SMEMU6_HAVE_BACKEND` is unset, excluded when set. Step 1 moved all SDL
+  audio device I/O out of `src/sound.c` (open+smoke-test, per-frame push with
+  backpressure, detached-thread close); mixing/WAV-load/audio-dump stay core.
+  Host build green, all 12 ctest pass; embedded-path build (`-DSMEMU6_HAVE_BACKEND=1`)
+  excludes the SDL backend and still links. NOTE: gate needs the flag defined
+  for the *compiler* too — CMake `target_compile_definitions(smemu6 PRIVATE
+  SMEMU6_HAVE_BACKEND=1)` under `if(SMEMU6_HAVE_BACKEND)`, not just the
+  generator-expression source gate. Next: Step 2 = video present, Step 3 =
+  keyboard input (symmetry), then SDL front-end layer (launcher/debug/overlays).
