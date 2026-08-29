@@ -659,3 +659,70 @@ Next session priorities:
   working tree (machine.c INT/iff experiments) which was discarded on
   2026-08-25; the fix above was found and proven on the clean tree via the
   deterministic harness instead of a `--trace-kbd` session.
+
+- Phase B — platform backend abstraction — Step 1 (audio) DONE (2026-08-29),
+  commit `0a6bded` on branch `feature/upstream-portable-improvements`.
+  Core now owns rendering/mixing and hands every cross-boundary I/O to a
+  backend vtable (`src/platform.h` / `src/platform.c`, `smemu6_backend` with
+  NULL-safe dispatch + `smemu6_set_backend()`). SDL relocated to
+  `backends/sdl/sdl_backend.c`; auto-selected as default when
+  `SMEMU6_HAVE_BACKEND` is unset, excluded when set. Step 1 moved all SDL
+  audio device I/O out of `src/sound.c` (open+smoke-test, per-frame push with
+  backpressure, detached-thread close); mixing/WAV-load/audio-dump stay core.
+  Host build green, all 12 ctest pass; embedded-path build (`-DSMEMU6_HAVE_BACKEND=1`)
+  excludes the SDL backend and still links. NOTE: gate needs the flag defined
+  for the *compiler* too — CMake `target_compile_definitions(smemu6 PRIVATE
+  SMEMU6_HAVE_BACKEND=1)` under `if(SMEMU6_HAVE_BACKEND)`, not just the
+  generator-expression source gate. Next: Step 2 = video present, Step 3 =
+  keyboard input (symmetry), then SDL front-end layer (launcher/debug/overlays).
+- Phase B — platform backend abstraction — Step 2 (video present) DONE (2026-08-29),
+  commit `8ace835` on branch `feature/upstream-portable-improvements`.  Split
+`video_render()`: the core builds the ARGB8888 framebuffer (alpha + graphic planes;
+phosphor persistence) + stderr screen dump and hands the framebuffer to the backend
+via `platform_present(m, &frame)`; the SDL backend (`backends/sdl/sdl_backend.c`) now
+owns texture upload, all desktop overlays (CRT scanlines, disk LED bar, F-key bar,
+RESET/BREAK buttons) and flip.  The vtable `present()` and `platform_present()` gained
+a `struct Smaky6 *m` so overlays read live state (drives `m->win/*`, `m->fdc/*`,
+keyboard `m->kbd.fonct_bits`, chargen, reset state). Core display rendering is
+unchanged; output byte-identical. Host build green, all 12 ctest pass. NOTE: SDL
+texture/renderer/reset state still live in `m->vid` (video_init/fini unchanged) — a
+Step 4 cleanup to move full video ownership into the backend state struct. Next:
+Step 3 = keyboard input (symmetry: core owns scancode set + key state, SDL mapping
+moves to backend), then Step 4 = SDL front-end layer (launcher/boot menu/debug/loop).
+
+- Phase B — platform backend abstraction — Step 3 (keyboard input) DONE (2026-08-29),
+  commit on branch `feature/upstream-portable-improvements`.  Removed all SDL coupling
+  from the core keyboard subsystem.  New portable headers `src/smemu6_scancode.h` +
+  `src/smemu6_keycode.h` (generated from the installed SDL2 headers; numeric values
+  byte-match SDL_Scancode / SDL_Keycode; type names `smemu6_scancode`/`smemu6_keycode`;
+  count bound `SMEMU6_NUM_SCANCODES`).  `keyboard.h` now depends only on those two headers
+  (no `<SDL2/SDL.h>`): public API is `keyboard_event(struct Smaky6 *, smemu6_scancode scan,
+  int down, int repeat)` and `keyboard_text(struct Smaky6 *, uint32_t codepoint)`.  Core
+  logic is byte-identical — the old SDL event params are now explicit args
+  (`ev->type == SDL_KEYDOWN` -> `down`, `ev->repeat` -> `repeat`, `ev->keysym.sym` -> a
+  derived `smemu6_keycode` via a local `smemu6_keycode_from_scancode()` that mirrors
+  SDL_GetKeyFromScancode's reachable effect for the fnct-layer letter fallback).  Input
+  flows core -> `platform_key`/`platform_text` (vtable `key`/`text` gained a `struct Smaky6 *m`
+  plus `repeat`) -> SDL backend, which forwards the portable scancode straight into
+  `keyboard_event()` (identity; any SDL->portable mapping lives in the front-end).
+  `machine_internal.h` kbd struct fields use `smemu6_scancode` / `SMEMU6_NUM_SCANCODES`.
+  main.c event loop casts SDL scancodes to portable and decodes its own UTF-8 TEXTINPUT into
+  codepoints (new `decode_utf8_to_codepoints()`).  Host build green, all 12 ctest pass.
+  Phase B step 4 (video path SDL decoupling) DONE (2026-08-29), commit `cd8030e`
+on branch `feature/upstream-portable-improvements`. Only the SDL *resources*
+moved: the streaming ARGB8888 texture + its SDL renderer left `struct
+Smaky6.vid` (machine_internal.h) and now live in backends/sdl's own
+`sdl_backend_state` struct. The front-end hands the backend its renderer via a
+new vtable method `video_setup(void *ctx, void *renderer)` (+
+`platform_video_setup()` / `platform_video_teardown()` dispatch in
+platform.c); the backend creates the texture with SDL_CreateTexture and owns
+it until video_teardown(). video_init()/video_render() are now SDL-free
+(video.c dropped <SDL2/SDL.h>); machine.c no longer references SDL_SCANCODE_*
+(uses SMEMU6_SCAN_UNKNOWN). Kept in `m->vid` as portable UI state:
+`reset_armed` / `reset_armed_at` (backend reads, front-end writes) —
+deliberately NOT moved; the SDL window itself stays owned by the front-end
+(created/destroyed in main.c), only the renderer is handed to the backend.
+Host build green, all 12 ctest pass, GUI launches OK with the new
+backend-owned texture flow. With SMEMU6_HAVE_BACKEND unset: byte-identical;
+with it set: core compiles without any SDL dependency. NEXT: integrate Step
+1-4 into the ESP32 port (Repo C ./smemu6) as part of Task 3 consolidation.

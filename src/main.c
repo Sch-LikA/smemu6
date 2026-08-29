@@ -6,6 +6,8 @@
 #include "memory.h"
 #include "video.h"
 #include "keyboard.h"
+#include "platform.h"
+#include "smemu6_scancode.h"
 #include "debug.h"
 #include "floppy.h"
 #include "icon_data.h"
@@ -26,6 +28,9 @@
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #endif
+
+/* Decode a UTF-8 byte string into up to `max` Unicode codepoints (see below). */
+static int decode_utf8_to_codepoints(const char *utf8, uint32_t *out, int max);
 
 /* ── Configuration ──────────────────────────────────────────────────────────*/
 /*
@@ -411,6 +416,7 @@ static void main_loop_cleanup(void)
         }
     }
     machine_destroy(s_loop->m);
+    platform_video_teardown();
     SDL_DestroyRenderer(s_loop->ren);
     SDL_DestroyWindow(s_loop->win);
     /* Quit video+timer subsystems explicitly.  Do NOT call SDL_Quit() here:
@@ -484,17 +490,21 @@ static void main_loop_iter(void)
                        (ev.key.keysym.mod & KMOD_CTRL)) {
                 do_virtual_floppy_refresh(L->m);
             } else {
-                keyboard_event(L->m, &ev.key);
+                platform_key(L->m, (smemu6_scancode)ev.key.keysym.scancode, 1, ev.key.repeat);
             }
             break;
 
         case SDL_KEYUP:
-            keyboard_event(L->m, &ev.key);
+            platform_key(L->m, (smemu6_scancode)ev.key.keysym.scancode, 0, ev.key.repeat);
             break;
 
-        case SDL_TEXTINPUT:
-            keyboard_text_event(L->m, &ev.text);
+        case SDL_TEXTINPUT: {
+            uint32_t cps[8];
+            int n = decode_utf8_to_codepoints((const char *)ev.text.text, cps, 8);
+            for (int i = 0; i < n; i++)
+                platform_text(L->m, cps[i]);
             break;
+        }
 
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
@@ -891,6 +901,32 @@ void smemu6_debug_step_frame(void)
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_KEEPALIVE
 #endif
+/* Decode a UTF-8 byte string into up to `max` Unicode codepoints.  Each returned
+ * codepoint is handed to the core as one keyboard_text() call — the core no longer
+ * reassembles multi-byte UTF-8 itself (that work now lives in this front-end). */
+static int decode_utf8_to_codepoints(const char *utf8, uint32_t *out, int max)
+{
+    int n = 0;
+    while (*utf8 && n < max) {
+        unsigned char c0 = (unsigned char)*utf8;
+        int len, i = 1;
+        uint32_t cp;
+        if (c0 < 0x80u)               { len = 1; cp = c0; }
+        else if ((c0 & 0xE0u) == 0xC0u) { len = 2; cp = c0 & 0x1Fu; }
+        else if ((c0 & 0xF0u) == 0xE0u) { len = 3; cp = c0 & 0x1Fu; }
+        else if ((c0 & 0xF8u) == 0xF0u) { len = 4; cp = c0 & 0x0Fu; }
+        else { utf8++; continue; }   /* stray / invalid lead byte */
+
+        for (; i < len && utf8[i]; i++) {
+            if (((unsigned char)utf8[i] & 0xC0u) != 0x80u) break;   /* malformed */
+            cp = (cp << 6) | ((unsigned char)utf8[i] & 0x3Fu);
+        }
+        out[n++] = cp;
+        utf8 += i;   /* only advance over bytes actually consumed */
+    }
+    return n;
+}
+
 /* Parse CLI options, create the SDL/machine runtime, and enter the platform's
  * native or Emscripten main loop. */
 int main(int argc, char *argv[])
@@ -1433,7 +1469,10 @@ int main(int argc, char *argv[])
     }
 
     /* Init video (after machine so chargen ROM path is available) */
-    video_init(m, win, ren);
+    /* Portable init first; then hand the backend its SDL renderer so it can
+     * create the streaming texture it owns (see backends/sdl/). */
+    video_init(m);
+    platform_video_setup((void *)ren);
     video_load_chargen(m, ROM_CHARGEN);
     if (gfx_msb_first >= 0)
         video_set_gfx_msb_first(m, gfx_msb_first);
@@ -1468,6 +1507,7 @@ int main(int argc, char *argv[])
         } else if (vfd_manifest_path) {
             if (dump_virtual_floppy_manifest(disk_hostdir, vfd_manifest_path) != 0) {
                 machine_destroy(m);
+                platform_video_teardown();
                 SDL_DestroyRenderer(ren);
                 SDL_DestroyWindow(win);
                 SDL_Quit();
@@ -1486,6 +1526,7 @@ int main(int argc, char *argv[])
         } else if (vfd_manifest_path) {
             if (dump_virtual_floppy_manifest(disk2_hostdir, vfd_manifest_path) != 0) {
                 machine_destroy(m);
+                platform_video_teardown();
                 SDL_DestroyRenderer(ren);
                 SDL_DestroyWindow(win);
                 SDL_Quit();

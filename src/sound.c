@@ -75,8 +75,8 @@
 #include "sound.h"
 #include "machine.h"
 #include "machine_internal.h"
+#include "platform.h"
 
-#include <SDL2/SDL.h>
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
@@ -129,7 +129,7 @@ void sound_set_audio_dump(const char *path)
     fwrite(hdr, 1, sizeof(hdr), g_dump);
 }
 
-static SDL_AudioDeviceID g_audio_dev = 0;
+static int g_audio_open = 0;  /* device-open flag; I/O lives in the backend */
 static int16_t           g_frame_buf[SAMPLES_PER_FRAME];
 static int               g_last_sample = 0;  /* next sample index to fill */
 static int               g_level = 0;        /* current buzzer level (0 or 1) */
@@ -496,55 +496,16 @@ void sound_set_drive_sound_enabled(int enabled)
 /* Open the SDL audio device on demand and initialize the per-frame mixer state. */
 void sound_init(struct Smaky6 *m)
 {
-    if (g_audio_dev) return;
+    if (g_audio_open) return;
     if (!g_beeper_enabled && !g_drive_sound_enabled && !(m && m->psg.enabled))
         return;  /* all sound sources disabled */
 
-    SDL_AudioSpec want, got;
-    SDL_memset(&want, 0, sizeof(want));
-    want.freq     = AUDIO_SAMPLE_RATE;
-    want.format   = AUDIO_S16SYS;
-    want.channels = 1;
-    /* Emscripten SDL2 requires a power-of-two buffer size; 1024 is the
-     * smallest power of two above our 882-sample frame (44100 / 50 Hz). */
-#ifdef __EMSCRIPTEN__
-    want.samples  = 1024;
-#else
-    want.samples  = SAMPLES_PER_FRAME;
-#endif
-    want.callback = NULL;   /* push mode -- no callback thread */
-
-    /* SDL_OpenAudioDevice can transiently fail on PulseAudio/PipeWire if the
-     * server is not yet ready.  Retry up to 5 times with a short delay. */
-    for (int attempt = 0; attempt < 5 && g_audio_dev == 0; attempt++) {
-        if (attempt > 0)
-            SDL_Delay(20);
-        g_audio_dev = SDL_OpenAudioDevice(NULL, 0, &want, &got, 0);
-    }
-    if (g_audio_dev == 0) {
-        fprintf(stderr, "[sound] DISABLED: SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
-        return;
-    }
-    SDL_PauseAudioDevice(g_audio_dev, 0);
-
-    /* Smoke-test: queue a silent frame and verify the driver accepted it.
-     * On a broken PipeWire/PulseAudio session the device opens successfully
-     * but silently drops all data (GetQueuedAudioSize stays 0). */
-    {
-        int16_t silence[SAMPLES_PER_FRAME];
-        memset(silence, 0, sizeof(silence));
-        SDL_QueueAudio(g_audio_dev, silence, sizeof(silence));
-        SDL_Delay(2);  /* give the driver a moment to register the queue */
-        Uint32 queued = SDL_GetQueuedAudioSize(g_audio_dev);
-        if (queued == 0) {
-            fprintf(stderr, "[sound] WARNING: audio device opened but queue stays empty "
-                    "-- PipeWire/PulseAudio session may be broken; sound will be silent\n");
-        } else {
-            fprintf(stderr, "[sound] OK: device ready, %u bytes queued (driver: %s)\n",
-                    (unsigned)queued, SDL_GetCurrentAudioDriver());
-            SDL_ClearQueuedAudio(g_audio_dev);  /* discard the test frame */
-        }
-    }
+    /* Open the audio device on demand through the backend.  Returns 0 on
+     * success, -1 if the driver could not be opened (headless, broken
+     * PipeWire/PulseAudio, ...). */
+    g_audio_open = platform_audio_open(AUDIO_SAMPLE_RATE, 1, SAMPLES_PER_FRAME) == 0;
+    if (!g_audio_open)
+        return;  /* audio disabled: mixing still runs, nothing is played */
 
     if (g_drive_sound_enabled) {
         if (wav_load_44k_mono(SAMPLE_DIR "/525_spin_loaded.wav", &s_spin_loop) &&
@@ -562,16 +523,6 @@ void sound_init(struct Smaky6 *m)
     memset(g_frame_buf, 0, sizeof(g_frame_buf));
     g_last_sample = 0;
     g_level       = 0;
-}
-
-/* SDL_CloseAudioDevice can block indefinitely on a broken PipeWire/PulseAudio
- * session.  Run it in a detached thread so shutdown never hangs.  The process
- * will exit (and the OS will reap the thread) before the close completes in
- * the worst case. */
-static int SDLCALL s_audio_close_thread(void *arg)
-{
-    SDL_CloseAudioDevice((SDL_AudioDeviceID)(uintptr_t)arg);
-    return 0;
 }
 
 /* Stop and close the SDL audio device, deferring the potentially blocking close
@@ -598,17 +549,9 @@ void sound_fini(struct Smaky6 *m)
     g_loop_on = 0;
     g_loop_gain = 0.0f;
     g_loop_phase = 0u;
-    if (g_audio_dev) {
-        SDL_AudioDeviceID dev = g_audio_dev;
-        g_audio_dev = 0;
-        SDL_PauseAudioDevice(dev, 1);
-        SDL_ClearQueuedAudio(dev);
-        SDL_Thread *t = SDL_CreateThread(s_audio_close_thread, "audio_close",
-                                         (void *)(uintptr_t)dev);
-        if (t)
-            SDL_DetachThread(t);  /* let it finish on its own; never join */
-        else
-            SDL_CloseAudioDevice(dev);  /* thread creation failed: risk the block */
+    if (g_audio_open) {
+        platform_audio_close();
+        g_audio_open = 0;
     }
 }
 
@@ -620,7 +563,7 @@ void sound_set_bit(struct Smaky6 *m, int level)
 {
     (void)level;   /* data value unused – hardware is pulse-triggered */
 
-    if (!g_audio_dev || !g_beeper_enabled) return;
+    if (!g_audio_open || !g_beeper_enabled) return;
 
     /* Compute absolute frame position and map to sample index */
     zusize frame_pos = m->snd.frame_base + (zusize)m->cpu.cycles;
@@ -639,7 +582,7 @@ void sound_set_bit(struct Smaky6 *m, int level)
  * Fills the remainder of the frame buffer and submits it to the audio device. */
 void sound_end_frame(struct Smaky6 *m)
 {
-    if (!g_audio_dev) return;
+    if (!g_audio_open) return;
 
     /* Fill remainder with current buzzer level */
     if (g_beeper_enabled)
@@ -660,9 +603,10 @@ void sound_end_frame(struct Smaky6 *m)
         g_dump_bytes += (uint32_t)sizeof(g_frame_buf);
     }
 
-    /* Skip frame if queue is already backed up (emulator running too fast) */
-    if (SDL_GetQueuedAudioSize(g_audio_dev) < MAX_QUEUE_BYTES)
-        SDL_QueueAudio(g_audio_dev, g_frame_buf, sizeof(g_frame_buf));
+    /* Skip frame if the backend queue is already backed up
+     * (emulator running too fast). */
+    if ((unsigned long)platform_audio_queued_bytes() < MAX_QUEUE_BYTES)
+        platform_audio_push(g_frame_buf, SAMPLES_PER_FRAME);
 }
 
 /* sound_beep: kept for API completeness (not currently called). */

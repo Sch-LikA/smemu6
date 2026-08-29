@@ -136,12 +136,22 @@ add_executable(smemu6
     src/floppy.c
     src/virtual_floppy.c
     src/sound.c
+    src/platform.c
+    # SDL backend: compiled in by default; excluded when a target supplies
+    # its own backend (SMEMU6_HAVE_BACKEND). See src/platform.h.
+    $<$<NOT:$<BOOL:${SMEMU6_HAVE_BACKEND}>>:backends/sdl/sdl_backend.c>
     src/psg.h
     src/debug.c
     src/debug_viewport.h
     src/rtc.c
     src/winchester.c
 )
+
+# When a target supplies its own backend, tell the C compiler too (so
+# platform.c takes the "no default" path) and exclude the SDL backend.
+if(SMEMU6_HAVE_BACKEND)
+    target_compile_definitions(smemu6 PRIVATE SMEMU6_HAVE_BACKEND=1)
+endif()
 
 if(NOT EMSCRIPTEN)
     add_library(smaky6_st_symbols STATIC

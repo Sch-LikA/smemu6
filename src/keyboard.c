@@ -70,76 +70,76 @@ static const uint8_t S471_TABLE[4][MATRIX_POS_COUNT] = {
 };
 
 static const struct {
-    SDL_Scancode scan;
+    smemu6_scancode scan;
     SmakyMatrixPosition position;
 } HOST_MATRIX_KEYS[] = {
-    { SDL_SCANCODE_ESCAPE,       0 },
-    { SDL_SCANCODE_1,            1 },
-    { SDL_SCANCODE_2,            2 },
-    { SDL_SCANCODE_3,            3 },
-    { SDL_SCANCODE_4,            4 },
-    { SDL_SCANCODE_5,            5 },
-    { SDL_SCANCODE_6,            6 },
-    { SDL_SCANCODE_7,            7 },
-    { SDL_SCANCODE_8,            8 },
-    { SDL_SCANCODE_9,            9 },
-    { SDL_SCANCODE_0,           10 },
-    { SDL_SCANCODE_BACKSLASH,   13 },
-    { SDL_SCANCODE_BACKSPACE,   14 },
-    { SDL_SCANCODE_TAB,         16 },
-    { SDL_SCANCODE_Q,           17 },
-    { SDL_SCANCODE_W,           18 },
-    { SDL_SCANCODE_E,           19 },
-    { SDL_SCANCODE_R,           20 },
-    { SDL_SCANCODE_T,           21 },
-    { SDL_SCANCODE_Z,           22 },
-    { SDL_SCANCODE_U,           23 },
-    { SDL_SCANCODE_I,           24 },
-    { SDL_SCANCODE_O,           25 },
-    { SDL_SCANCODE_P,           26 },
-    { SDL_SCANCODE_LEFTBRACKET, 28 },
-    { SDL_SCANCODE_RIGHTBRACKET,29 },
-    { SDL_SCANCODE_END,         30 },
-    { SDL_SCANCODE_LCTRL,       32 },
-    { SDL_SCANCODE_RCTRL,       32 },
-    { SDL_SCANCODE_A,           33 },
-    { SDL_SCANCODE_S,           34 },
-    { SDL_SCANCODE_D,           35 },
-    { SDL_SCANCODE_F,           36 },
-    { SDL_SCANCODE_G,           37 },
-    { SDL_SCANCODE_H,           38 },
-    { SDL_SCANCODE_J,           39 },
-    { SDL_SCANCODE_K,           40 },
-    { SDL_SCANCODE_L,           41 },
-    { SDL_SCANCODE_SEMICOLON,   42 },
-    { SDL_SCANCODE_APOSTROPHE,  43 },
-    { SDL_SCANCODE_NONUSBACKSLASH, 44 },
-    { SDL_SCANCODE_RETURN,      45 },
-    { SDL_SCANCODE_SPACE,       48 },
-    { SDL_SCANCODE_Y,           49 },
-    { SDL_SCANCODE_X,           50 },
-    { SDL_SCANCODE_C,           51 },
-    { SDL_SCANCODE_V,           52 },
-    { SDL_SCANCODE_B,           53 },
-    { SDL_SCANCODE_N,           54 },
-    { SDL_SCANCODE_M,           55 },
-    { SDL_SCANCODE_COMMA,       56 },
-    { SDL_SCANCODE_PERIOD,      57 },
-    { SDL_SCANCODE_MINUS,       58 },
-    { SDL_SCANCODE_F9,          61 },
+    { SMEMU6_SCAN_ESCAPE,       0 },
+    { SMEMU6_SCAN_1,            1 },
+    { SMEMU6_SCAN_2,            2 },
+    { SMEMU6_SCAN_3,            3 },
+    { SMEMU6_SCAN_4,            4 },
+    { SMEMU6_SCAN_5,            5 },
+    { SMEMU6_SCAN_6,            6 },
+    { SMEMU6_SCAN_7,            7 },
+    { SMEMU6_SCAN_8,            8 },
+    { SMEMU6_SCAN_9,            9 },
+    { SMEMU6_SCAN_0,           10 },
+    { SMEMU6_SCAN_BACKSLASH,   13 },
+    { SMEMU6_SCAN_BACKSPACE,   14 },
+    { SMEMU6_SCAN_TAB,         16 },
+    { SMEMU6_SCAN_Q,           17 },
+    { SMEMU6_SCAN_W,           18 },
+    { SMEMU6_SCAN_E,           19 },
+    { SMEMU6_SCAN_R,           20 },
+    { SMEMU6_SCAN_T,           21 },
+    { SMEMU6_SCAN_Z,           22 },
+    { SMEMU6_SCAN_U,           23 },
+    { SMEMU6_SCAN_I,           24 },
+    { SMEMU6_SCAN_O,           25 },
+    { SMEMU6_SCAN_P,           26 },
+    { SMEMU6_SCAN_LEFTBRACKET, 28 },
+    { SMEMU6_SCAN_RIGHTBRACKET,29 },
+    { SMEMU6_SCAN_END,         30 },
+    { SMEMU6_SCAN_LCTRL,       32 },
+    { SMEMU6_SCAN_RCTRL,       32 },
+    { SMEMU6_SCAN_A,           33 },
+    { SMEMU6_SCAN_S,           34 },
+    { SMEMU6_SCAN_D,           35 },
+    { SMEMU6_SCAN_F,           36 },
+    { SMEMU6_SCAN_G,           37 },
+    { SMEMU6_SCAN_H,           38 },
+    { SMEMU6_SCAN_J,           39 },
+    { SMEMU6_SCAN_K,           40 },
+    { SMEMU6_SCAN_L,           41 },
+    { SMEMU6_SCAN_SEMICOLON,   42 },
+    { SMEMU6_SCAN_APOSTROPHE,  43 },
+    { SMEMU6_SCAN_NONUSBACKSLASH, 44 },
+    { SMEMU6_SCAN_RETURN,      45 },
+    { SMEMU6_SCAN_SPACE,       48 },
+    { SMEMU6_SCAN_Y,           49 },
+    { SMEMU6_SCAN_X,           50 },
+    { SMEMU6_SCAN_C,           51 },
+    { SMEMU6_SCAN_V,           52 },
+    { SMEMU6_SCAN_B,           53 },
+    { SMEMU6_SCAN_N,           54 },
+    { SMEMU6_SCAN_M,           55 },
+    { SMEMU6_SCAN_COMMA,       56 },
+    { SMEMU6_SCAN_PERIOD,      57 },
+    { SMEMU6_SCAN_MINUS,       58 },
+    { SMEMU6_SCAN_F9,          61 },
 };
 
 static const struct {
-    SDL_Scancode scan;
+    smemu6_scancode scan;
     uint8_t bit;
 } FUNCTION_KEYS[] = {
-    { SDL_SCANCODE_F1, 0x40 }, /* CURSOR */
-    { SDL_SCANCODE_F2, 0x20 }, /* COPY */
-    { SDL_SCANCODE_F3, 0x10 }, /* KILL */
-    { SDL_SCANCODE_F4, 0x08 }, /* PROGRA */
-    { SDL_SCANCODE_F5, 0x04 }, /* SHOW */
-    { SDL_SCANCODE_F6, 0x02 }, /* SEARCH */
-    { SDL_SCANCODE_F7, 0x01 }, /* CHANGE */
+    { SMEMU6_SCAN_F1, 0x40 }, /* CURSOR */
+    { SMEMU6_SCAN_F2, 0x20 }, /* COPY */
+    { SMEMU6_SCAN_F3, 0x10 }, /* KILL */
+    { SMEMU6_SCAN_F4, 0x08 }, /* PROGRA */
+    { SMEMU6_SCAN_F5, 0x04 }, /* SHOW */
+    { SMEMU6_SCAN_F6, 0x02 }, /* SEARCH */
+    { SMEMU6_SCAN_F7, 0x01 }, /* CHANGE */
 };
 
 static const AccentEntry ACCENT_TABLE[] = {
@@ -273,7 +273,7 @@ static int matrix_position_uses_text_input(SmakyMatrixPosition position)
 
 /* Report whether one SDL scancode is expected to also produce SDL text input
  * for the printable compatibility path. */
-static int is_host_text_scancode(SDL_Scancode scan)
+static int is_host_text_scancode(smemu6_scancode scan)
 {
     for (size_t i = 0; i < sizeof(HOST_MATRIX_KEYS) / sizeof(HOST_MATRIX_KEYS[0]); i++) {
         if (HOST_MATRIX_KEYS[i].scan == scan)
@@ -285,9 +285,9 @@ static int is_host_text_scancode(SDL_Scancode scan)
 
 /* Track whether a printable host key is currently held so text input can be
  * matched back to a fresh keydown instead of stale repeats. */
-static void set_host_text_scancode_down(struct Smaky6 *m, SDL_Scancode scan, int down)
+static void set_host_text_scancode_down(struct Smaky6 *m, smemu6_scancode scan, int down)
 {
-    if (scan <= SDL_SCANCODE_UNKNOWN || scan >= SDL_NUM_SCANCODES)
+    if (scan <= SMEMU6_SCAN_UNKNOWN || scan >= SMEMU6_NUM_SCANCODES)
         return;
     if (!is_host_text_scancode(scan))
         return;
@@ -306,43 +306,38 @@ static void set_host_text_scancode_down(struct Smaky6 *m, SDL_Scancode scan, int
 
 /* Claim one pending printable host scancode that has not yet been matched to
  * an SDL_TEXTINPUT event. */
-static SDL_Scancode claim_pending_host_text_scancode(struct Smaky6 *m)
+static smemu6_scancode claim_pending_host_text_scancode(struct Smaky6 *m)
 {
-    for (int scan = SDL_SCANCODE_UNKNOWN + 1; scan < SDL_NUM_SCANCODES; scan++) {
+    for (int scan = SMEMU6_SCAN_UNKNOWN + 1; scan < SMEMU6_NUM_SCANCODES; scan++) {
         if (m->kbd.host_text_down[scan] == 1)
-            return (SDL_Scancode)scan;
+            return (smemu6_scancode)scan;
     }
 
-    return SDL_SCANCODE_UNKNOWN;
+    return SMEMU6_SCAN_UNKNOWN;
 }
 
-/* Decode one SDL text-input payload into the 7-bit Smaky character space,
- * including the small accented-character compatibility table. */
-static int decode_text_input_code(const char *text, uint8_t *code_out)
+/* Decode one text codepoint into the 7-bit Smaky character space,
+ * including the small accented-character compatibility table.
+ * The SDL front-end decodes its UTF-8 text event to a Unicode codepoint; this
+ * maps it (single printable char or composed accent) into the Smaky space. */
+static int decode_text_input_code_point(uint32_t codepoint, uint8_t *code_out)
 {
-    const unsigned char b0 = (unsigned char)text[0];
-    if (b0 == 0)
+    if (codepoint == 0u)
         return 0;
 
-    if (text[1] == '\0') {
-        if (b0 >= 0x20u && b0 <= 0x7Eu) {
-            *code_out = b0;
+    if (codepoint <= 0x7Eu) {
+        if (codepoint >= 0x20u) {
+            *code_out = (uint8_t)codepoint;
             return 1;
         }
         return 0;
     }
 
-    if ((b0 & 0xE0u) == 0xC0u) {
-        const unsigned char b1 = (unsigned char)text[1];
-        if ((b1 & 0xC0u) != 0x80u)
-            return 0;
-
-        uint16_t unicode = (uint16_t)(((uint16_t)(b0 & 0x1Fu) << 6) | (uint16_t)(b1 & 0x3Fu));
-        for (size_t i = 0; i < sizeof(ACCENT_TABLE) / sizeof(ACCENT_TABLE[0]); i++) {
-            if (ACCENT_TABLE[i].unicode == unicode) {
-                *code_out = ACCENT_TABLE[i].code;
-                return 1;
-            }
+    /* Composed accented character: look it up in the compatibility table. */
+    for (size_t i = 0; i < sizeof(ACCENT_TABLE) / sizeof(ACCENT_TABLE[0]); i++) {
+        if (ACCENT_TABLE[i].unicode == codepoint) {
+            *code_out = ACCENT_TABLE[i].code;
+            return 1;
         }
     }
 
@@ -357,35 +352,35 @@ static int fnct_layer_active(const struct Smaky6 *m)
 
 /* Map letter key symbols to their logical Smaky matrix positions so host
  * keyboard layouts can still target the intended letter keys. */
-static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)
+static SmakyMatrixPosition lookup_letter_matrix_position(smemu6_keycode sym)
 {
     switch (sym) {
-    case SDLK_q: return 17;
-    case SDLK_w: return 18;
-    case SDLK_e: return 19;
-    case SDLK_r: return 20;
-    case SDLK_t: return 21;
-    case SDLK_z: return 22;
-    case SDLK_u: return 23;
-    case SDLK_i: return 24;
-    case SDLK_o: return 25;
-    case SDLK_p: return 26;
-    case SDLK_a: return 33;
-    case SDLK_s: return 34;
-    case SDLK_d: return 35;
-    case SDLK_f: return 36;
-    case SDLK_g: return 37;
-    case SDLK_h: return 38;
-    case SDLK_j: return 39;
-    case SDLK_k: return 40;
-    case SDLK_l: return 41;
-    case SDLK_y: return 49;
-    case SDLK_x: return 50;
-    case SDLK_c: return 51;
-    case SDLK_v: return 52;
-    case SDLK_b: return 53;
-    case SDLK_n: return 54;
-    case SDLK_m: return 55;
+    case SMEMU6_KD_q: return 17;
+    case SMEMU6_KD_w: return 18;
+    case SMEMU6_KD_e: return 19;
+    case SMEMU6_KD_r: return 20;
+    case SMEMU6_KD_t: return 21;
+    case SMEMU6_KD_z: return 22;
+    case SMEMU6_KD_u: return 23;
+    case SMEMU6_KD_i: return 24;
+    case SMEMU6_KD_o: return 25;
+    case SMEMU6_KD_p: return 26;
+    case SMEMU6_KD_a: return 33;
+    case SMEMU6_KD_s: return 34;
+    case SMEMU6_KD_d: return 35;
+    case SMEMU6_KD_f: return 36;
+    case SMEMU6_KD_g: return 37;
+    case SMEMU6_KD_h: return 38;
+    case SMEMU6_KD_j: return 39;
+    case SMEMU6_KD_k: return 40;
+    case SMEMU6_KD_l: return 41;
+    case SMEMU6_KD_y: return 49;
+    case SMEMU6_KD_x: return 50;
+    case SMEMU6_KD_c: return 51;
+    case SMEMU6_KD_v: return 52;
+    case SMEMU6_KD_b: return 53;
+    case SMEMU6_KD_n: return 54;
+    case SMEMU6_KD_m: return 55;
     default:
         return MATRIX_POS_NONE;
     }
@@ -393,7 +388,7 @@ static SmakyMatrixPosition lookup_letter_matrix_position(SDL_Keycode sym)
 
 /* Resolve an SDL key event to one physical Smaky matrix position, optionally
  * preferring logical letter mapping over the host scancode. */
-static SmakyMatrixPosition lookup_matrix_position(SDL_Scancode scan, SDL_Keycode sym, int prefer_logical_letters)
+static SmakyMatrixPosition lookup_matrix_position(smemu6_scancode scan, smemu6_keycode sym, int prefer_logical_letters)
 {
     if (prefer_logical_letters) {
         SmakyMatrixPosition logical_position = lookup_letter_matrix_position(sym);
@@ -429,7 +424,7 @@ static void clear_ordinary_key(struct Smaky6 *m)
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = 0;
     m->kbd.regular_prefix_pending = 0;
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.reassert_pending = 0;
     m->kbd.reassert_cycles = 0;
@@ -454,7 +449,7 @@ static void release_ordinary_key(struct Smaky6 *m)
      * the key is no longer on the matrix. */
     m->kbd.release_after_reassert = hold_until_commit;
     m->kbd.release_after_buffer_commit = hold_until_commit;
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     if (!hold_until_commit) {
         m->kbd.found = 0;
@@ -470,13 +465,13 @@ static void release_ordinary_key(struct Smaky6 *m)
     }
 }
 
-static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position);
-static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position, uint8_t key_code);
-static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code);
+static void latch_matrix_key(struct Smaky6 *m, smemu6_scancode scan, SmakyMatrixPosition position);
+static void latch_matrix_key_code(struct Smaky6 *m, smemu6_scancode scan, SmakyMatrixPosition position, uint8_t key_code);
+static void latch_direct_key_code(struct Smaky6 *m, smemu6_scancode scan, uint8_t key_code);
 static uint8_t resolve_matrix_code(const struct Smaky6 *m, SmakyMatrixPosition position);
 
 /* Queue one ordinary matrix key until the current CLA-visible latch becomes available. */
-static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
+static int queue_ordinary_key(struct Smaky6 *m, smemu6_scancode scan, SmakyMatrixPosition position)
 {
     for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
         uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
@@ -505,7 +500,7 @@ static int queue_ordinary_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPo
 }
 
 /* Queue one ordinary matrix key with an already-resolved key code override. */
-static int queue_ordinary_key_code(struct Smaky6 *m, SDL_Scancode scan,
+static int queue_ordinary_key_code(struct Smaky6 *m, smemu6_scancode scan,
                                    SmakyMatrixPosition position, uint8_t key_code)
 {
     for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
@@ -536,9 +531,9 @@ static int queue_ordinary_key_code(struct Smaky6 *m, SDL_Scancode scan,
 }
 
 /* Queue one direct text-derived key code that may not correspond to a matrix position. */
-static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
+static int queue_direct_key_code(struct Smaky6 *m, smemu6_scancode scan, uint8_t key_code)
 {
-    if (scan != SDL_SCANCODE_UNKNOWN) {
+    if (scan != SMEMU6_SCAN_UNKNOWN) {
         for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
             uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
             if (m->kbd.pending_ordinary[idx].scancode == scan)
@@ -553,7 +548,7 @@ static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t ke
     m->kbd.pending_ordinary[idx].scancode = scan;
     m->kbd.pending_ordinary[idx].matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary[idx].key_code = key_code & 0x7Fu;
-    m->kbd.pending_ordinary[idx].released = (scan == SDL_SCANCODE_UNKNOWN) ? 1 : 0;
+    m->kbd.pending_ordinary[idx].released = (scan == SMEMU6_SCAN_UNKNOWN) ? 1 : 0;
     m->kbd.pending_ordinary_len++;
 
     if (m->dbg.trace_kbd) {
@@ -567,7 +562,7 @@ static int queue_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t ke
 
 /* Mark a queued host key as released so the promoted latch can drop after
  * buffer commit instead of pretending the key is still held. */
-static void mark_queued_key_released(struct Smaky6 *m, SDL_Scancode scan)
+static void mark_queued_key_released(struct Smaky6 *m, smemu6_scancode scan)
 {
     for (uint8_t i = 0; i < m->kbd.pending_ordinary_len; i++) {
         uint8_t idx = (uint8_t)((m->kbd.pending_ordinary_head + i) % PENDING_ORDINARY_CAP);
@@ -586,7 +581,7 @@ static int promote_pending_ordinary_key(struct Smaky6 *m)
         return 0;
 
     uint8_t idx = m->kbd.pending_ordinary_head;
-    SDL_Scancode scan = m->kbd.pending_ordinary[idx].scancode;
+    smemu6_scancode scan = m->kbd.pending_ordinary[idx].scancode;
     SmakyMatrixPosition position = m->kbd.pending_ordinary[idx].matrix_position;
     uint8_t key_code = m->kbd.pending_ordinary[idx].key_code;
     int released = m->kbd.pending_ordinary[idx].released;
@@ -641,26 +636,26 @@ static SmakyMatrixPosition reverse_lookup_matrix_position(S471Layer layer, uint8
 }
 
 /* Translate host arrow-key aliases into CURSOR+letter chord components. */
-static int lookup_cursor_alias(SDL_Scancode scan, SmakyMatrixPosition *position_out,
+static int lookup_cursor_alias(smemu6_scancode scan, SmakyMatrixPosition *position_out,
                                uint8_t *key_code_out, uint8_t *source_out)
 {
     SmakyMatrixPosition position;
     uint8_t source;
 
     switch (scan) {
-    case SDL_SCANCODE_UP:
+    case SMEMU6_SCAN_UP:
         position = 20;  /* r */
         source = 0x01u;
         break;
-    case SDL_SCANCODE_LEFT:
+    case SMEMU6_SCAN_LEFT:
         position = 35;  /* d */
         source = 0x02u;
         break;
-    case SDL_SCANCODE_RIGHT:
+    case SMEMU6_SCAN_RIGHT:
         position = 36;  /* f */
         source = 0x04u;
         break;
-    case SDL_SCANCODE_DOWN:
+    case SMEMU6_SCAN_DOWN:
         position = 51;  /* c */
         source = 0x08u;
         break;
@@ -675,13 +670,13 @@ static int lookup_cursor_alias(SDL_Scancode scan, SmakyMatrixPosition *position_
 }
 
 /* Latch one ordinary matrix key into the CLA-visible key state. */
-static void latch_matrix_key(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position)
+static void latch_matrix_key(struct Smaky6 *m, smemu6_scancode scan, SmakyMatrixPosition position)
 {
     latch_matrix_key_code(m, scan, position, resolve_matrix_code(m, position));
 }
 
 /* Latch one ordinary matrix key with an explicit resolved key code. */
-static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatrixPosition position, uint8_t key_code)
+static void latch_matrix_key_code(struct Smaky6 *m, smemu6_scancode scan, SmakyMatrixPosition position, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
     m->bus[0x457Eu] = 0x00u;
@@ -707,17 +702,17 @@ static void latch_matrix_key_code(struct Smaky6 *m, SDL_Scancode scan, SmakyMatr
 }
 
 /* Latch one direct 7-bit key code that may not correspond to a matrix position. */
-static void latch_direct_key_code(struct Smaky6 *m, SDL_Scancode scan, uint8_t key_code)
+static void latch_direct_key_code(struct Smaky6 *m, smemu6_scancode scan, uint8_t key_code)
 {
     m->kbd.key_code = key_code & 0x7Fu;
     m->bus[0x457Eu] = 0x00u;
     m->kbd.found = 1;
-    m->kbd.physically_held = (scan != SDL_SCANCODE_UNKNOWN);
+    m->kbd.physically_held = (scan != SMEMU6_SCAN_UNKNOWN);
     m->kbd.cla_seen_current = 0;
     m->kbd.regular_prefix_pending = 1;
     m->kbd.regular_prefix_armed = 0;
     m->kbd.release_after_reassert = 0;
-    m->kbd.release_after_buffer_commit = (scan == SDL_SCANCODE_UNKNOWN) ? 1 : 0;
+    m->kbd.release_after_buffer_commit = (scan == SMEMU6_SCAN_UNKNOWN) ? 1 : 0;
     m->kbd.active_scancode = scan;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.reassert_pending = 0;
@@ -747,7 +742,7 @@ void keyboard_init(struct Smaky6 *m)
     m->kbd.caps_lock_active = 0;
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
@@ -785,10 +780,14 @@ void keyboard_frame_tick(struct Smaky6 *m)
     promote_pending_ordinary_key(m);
 }
 
-/* Translate one SDL keyboard event into strict Smaky matrix, caps, shift, or function-key state. */
-void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
+/* Map a portable scancode to its logical keycode for the fnct-layer letter fallback. */
+static smemu6_keycode smemu6_keycode_from_scancode(smemu6_scancode scan);
+
+/* Translate one portable scancode into strict Smaky matrix, caps, shift, or
+ * function-key state. The logical keycode is derived from the scancode so the
+ * fnct-layer letter fallback stays SDL-free. */
+void keyboard_event(struct Smaky6 *m, smemu6_scancode scan, int down, int repeat)
 {
-    SDL_Scancode scan = ev->keysym.scancode;
     SmakyMatrixPosition position = MATRIX_POS_NONE;
     uint8_t cursor_alias_key_code = 0;
     uint8_t cursor_alias_source = 0;
@@ -799,10 +798,10 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     if (m->dbg.trace_kbd) {
         fprintf(stderr,
                 "[kbd-ev] type=%s scan=%d sym=%d repeat=%d found=%d held=%d prefix=%d active=%d pending=%u\n",
-                (ev->type == SDL_KEYDOWN) ? "down" : "up",
+                down ? "down" : "up",
                 (int)scan,
-                (int)ev->keysym.sym,
-                (int)ev->repeat,
+                (int)smemu6_keycode_from_scancode(scan),
+                (int)repeat,
                 m->kbd.found,
                 m->kbd.physically_held,
                 m->kbd.regular_prefix_pending,
@@ -810,31 +809,31 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
                 (unsigned)m->kbd.pending_ordinary_len);
     }
 
-    if (ev->type == SDL_KEYDOWN)
+    if (down)
         set_host_text_scancode_down(m, scan, 1);
-    else if (ev->type == SDL_KEYUP)
+    else
         set_host_text_scancode_down(m, scan, 0);
 
-    if (scan == SDL_SCANCODE_LSHIFT || scan == SDL_SCANCODE_RSHIFT) {
-        m->kbd.shift_pressed = (ev->type == SDL_KEYDOWN) ? 1 : 0;
+    if (scan == SMEMU6_SCAN_LSHIFT || scan == SMEMU6_SCAN_RSHIFT) {
+        m->kbd.shift_pressed = down ? 1 : 0;
         return;
     }
 
-    if (scan == SDL_SCANCODE_CAPSLOCK) {
-        if (ev->type == SDL_KEYDOWN && !ev->repeat)
+    if (scan == SMEMU6_SCAN_CAPSLOCK) {
+        if (down && !repeat)
             m->kbd.caps_lock_active = !m->kbd.caps_lock_active;
         return;
     }
 
     if (has_cursor_alias) {
-        if (ev->type == SDL_KEYDOWN && !ev->repeat) {
+        if (down && !repeat) {
             m->kbd.cursor_alias_sources |= cursor_alias_source;
             refresh_function_bits(m);
             if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
                 queue_ordinary_key_code(m, scan, position, cursor_alias_key_code);
             else
                 latch_matrix_key_code(m, scan, position, cursor_alias_key_code);
-        } else if (ev->type == SDL_KEYUP) {
+        } else if (!down) {
             m->kbd.cursor_alias_sources &= (uint8_t)~cursor_alias_source;
             refresh_function_bits(m);
             if (m->kbd.active_scancode == scan) {
@@ -853,17 +852,17 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         if (m->dbg.trace_kbd) {
             fprintf(stderr, "[kbd-fn] matched fkey[%d] scan=%d type=%s\n",
                     i, (int)scan,
-                    (ev->type == SDL_KEYDOWN) ? "down" : "up");
+                    down ? "down" : "up");
         }
-        if (ev->type == SDL_KEYDOWN && !ev->repeat)
+        if (down && !repeat)
             m->kbd.fonct_keyboard_bits |= FUNCTION_KEYS[i].bit;
-        else if (ev->type == SDL_KEYUP)
+        else if (!down)
             m->kbd.fonct_keyboard_bits &= (uint8_t)~FUNCTION_KEYS[i].bit;
         refresh_function_bits(m);
         return;
     }
 
-    if (ev->type == SDL_KEYUP) {
+    if (!down) {
         if (m->kbd.active_scancode == scan) {
             release_ordinary_key(m);
             promote_pending_ordinary_key(m);
@@ -873,13 +872,13 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
         return;
     }
 
-    if (ev->type != SDL_KEYDOWN || ev->repeat)
+    if (repeat)
         return;
 
     if (is_host_text_scancode(scan) && !fnct_layer_active(m))
         return;
 
-    position = lookup_matrix_position(scan, ev->keysym.sym, fnct_layer_active(m));
+    position = lookup_matrix_position(scan, smemu6_keycode_from_scancode(scan), fnct_layer_active(m));
     if (position != MATRIX_POS_NONE) {
         if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
             queue_ordinary_key(m, scan, position);
@@ -891,47 +890,84 @@ void keyboard_event(struct Smaky6 *m, const SDL_KeyboardEvent *ev)
     if (m->dbg.trace_kbd) {
         fprintf(stderr, "[kbd-ev] unmapped scan=%d sym=%d\n",
                 (int)scan,
-                (int)ev->keysym.sym);
+                (int)smemu6_keycode_from_scancode(scan));
     }
 }
 
-/* Translate one SDL text-input event into the strict Smaky ordinary-key path,
+/* Map a portable scancode to its logical keycode for the fnct-layer letter
+ * fallback. lookup_letter_matrix_position resolves only the letter positions,
+ * so only those scancodes need a keycode here. */
+static smemu6_keycode smemu6_keycode_from_scancode(smemu6_scancode scan)
+{
+    switch (scan) {
+    case SMEMU6_SCAN_A: return SMEMU6_KD_a;
+    case SMEMU6_SCAN_B: return SMEMU6_KD_b;
+    case SMEMU6_SCAN_C: return SMEMU6_KD_c;
+    case SMEMU6_SCAN_D: return SMEMU6_KD_d;
+    case SMEMU6_SCAN_E: return SMEMU6_KD_e;
+    case SMEMU6_SCAN_F: return SMEMU6_KD_f;
+    case SMEMU6_SCAN_G: return SMEMU6_KD_g;
+    case SMEMU6_SCAN_H: return SMEMU6_KD_h;
+    case SMEMU6_SCAN_I: return SMEMU6_KD_i;
+    case SMEMU6_SCAN_J: return SMEMU6_KD_j;
+    case SMEMU6_SCAN_K: return SMEMU6_KD_k;
+    case SMEMU6_SCAN_L: return SMEMU6_KD_l;
+    case SMEMU6_SCAN_M: return SMEMU6_KD_m;
+    case SMEMU6_SCAN_N: return SMEMU6_KD_n;
+    case SMEMU6_SCAN_O: return SMEMU6_KD_o;
+    case SMEMU6_SCAN_P: return SMEMU6_KD_p;
+    case SMEMU6_SCAN_Q: return SMEMU6_KD_q;
+    case SMEMU6_SCAN_R: return SMEMU6_KD_r;
+    case SMEMU6_SCAN_S: return SMEMU6_KD_s;
+    case SMEMU6_SCAN_T: return SMEMU6_KD_t;
+    case SMEMU6_SCAN_U: return SMEMU6_KD_u;
+    case SMEMU6_SCAN_V: return SMEMU6_KD_v;
+    case SMEMU6_SCAN_W: return SMEMU6_KD_w;
+    case SMEMU6_SCAN_X: return SMEMU6_KD_x;
+    case SMEMU6_SCAN_Y: return SMEMU6_KD_y;
+    case SMEMU6_SCAN_Z: return SMEMU6_KD_z;
+    default:
+        return 0;
+    }
+}
+
+/* Translate one decoded text codepoint into the strict Smaky ordinary-key path,
  * pairing it with the freshest compatible host keydown when possible. */
-void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
+void keyboard_text(struct Smaky6 *m, uint32_t codepoint)
 {
     uint8_t key_code;
-    SDL_Scancode scan = SDL_SCANCODE_UNKNOWN;
+    smemu6_scancode scan = SMEMU6_SCAN_UNKNOWN;
     SmakyMatrixPosition position = MATRIX_POS_NONE;
     SmakyMatrixPosition modern_position = MATRIX_POS_NONE;
-    int needs_fresh_text_key = (ev->text[0] != '\0' && ev->text[1] == '\0');
+    int needs_fresh_text_key = (codepoint != 0u && codepoint < 0x80u);
 
     if (fnct_layer_active(m)) {
         if (m->dbg.trace_kbd)
-            fprintf(stderr, "[kbd-text] ignored \"%s\" while FNCT layer active\n", ev->text);
+            fprintf(stderr, "[kbd-text] ignored codepoint=%u while FNCT layer active\n", (unsigned)codepoint);
         return;
     }
 
-    if (!decode_text_input_code(ev->text, &key_code)) {
+    if (!decode_text_input_code_point(codepoint, &key_code)) {
         if (m->dbg.trace_kbd)
-            fprintf(stderr, "[kbd-text] skipped \"%s\"\n", ev->text);
+            fprintf(stderr, "[kbd-text] skipped codepoint=%u\n", (unsigned)codepoint);
         return;
     }
 
     if (needs_fresh_text_key) {
         if (m->kbd.host_text_down_count == 0) {
             if (m->dbg.trace_kbd)
-                fprintf(stderr, "[kbd-text] ignored \"%s\" with no text key held\n", ev->text);
+                fprintf(stderr, "[kbd-text] ignored codepoint=%u with no text key held\n", (unsigned)codepoint);
             return;
         }
 
         scan = claim_pending_host_text_scancode(m);
-        if (scan == SDL_SCANCODE_UNKNOWN) {
+        if (scan == SMEMU6_SCAN_UNKNOWN) {
             if (m->dbg.trace_kbd)
-                fprintf(stderr, "[kbd-text] ignored repeat \"%s\" with no fresh text keydown\n", ev->text);
+                fprintf(stderr, "[kbd-text] ignored repeat codepoint=%u with no fresh text keydown\n", (unsigned)codepoint);
             return;
         }
 
-        position = lookup_matrix_position(scan, SDL_GetKeyFromScancode(scan), 0);
+        position = lookup_matrix_position(scan, smemu6_keycode_from_scancode(scan), 0);
         if (keymap_modern) {
             modern_position = reverse_lookup_matrix_position(current_layer(m), key_code);
             if (modern_position != MATRIX_POS_NONE)
@@ -942,7 +978,7 @@ void keyboard_text_event(struct Smaky6 *m, const SDL_TextInputEvent *ev)
 
         m->kbd.host_text_down[scan] = 2;
     } else if (m->dbg.trace_kbd) {
-        fprintf(stderr, "[kbd-text] fallback direct text \"%s\"\n", ev->text);
+        fprintf(stderr, "[kbd-text] fallback direct text codepoint=%u\n", (unsigned)codepoint);
     }
 
     if (m->kbd.pending_ordinary_len > 0 || !ordinary_latch_idle(m))
@@ -971,7 +1007,7 @@ void keyboard_reset_found(struct Smaky6 *m)
     m->kbd.regular_prefix_pending = 0;
     m->kbd.release_after_reassert = 0;
     m->kbd.release_after_buffer_commit = 0;
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = MATRIX_POS_NONE;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
