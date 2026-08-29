@@ -5,6 +5,7 @@
 #include "video.h"
 #include "memory.h"
 #include "chargen_rom.h"
+#include "platform.h"
 
 #include <Z80.h>
 #include <SDL2/SDL.h>
@@ -104,12 +105,8 @@ void video_set_gfx_msb_first(struct Smaky6 *m, int on)
 /* Render one complete video frame, including phosphor persistence and UI bars. */
 void video_render(struct Smaky6 *m)
 {
-    SDL_Renderer *ren  = m->vid.ren;
-    SDL_Texture  *tex  = m->vid.tex;
     VideoMode     mode = m->vid.mode;
     uint8_t      *cg   = m->vid.chargen;
-
-    if (!ren || !tex) return;
 
     uint32_t pixels[VIDEO_PX_W * VIDEO_ASPECT_H];
 
@@ -258,7 +255,10 @@ void video_render(struct Smaky6 *m)
         }
     }
 
-    SDL_UpdateTexture(tex, NULL, pixels, VIDEO_PX_W * (int)sizeof(uint32_t));
+    /* Hand the rendered framebuffer to the backend: it uploads to the texture,
+     * draws the SDL overlays, and presents.  Core owns only the framebuffer. */
+    struct smemu6_frame frame = { pixels, VIDEO_PX_W, VIDEO_ASPECT_H, (int)(VIDEO_PX_W * sizeof(uint32_t)) };
+    platform_present(m, &frame);
 
     /* ── stderr screen dump: emit changed lines ──────────────────────────── */
     for (int row = 0; row < VIDEO_ROWS_CHAR; row++) {
@@ -308,254 +308,4 @@ void video_render(struct Smaky6 *m)
         }
     }
 
-    SDL_RenderClear(ren);
-
-    /* Render machine content (512×240) at 1:1 into the logical window.
-     * The physical window is VIDEO_WIN_H * display_scale pixels tall, giving
-     * integer-scaled output.  No explicit vertical stretch is applied here —
-     * the scale factor already enlarges the output proportionally. */
-    SDL_Rect machine_dst = { 0, 0, VIDEO_PX_W, VIDEO_ASPECT_H };
-    SDL_RenderCopy(ren, tex, NULL, &machine_dst);
-
-    /* ── CRT scanline overlay ────────────────────────────────────────────── *
-     * Draw a 50%-transparent black rectangle 1 logical pixel tall over every
-     * other output row, mimicking the dark gaps between phosphor scan lines.
-     * The SDL logical size is VIDEO_PX_W × VIDEO_ASPECT_H; integer rows here
-     * correspond directly to the output pixels before display_scale is applied. */
-    if (m->vid.scanlines && m->vid.display_on) {
-        SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(ren, 0, 0, 0, 128);
-        SDL_Rect line = { 0, 0, VIDEO_PX_W, 1 };
-        for (int y = 1; y < VIDEO_ASPECT_H; y += 2) {
-            line.y = y;
-            SDL_RenderFillRect(ren, &line);
-        }
-        SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
-    }
-
-    /* ── Status bar: disk activity + track/sector ───────────────────────── */
-    /* Background for the LED strip */
-    SDL_SetRenderDrawColor(ren, 72, 68, 64, 255);
-    SDL_Rect bar = { 0, VIDEO_ASPECT_H, VIDEO_WIN_W, VIDEO_LED_H };
-    SDL_RenderFillRect(ren, &bar);
-    /* Separator line */
-    SDL_SetRenderDrawColor(ren, 130, 125, 115, 255);
-    SDL_RenderDrawLine(ren, 0, VIDEO_ASPECT_H, VIDEO_WIN_W - 1, VIDEO_ASPECT_H);
-
-    /* Two drive slots: LED + label + track number.
-     * Glyphs are rendered 1:1 from chargen (8×8 logical px); the display_scale
-     * factor applied to the SDL window makes them crisp at any scale value.
-     * Slot width = 256 logical px (two equal halves of 512-wide window).
-     *
-     * Row 1 (y=VIDEO_ASPECT_H+2):  floppy drives DX0 / DX1
-     * Row 2 (y=VIDEO_ASPECT_H+16): Winchester drives HD0 / HD1 */
-    static const char *dx_label[2] = { "DX0:", "DX1:" };
-    const int ly = VIDEO_ASPECT_H + 2;   /* glyph y */
-    for (int d = 0; d < 2; d++) {
-        /* DX0 starts at x=4; DX1 starts at the midpoint of the space left of the BREAK button */
-        int lx = (d == 0) ? 4 : ((4 + VIDEO_SYS_NMI_X) / 2);
-
-        int is_hd     = m->win.image[d] != NULL;
-        int mounted   = is_hd ? 1 : (m->fdc.media[d].kind != FLOPPY_MEDIA_NONE);
-        int active    = is_hd ? (m->win.disk_active[d] > 0)
-                               : (m->fdc.disk_active[d] > 0);
-
-        /* LED */
-        SDL_Rect led = { lx, ly, 8, 8 };
-        if (is_hd) {
-            if (active)       SDL_SetRenderDrawColor(ren, 255,  80,   0, 255); /* orange-red */
-            else if (mounted) SDL_SetRenderDrawColor(ren,  60,  20,   0, 255); /* dim red */
-            else              SDL_SetRenderDrawColor(ren,  20,  20,  20, 255); /* off */
-        } else {
-            if (active)       SDL_SetRenderDrawColor(ren, 255, 140,   0, 255); /* amber */
-            else if (mounted) SDL_SetRenderDrawColor(ren,  55,  30,   0, 255); /* dim amber */
-            else              SDL_SetRenderDrawColor(ren,  20,  20,  20, 255); /* off */
-        }
-        SDL_RenderFillRect(ren, &led);
-        SDL_SetRenderDrawColor(ren, 70, 70, 70, 255);
-        SDL_RenderDrawRect(ren, &led);
-
-        /* Label (DX0: / DX1:) */
-        int tx = lx + 12;
-        SDL_SetRenderDrawColor(ren, is_hd ? 0 : 0, is_hd ? 180 : 200, is_hd ? 180 : 0, 255);
-        for (int ci = 0; dx_label[d][ci]; ci++) {
-            uint8_t code = (uint8_t)dx_label[d][ci];
-            for (int sl = 0; sl < 8; sl++) {
-                uint8_t bits = m->vid.chargen[code * 16 + sl];
-                for (int b = 0; b < 8; b++) {
-                    if (bits & (1u << b))
-                        SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ly + sl);
-                }
-            }
-        }
-
-        /* Info text */
-        if (mounted) {
-            char info[20];
-            if (is_hd) {
-                snprintf(info, sizeof(info), "C:%u H:%u S:%02u",
-                         (unsigned)m->win.last_cyl[d],
-                         (unsigned)m->win.last_head[d],
-                         (unsigned)(m->win.sector_num & 0x1Fu));
-                SDL_SetRenderDrawColor(ren, 0, 140, 140, 255);
-            } else {
-                snprintf(info, sizeof(info), "T:%02d S:%02d",
-                         m->fdc.track[d], m->fdc.phased_sector[d]);
-                SDL_SetRenderDrawColor(ren, 0, 170, 0, 255);
-            }
-            int ix = tx + 38;
-            for (int ci = 0; info[ci]; ci++) {
-                uint8_t gc = (uint8_t)info[ci];
-                for (int sl = 0; sl < 8; sl++) {
-                    uint8_t bits = m->vid.chargen[gc * 16 + sl];
-                    for (int b = 0; b < 8; b++) {
-                        if (bits & (1u << b))
-                            SDL_RenderDrawPoint(ren, ix + ci * 9 + b, ly + sl);
-                    }
-                }
-            }
-        }
-    }
-
-    /* ── RESET / BREAK buttons (right end of disk status bar) ────────────── */
-    {
-        /* Get logical mouse position for hover highlight */
-        float mx_f = -1, my_f = -1;
-        { int wx, wy; SDL_GetMouseState(&wx, &wy);
-          SDL_RenderWindowToLogical(ren, wx, wy, &mx_f, &my_f); }
-        int smx = (int)mx_f, smy = (int)my_f;
-
-        static const struct { const char *label; int x; } SYSBTNS[2] = {
-            { "BREAK", VIDEO_SYS_NMI_X },
-            { "RESET", VIDEO_SYS_RST_X },
-        };
-        /* Auto-expire the reset_armed state after 3 seconds */
-        if (m->vid.reset_armed && SDL_GetTicks() - m->vid.reset_armed_at > 3000)
-            m->vid.reset_armed = 0;
-
-        for (int i = 0; i < 2; i++) {
-            int bx = SYSBTNS[i].x;
-            int by = VIDEO_SYS_BTN_Y;
-            int bw = (i == 1) ? VIDEO_SYS_RST_W : VIDEO_SYS_BTN_W;
-            int bh = VIDEO_SYS_BTN_H;
-            int hover = (smx >= bx && smx < bx + bw && smy >= by && smy < by + bh);
-            /* RESET button (index 1) blinks orange when armed */
-            int armed = (i == 1) && m->vid.reset_armed;
-            int blink_on = armed && ((SDL_GetTicks() / 200) & 1);
-
-            /* Fill: orange blinking when armed (RESET), brown for BREAK, red for RESET */
-            if (armed) {
-                if (blink_on)
-                    SDL_SetRenderDrawColor(ren, 255, 160,   0, 255);
-                else
-                    SDL_SetRenderDrawColor(ren, 180,  80,   0, 255);
-            } else if (i == 0) {
-                /* BREAK button — brown base */
-                SDL_SetRenderDrawColor(ren, hover ? 180 : 140, hover ? 100 : 70, hover ? 40 : 20, 255);
-            } else if (hover) {
-                SDL_SetRenderDrawColor(ren, 255,  60,  60, 255);
-            } else {
-                SDL_SetRenderDrawColor(ren, 200,  20,  20, 255);
-            }
-            SDL_Rect btn = { bx, by, bw, bh };
-            SDL_RenderFillRect(ren, &btn);
-
-            /* Border: bright yellow when armed, tan for BREAK, pink for RESET */
-            if (armed)
-                SDL_SetRenderDrawColor(ren, 255, 220,  80, 255);
-            else if (i == 0)
-                SDL_SetRenderDrawColor(ren, 200, 150,  80, 255);
-            else
-                SDL_SetRenderDrawColor(ren, 255, 120, 120, 255);
-            SDL_RenderDrawRect(ren, &btn);
-
-            /* Label — centred */
-            int label_len = (int)strlen(SYSBTNS[i].label);
-            int tx = bx + (bw - label_len * 9) / 2;
-            int ty = by + (bh - 8) / 2;
-            SDL_SetRenderDrawColor(ren, 220, 190, 175, 255);
-            for (int ci = 0; SYSBTNS[i].label[ci]; ci++) {
-                uint8_t gc = (uint8_t)SYSBTNS[i].label[ci];
-                for (int sl = 0; sl < 8; sl++) {
-                    uint8_t bits = m->vid.chargen[gc * 16 + sl];
-                    for (int b = 0; b < 8; b++) {
-                        if (bits & (1u << b))
-                            SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ty + sl);
-                    }
-                }
-            }
-        }
-    }
-
-    /* ── Function-key button bar ────────────────────────────────────────── */
-    {
-        static const struct { const char *label; uint8_t bit; } FKEYS[7] = {
-            { "CURSOR", 0x40 }, { "COPY",   0x20 }, { "KILL",   0x10 },
-            { "PROGRA", 0x08 }, { "SHOW",   0x04 }, { "SEARCH", 0x02 },
-            { "CHANGE", 0x01 },
-        };
-
-        /* Get logical mouse position for hover highlight */
-        float mx_f = -1, my_f = -1;
-        { int wx, wy; SDL_GetMouseState(&wx, &wy);
-          SDL_RenderWindowToLogical(ren, wx, wy, &mx_f, &my_f); }
-        int fmx = (int)mx_f, fmy = (int)my_f;
-
-        /* Bar background */
-        SDL_SetRenderDrawColor(ren, 62, 48, 44, 255);
-        SDL_Rect fbar = { 0, VIDEO_FKEY_Y, VIDEO_WIN_W, VIDEO_FKEY_H };
-        SDL_RenderFillRect(ren, &fbar);
-        /* Top separator */
-        SDL_SetRenderDrawColor(ren, 120, 90, 80, 255);
-        SDL_RenderDrawLine(ren, 0, VIDEO_FKEY_Y, VIDEO_WIN_W - 1, VIDEO_FKEY_Y);
-
-        for (int i = 0; i < 7; i++) {
-            int bx = VIDEO_FKEY_BTN_X0 + i * (VIDEO_FKEY_BTN_W + VIDEO_FKEY_BTN_GAP);
-            int by = VIDEO_FKEY_Y + 1;
-            int bw = VIDEO_FKEY_BTN_W;
-            int bh = VIDEO_FKEY_BTN_H;
-
-            int active  = (m->kbd.fonct_bits    & FKEYS[i].bit) != 0;
-            int hover   = (fmx >= bx && fmx < bx + bw && fmy >= by && fmy < by + bh);
-
-            /* Strict baseline: function keys are direct held inputs only. */
-            if (active)
-                SDL_SetRenderDrawColor(ren, 200,  30,  30, 255);
-            else if (hover)
-                SDL_SetRenderDrawColor(ren, 130,  55,  45, 255);
-            else
-                SDL_SetRenderDrawColor(ren, 100,  38,  30, 255);
-            SDL_Rect btn = { bx, by, bw, bh };
-            SDL_RenderFillRect(ren, &btn);
-
-            if (active)
-                SDL_SetRenderDrawColor(ren, 255,  80,  80, 255);
-            else
-                SDL_SetRenderDrawColor(ren, 130,  50,  50, 255);
-            SDL_RenderDrawRect(ren, &btn);
-
-            /* Label colour */
-            int label_len = (int)strlen(FKEYS[i].label);
-            int tx = bx + (bw - label_len * 9) / 2;
-            int ty = by + (bh - 8) / 2;
-            if (active)
-                SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-            else if (hover)
-                SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
-            else
-                SDL_SetRenderDrawColor(ren, 220, 190, 175, 255);
-            for (int ci = 0; FKEYS[i].label[ci]; ci++) {
-                uint8_t gc = (uint8_t)FKEYS[i].label[ci];
-                for (int sl = 0; sl < 8; sl++) {
-                    uint8_t row_bits = m->vid.chargen[gc * 16 + sl];
-                    for (int b = 0; b < 8; b++) {
-                        if (row_bits & (1u << b))
-                            SDL_RenderDrawPoint(ren, tx + ci * 9 + b, ty + sl);
-                    }
-                }
-            }
-        }
-    }
-
-    SDL_RenderPresent(ren);
 }

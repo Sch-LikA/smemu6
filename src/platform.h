@@ -42,7 +42,10 @@ struct smemu6_backend {
     void (*audio_close)(void *ctx);
 
     /* Display: hand one rendered framebuffer to the backend. */
-    void (*present)(void *ctx, const struct smemu6_frame *frame);
+    /* Display: hand one rendered framebuffer to the backend.  The machine
+     * pointer is passed too so the backend can draw overlays that reflect
+     * live machine state (drive LEDs, function keys, RESET/BREAK buttons). */
+    void (*present)(void *ctx, struct Smaky6 *m, const struct smemu6_frame *frame);
 
     /* End-of-emulation-frame hook (optional vsync / teardown). */
     void (*frame_done)(void *ctx, struct Smaky6 *m);
@@ -63,7 +66,7 @@ int  platform_audio_open(int rate, int channels, int block_frames);
 int  platform_audio_queued_bytes(void);
 void platform_audio_push(const int16_t *samples, int frames);
 void platform_audio_close(void);
-void platform_present(const struct smemu6_frame *frame);
+void platform_present(struct Smaky6 *m, const struct smemu6_frame *frame);
 void platform_frame_done(struct Smaky6 *m);
 
 #endif /* SMEMU6_PLATFORM_H */

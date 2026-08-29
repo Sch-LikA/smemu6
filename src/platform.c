@@ -53,11 +53,11 @@ void platform_audio_close(void)
     b->audio_close(b->ctx);
 }
 
-void platform_present(const struct smemu6_frame *frame)
+void platform_present(struct Smaky6 *m, const struct smemu6_frame *frame)
 {
     struct smemu6_backend *b = cur();
     if (!b || !b->present) return;
-    b->present(b->ctx, frame);
+    b->present(b->ctx, m, frame);
 }
 
 void platform_frame_done(struct Smaky6 *m)
