@@ -689,3 +689,26 @@ texture/renderer/reset state still live in `m->vid` (video_init/fini unchanged) 
 Step 4 cleanup to move full video ownership into the backend state struct. Next:
 Step 3 = keyboard input (symmetry: core owns scancode set + key state, SDL mapping
 moves to backend), then Step 4 = SDL front-end layer (launcher/boot menu/debug/loop).
+
+- Phase B — platform backend abstraction — Step 3 (keyboard input) DONE (2026-08-29),
+  commit on branch `feature/upstream-portable-improvements`.  Removed all SDL coupling
+  from the core keyboard subsystem.  New portable headers `src/smemu6_scancode.h` +
+  `src/smemu6_keycode.h` (generated from the installed SDL2 headers; numeric values
+  byte-match SDL_Scancode / SDL_Keycode; type names `smemu6_scancode`/`smemu6_keycode`;
+  count bound `SMEMU6_NUM_SCANCODES`).  `keyboard.h` now depends only on those two headers
+  (no `<SDL2/SDL.h>`): public API is `keyboard_event(struct Smaky6 *, smemu6_scancode scan,
+  int down, int repeat)` and `keyboard_text(struct Smaky6 *, uint32_t codepoint)`.  Core
+  logic is byte-identical — the old SDL event params are now explicit args
+  (`ev->type == SDL_KEYDOWN` -> `down`, `ev->repeat` -> `repeat`, `ev->keysym.sym` -> a
+  derived `smemu6_keycode` via a local `smemu6_keycode_from_scancode()` that mirrors
+  SDL_GetKeyFromScancode's reachable effect for the fnct-layer letter fallback).  Input
+  flows core -> `platform_key`/`platform_text` (vtable `key`/`text` gained a `struct Smaky6 *m`
+  plus `repeat`) -> SDL backend, which forwards the portable scancode straight into
+  `keyboard_event()` (identity; any SDL->portable mapping lives in the front-end).
+  `machine_internal.h` kbd struct fields use `smemu6_scancode` / `SMEMU6_NUM_SCANCODES`.
+  main.c event loop casts SDL scancodes to portable and decodes its own UTF-8 TEXTINPUT into
+  codepoints (new `decode_utf8_to_codepoints()`).  Host build green, all 12 ctest pass.
+  NOTE: SDL is still pulled transitively via machine_internal.h (video window/texture/renderer
+  state) — full video decouple is Step 4. Next: Step 4 = SDL front-end layer (launcher/boot
+  menu/debug/loop) + move SDL tex/renderer/reset_armed state out of `m->vid` into the backend
+  state struct.
