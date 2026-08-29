@@ -58,6 +58,14 @@ struct smemu6_backend {
     /* Input: one decoded unicode codepoint (from an SDL_TEXTINPUT event) into
      * the core via keyboard_text(). */
     void (*text)(void *ctx, struct Smaky6 *m, uint32_t codepoint);
+
+    /* Video resource hand-off (optional).  The front-end hands its backend-owned
+     * SDL renderer as an opaque handle; the backend creates/destroys its own
+     * streaming texture from it.  Kept as void* so this header stays SDL-free.
+     * video_setup is called once before the run loop; video_teardown once after.
+     * The window itself is owned by the front-end and destroyed there. */
+    void (*video_setup)(void *ctx, void *renderer);
+    void (*video_teardown)(void *ctx);
 };
 
 /* Install a backend. NULL selects the compiled-in default:
@@ -75,5 +83,9 @@ void platform_present(struct Smaky6 *m, const struct smemu6_frame *frame);
 void platform_frame_done(struct Smaky6 *m);
 void platform_key(struct Smaky6 *m, smemu6_scancode scan, int down, int repeat);
 void platform_text(struct Smaky6 *m, uint32_t codepoint);
+
+/* Video resource hand-off (see vtable).  NULL-safe. */
+void platform_video_setup(void *renderer);
+void platform_video_teardown(void);
 
 #endif /* SMEMU6_PLATFORM_H */

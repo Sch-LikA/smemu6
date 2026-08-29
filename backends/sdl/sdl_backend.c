@@ -21,7 +21,11 @@
  * (video, keyboard) register their methods onto smemu6_sdl_backend below. */
 struct sdl_backend_state {
     SDL_AudioDeviceID audio_dev;   /* 0 == device not open */
-    /* video + keyboard state added in later steps */
+    /* Video (Step 4): streaming ARGB8888 texture + the SDL renderer it was
+     * created from.  Both are backend-owned; the core never references them. */
+    SDL_Renderer *ren;
+    SDL_Texture  *tex;
+    /* keyboard state added in Step 3 */
 };
 
 static struct sdl_backend_state g_sdl_state = {0};
@@ -115,6 +119,33 @@ static void sdl_audio_close(void *ctx)
         SDL_CloseAudioDevice(dev);   /* thread creation failed: risk the block */
 }
 
+/* ── Video resource hand-off (Step 4) ────────────────────────────────── *
+ * The front-end created the SDL window+renderer; it hands us the renderer so
+ * we create our own streaming texture and own the upload target.  Kept in the
+ * backend so the core never references SDL.  The window itself stays owned by
+ * the front-end (created/destroyed there). */
+static void sdl_video_setup(void *ctx, void *renderer)
+{
+    struct sdl_backend_state *s = (struct sdl_backend_state *)ctx;
+    SDL_Renderer *ren = (SDL_Renderer *)(uintptr_t)renderer;
+    if (!ren) return;
+    s->ren = ren;
+    if (s->tex) { SDL_DestroyTexture(s->tex); s->tex = NULL; }
+    s->tex = SDL_CreateTexture(ren,
+        SDL_PIXELFORMAT_ARGB8888,
+        SDL_TEXTUREACCESS_STREAMING,
+        VIDEO_PX_W, VIDEO_ASPECT_H);
+    if (!s->tex)
+        fprintf(stderr, "video: SDL_CreateTexture (backend): %s\n", SDL_GetError());
+}
+
+static void sdl_video_teardown(void *ctx)
+{
+    struct sdl_backend_state *s = (struct sdl_backend_state *)ctx;
+    if (s->tex) { SDL_DestroyTexture(s->tex); s->tex = NULL; }
+    s->ren = NULL;
+}
+
 /* ── Input: keyboard ──────────────────────────────────────────────────── *
  * The core is SDL-free, so this backend forwards the ALREADY-portable scancode
  * straight into keyboard_event().  Any SDL->portable mapping lives in the
@@ -143,9 +174,9 @@ static void sdl_text(void *ctx, struct Smaky6 *m, uint32_t codepoint)
  * The machine pointer lets the overlays reflect live state (drives, keyboard). */
 static void sdl_present(void *ctx, struct Smaky6 *m, const struct smemu6_frame *frame)
 {
-    (void)ctx;
-    SDL_Renderer *ren = m->vid.ren;
-    SDL_Texture  *tex = m->vid.tex;
+    struct sdl_backend_state *s = (struct sdl_backend_state *)ctx;
+    SDL_Renderer *ren = s->ren;
+    SDL_Texture  *tex = s->tex;
     if (!ren || !tex) return;
 
     /* Upload the core-rendered framebuffer to the streaming texture. */
@@ -413,6 +444,8 @@ struct smemu6_backend smemu6_sdl_backend = {
     .audio_push         = sdl_audio_push,
     .audio_close        = sdl_audio_close,
     .present            = sdl_present,
+    .video_setup        = sdl_video_setup,
+    .video_teardown     = sdl_video_teardown,
     .key                = sdl_key,
     .text               = sdl_text,
 };

@@ -105,8 +105,6 @@ struct Smaky6 {
 
     /* Video */
     struct {
-        SDL_Renderer *ren;
-        SDL_Texture  *tex;
         VideoMode     mode;
         int           display_on;       /* 1 = enabled (normal), 0 = blanked (port 0x00 bit 0 = 0) */
         int           no_display_off;   /* 1 = ignore display-off writes (keeps screen always on) */

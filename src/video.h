@@ -15,9 +15,12 @@ typedef enum {
     VMODE_SUPER    = 2   /* Superimposed (?IAGRA) */
 } VideoMode;
 
-/* Create the SDL renderer resources and initialise video-side machine state. */
-void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren);
-/* Release all SDL textures/buffers owned by the video subsystem. */
+/* Portable init only: resets portable video-side machine state (mode, display,
+ * chargen, phosphor).  The SDL texture/renderer are backend-owned and created
+ * via platform_video_setup() before the run loop. */
+void video_init(struct Smaky6 *m);
+/* Release portable video buffers only.  The SDL texture teardown is the
+ * backend's job (platform_video_teardown). */
 void video_fini(struct Smaky6 *m);
 
 /* Load character generator ROM (2716, 2 KB).

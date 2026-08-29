@@ -713,7 +713,7 @@ void machine_reset(struct Smaky6 *m)
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     keyboard_clear_all_function_bits(m);
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
@@ -791,7 +791,7 @@ static void machine_inject_key_state(struct Smaky6 *m, uint8_t code, uint8_t fon
     m->kbd.cursor_alias_sources = 0;
     m->kbd.fonct_mouse_bits = 0;
     m->kbd.fonct_bits = m->kbd.fonct_keyboard_bits;
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
@@ -822,7 +822,7 @@ void machine_release_key(struct Smaky6 *m)
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     keyboard_clear_all_function_bits(m);
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;
@@ -847,7 +847,7 @@ void machine_inject_shift_break(struct Smaky6 *m)
     m->kbd.host_text_down_count = 0;
     memset(m->kbd.host_text_down, 0, sizeof(m->kbd.host_text_down));
     keyboard_clear_all_function_bits(m);
-    m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+    m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
     m->kbd.active_matrix_position = 0xFFu;
     m->kbd.pending_ordinary_head = 0;
     m->kbd.pending_ordinary_len = 0;

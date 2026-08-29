@@ -416,6 +416,7 @@ static void main_loop_cleanup(void)
         }
     }
     machine_destroy(s_loop->m);
+    platform_video_teardown();
     SDL_DestroyRenderer(s_loop->ren);
     SDL_DestroyWindow(s_loop->win);
     /* Quit video+timer subsystems explicitly.  Do NOT call SDL_Quit() here:
@@ -1468,7 +1469,10 @@ int main(int argc, char *argv[])
     }
 
     /* Init video (after machine so chargen ROM path is available) */
-    video_init(m, win, ren);
+    /* Portable init first; then hand the backend its SDL renderer so it can
+     * create the streaming texture it owns (see backends/sdl/). */
+    video_init(m);
+    platform_video_setup((void *)ren);
     video_load_chargen(m, ROM_CHARGEN);
     if (gfx_msb_first >= 0)
         video_set_gfx_msb_first(m, gfx_msb_first);
@@ -1503,6 +1507,7 @@ int main(int argc, char *argv[])
         } else if (vfd_manifest_path) {
             if (dump_virtual_floppy_manifest(disk_hostdir, vfd_manifest_path) != 0) {
                 machine_destroy(m);
+                platform_video_teardown();
                 SDL_DestroyRenderer(ren);
                 SDL_DestroyWindow(win);
                 SDL_Quit();
@@ -1521,6 +1526,7 @@ int main(int argc, char *argv[])
         } else if (vfd_manifest_path) {
             if (dump_virtual_floppy_manifest(disk2_hostdir, vfd_manifest_path) != 0) {
                 machine_destroy(m);
+                platform_video_teardown();
                 SDL_DestroyRenderer(ren);
                 SDL_DestroyWindow(win);
                 SDL_Quit();

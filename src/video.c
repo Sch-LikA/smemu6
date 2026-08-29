@@ -8,7 +8,6 @@
 #include "platform.h"
 
 #include <Z80.h>
-#include <SDL2/SDL.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,10 +16,11 @@
 
 /* ── Init / fini ────────────────────────────────────────────────────────── */
 
-void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
+/* Portable init only.  No SDL here: the texture/renderer are backend-owned and
+ * created via platform_video_setup() (see backends/sdl/).  Resets only the
+ * portable video-side machine state the core owns. */
+void video_init(struct Smaky6 *m)
 {
-    (void)win;
-    m->vid.ren        = ren;
     m->vid.mode       = VMODE_ALPHA;
     m->vid.display_on  = 1;
     /* Graphic plane: nibble-interleaved. Each byte high nibble → even scan line,
@@ -28,14 +28,6 @@ void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
      * Confirmed from NATHALIE.IM (real hardware image file). */
     m->vid.gfx_msb_first = 1;  /* MSB of nibble = leftmost pixel */
 
-    SDL_Texture *tex = SDL_CreateTexture(ren,
-        SDL_PIXELFORMAT_ARGB8888,
-        SDL_TEXTUREACCESS_STREAMING,
-        VIDEO_PX_W, VIDEO_ASPECT_H);
-    if (!tex) {
-        fprintf(stderr, "video: SDL_CreateTexture: %s\n", SDL_GetError());
-    }
-    m->vid.tex = tex;
 
     memset(m->vid.chargen,      0,    2048);
     memset(m->vid.shadow_alpha, 0x20, sizeof(m->vid.shadow_alpha));
@@ -48,11 +40,11 @@ void video_init(struct Smaky6 *m, SDL_Window *win, SDL_Renderer *ren)
         fprintf(stderr, "video: phosphor buffer allocation failed; persistence disabled\n");
 }
 
+/* Release portable video buffers only.  The SDL texture is torn down by the
+ * backend via platform_video_teardown(). */
 void video_fini(struct Smaky6 *m)
 {
-    if (m->vid.tex) { SDL_DestroyTexture(m->vid.tex); m->vid.tex = NULL; }
-    free(m->vid.phosphor_buf);
-    m->vid.phosphor_buf = NULL;
+    free(m->vid.phosphor_buf);    m->vid.phosphor_buf = NULL;
 }
 
 /* Update the persistence-decay factor used when the phosphor buffer is active. */

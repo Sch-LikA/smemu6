@@ -80,3 +80,17 @@ void platform_text(struct Smaky6 *m, uint32_t codepoint)
     if (!b || !b->text) return;
     b->text(b->ctx, m, codepoint);
 }
+
+void platform_video_setup(void *renderer)
+{
+    struct smemu6_backend *b = cur();
+    if (!b || !b->video_setup) return;
+    b->video_setup(b->ctx, renderer);
+}
+
+void platform_video_teardown(void)
+{
+    struct smemu6_backend *b = cur();
+    if (!b || !b->video_teardown) return;
+    b->video_teardown(b->ctx);
+}
