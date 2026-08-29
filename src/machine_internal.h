@@ -18,7 +18,9 @@
 #include "winchester.h"
 #include "smemu6_scancode.h"
 #include <Z80.h>
+#if !defined(SMEMU6_HAVE_BACKEND)
 #include <SDL2/SDL.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 
@@ -110,7 +112,9 @@ struct Smaky6 {
         int           no_display_off;   /* 1 = ignore display-off writes (keeps screen always on) */
         int           verbose_video;      /* 1 = log display-on/off/mode changes to stderr */
         int           reset_armed;        /* 1 = RESET button awaiting confirm click */
+#if !defined(SMEMU6_HAVE_BACKEND)
         Uint32        reset_armed_at;     /* SDL_GetTicks() at which reset was first clicked */
+#endif
         int           scanlines;          /* 1 = draw semi-transparent dark lines on every other output row */
         PhosphorColour phosphor;        /* PHOSPHOR_GREEN (default) or PHOSPHOR_WHITE */
         int           gfx_msb_first;
@@ -251,9 +255,11 @@ struct Smaky6 {
         char mem_jump_buf[5];
         struct DebugCpuSnapshot last_stop_snapshot;
         struct DebugCpuSnapshot prev_stop_snapshot;
+#if !defined(SMEMU6_HAVE_BACKEND)
         SDL_Window *window;
         SDL_Renderer *renderer;
         Uint32 window_id;
+#endif
         /* Drift check: accumulate executed cycles; every SMAKY6_FRAME_HZ frames
          * (= 1 second) verify total is within 1% of expected. */
         uint64_t drift_cycles_accum; /* running sum of executed cycles */

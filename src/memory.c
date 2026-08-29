@@ -83,7 +83,11 @@ void memory_write(struct Smaky6 *m, uint16_t addr, uint8_t data)
                 m->kbd.release_after_reassert = 0;
                 m->kbd.release_after_buffer_commit = 0;
                 m->kbd.regular_prefix_pending = 0;
+#if defined(SMEMU6_HAVE_BACKEND)
+                m->kbd.active_scancode = SMEMU6_SCAN_UNKNOWN;
+#else
                 m->kbd.active_scancode = SDL_SCANCODE_UNKNOWN;
+#endif
                 m->kbd.active_matrix_position = 0xFFu;
                 m->kbd.reassert_pending = 0;
                 m->kbd.reassert_cycles = 0;

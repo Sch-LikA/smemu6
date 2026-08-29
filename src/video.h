@@ -5,7 +5,9 @@
 #define VIDEO_H
 
 #include <stdint.h>
+#if !defined(SMEMU6_HAVE_BACKEND)
 #include <SDL2/SDL.h>
+#endif
 
 struct Smaky6;
 
