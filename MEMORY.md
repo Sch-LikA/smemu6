@@ -675,3 +675,17 @@ Next session priorities:
   SMEMU6_HAVE_BACKEND=1)` under `if(SMEMU6_HAVE_BACKEND)`, not just the
   generator-expression source gate. Next: Step 2 = video present, Step 3 =
   keyboard input (symmetry), then SDL front-end layer (launcher/debug/overlays).
+- Phase B — platform backend abstraction — Step 2 (video present) DONE (2026-08-29),
+  commit `8ace835` on branch `feature/upstream-portable-improvements`.  Split
+`video_render()`: the core builds the ARGB8888 framebuffer (alpha + graphic planes;
+phosphor persistence) + stderr screen dump and hands the framebuffer to the backend
+via `platform_present(m, &frame)`; the SDL backend (`backends/sdl/sdl_backend.c`) now
+owns texture upload, all desktop overlays (CRT scanlines, disk LED bar, F-key bar,
+RESET/BREAK buttons) and flip.  The vtable `present()` and `platform_present()` gained
+a `struct Smaky6 *m` so overlays read live state (drives `m->win/*`, `m->fdc/*`,
+keyboard `m->kbd.fonct_bits`, chargen, reset state). Core display rendering is
+unchanged; output byte-identical. Host build green, all 12 ctest pass. NOTE: SDL
+texture/renderer/reset state still live in `m->vid` (video_init/fini unchanged) — a
+Step 4 cleanup to move full video ownership into the backend state struct. Next:
+Step 3 = keyboard input (symmetry: core owns scancode set + key state, SDL mapping
+moves to backend), then Step 4 = SDL front-end layer (launcher/boot menu/debug/loop).
