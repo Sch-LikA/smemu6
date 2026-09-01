@@ -4,7 +4,9 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#if !defined(SMEMU6_HAVE_BACKEND)
 #include <SDL2/SDL.h>
+#endif
 #include <stdint.h>
 
 struct Smaky6;
@@ -51,8 +53,10 @@ int debug_consume_step_frame(struct Smaky6 *m);
 void debug_note_instruction_run(struct Smaky6 *m, uint32_t tstates);
 void debug_note_frame_run(struct Smaky6 *m, uint32_t tstates);
 
+#if !defined(SMEMU6_HAVE_BACKEND)
 /* Handle events and redraw the debugger window when visible. */
 int debug_handle_event(struct Smaky6 *m, const SDL_Event *ev);
+#endif
 void debug_render(struct Smaky6 *m);
 
 /* Dump Z80 registers and flags to stdout */
